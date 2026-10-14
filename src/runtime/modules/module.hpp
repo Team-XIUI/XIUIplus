@@ -1,0 +1,212 @@
+#pragma once
+
+#include "design_system.hpp"
+#include "ui/container_renderer.hpp"
+#include "ui/game_icon_cache.hpp"
+#include "ui/native_ui_assets.hpp"
+#include "ui/meter_text_layout.hpp"
+#include "runtime_api.hpp"
+#include "settings/settings_store.hpp"
+
+#include <cstddef>
+#include <cstdint>
+#include <span>
+#include <functional>
+
+namespace xiui
+{
+    enum class module_option_group : uint8_t
+    {
+        general,
+        appearance,
+        effects,
+        colors,
+        text,
+    };
+
+    enum class module_option_kind : uint8_t
+    {
+        toggle,
+        color,
+        slider,
+        choice,
+        action,
+        text_input,
+        dropdown,
+        color_override,
+    };
+
+    enum class module_selector : uint8_t { none, element, scope };
+
+    struct module_option
+    {
+        module_option_kind kind{};
+        module_selector selector{};
+        module_option_group group{module_option_group::general};
+        const char* label{};
+        const char* description{};
+        const char* submodules{};
+        bool available{true};
+        bool* toggle{};
+        D3DCOLOR* color{};
+        float* slider{};
+        float minimum{};
+        float maximum{1.0f};
+        float step{0.1f};
+        float display_scale{1};
+        int* choice{};
+        const char* const* choices{};
+        size_t choice_count{};
+        const char* action_text{};
+        ui::icon_glyph action_icon{ui::icon_glyph::unknown};
+        std::string* text{};
+        size_t text_limit{500};
+        bool choice_preview{};
+        size_t preview_first{};
+
+        static auto Toggle(const char* label, const char* description, bool* value, module_option_group group = module_option_group::general) -> module_option;
+        static auto Color(const char* label, const char* description, D3DCOLOR* value, module_option_group group = module_option_group::general) -> module_option;
+        static auto Slider(const char* label, const char* description, float* value, float minimum, float maximum, float step, module_option_group group = module_option_group::general) -> module_option;
+        static auto Choice(const char* label, const char* description, int* value, const char* const* choices, size_t count, module_option_group group = module_option_group::general) -> module_option;
+        static auto Element(const char* label, const char* description, int* value, const char* const* choices, size_t count, module_option_group group = module_option_group::general) -> module_option;
+        static auto EditScope(const char* label, const char* description, int* value, const char* const* choices, size_t count) -> module_option;
+        static auto Action(const char* label, const char* description, const char* buttonText, module_option_group group = module_option_group::general) -> module_option;
+        static auto Text(const char* label, const char* description, std::string* value, size_t limit = 500) -> module_option;
+        static auto Dropdown(const char* label, const char* description, int* value, const char* const* choices, size_t count) -> module_option;
+        static auto OverrideColor(const char* label, const char* description, bool* enabled, D3DCOLOR* color) -> module_option;
+    };
+
+    struct module_text_profile
+    {
+        ui::text_style style{};
+        float offset_x{};
+        float offset_y{};
+        int placement{};
+    };
+
+    struct module_config_section
+    {
+        const char* name{};
+        const char* description{};
+    };
+
+    struct meter_animation_state
+    {
+        float displayed_ratio{};
+        uint64_t last_tick{};
+        bool initialized{};
+    };
+
+    enum class meter_fill_mode : uint8_t { single, tp, tp_blink };
+
+    struct module_state
+    {
+        bool enabled{true};
+        ui::rect bounds{};
+        float minimum_width{};
+        float minimum_height{};
+        float maximum_width{4096.0f};
+        ui::rect content_bounds{};
+
+        auto EditBounds(void) const -> ui::rect
+        {
+            if (this->content_bounds.width <= 0.0f || this->content_bounds.height <= 0.0f)
+                return this->bounds;
+            constexpr float padding = 8.0f;
+            return {
+                this->bounds.x + this->content_bounds.x - padding,
+                this->bounds.y + this->content_bounds.y - padding,
+                this->content_bounds.width + padding * 2.0f,
+                this->content_bounds.height + padding * 2.0f};
+        }
+    };
+
+    auto ModuleWidthOption(module_state& state) -> module_option;
+    inline auto TextSizeOption(const char* label, const char* description, float* scale) -> module_option
+    {
+        auto option = module_option::Slider(label, description, scale, ui::text_min_scale, ui::text_max_scale, 1 / ui::text_base_pixels, module_option_group::text);
+        option.display_scale = ui::text_base_pixels;
+        return option;
+    }
+
+    class module_render_context
+    {
+    public:
+        explicit module_render_context(ui::design_system& design, ui::container_renderer* containers = nullptr, bool editing = false, ui::game_icon_cache* icons = nullptr, const ui::rect& viewport = {}, ui::native_ui_assets* nativeAssets = nullptr);
+        auto Design(void) const -> const ui::design_system& { return this->design_; }
+        auto Viewport(void) const -> const ui::rect& { return this->viewport_; }
+        auto Icons(void) const -> ui::game_icon_cache* { return this->icons_; }
+        auto NativeAssets(void) const -> ui::native_ui_assets* { return this->native_assets_; }
+        auto DrawButton(const ui::rect& bounds, const char* label, bool highlighted, const module_text_profile& profile) const -> void;
+        auto IsEditing(void) const -> bool { return this->editing_; }
+        auto DrawContainer(const ui::rect& bounds, const ui::container_style& style = {}) const -> ui::rect;
+        auto DrawFadingContainer(const ui::rect& bounds, const ui::container_style& style, bool anchoredRight) const -> void;
+        auto DrawSelection(const ui::rect& bounds, bool subtarget, const ui::selection_style& style) const -> void;
+        auto DrawText(const char* text, const ui::rect& bounds, const ui::rect& placementBounds, const module_text_profile& profile) const -> void;
+        auto TextBounds(const char* text, const ui::rect& bounds, const ui::rect& placementBounds, const module_text_profile& profile) const -> ui::rect;
+        auto DrawBar(const ui::rect& bounds, float ratio, D3DCOLOR fillTop, D3DCOLOR fillBottom, float phase, const ui::meter_style& style, bool fillFromRight = false) const -> void;
+        auto MeterTextBounds(const ui::rect& bounds, const ui::meter_style& style) const -> ui::rect;
+        auto DrawMeter(const ui::rect& bounds, const char* label, const char* value, float ratio, D3DCOLOR fillTop, D3DCOLOR fillBottom, const ui::meter_style& style, meter_animation_state& animation, bool overlayLabel = false, const module_text_profile* labelProfile = nullptr, const module_text_profile* valueProfile = nullptr, ui::meter_text_anchor textAnchor = ui::meter_text_anchor::automatic, ui::meter_text_anchor valueAnchor = ui::meter_text_anchor::automatic, meter_fill_mode fillMode = meter_fill_mode::single) const -> void;
+        static auto Ratio(uint32_t value, uint32_t maximum) -> float;
+
+    private:
+        ui::design_system& design_;
+        ui::container_renderer* containers_{};
+        ui::game_icon_cache* icons_{};
+        ui::native_ui_assets* native_assets_{};
+        bool editing_{};
+        ui::rect viewport_{};
+        auto MeterSkin(const ui::meter_style& style) const -> std::optional<ui::meter_skin>;
+    };
+
+    constexpr size_t meter_style_option_count = 30;
+    constexpr size_t text_profile_option_count = 15;
+    using text_settings_visitor = std::function<void(ui::text_style&)>;
+
+    inline auto VisitTextProfiles(const text_settings_visitor& visit, const std::span<module_text_profile> profiles) -> void
+    { for (auto& profile : profiles) visit(profile.style); }
+
+    inline auto VisitTextStyles(const text_settings_visitor& visit, const std::initializer_list<ui::text_style*> styles) -> void
+    { for (auto* style : styles) visit(*style); }
+
+    auto TextProfileOption(size_t index, module_text_profile& profile) -> module_option;
+    auto TintTextProfile(const module_text_profile& profile, D3DCOLOR tint) -> module_text_profile;
+    auto LoadTextProfile(const settings_store& settings, const char* section, const module_text_profile& fallback) -> module_text_profile;
+    auto SaveTextProfile(const settings_store& settings, const char* section, const module_text_profile& profile) -> void;
+    auto MeterGradientTop(D3DCOLOR color) -> D3DCOLOR;
+    auto MeterStyleOption(size_t index, ui::meter_style& style) -> module_option;
+    auto LoadMeterStyle(const settings_store& settings, const char* section, const ui::meter_style& fallback) -> ui::meter_style;
+    auto SaveMeterStyle(const settings_store& settings, const char* section, const ui::meter_style& style) -> void;
+
+    class hud_module
+    {
+    public:
+        virtual ~hud_module(void) = default;
+
+        virtual auto Id(void) const -> const char* = 0;
+        virtual auto DisplayName(void) const -> const char* = 0;
+        virtual auto State(void) -> module_state& = 0;
+        virtual auto State(void) const -> const module_state& = 0;
+        virtual auto HasEditableBounds(void) const -> bool { return true; }
+        virtual auto PositionBoundsReady(void) const -> bool { return true; }
+        virtual auto PreviewVisible(void) const -> bool { return true; }
+        virtual auto ApplyMeterDefaults(const ui::meter_style&) -> void {}
+        virtual auto ApplyTextDefaults(const ui::theme&) -> void {}
+        virtual auto VisitTextSettings(const text_settings_visitor&) -> void {}
+        virtual auto ResetDefaults(const ui::theme& themeDefaults) -> void = 0;
+        virtual auto Load(const settings_store& settings) -> void = 0;
+        virtual auto Save(const settings_store& settings) const -> void = 0;
+        virtual auto OptionCount(void) const -> size_t = 0;
+        virtual auto Option(size_t index) -> module_option = 0;
+        virtual auto ConfigViews(void) const -> std::span<const char* const> { return {}; }
+        virtual auto ConfigView(void) const -> size_t { return 0; }
+        virtual auto SelectConfigView(size_t) -> void {}
+        virtual auto ConfigSections(void) const -> std::span<const module_config_section> { return {}; }
+        virtual auto ConfigSectionContains(size_t, size_t) -> bool { return false; }
+        virtual auto OnOptionChanged(size_t) -> void {}
+        virtual auto PreviewChoice(size_t, size_t) -> bool { return false; }
+        virtual auto OnPositionChanged(void) -> void {}
+        virtual auto ShouldRender(const hud_snapshot& snapshot) const -> bool = 0;
+        virtual auto Render(const hud_snapshot& snapshot, const module_render_context& context) -> void = 0;
+    };
+} // namespace xiui

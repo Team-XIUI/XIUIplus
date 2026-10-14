@@ -1,0 +1,3 @@
+Original, unmodified ChatMon sounds from Windower/Lua.
+Source: https://github.com/Windower/Lua/tree/1ff0a819b952366a06bf75a8484803f9eee59db4/addons/chatmon/sounds
+License: accompanying LICENSE.txt (ChatMon BSD notice).

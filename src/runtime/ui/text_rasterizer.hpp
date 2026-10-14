@@ -1,0 +1,43 @@
+#pragma once
+
+#include "font_catalog.hpp"
+
+#include <map>
+#include <optional>
+#include <vector>
+
+namespace xiui::ui
+{
+    struct raster_font_metrics { float height{18}, ascent{15}, digit_advance{8}; bool available{}; };
+    auto NativeFontMetrics(int font, int pixels) -> raster_font_metrics;
+    struct raster_glyph
+    {
+        int width{}, height{}, padding{};
+        float advance{}, ascent{};
+        std::array<std::vector<uint8_t>, 3> masks{};
+    };
+
+    class text_rasterizer
+    {
+    public:
+        ~text_rasterizer(void) { this->Clear(); }
+        auto Clear(void) -> void;
+        auto Metrics(int font, int pixels) -> raster_font_metrics;
+        auto Advance(int font, int pixels, uint32_t codepoint) -> float;
+        auto Rasterize(int font, int pixels, uint32_t codepoint) -> std::optional<raster_glyph>;
+
+    private:
+        struct face { HFONT handle{}; raster_font_metrics metrics{}; uint64_t touched{}; };
+        std::map<uint32_t, face> faces_{};
+        HDC dc_{};
+        HBITMAP bitmap_{};
+        HGDIOBJ old_bitmap_{};
+        uint32_t* pixels_{};
+        int width_{}, height_{};
+        uint64_t touched_{};
+        embedded_font grammara_{};
+        auto Face(int font, int pixels) -> face*;
+        auto GlyphFace(int font, int pixels, uint32_t codepoint) -> face*;
+        auto Surface(int width, int height) -> bool;
+    };
+}

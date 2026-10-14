@@ -1,0 +1,3 @@
+LIBRARY xiuinative-runtime
+EXPORTS
+    XiuiGetRuntimeApi=_XiuiGetRuntimeApi@8

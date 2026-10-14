@@ -1,0 +1,5 @@
+101 RCDATA "@CMAKE_SOURCE_DIR@/assets/cursors/pointer.bgra"
+102 RCDATA "@CMAKE_SOURCE_DIR@/assets/cursors/hand.bgra"
+103 RCDATA "@CMAKE_SOURCE_DIR@/assets/cursors/move.bgra"
+104 RCDATA "@CMAKE_SOURCE_DIR@/assets/cursors/resize-diagonal.bgra"
+105 RCDATA "@CMAKE_SOURCE_DIR@/assets/cursors/resize-horizontal.bgra"

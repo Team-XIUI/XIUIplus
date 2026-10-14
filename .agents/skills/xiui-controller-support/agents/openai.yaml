@@ -1,0 +1,4 @@
+interface:
+  display_name: "XIUI Controller Support"
+  short_description: "Keep XIUI interactions usable with controllers"
+  default_prompt: "Use $xiui-controller-support to design controller support for this XIUI interaction."

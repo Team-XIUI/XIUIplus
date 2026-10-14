@@ -1,0 +1,7 @@
+#pragma once
+
+namespace xiui
+{
+    inline constexpr char release_version[] = "@PROJECT_VERSION@";
+    inline constexpr double plugin_version = @PROJECT_VERSION_MAJOR@.@PROJECT_VERSION_MINOR@;
+}

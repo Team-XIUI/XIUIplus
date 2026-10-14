@@ -1,0 +1,105 @@
+#pragma once
+
+#include "../module.hpp"
+#include "config/attributions.hpp"
+#include "config/config_text.hpp"
+#include "config/global_text.hpp"
+#include "ui/layout_grid.hpp"
+
+#include <optional>
+#include <algorithm>
+#include <vector>
+
+namespace xiui
+{
+    class general_module final : public hud_module
+    {
+    public:
+        auto Id(void) const -> const char* override { return "general"; }
+        auto DisplayName(void) const -> const char* override { return "General"; }
+        auto State(void) -> module_state& override { return this->state_; }
+        auto State(void) const -> const module_state& override { return this->state_; }
+        auto HasEditableBounds(void) const -> bool override { return false; }
+        auto ResetDefaults(const ui::theme&) -> void override;
+        auto Load(const settings_store& store) -> void override;
+        auto Save(const settings_store& store) const -> void override;
+        static constexpr size_t window_theme_option = 0;
+        static constexpr size_t dark_backing_opacity_option = 1;
+        static constexpr size_t enabled_modules_option = 2;
+        static constexpr size_t appearance_section = 0;
+        static constexpr size_t enabled_modules_section = 1;
+        static constexpr size_t attribution_section = 2;
+        static constexpr size_t grid_section = 3;
+        static constexpr size_t grid_option_count = 6;
+        inline static constexpr const char* appearance_tabs[]{"Window", "Global Text", "Config Text"};
+        auto SetModules(std::span<hud_module* const> modules) -> void { this->modules_.assign(modules.begin(), modules.end()); }
+        auto SetTextModules(std::span<hud_module* const> modules) -> void { this->text_modules_.assign(modules.begin(), modules.end()); }
+        auto SetInventoryModule(hud_module& module) -> void { this->inventory_module_ = &module; }
+        auto InventoryEnabled(void) const -> bool { return this->inventory_enabled_; }
+        auto InventoryEnabledFlag(void) const -> const bool* { return &this->inventory_enabled_; }
+        auto SetPartyModule(hud_module& module) -> void { this->party_module_ = &module; }
+        auto PartyEnabled(void) const -> bool { return this->party_enabled_; }
+        auto PartyEnabledFlag(void) const -> const bool* { return &this->party_enabled_; }
+        static auto Enabled(hud_module& module) -> bool;
+        auto AttributionStart(void) const -> size_t { return enabled_modules_option + this->modules_.size(); }
+        auto GridStart(void) const -> size_t { return this->AttributionStart() + ui::attributions.size(); }
+        auto ContributorsStart(void) const -> size_t { return this->GridStart() + grid_option_count; }
+        auto GlobalTextStart(void) const -> size_t { return this->ContributorsStart() + ui::xiui_contributors.size(); }
+        auto ConfigTextStart(void) const -> size_t { return this->GlobalTextStart() + ui::global_text_settings::option_count; }
+        auto AppearanceTab(void) const -> size_t { return this->appearance_tab_; }
+        auto SelectAppearanceTab(size_t index) -> void { this->appearance_tab_ = std::min(index, std::size(appearance_tabs) - 1); }
+        auto GlobalTextSize(void) const -> float { return this->global_text_.style.scale; }
+        auto GlobalFont(void) const -> int { return this->global_text_.style.font; }
+        auto GlobalTextStyle(void) const -> const ui::text_style& { return this->global_text_.style; }
+        auto ConfigText(void) const -> const ui::config_text_settings& { return this->config_text_; }
+        auto AppearanceOption(size_t index) const -> bool
+        {
+            if (this->appearance_tab_ == 2) return index >= this->ConfigTextStart() && index < this->OptionCount();
+            return this->appearance_tab_ == 1 ? index >= this->GlobalTextStart() && index < this->ConfigTextStart() : index < enabled_modules_option;
+        }
+        auto AttributionView(void) const -> size_t { return this->attribution_view_; }
+        auto SelectAttributionView(size_t index) -> void { this->attribution_view_ = index == 1 ? 1 : 0; }
+        auto AttributionOption(size_t index) const -> bool
+        {
+            return this->attribution_view_ == 1 ? index >= this->ContributorsStart() && index < this->GlobalTextStart() :
+                index >= this->AttributionStart() && index < this->GridStart();
+        }
+        auto Grid(void) const -> const ui::layout_grid_settings& { return this->grid_; }
+        auto SetClipboardOwner(HWND owner) -> void { this->clipboard_owner_ = owner; }
+        auto OptionCount(void) const -> size_t override { return this->ConfigTextStart() + ui::config_text_settings::option_count; }
+        auto Option(size_t index) -> module_option override;
+        auto ConfigSections(void) const -> std::span<const module_config_section> override;
+        auto ConfigSectionContains(size_t section, size_t index) -> bool override;
+        auto OnOptionChanged(size_t index) -> void override;
+        auto ShouldRender(const hud_snapshot&) const -> bool override { return false; }
+        auto Render(const hud_snapshot&, const module_render_context&) -> void override {}
+        auto UpdateWindowType(std::optional<uint8_t> type) -> void;
+        auto RequestWindowType(int type) -> bool;
+        auto TakeWindowTypeRequest(void) -> std::optional<uint8_t>;
+        auto DarkBackingOpacity(void) const -> float { return this->dark_backing_opacity_; }
+
+    private:
+#if defined(XIUI_ENABLE_INPUT_TESTS)
+        friend struct config_input_test;
+#endif
+        static auto OpenLink(HWND owner, const char* url) -> bool;
+        bool (*open_link_)(HWND, const char*){OpenLink};
+        size_t attribution_view_{};
+        size_t appearance_tab_{};
+        ui::global_text_settings global_text_{};
+        ui::config_text_settings config_text_{};
+        module_state state_{};
+        std::vector<hud_module*> modules_{};
+        std::vector<hud_module*> text_modules_{};
+        hud_module* inventory_module_{};
+        bool inventory_enabled_{true};
+        hud_module* party_module_{};
+        bool party_enabled_{true};
+        HWND clipboard_owner_{};
+        size_t copied_credit_{static_cast<size_t>(-1)};
+        int window_type_{}, requested_window_type_{-1};
+        bool window_type_available_{};
+        float dark_backing_opacity_{1.0f};
+        ui::layout_grid_settings grid_{};
+    };
+} // namespace xiui

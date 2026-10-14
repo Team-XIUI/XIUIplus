@@ -1,0 +1,11 @@
+bin/
+out/
+dist/
+.vs/
+.pi/
+CMakeUserPresets.json
+*.user
+*.suo
+*.obj
+*.pdb
+*.ilk

@@ -1,0 +1,143 @@
+param(
+    [switch]$SkipInstall,
+    [switch]$RuntimeOnly,
+    [switch]$SkipTests,
+    [string]$SdkPath
+)
+
+$ErrorActionPreference = 'Stop'
+. (Join-Path $PSScriptRoot 'common.ps1')
+
+$Root = Split-Path -Parent $PSScriptRoot
+$Sdk = Resolve-XiuiSdk -PreferredPath $SdkPath
+$VisualStudio = Resolve-XiuiVisualStudio
+$CMake = Resolve-XiuiCMake -VisualStudioPath $VisualStudio
+$VcVars = Join-Path $VisualStudio 'VC\Auxiliary\Build\vcvarsall.bat'
+
+function Get-Sha256 {
+    param([string]$Path)
+
+    $Stream = [IO.File]::OpenRead($Path)
+    try {
+        $Sha = [Security.Cryptography.SHA256]::Create()
+        try {
+            return ([BitConverter]::ToString($Sha.ComputeHash($Stream))).Replace('-', '')
+        }
+        finally {
+            $Sha.Dispose()
+        }
+    }
+    finally {
+        $Stream.Dispose()
+    }
+}
+
+$TargetArgument = if ($RuntimeOnly) { ' --target xiuinative_runtime' } else { '' }
+$cmd = @"
+cd /d "$Root" && call "$VcVars" x86 && set "ASHITA4_SDK_PATH=$Sdk" && "$CMake" --preset msvc-x86-release && "$CMake" --build --preset release$TargetArgument
+"@
+cmd /d /s /c $cmd
+if ($LASTEXITCODE -ne 0) {
+    throw "Native build failed with exit code $LASTEXITCODE."
+}
+
+$BuiltHost = Join-Path $Root 'bin\xiuinative.dll'
+$BuiltRuntime = Join-Path $Root 'bin\xiuinative-runtime.dll'
+$RendererSmoke = Join-Path $Root 'bin\tests\xiui_renderer_smoke.exe'
+$FoundationsSmoke = Join-Path $Root 'bin\tests\xiui_foundations_smoke.exe'
+$CallbackGateSmoke = Join-Path $Root 'bin\tests\xiui_callback_gate_smoke.exe'
+$ConfigInputSmoke = Join-Path $Root 'bin\tests\xiui_config_input_smoke.exe'
+$SettingsSmoke = Join-Path $Root 'bin\tests\xiui_settings_smoke.exe'
+$ThemeReloadSmoke = Join-Path $Root 'bin\tests\xiui_theme_reload_smoke.exe'
+$HotReloadSmoke = Join-Path $Root 'bin\tests\xiui_hot_reload_smoke.exe'
+$RejectedRuntime = Join-Path $Root 'bin\tests\xiui-rejected-runtime.dll'
+$StatefulRuntime = Join-Path $Root 'bin\tests\xiui-stateful-runtime.dll'
+$ActivationFailureRuntime = Join-Path $Root 'bin\tests\xiui-activation-failure-runtime.dll'
+$ExitFailureRuntime = Join-Path $Root 'bin\tests\xiui-exit-failure-runtime.dll'
+$RenderFailureRuntime = Join-Path $Root 'bin\tests\xiui-render-failure-runtime.dll'
+$PublishSmoke = Join-Path $Root 'tests\publish_smoke.ps1'
+$ThemeSource = Join-Path $Root 'config\xiuinative-theme.ini'
+
+if (-not (Test-Path $BuiltRuntime)) {
+    throw "Expected runtime output was not found: $BuiltRuntime"
+}
+if (-not $RuntimeOnly -and -not (Test-Path $BuiltHost)) {
+    throw "Expected stable host output was not found: $BuiltHost"
+}
+
+if (-not $SkipTests -and -not $RuntimeOnly) {
+    if (-not (Test-Path $ConfigInputSmoke) -or -not (Test-Path $SettingsSmoke)) {
+        throw 'Expected config input and settings persistence smoke-test files were not found.'
+    }
+    if (-not (Test-Path $FoundationsSmoke) -or -not (Test-Path $RendererSmoke) -or -not (Test-Path $CallbackGateSmoke) -or -not (Test-Path $ThemeReloadSmoke) -or -not (Test-Path $HotReloadSmoke) -or -not (Test-Path $RejectedRuntime) -or -not (Test-Path $StatefulRuntime) -or -not (Test-Path $ActivationFailureRuntime) -or -not (Test-Path $ExitFailureRuntime) -or -not (Test-Path $RenderFailureRuntime) -or -not (Test-Path $PublishSmoke)) {
+        throw 'Expected smoke-test files were not found.'
+    }
+    & $FoundationsSmoke
+    if ($LASTEXITCODE -ne 0) { throw "Foundations smoke test failed with exit code $LASTEXITCODE." }
+    & $RendererSmoke
+    if ($LASTEXITCODE -ne 0) { throw "Renderer smoke test failed with exit code $LASTEXITCODE." }
+    & $CallbackGateSmoke
+    if ($LASTEXITCODE -ne 0) { throw "Callback gate smoke test failed with exit code $LASTEXITCODE." }
+    & $ConfigInputSmoke
+    if ($LASTEXITCODE -ne 0) { throw "Config input smoke test failed with exit code $LASTEXITCODE." }
+    & $SettingsSmoke
+    if ($LASTEXITCODE -ne 0) { throw "Settings persistence smoke test failed with exit code $LASTEXITCODE." }
+    & $ThemeReloadSmoke
+    if ($LASTEXITCODE -ne 0) { throw "Theme reload smoke test failed with exit code $LASTEXITCODE." }
+    & $HotReloadSmoke $BuiltRuntime $RejectedRuntime $StatefulRuntime $ActivationFailureRuntime $ExitFailureRuntime $RenderFailureRuntime
+    if ($LASTEXITCODE -ne 0) { throw "Hot-reload smoke test failed with exit code $LASTEXITCODE." }
+    & $PublishSmoke -ProjectRoot $Root
+}
+
+$RuntimeHash = Get-Sha256 $BuiltRuntime
+$HostHash = if (Test-Path $BuiltHost) { Get-Sha256 $BuiltHost } else { '' }
+if ($SkipInstall) {
+    if (-not $RuntimeOnly) {
+        Write-Host "Built stable host $BuiltHost"
+        Write-Host "Host SHA-256 $HostHash"
+    }
+    Write-Host "Built hot runtime $BuiltRuntime"
+    Write-Host "Runtime SHA-256 $RuntimeHash (publishing skipped)"
+    return
+}
+
+$AshitaRoot = Split-Path -Parent (Split-Path -Parent $Sdk)
+$PluginDir = Join-Path $AshitaRoot 'plugins'
+$ConfigDir = Join-Path $AshitaRoot 'config'
+$InstalledHost = Join-Path $PluginDir 'xiuinative.dll'
+$PublishedRuntime = Join-Path $PluginDir 'xiuinative-runtime.dll'
+$InstalledTheme = Join-Path $ConfigDir 'xiuinative-theme.ini'
+$PartyNotices = Join-Path $PluginDir 'xiuinative-licenses'
+New-Item -ItemType Directory -Path $PartyNotices -Force | Out-Null
+Publish-XiuiAtomic -Source (Join-Path $Root 'assets\jobs\LICENSE.txt') -Destination (Join-Path $PartyNotices 'XIVParty.txt')
+
+if (-not $RuntimeOnly) {
+    $InstalledHostHash = if (Test-Path $InstalledHost) { Get-Sha256 $InstalledHost } else { '' }
+    if ($InstalledHostHash -ne $HostHash) {
+        try {
+            Copy-Item -Path $BuiltHost -Destination $InstalledHost -Force -ErrorAction Stop
+        }
+        catch {
+            throw "Stable host changed and is locked. No runtime was published. Run '/unload xiuinative' once, then rerun this build. $($_.Exception.Message)"
+        }
+    }
+    $InstalledHostHash = Get-Sha256 $InstalledHost
+    if ($InstalledHostHash -ne $HostHash) {
+        throw "Installed host hash mismatch. Built=$HostHash Installed=$InstalledHostHash"
+    }
+    Write-Host "Installed stable host $InstalledHost"
+    Write-Host "Host SHA-256 $InstalledHostHash"
+}
+
+Publish-XiuiAtomic -Source $BuiltRuntime -Destination $PublishedRuntime
+$PublishedRuntimeHash = Get-Sha256 $PublishedRuntime
+if ($PublishedRuntimeHash -ne $RuntimeHash) {
+    throw "Published runtime hash mismatch. Built=$RuntimeHash Published=$PublishedRuntimeHash"
+}
+Write-Host "Published hot runtime $PublishedRuntime"
+Write-Host "Runtime SHA-256 $PublishedRuntimeHash"
+
+if (-not (Test-Path $InstalledTheme)) {
+    Publish-XiuiAtomic -Source $ThemeSource -Destination $InstalledTheme
+    Write-Host "Installed live theme $InstalledTheme"
+}

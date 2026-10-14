@@ -1,0 +1,3 @@
+LIBRARY xiui-rejected-runtime
+EXPORTS
+    XiuiGetRuntimeApi=_XiuiGetRuntimeApi@8

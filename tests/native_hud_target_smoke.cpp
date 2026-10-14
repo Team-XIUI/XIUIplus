@@ -1,0 +1,283 @@
+#include "native_hud_controller.hpp"
+
+#include <cstdio>
+#include <cstring>
+
+namespace
+{
+    auto check(bool condition, const char* message) -> bool
+    {
+        if (!condition) std::fprintf(stderr, "native target check failed: %s\n", message);
+        return condition;
+    }
+
+    struct target_fixture
+    {
+        Ashita::FFXI::targetwindow_t window{};
+        std::array<uint8_t, 0xA0> primitive{};
+
+        target_fixture(void)
+        {
+            window.m_pParentMCD = reinterpret_cast<uintptr_t>(primitive.data());
+            const auto owner = reinterpret_cast<uintptr_t>(&window);
+            std::memcpy(primitive.data() + 0x0C, &owner, sizeof(owner));
+            primitive[0x69] = primitive[0x6A] = 1;
+            window.FrameChildrenOffsetX = 120;
+            window.FrameChildrenOffsetY = 400;
+            window.IconPositionX = 125;
+            window.IconPositionY = 405;
+            window.m_AnkX = 640;
+            window.m_AnkY = 200;
+            window.m_SubAnkX = 800;
+            window.m_SubAnkY = 250;
+        }
+    };
+}
+
+namespace xiui
+{
+    struct native_menu_test
+    {
+        static inline int calls{};
+        static auto __fastcall Position(void* self, void*, const int x, const int y) -> void
+        {
+            const std::array<int16_t, 2> coordinates{static_cast<int16_t>(x), static_cast<int16_t>(y)};
+            std::memcpy(static_cast<uint8_t*>(self) + 0x52, coordinates.data(), sizeof(coordinates));
+            ++calls;
+        }
+
+        static auto Anchors(void) -> bool
+        {
+            const auto link = [](auto& bytes, const size_t at, const auto address) { const auto p = reinterpret_cast<uintptr_t>(address); std::memcpy(bytes.data() + at, &p, 4); };
+            struct panel
+            {
+                std::array<uint8_t, 0xD4> primitive{}, owner{}, resource{};
+                std::array<uint8_t, 24> node{}, component_node{};
+                std::array<uint8_t, 0x60> component{};
+                std::array<uint8_t, 32> definition{};
+                uintptr_t definition_pointer{};
+                auto Coordinates(void) const -> std::array<int16_t, 2>
+                {
+                    std::array<int16_t, 2> result{}; std::memcpy(result.data(), primitive.data() + 0x52, 4); return result;
+                }
+            } command, magic;
+            const auto initialize = [&](panel& value, const char* name, const std::array<int16_t, 4>& frame, const uint8_t anchor)
+            {
+                link(value.primitive, 4, value.resource.data()); link(value.primitive, 0xC, value.owner.data());
+                link(value.owner, 8, value.primitive.data()); link(value.node, 0x10, value.primitive.data());
+                link(value.primitive, 0x14, value.component_node.data()); link(value.component_node, 0x10, value.component.data());
+                value.definition_pointer = reinterpret_cast<uintptr_t>(value.definition.data());
+                link(value.component, 0x30, &value.definition_pointer); value.definition[0x13] = anchor;
+                std::memcpy(value.resource.data() + 0x46, name, 16);
+                std::memcpy(value.primitive.data() + 0x42, frame.data(), sizeof(frame));
+                std::memcpy(value.primitive.data() + 0x52, frame.data(), 4);
+            };
+            initialize(command, "menu    playermo", {16, 760, 128, 928}, 2);
+            initialize(magic, "menu    magic   ", {130, 400, 450, 760}, 0);
+            link(command.node, 0, magic.node.data());
+            std::array<uint8_t, 0x84> manager{};
+            link(manager, 0, command.node.data());
+            const std::array<int16_t, 2> resolution{1920, 1080};
+            std::memcpy(manager.data() + 0x80, resolution.data(), sizeof(resolution));
+            native_menu_controller controller;
+            controller.manager_ = reinterpret_cast<uintptr_t>(manager.data());
+            controller.reposition_ = reinterpret_cast<uintptr_t>(&Position);
+            controller.state_.menu_available = true;
+            controller.Update({true, 400, 1000, 2560, 1440});
+            if (!check(command.Coordinates() == std::array<int16_t, 2>{300, 582} && magic.Coordinates() == std::array<int16_t, 2>{414, 390} &&
+                controller.State().menu_count == 2 && controller.State().height == 360,
+                "different-height command and magic panels share a bottom edge, retaining horizontal offsets")) return false;
+            controller.Update({true, 400, 1000, 2560, 1440, true, 200});
+            if (!check(command.Coordinates()[1] == 150 && magic.Coordinates()[1] == 150, "top anchoring aligns each panel's own top")) return false;
+            const auto magicPointer = reinterpret_cast<uintptr_t>(magic.primitive.data());
+            const int16_t tallBottom = 900;
+            std::memcpy(magic.primitive.data() + 0x48, &tallBottom, 2);
+            controller.BeforeDraw(magicPointer);
+            if (!check(magic.Coordinates()[1] == 150, "growing a top-anchored list preserves its top edge")) return false;
+            std::memcpy(magic.resource.data() + 0x46, "menu    ability ", 16); magic.definition[0x13] = 3;
+            controller.Update({true, 400, 1000, 2560, 1440});
+            if (!check(command.Coordinates()[1] == 582 && magic.Coordinates()[1] == 250, "ability lists with another DAT anchor share the selected bottom edge")) return false;
+            const int16_t shortBottom = 540;
+            std::memcpy(magic.primitive.data() + 0x48, &shortBottom, 2);
+            controller.BeforeDraw(magicPointer);
+            if (!check(magic.Coordinates()[1] == 610, "shrinking a bottom-anchored list preserves its bottom edge")) return false;
+            controller.Shutdown();
+            return check(command.Coordinates() == std::array<int16_t, 2>{16, 760} && magic.Coordinates() == std::array<int16_t, 2>{130, 400},
+                "shutdown restores both panels' distinct native positions");
+        }
+
+        static auto Run(void) -> bool
+        {
+            native_menu_controller controller{};
+            std::array<uint8_t, 0xD4> primitive{}, owner{}, resource{};
+            const auto pointer = reinterpret_cast<uintptr_t>(primitive.data());
+            const auto ownerPointer = reinterpret_cast<uintptr_t>(owner.data()), resourcePointer = reinterpret_cast<uintptr_t>(resource.data());
+            std::memcpy(primitive.data() + 4, &resourcePointer, 4);
+            std::memcpy(primitive.data() + 0xC, &ownerPointer, 4);
+            std::memcpy(owner.data() + 8, &pointer, 4);
+            const std::array<int16_t, 2> original{16, 760};
+            const std::array<int16_t, 4> frame{16, 760, 128, 928};
+            std::memcpy(primitive.data() + 0x42, frame.data(), sizeof(frame));
+            std::memcpy(primitive.data() + 0x52, original.data(), 4);
+            controller.reposition_ = reinterpret_cast<uintptr_t>(&Position);
+            controller.menus_[0] = {pointer, ownerPointer, resourcePointer};
+            controller.count_ = 1; controller.offset_x_ = 100; controller.anchor_y_ = 878;
+            controller.layout_.enabled = true;
+            const auto coordinates = [&] { std::array<int16_t, 2> result{}; std::memcpy(result.data(), primitive.data() + 0x52, 4); return result; };
+            controller.BeforeDraw(pointer); controller.BeforeDraw(pointer);
+            if (!check(coordinates() == std::array<int16_t, 2>{116, 710} && calls == 1, "menu movement uses native repositioning without accumulating offsets")) return false;
+            const std::array<int16_t, 2> refreshed{20, 770};
+            std::memcpy(primitive.data() + 0x52, refreshed.data(), 4);
+            controller.BeforeDraw(pointer);
+            if (!check(coordinates() == std::array<int16_t, 2>{116, 710}, "native chat shifts cannot move the configured menu anchor")) return false;
+            controller.layout_.enabled = false; controller.BeforeDraw(pointer);
+            if (!check(coordinates() == refreshed, "disabling movement restores the latest native position")) return false;
+            controller.layout_.enabled = true; controller.BeforeDraw(pointer);
+            controller.Move(controller.menus_[0], false);
+            controller.Shutdown();
+            if (!check(coordinates() == refreshed, "restoring a moved menu retains its latest native position")) return false;
+
+            std::array<uint8_t, 0x84> manager{};
+            std::array<uint8_t, 24> node{}, componentNode{};
+            std::array<uint8_t, 0x60> component{};
+            std::array<uint8_t, 32> definition{};
+            const auto link = [](auto& bytes, const size_t at, const auto address) { const auto p = reinterpret_cast<uintptr_t>(address); std::memcpy(bytes.data() + at, &p, 4); };
+            link(manager, 0, node.data()); link(node, 0x10, primitive.data());
+            link(primitive, 0x14, componentNode.data()); link(componentNode, 0x10, component.data());
+            uintptr_t definitionPointer = reinterpret_cast<uintptr_t>(definition.data());
+            link(component, 0x30, &definitionPointer); definition[0x13] = 2;
+            std::memcpy(resource.data() + 0x46, "menu    playermo", 16);
+            const std::array<int16_t, 2> resolution{1920, 1080};
+            std::memcpy(primitive.data() + 0x42, frame.data(), sizeof(frame));
+            std::memcpy(primitive.data() + 0x52, original.data(), sizeof(original));
+            std::memcpy(manager.data() + 0x80, resolution.data(), sizeof(resolution));
+            controller.manager_ = reinterpret_cast<uintptr_t>(manager.data());
+            controller.reposition_ = reinterpret_cast<uintptr_t>(&Position);
+            controller.state_.menu_available = true;
+            controller.Update({true, 400, 1000, 2560, 1440});
+            if (!check(coordinates() == std::array<int16_t, 2>{300, 582} && controller.State().menu_count == 1 &&
+                controller.State().reference_width == 1920, "menu groups translate from render pixels into the native UI resolution")) return false;
+            for (const int y : {720, 640, 740, 760})
+            {
+                const std::array<int16_t, 2> shifted{300, static_cast<int16_t>(y)};
+                std::memcpy(primitive.data() + 0x52, shifted.data(), sizeof(shifted));
+                controller.BeforeDraw(pointer);
+                controller.Update({true, 400, 1000, 2560, 1440});
+                if (!check(coordinates() == std::array<int16_t, 2>{300, 582}, "repeated combat/chat layout changes retain the absolute anchor across draws and updates")) return false;
+            }
+            controller.Update({});
+            if (!check(coordinates() == original, "disabling restores the latest native Y without retaining the managed X")) return false;
+            controller.Update({true, 400, 1000, 2560, 1440});
+            controller.Shutdown();
+            if (!check(coordinates() == original, "unload restores menus still attached to the native list")) return false;
+            controller.manager_ = reinterpret_cast<uintptr_t>(manager.data());
+            controller.reposition_ = reinterpret_cast<uintptr_t>(&Position);
+            controller.state_.menu_available = true;
+            std::memcpy(resource.data() + 0x46, "menu    logwin2 ", 16);
+            controller.Update({true, 400, 1000, 2560, 1440});
+            if (!check(controller.State().menu_count == 0 && coordinates() == original, "secondary chat never joins the command/details group")) return false;
+            controller.Shutdown();
+
+            uintptr_t tableOwner{}, table{};
+            std::array<uintptr_t, 2> config{};
+            std::array<uint32_t, 19 * 11> records{};
+            table = reinterpret_cast<uintptr_t>(records.data()); config[1] = table;
+            tableOwner = reinterpret_cast<uintptr_t>(config.data());
+            controller.config_slot_ = reinterpret_cast<uintptr_t>(&tableOwner);
+            auto* setting = records.data() + 18 * 11;
+            setting[1] = 18; setting[2] = 7; setting[7] = 7;
+            controller.Update({});
+            if (!check(controller.State().window_type_available && controller.State().window_type == 7, "read Window Type from the validated native config record")) return false;
+            setting[2] = 8; controller.Update({});
+            return check(!controller.State().window_type_available, "invalid native theme selections fail closed");
+        }
+    };
+
+    struct native_hud_target_test
+    {
+        static auto Run(void) -> bool
+        {
+            native_hud_controller controller{};
+            target_fixture first{}, second{};
+            const auto original = first.window;
+            uintptr_t slot = reinterpret_cast<uintptr_t>(&first.window);
+            controller.slots_[static_cast<size_t>(native_hud_element::target)] = reinterpret_cast<uintptr_t>(&slot);
+            controller.hidden_ = NativeHudBit(native_hud_element::target);
+            if (!check(!controller.ShouldHide(first.window.m_pParentMCD), "the target draw callback must continue")) return false;
+            if (!check(first.window.FrameChildrenOffsetX == 30000 && first.window.IconPositionY == 30000 &&
+                first.primitive[0x69] == 0 && first.primitive[0x6A] == 1,
+                "hide the box frame and contents without disabling its callback")) return false;
+            auto expected = original;
+            expected.FrameChildrenOffsetX = expected.FrameChildrenOffsetY = expected.IconPositionX = expected.IconPositionY = 30000;
+            if (!check(std::memcmp(&expected, &first.window, sizeof(expected)) == 0,
+                "both arrow anchors and all other target fields remain untouched")) return false;
+            controller.ShouldHide(first.window.m_pParentMCD);
+            controller.Update(0);
+            if (!check(std::memcmp(&original, &first.window, sizeof(original)) == 0 && first.primitive[0x69] == 1,
+                "showing the box restores its original frame and coordinates")) return false;
+
+            controller.hidden_ = NativeHudBit(native_hud_element::target);
+            controller.ShouldHide(first.window.m_pParentMCD);
+            first.window.FrameChildrenOffsetX = 150;
+            controller.ShouldHide(first.window.m_pParentMCD);
+            controller.Update(0);
+            if (!check(first.window.FrameChildrenOffsetX == 150,
+                "retain native coordinate updates that occur while the box is hidden")) return false;
+
+            controller.hidden_ = NativeHudBit(native_hud_element::target);
+            controller.ShouldHide(first.window.m_pParentMCD);
+            slot = reinterpret_cast<uintptr_t>(&second.window);
+            controller.ShouldHide(second.window.m_pParentMCD);
+            first.window.FrameChildrenOffsetX = 999;
+            second.window.IconPositionX = 777;
+            controller.Update(0);
+            if (!check(first.window.FrameChildrenOffsetX == 999 && second.window.IconPositionX == 777 &&
+                second.window.FrameChildrenOffsetX == original.FrameChildrenOffsetX && second.primitive[0x69] == 1,
+                "restore only the current owner and fields still carrying our hidden values")) return false;
+
+            controller.slots_[static_cast<size_t>(native_hud_element::target)] = 0;
+            controller.slots_[static_cast<size_t>(native_hud_element::player)] = reinterpret_cast<uintptr_t>(&slot);
+            controller.hidden_ = NativeHudBit(native_hud_element::player);
+            if (!check(controller.ShouldHide(second.window.m_pParentMCD), "other selected HUD elements still use full draw suppression")) return false;
+
+            target_fixture chat{}, input{}, unrelated{};
+            uintptr_t chatSlot = reinterpret_cast<uintptr_t>(&chat.window);
+            uintptr_t inputSlot = reinterpret_cast<uintptr_t>(&input.window);
+            controller.slots_[static_cast<size_t>(native_hud_element::chat1)] = reinterpret_cast<uintptr_t>(&chatSlot);
+            controller.chat_input_slot_ = reinterpret_cast<uintptr_t>(&inputSlot);
+            const auto originalInput = input;
+            controller.hidden_ = NativeHudBit(native_hud_element::chat1);
+            if (!check(controller.ShouldHide(chat.window.m_pParentMCD) && controller.ShouldHide(input.window.m_pParentMCD) &&
+                !controller.ShouldHide(unrelated.window.m_pParentMCD), "main chat hiding suppresses both log and input, without affecting other windows")) return false;
+            if (!check(std::memcmp(&input.window, &originalInput.window, sizeof(input.window)) == 0 && input.primitive == originalInput.primitive,
+                "hiding chat input changes no native input state or callbacks")) return false;
+            controller.hidden_ = NativeHudBit(native_hud_element::chat2) | NativeHudBit(native_hud_element::chatlog);
+            if (!check(!controller.ShouldHide(input.window.m_pParentMCD), "secondary and expanded chat settings do not hide the main input")) return false;
+            controller.hidden_ = 0;
+            if (!check(!controller.ShouldHide(chat.window.m_pParentMCD) && !controller.ShouldHide(input.window.m_pParentMCD),
+                "showing chat immediately restores the log and input")) return false;
+            controller.hidden_ = NativeHudBit(native_hud_element::chat1);
+            inputSlot = reinterpret_cast<uintptr_t>(&unrelated.window);
+            if (!check(!controller.ShouldHide(input.window.m_pParentMCD) && controller.ShouldHide(unrelated.window.m_pParentMCD),
+                "input suppression follows replacement owners and ignores stale primitives")) return false;
+            inputSlot = 0;
+            if (!check(!controller.ShouldHide(input.window.m_pParentMCD), "an unavailable input owner is never suppressed")) return false;
+            controller.Shutdown();
+            return check(controller.chat_input_slot_ == 0 && !controller.ShouldHide(chat.window.m_pParentMCD),
+                "shutdown clears input ownership and restores native drawing");
+        }
+    };
+}
+
+int main(int argc, char** argv)
+{
+    if (argc > 1 && std::strcmp(argv[1], "--menus-only") == 0)
+    {
+        if (!xiui::native_menu_test::Run() || !xiui::native_menu_test::Anchors()) return 1;
+        std::puts("Native command-menu movement, top/bottom anchors, resizing and restoration passed.");
+        return 0;
+    }
+    if (!xiui::native_hud_target_test::Run() || !xiui::native_menu_test::Run() || !xiui::native_menu_test::Anchors()) return 1;
+    std::puts("Native target preservation and chat log/input suppression checks passed.");
+    return 0;
+}

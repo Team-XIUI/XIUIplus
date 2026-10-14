@@ -1,0 +1,6 @@
+401 RCDATA "@CMAKE_SOURCE_DIR@/assets/chatmon/IncomingTell.wav"
+402 RCDATA "@CMAKE_SOURCE_DIR@/assets/chatmon/IncomingTalk.wav"
+403 RCDATA "@CMAKE_SOURCE_DIR@/assets/chatmon/IncomingEmote.wav"
+404 RCDATA "@CMAKE_SOURCE_DIR@/assets/chatmon/IncomingExamine.wav"
+405 RCDATA "@CMAKE_SOURCE_DIR@/assets/chatmon/PartyInvitation.wav"
+406 RCDATA "@CMAKE_SOURCE_DIR@/assets/chatmon/LICENSE.txt"
