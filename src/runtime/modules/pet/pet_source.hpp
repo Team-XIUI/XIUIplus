@@ -3,6 +3,7 @@
 #include "combat/combat_source.hpp"
 #include "entities/entity_name_colors.hpp"
 #include <string_view>
+#include <algorithm>
 
 namespace xiui
 {
@@ -28,14 +29,17 @@ namespace xiui
         uint8_t main_job{}, sub_job{}, mp_percent{};
         pet_kind kind{pet_kind::count};
         bool ready{}, mp_known{}, tp_known{};
-        uint64_t observed_since{};
+        uint64_t observed_since{}, estimated_expires{};
         std::array<combat_status, 32> statuses{};
         size_t status_count{};
     };
     class pet_source
     {
     public:
-        auto Clear(void) -> void { this->state_ = {}; this->next_update_ = 0; }
+        auto Clear(void) -> void { this->state_ = {}; this->next_update_ = this->charm_started_ = 0; this->charm_target_ = this->charm_level_ = 0; }
+        auto SetRules(server_rules value) -> void { if (this->rules_ != value) { this->Clear(); this->rules_ = value; } }
+        auto SetBonusCharisma(float value) -> void { this->bonus_charisma_ = std::clamp(value, 0.0f, 500.0f); }
+        auto HandlePacket(IAshitaCore* core, uint16_t id, std::span<const uint8_t> data, uint64_t now, const combat_action_packet* action) -> void;
         auto Update(IAshitaCore* core, const combat_source& combat, uint64_t now) -> void;
         auto State(void) const -> const pet_snapshot& { return this->state_; }
         auto Resources(void) const -> IResourceManager* { return this->resources_; }
@@ -46,6 +50,11 @@ namespace xiui
         pet_snapshot state_{};
         uint64_t next_update_{};
         IResourceManager* resources_{};
+        server_rules rules_{};
+        float bonus_charisma_{};
+        uint32_t charm_target_{}, charm_level_{}, charm_owner_{}, charm_gear_{};
+        int charm_player_level_{}, charm_charisma_{};
+        uint64_t charm_started_{};
         auto Publish(pet_snapshot sample, uint64_t now) -> void;
     };
 }

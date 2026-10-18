@@ -34,7 +34,10 @@ namespace xiui
     struct actionbar_presentation
     {
         module_state state{false, {-1, -1, 520, 92}, 120, 44};
-        float columns{12}, slots{12}, size{36}, gap{4};
+        float columns{12}, slots{12}, size{36}, gap{4}, gap_y{-1};
+        float diamond_spacing{-1}, group_spacing{32}, prompt_size{16}, prompt_gap_x{8}, prompt_gap_y{2};
+        bool custom_text{}, label_wrap{}, button_icons{true};
+        std::array<module_text_profile, 7> text{};
         bool locked{true}, heading{true}, labels{}, bindings{true}, resources{true}, cooldowns{true};
         bool empty{true}, background{}, tooltips{true};
         actionbar_slot_style style{};
@@ -119,7 +122,8 @@ namespace xiui
         auto Option(size_t) -> module_option override;
         auto OnOptionChanged(size_t) -> void override;
         auto ApplyTextDefaults(const ui::theme&) -> void override;
-        auto VisitTextSettings(const text_settings_visitor& visitor) -> void override { VisitTextProfiles(visitor, this->text_); }
+        auto VisitTextSettings(const text_settings_visitor& visitor) -> void override
+        { VisitTextProfiles(visitor, this->text_); for (auto& bar : this->bars_) VisitTextProfiles(visitor, bar.text); }
         auto ResetDefaults(const ui::theme&) -> void override;
         auto Load(const settings_store&) -> void override;
         auto Save(const settings_store&) const -> void override;
@@ -140,7 +144,7 @@ namespace xiui
             slot_cooldown_style, slot_cooldown_color, slot_cooldown_text,
             slot_binding_anchor, slot_binding_x, slot_binding_y, slot_count_anchor, slot_count_x, slot_count_y,
             slot_timer_anchor, slot_timer_x, slot_timer_y, slot_mp_cost, slot_cost_anchor, slot_cost_x, slot_cost_y,
-            slot_apply_all, slot_reset, crossbar_animations, skillchain_predictions, skillchain_rules, magic_burst_settings, keybinds, base_options };
+            slot_apply_all, slot_reset, crossbar_animations, skillchain_predictions, skillchain_rules, magic_burst_settings, keybinds, shared_expanded, vertical_gap, per_bar_text, label_wrap, diamond_spacing, group_spacing, button_icons, prompt_size, prompt_gap_x, prompt_gap_y, visibility_mode, visibility_delay, visibility_fade, base_options };
         enum class dialog : uint8_t { none, picker, editor, palettes, name, delete_palette, delete_macro, import, setup, palette_dropdown, slot_menu, bar_menu, keybinds };
         enum class control_kind : uint8_t { button, field, choice, list, toggle, label, slider, dropdown };
         enum class window_gesture : uint8_t { none, move, resize };
@@ -228,6 +232,11 @@ namespace xiui
         int selected_bank_{}, selected_text_{}, selected_bar_{}, storage_scope_{}, category_{}, target_{}, editor_kind_{}, editor_equipment_{}, prompt_theme_{}, shape_{};
         int focused_control_{}, editing_field_{}, name_action_{}, setup_step_{}, setup_backend_{}, setup_preset_{}, pressed_control_{}, down_header_{};
         bool storage_pet_{}, browsing_{}, navigation_focus_{}, pointer_down_{}, dragging_{}, discard_pointer_release_{};
+        bool shared_expanded_{}, engaged_{};
+        int crossbar_visibility_{};
+        float crossbar_delay_{5}, crossbar_fade_{0.15f}, crossbar_alpha_{1};
+        uint64_t last_trigger_{}, visibility_updated_{};
+        bool library_draft_{}, library_edit_{};
         bool settings_changed_{}, binding_capture_{}, inactive_{true}, prompts_{true}, allow_native_keys_{true}, only_learned_{true}, draft_pet_{}, scrolling_{};
         bool placing_{}, crossbar_preview_{}, trigger_controls_{};
         bool crossbar_animations_{true};
@@ -256,6 +265,10 @@ namespace xiui
         auto LockBounds(size_t) const -> ui::rect;
         auto MenuBounds(size_t) const -> ui::rect;
         auto PaletteBounds(size_t) const -> ui::rect;
+        auto BankIndex(crossbar_bank bank) const -> size_t
+        { return this->shared_expanded_ && (bank == crossbar_bank::left_right || bank == crossbar_bank::right_left) ? 6 : bank == crossbar_bank::none ? 0 : static_cast<size_t>(bank) - 1; }
+        auto TextFor(const address& value) const -> const std::array<module_text_profile, 7>&
+        { const auto& bar = this->Presentation(value); return bar.custom_text ? bar.text : this->text_; }
         auto CrossbarGroups(void) const -> std::vector<size_t>;
         auto HitTest(float, float) const -> std::optional<hit>;
         auto Activate(const address&) -> bool;
@@ -317,6 +330,7 @@ namespace xiui
         auto UpdateLibraryMetrics(const ui::design_system&) -> void;
         auto DrawLibraryIcon(const action_slot&, const ui::rect&, const module_render_context&) const -> void;
         auto RebuildResults(void) -> void;
+        auto EditLibraryEntry(size_t index) -> bool;
         auto ChooseResult(size_t) -> void;
         auto NewDraft(action_kind) -> void;
         auto SaveDraft(void) -> void;

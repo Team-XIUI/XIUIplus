@@ -142,8 +142,9 @@ namespace xiui
             for (size_t j = 0; j < target.result_count; ++j)
             {
                 const auto& result = target.results[j];
-                this->ApplyStatus(target.id, result.parameter, spell, result.message, now,
-                    XIUIStatusSeconds(action.category, action.parameter, result.parameter, result.message));
+                auto seconds = XIUIStatusSeconds(action.category, action.parameter, result.parameter, result.message);
+                if (action.actor == this->player_ && spell != 0) seconds = AdjustSongDuration(seconds, spell, this->songs_);
+                this->ApplyStatus(target.id, result.parameter, spell, result.message, now, seconds);
                 this->ApplyStatus(result.additional_message == 166 ? action.actor : target.id, result.additional_parameter, 0, result.additional_message, now);
                 this->ApplyStatus(action.actor, result.spikes_parameter, 0, result.spikes_message, now);
                 if (result.message == 6 || result.message == 20) this->actors_.erase(target.id);

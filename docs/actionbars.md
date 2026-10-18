@@ -1,6 +1,6 @@
 # Action Bars
 
-Configuration → **Action Bars** has five destinations: Hotbars, Crossbar, Actions & Macros, Action Sets and Import. Hotbars and Crossbar contain their layout and display settings; the other destinations open separate workspace windows. Hotbars shows direct buttons for Hotbar 1–10 above its settings, wrapping to fit the window. Each surface has its own enable flag, position, layout and assignment lock. Normal bars offer up to twelve slots; the controller crossbar has six banks of eight slots. Move bars through the existing configuration movement controls.
+Configuration → **Action Bars** has five destinations: Hotbars, Crossbar, Actions & Macros, Action Sets and Import. Hotbars and Crossbar contain their layout and display settings; the other destinations open separate workspace windows. Hotbars shows direct buttons for Hotbar 1–10 above its settings, wrapping to fit the window. Each surface has its own enable flag, position, layout and assignment lock. Normal bars offer up to twelve slots; the controller crossbar has seven stored banks of eight slots, including a separate Shared expanded bank. Move bars through the existing configuration movement controls.
 
 ## Assigning actions
 
@@ -58,11 +58,12 @@ Dropdowns use the same native panel and list styling as Input mode. Long lists i
 
 Turn on **Use XIUI trigger controls** to enable the crossbar and route trigger actions to XIUI. Turning it off leaves physical trigger macros to FFXI while the bar remains available for editing and mouse use. Native replacement removes the selected trigger/button inputs before FFXI processes them; it does not disable macro commands or native macro reference actions.
 
-The six banks preserve the Lua model:
+The stored banks preserve the Lua model:
 
 - Left trigger and right trigger each have a base bank.
 - Left then right and right then left select separate combined banks when ordered banks are enabled.
 - Double left and double right select extra banks when double taps are enabled.
+- **Shared expanded bank** routes both two-trigger orders to its own assignments while retaining the two separate ordered banks. Select Shared expanded in Edited bank to configure it.
 - Each bank has D-pad Up/Right/Down/Left and Face Top/Right/Bottom/Left slots.
 - Hold a bank and the selected shoulder, then press D-pad Up/Down to cycle palettes.
 
@@ -78,7 +79,13 @@ For deliberate browsing, use `/xiui focus hotbar` or `/xiui focus crossbar`, or 
 
 ## Importing
 
-**Import Lua / tHotBar / tCrossBar** reads a local saved data file, displays a preview and warnings, then creates new palettes after Import is selected. Existing layouts are preserved. Supported sources include literal Lua XIUI slot data/macros, tHotBar/tCrossBar assignments and native INI macro text. Expressions and executable Lua are rejected. Unsupported source features are reported rather than executed.
+**Import Lua / tHotBar / tCrossBar** reads a local saved data file, displays a preview and warnings, then creates new palettes after Import is selected. Existing layouts are preserved. Supported sources include XIUI saved profiles using the actual assignment serializer, returned Lua tables, tHotBar/tCrossBar assignments and native INI action data. This imports actions and shared library records; the complete profile/settings migration workflow remains separate. Expressions and executable Lua are rejected. Unsupported source features are reported rather than executed.
+
+The reusable library accepts typed actions as well as command macros, including unused entries from Lua. Right-click a shared library entry, or focus it and press controller Actions / keyboard Menu, to edit it without assigning a slot. Shared edits update references; deleting a library entry keeps its currently assigned actions usable.
+
+Macro editing offers Automatic, None or a selected spell/ability/pet/item cooldown source, plus Always available. These affect displayed cooldown/availability metadata; commands retain their normal guarded execution path.
+
+Hotbar and crossbar sets have independent names, selection and ordering. Existing combined sets split on load while retaining assignments. Text supports independent per-bar profiles and two-line labels; Layout separates horizontal/vertical gaps and crossbar diamond/group spacing. Crossbar visibility can follow held triggers or combat, with a release delay and fade. Existing settings default to their prior behavior.
 
 Action data, macro commands and presentation settings follow normal XIUI profiles. Physical controller mappings, held input, browsing focus and pending macro execution do not travel with a share key. Imports do not apply a source addon's controller/device configuration.
 

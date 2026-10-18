@@ -203,7 +203,7 @@ namespace xiui
             const int step = action == controller_action::next_tab ? 1 : -1;
             if (crossbar)
             {
-                this->selected_.bar = static_cast<size_t>((static_cast<int>(this->selected_.bar) + step + 6) % 6);
+                this->selected_.bar = static_cast<size_t>((static_cast<int>(this->selected_.bar) + step + static_cast<int>(action_crossbar_banks)) % static_cast<int>(action_crossbar_banks));
                 this->selected_bank_ = static_cast<int>(this->selected_.bar);
             }
             else for (int offset = 1; offset <= static_cast<int>(action_bar_count); ++offset)

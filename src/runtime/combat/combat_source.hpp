@@ -3,6 +3,7 @@
 #include "Ashita.h"
 #include "action_packet.hpp"
 #include "server_rules.hpp"
+#include "song_bonuses.hpp"
 
 #include <string>
 #include <unordered_map>
@@ -51,6 +52,7 @@ namespace xiui
             this->Clear();
             this->rules_ = rules;
         }
+        auto SetSongBonuses(const song_bonuses& value) -> void { this->songs_ = value; }
         auto Update(IAshitaCore* core, uint64_t now) -> void;
         auto HandlePacket(IAshitaCore* core, uint16_t id, std::span<const uint8_t> data, uint64_t now, const combat_action_packet* decoded = nullptr) -> void;
         auto Observe(const combat_action& action, IResourceManager* resources, uint64_t now) -> void;
@@ -64,6 +66,7 @@ namespace xiui
         uint32_t player_{}, zone_{};
         uint64_t next_update_{};
         server_rules rules_{};
+        song_bonuses songs_{};
         auto Actor(uint32_t id, uint64_t now) -> combat_actor&;
     };
 }

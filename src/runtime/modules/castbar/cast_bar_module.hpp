@@ -2,6 +2,7 @@
 
 #include "modules/module.hpp"
 #include "player_cast_source.hpp"
+#include "cast_adjustments.hpp"
 
 namespace xiui
 {
@@ -29,14 +30,15 @@ namespace xiui
 
     private:
         enum option : size_t { enabled, show_name, show_percent, show_items, show_interrupted, width, fill_top, fill_bottom,
-            interrupted_color, selected_text, base_options };
+            interrupted_color, selected_text, fastcast_enabled, fastcast_job, fastcast_amount, fastcast_rdm_sub, fastcast_cure, fastcast_singing, fastcast_summoning, base_options };
         module_state state_{true, {-1, -1, 440, 52}, 160, 32};
         player_cast_source* source_{};
         bool show_name_{true}, show_percent_{true}, show_items_{true}, show_interrupted_{true};
         D3DCOLOR top_{0xFF3798CE}, bottom_{0xFF78C5EE}, interrupted_{0xFFFF8C8C};
         ui::meter_style meter_{ui::theme::CreateDefault().meter};
         std::array<module_text_profile, 2> text_{};
-        int selected_text_{};
+        int selected_text_{}, selected_job_{};
+        cast_adjustments fastcast_{};
         meter_animation_state animation_{};
         uint64_t cast_started_{};
     };

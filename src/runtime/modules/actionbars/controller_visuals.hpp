@@ -52,7 +52,7 @@ namespace xiui::crossbar_visuals
     struct bank_layer { float opacity{}, y{}; bool inactive{}; };
     struct bank_motion
     {
-        std::array<bank_layer, 6> from{};
+        std::array<bank_layer, 7> from{};
         size_t target{};
         uint64_t changed_at{};
         bool initialized{}, changing{}, target_inactive{};

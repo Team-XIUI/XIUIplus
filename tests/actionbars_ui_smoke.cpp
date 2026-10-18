@@ -1,5 +1,6 @@
 #include "modules/actionbars/actionbars_module.hpp"
 #include "hud_runtime.hpp"
+#include "modules/pet/pet_lifetimes.hpp"
 
 #include <algorithm>
 #include <cmath>
@@ -23,6 +24,56 @@ namespace xiui
 {
     struct actionbars_ui_test
     {
+        static auto SelectedCapabilities(void) -> void
+        {
+            action_store store; action_executor executor; store.SetContext({15, 0, {}});
+            const auto hotA = store.Create("A", action_surface::hotbar), hotB = store.Create("B", action_surface::hotbar);
+            const auto crossA = store.Create("A", action_surface::crossbar), crossB = store.Create("B", action_surface::crossbar);
+            const auto previousCross = store.Palettes(action_surface::crossbar);
+            std::vector<std::string> crossOrder; for (const auto* p : previousCross) crossOrder.push_back(p->id);
+            Check(store.Move(hotB, -1), "hotbar palettes can be reordered");
+            const auto nextCross = store.Palettes(action_surface::crossbar);
+            for (size_t i = 0; i < nextCross.size(); ++i) Check(nextCross[i]->id == crossOrder[i], "reordering hotbars preserves crossbar order");
+            actionbars_module module; module.Initialize(nullptr, &store, &executor);
+            module.bars_[action_bar_count].state.enabled = true;
+            module.controller_settings_.enabled = module.controller_settings_.replace_native = true;
+            module.shared_expanded_ = true; module.crossbar_visibility_ = 1; module.crossbar_alpha_ = 0;
+            controller_event event{controller_action::crossbar_bank, controller_backend::xinput, 0, true, false, false, 1000};
+            event.bank = crossbar_bank::left_right; event.triggers = 3; module.HandleCrossbarEvent(event);
+            event.action = controller_action::crossbar_slot; event.slot = 1; module.HandleCrossbarEvent(event);
+            Check(module.held_slots_[6][0] && !module.held_slots_[2][0], "Shared mode routes the first press immediately even before a visibility fade");
+            event.pressed = false; module.HandleCrossbarEvent(event); Check(!module.held_slots_[6][0], "Shared bank consumes the matching release");
+            module.SuspendInput(); module.crossbar_preview_ = true; module.view_ = action_bar_count; module.selected_bank_ = 6;
+            Check(module.CrossbarGroups().front() == 6 && module.SlotBounds({action_surface::crossbar,6,0}).x == module.SlotBounds({action_surface::crossbar,0,0}).x, "Shared bank has an editable stable left-hand layout");
+            module.bars_[0].columns = 2; module.bars_[0].slots = 4; module.bars_[0].gap = 3; module.bars_[0].gap_y = 12;
+            module.bars_[0].custom_text = true; module.bars_[0].text = module.text_; module.bars_[0].text[1].style.font = 3;
+            module.Layout(0); const auto first = module.SlotBounds({action_surface::hotbar,0,0}), below = module.SlotBounds({action_surface::hotbar,0,2});
+            Check(below.y - first.y == module.bars_[0].size + 12, "vertical spacing is independent of horizontal spacing");
+            settings_store settings{""}; module.Save(settings); actionbars_module restored; restored.Initialize(nullptr, &store, &executor); restored.Load(settings);
+            Check(restored.shared_expanded_ && restored.bars_[0].custom_text && restored.bars_[0].gap_y == 12 && restored.bars_[0].text[1].style.font == 3, "bar-specific presentation and Shared mode survive reload");
+            for (size_t i = 0; i < 16; ++i) store.Create("Extra " + std::to_string(i), action_surface::hotbar);
+            module.viewport_ = {0,0,1280,720}; module.OpenPalettes(false); module.focused_control_ = 3000;
+            for (size_t i = 0; i < 12; ++i) module.MoveControl(0,1);
+            Check(module.focused_control_ == 3012 && module.palette_scroll_ > 0, "controller navigation scrolls expanded palette lists into view");
+            action_slot definition{}; definition.kind = action_kind::spell; definition.id = 1; definition.name = "Cure";
+            const auto unused = store.ImportMacro({{}, "Unused Cure", {}, {}, definition});
+            module.OpenPicker(); module.focused_control_ = 10000; module.navigation_focus_ = true;
+            Check(module.HandleControllerAction(controller_action::actions,false) && module.library_edit_ && module.draft_.macro_id == unused, "controller Actions edits an unassigned typed library record");
+            const auto previousSlot = store.Resolve(module.selected_.surface,module.selected_.bar,module.selected_.slot);
+            module.draft_.label = "Updated library label"; module.SaveDraft();
+            Check(store.Macro(unused)->name == "Updated library label" && store.Resolve(module.selected_.surface,module.selected_.bar,module.selected_.slot) == previousSlot, "saving a library-only edit leaves the selected slot untouched");
+            cast_adjustments cast; Check(cast.Progress(.3f,3,0,1,33) == .3f, "manual cast corrections start disabled");
+            cast.enabled = true; cast.jobs[2] = 20; cast.cure = 15;
+            Check(std::abs(cast.Progress(.3f,3,0,1,33) - .3f / (.75f * .8f * .85f)) < .0001f, "Cure speed multiplies with manual Fast Cast");
+            cast.rdm_sub = 80; Check(cast.Progress(.9f,3,5,1,33) == 1, "combined reductions and displayed progress stay bounded");
+            song_bonuses songs{}; songs[0] = 2; songs[3] = 3;
+            Check(AdjustSongDuration(60,376,songs) == 72 && AdjustSongDuration(60,454,songs) == 78 && AdjustSongDuration(60,253,songs) == 60, "song ranks adjust only their own duration families");
+            Check(JugLifetimeSeconds("Sheep Familiar", server_rules::retail) == 3600 && JugLifetimeSeconds("SheepFamiliar", server_rules::horizon) == 1800 && JugLifetimeSeconds("Unknown", server_rules::retail) == 0, "jug estimates retain server data and unknown pets remain unknown");
+            Check(CharmLifetimeSeconds(75,75,100,20,4) == 360 && CharmLifetimeSeconds(75,0,100,20,4) == 0, "Charm estimates require a known level and apply charisma and Charm+ bonuses");
+            pet_recast_settings pet; pet.display = 2; pet.abilities[0].enabled = false; pet.abilities[1].ready_top = 0xFF123456; pet.absolute = true;
+            pet.Save(settings, "pet.avatar.recasts"); pet_recast_settings loaded; loaded.Load(settings, "pet.avatar.recasts");
+            Check(loaded.display == 2 && !loaded.abilities[0].enabled && loaded.abilities[1].ready_top == 0xFF123456 && loaded.absolute, "per-ability pet display preferences survive reload");
+        }
         static auto ControllerVisuals(void) -> void
         {
             using namespace crossbar_visuals;
@@ -1338,7 +1389,7 @@ namespace xiui
                 "activating the crossbar Keybinds topic opens the controller slot list");
             module.CloseDialog();
             runtime->active_config_section_ = 3;
-            Check(runtime->ElementSelector().count == 6, "crossbar layout retains all six trigger-bank tabs");
+            Check(runtime->ElementSelector().count == 7, "crossbar layout includes all trigger banks and Shared");
             Check(runtime->ActiveConfigPage().SectionContains(1, &module) && !module.ConfigSectionContains(0, actionbars_module::bar_selector),
                 "crossbar controls keep their surface tab and hide the normal-bar selector");
             Check(!module.Option(actionbars_module::edit).available && !module.Option(actionbars_module::palettes).available && !module.Option(actionbars_module::import).available,
@@ -1363,6 +1414,11 @@ namespace xiui
 
 auto main(const int argc, char** argv) -> int
 {
+    if (argc == 2 && std::strcmp(argv[1], "--migration-capabilities-only") == 0)
+    {
+        try { xiui::actionbars_ui_test::SelectedCapabilities(); std::puts("Selected migration capability checks passed."); return 0; }
+        catch (const std::exception& error) { std::fprintf(stderr, "%s\n", error.what()); return 1; }
+    }
     if (argc == 2 && std::strcmp(argv[1], "--keybinds-only") == 0)
     {
         try { xiui::actionbars_ui_test::Keybinds(); std::puts("Hotbar and crossbar keybind list checks passed."); return 0; }

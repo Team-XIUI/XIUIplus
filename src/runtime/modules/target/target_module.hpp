@@ -1,5 +1,7 @@
 #pragma once
 
+#include "combat/combat_settings.hpp"
+
 #include "../module.hpp"
 #include "entities/entity_name_colors.hpp"
 #include "combat/combat_source.hpp"
@@ -42,6 +44,7 @@ namespace xiui
             target_ring_settings rings{};
         };
 
+        auto SetCombatSettings(combat_settings* value) -> void { this->combat_settings_ = value; }
         auto Id(void) const -> const char* override;
         auto DisplayName(void) const -> const char* override;
         auto State(void) -> module_state& override;
@@ -123,6 +126,7 @@ namespace xiui
         size_t config_view_{};
         ui::enemy_timing_settings timers_{};
         const combat_timing_source* timing_{};
+        combat_settings* combat_settings_{};
         static constexpr size_t timing_options_start = 9 + meter_style_option_count + text_profile_option_count;
         static constexpr size_t recipient_options_start = timing_options_start + ui::enemy_timing_settings::option_count;
         static constexpr size_t status_options_start = recipient_options_start + target_of_target_settings::option_count;

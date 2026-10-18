@@ -102,3 +102,8 @@ Shape, Regular/Enhanced art, per-zone zoom, dimensions, rounded corners, drop-sh
 ## Skillchains / Magic Burst
 
 Action Bars → Hotbars / Crossbar → Skillchains uses shared keyboard/mouse/controller controls for predictions and Retail/Horizon rules across every bar. Open HUD settings activates the separate Extras → Magic Burst editor once, with visibility, artwork, animation, size/opacity and three text profiles. Existing preferences migrate without moving the display. Normal movement controls position the render-only edit preview. HUD/slot hints add no focus stop or gameplay action route. Observations clear on settings/profile/rules/lifecycle changes. Focused tracker/packet/persistence checks passed; live combat and physical-controller acceptance remain with Cody.
+
+
+## Migration capability additions
+
+The Shared expanded bank is seventh in runtime storage. Both existing ordered-trigger events select it when enabled; the host input ABI and physical mappings are unchanged. Releases, preview/editing and deliberate bank navigation include Shared. Shared library entries can be edited with Actions or keyboard Menu; pointer users right-click the same entry. Saving an unused library entry does not assign a slot. New per-bar text/layout/visibility, pet recast/resource, song-rank and manual Fast Cast controls use ordinary configuration focus and editing. Hardware and live gameplay behavior remain for Cody to inspect.

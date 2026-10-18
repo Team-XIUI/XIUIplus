@@ -2,6 +2,8 @@
 #include "modules/actionbars/action_executor.hpp"
 
 #include <cstdio>
+#include <fstream>
+#include <iterator>
 #include <stdexcept>
 
 namespace xiui
@@ -37,8 +39,9 @@ namespace
         const auto shared = store.ActivePalette(action_surface::hotbar)->id;
         const auto second = store.Copy(shared, "Burst");
         Check(!second.empty() && second != shared, "copies receive stable independent ids");
+        const auto previousCrossbar = store.ActivePalette(action_surface::crossbar)->id;
         Check(store.Select(action_surface::hotbar, second), "select a hotbar palette");
-        Check(store.ActivePalette(action_surface::crossbar)->id == shared, "crossbar selection is independent");
+        Check(store.ActivePalette(action_surface::crossbar)->id == previousCrossbar, "crossbar selection is independent");
         Check(store.Rename(second, "Renamed") && store.ActivePalette(action_surface::hotbar)->id == second, "rename retains the selected stable id");
         Check(store.Move(second, -1), "palette order can be changed");
         Check(store.Cycle(action_surface::hotbar, 1), "palette cycling follows the current scope");
@@ -101,8 +104,8 @@ return T{
  hotbarCrossbar = { slotActions={['15:0:palette:Test']={ L2x2={ [8]={actionType='pet', action='Assault',target='t'} } }} },
  macroDB={ [15]={ {id=12,actionType='macro',displayName='Summon',macroText='/ma "Ifrit" <me>\n/wait 1\n/echo ready'} } },
 })lua");
-        Check(xiui.Valid() && xiui.actions == 3 && xiui.palettes[0].name == "Test", "XIUI storage keys group bars and crossbar into one named palette");
-        Check(xiui.palettes[0].actions.hotbar[0][0].lines.size() == 3 && xiui.palettes[0].actions.crossbar[4][7].name == "Assault", "XIUI macro references resolve from their source library");
+        Check(xiui.Valid() && xiui.actions == 3 && xiui.palettes.size() == 2 && xiui.palettes[0].name == "Test", "XIUI keeps equally named hotbar and crossbar palettes independent");
+        Check(xiui.palettes[1].actions.hotbar[0][0].lines.size() == 3 && xiui.palettes[0].actions.crossbar[4][7].name == "Assault", "XIUI macro references resolve from their source library");
         Check(xiui.source_context && xiui.palettes[0].job == 15 && xiui.palettes[0].subjob == 0, "XIUI imports preserve source job and shared-subjob context");
         const auto jobFile = PreviewActionImport(source, "C:/example/bindings/WAR.lua");
         Check(jobFile.source_context && jobFile.palettes[0].job == 1 && jobFile.palettes[0].subjob == 0, "tBar job filenames preserve their source job context");
@@ -110,6 +113,37 @@ return T{
  hotbarBar1 = {slotActions={['15:0:palette:Default']={ [1]={actionType='ma',action='Ifrit',target='me'} }, Ifrit={ [1]={actionType='pet',action='Assault',target='t'} }}},
 })lua");
         Check(petImport.Valid() && petImport.palettes.size() == 1 && petImport.palettes[0].pets.size() == 1 && petImport.palettes[0].pets[0].pet == "Ifrit", "Lua pet storage becomes an automatic variant of the matching job palette");
+    }
+    auto MigrationData(void) -> void
+    {
+        using namespace xiui;
+        const auto preview = PreviewActionImport(R"lua(local settings = {};
+settings["userSettings"] = {};
+settings["userSettings"]["macroDB"] = {[15]={{id=12,actionType='ma',action='Fire',target='me'}, {id=13,actionType='macro',displayName='Echo',macroText='/echo hi',recastSourceType='spell',recastSourceAction='Cure',alwaysAvailable=true}, {id=14,actionType='ja',action='Provoke',target='t'}}};
+settings["userSettings"]["hotbarBar1"] = {slotActions={['15:0:palette:Default']={[1]={macroRef=12,macroPaletteKey=15},[2]={macroRef=13,macroPaletteKey=15}}}};
+settings["userSettings"]["hotbarCrossbar"] = {slotActions={['15:0:palette:Default']={L2R2={[1]={actionType='command',action='/echo ordered'}},Shared={[1]={actionType='command',action='/echo shared'}}}}};
+return settings;)lua");
+        Check(preview.Valid() && preview.macros.size() == 3 && preview.actions == 4, "actual saved-profile assignments retain typed and unused library records");
+        action_store store; store.SetContext({15,0,{}});
+        Check(CommitActionImport(store, preview) == 2 && store.Macros().size() == 3, "shared library import is committed with both surface palettes");
+        const action_palette* hotbar{}, *crossbar{};
+        for (const auto& palette : store.AllPalettes()) if (palette.name == "Default" && palette.job == 15 && !palette.actions.hotbar[0][0].macro_id.empty()) hotbar = &palette;
+        for (const auto& palette : store.AllPalettes()) if (!palette.actions.crossbar[6][0].Empty()) crossbar = &palette;
+        Check(hotbar && crossbar && hotbar->id != crossbar->id && crossbar->actions.crossbar[2][0].lines[0] == "/echo ordered" && crossbar->actions.crossbar[6][0].lines[0] == "/echo shared", "Shared and ordered expanded data survive without overwrite");
+        const auto action = store.ExpandMacro(hotbar->actions.hotbar[0][0]);
+        const auto macro = store.ExpandMacro(hotbar->actions.hotbar[0][1]);
+        Check(action.kind == action_kind::spell && action.id == 0 && action.name == "Fire" && action.target == "<me>", "a library ID is never mistaken for a spell resource ID");
+        Check(macro.recast_kind == action_kind::spell && macro.recast_name == "Cure" && macro.always_available, "macro cooldown and availability metadata survive source expansion");
+        auto record = *store.Macro(hotbar->actions.hotbar[0][0].macro_id); record.definition.name = "Fire II"; record.definition.label = "Shared Fire II"; record.icon = "spell:145";
+        Check(store.SaveMacro(record) && store.ExpandMacro(hotbar->actions.hotbar[0][0]).name == "Fire II" && store.ExpandMacro(hotbar->actions.hotbar[0][0]).label == "Shared Fire II" && store.ExpandMacro(hotbar->actions.hotbar[0][0]).icon == "spell:145", "editing a typed shared definition updates its slot references");
+        settings_store settings{""}; store.Save(settings); action_store loaded; loaded.SetContext({15,0,{}}); loaded.Load(settings);
+        Check(loaded.Macros().size() == 3 && loaded.Macros()[0].definition.kind == action_kind::spell, "typed and unassigned definitions survive Native reload");
+        auto reference = hotbar->actions.hotbar[0][0]; reference.inherit_appearance = false; reference.label = "Local label"; reference.icon = "spell:1";
+        Check(store.ExpandMacro(reference).label == "Local label" && store.ExpandMacro(reference).icon == "spell:1", "legacy per-slot appearance overrides are preserved");
+        const auto old = settings_store::FromIniText("[actionbars.data]\nversion=1\npalette_count=1\nscope.h0=0\nscope.c0=0\n[actionbars.palette.0]\nid=old\nname=44656661756c74\njob=0\nsubjob=0\n[actionbars.palette.0.h0.0]\nkind=1\nid=144\nname=46697265\n[actionbars.palette.0.c2.0]\nkind=1\nid=145\nname=46697265204949\n");
+        action_store legacy; legacy.Load(old);
+        Check(legacy.ActivePalette(action_surface::hotbar) && legacy.ActivePalette(action_surface::crossbar) && legacy.ActivePalette(action_surface::hotbar)->id != legacy.ActivePalette(action_surface::crossbar)->id, "legacy combined sets become independent without resetting profile data");
+        Check(legacy.Resolve(action_surface::hotbar,0,0).id == 144 && legacy.Resolve(action_surface::crossbar,2,0).id == 145, "splitting legacy sets retains both surfaces' assignments");
     }
     auto ExecutionBoundaries(void) -> void
     {
@@ -211,8 +245,18 @@ return T{
     }
 }
 
-int main()
+int main(int argc, char** argv)
 {
-    try { Storage(); Imports(); ExecutionBoundaries(); MacroPresentation(); NativePaletteBoundaries(); std::puts("Action palette, macro, import and execution boundary checks passed."); return 0; }
+    try {
+        for (int i = 1; i < argc; ++i)
+        {
+            std::ifstream file{argv[i], std::ios::binary}; Check(static_cast<bool>(file), "open real writer fixture");
+            const std::string text{std::istreambuf_iterator<char>{file}, {}};
+            const auto preview = xiui::PreviewActionImport(text, argv[i]);
+            Check(preview.Valid() && preview.unsupported == 0 && preview.macros.size() == 3 && preview.palettes.size() == 4 && preview.actions == 408, "populated real-writer fixture preserves all supported action records");
+            xiui::action_store migrated; Check(xiui::CommitActionImport(migrated, preview) == 4, "real writer fixture commits atomically");
+            std::printf("Saved-profile fixture: %s; %zu actions, %zu library entries, %zu sets.\n", argv[i], preview.actions, preview.macros.size(), preview.palettes.size());
+        }
+        Storage(); Imports(); MigrationData(); ExecutionBoundaries(); MacroPresentation(); NativePaletteBoundaries(); std::puts("Action palette, macro, import and execution boundary checks passed."); return 0; }
     catch (const std::exception& error) { std::fprintf(stderr, "%s\n", error.what()); return 1; }
 }

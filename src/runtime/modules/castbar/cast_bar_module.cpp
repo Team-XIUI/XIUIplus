@@ -30,6 +30,7 @@ namespace xiui
 
     auto cast_bar_module::Load(const settings_store& store) -> void
     {
+        this->fastcast_.Load(store);
         this->state_.bounds = store.ReadRect("layout.castbar", this->state_.bounds);
         for (const auto& [key, value] : {std::pair{"enabled", &this->state_.enabled}, {"show_name", &this->show_name_},
             {"show_percent", &this->show_percent_}, {"show_items", &this->show_items_}, {"show_interrupted", &this->show_interrupted_}})
@@ -46,6 +47,7 @@ namespace xiui
 
     auto cast_bar_module::Save(const settings_store& store) const -> void
     {
+        this->fastcast_.Save(store);
         store.WriteRect("layout.castbar", this->state_.bounds);
         for (const auto& [key, value] : {std::pair{"enabled", this->state_.enabled}, {"show_name", this->show_name_},
             {"show_percent", this->show_percent_}, {"show_items", this->show_items_}, {"show_interrupted", this->show_interrupted_}})
@@ -80,6 +82,13 @@ namespace xiui
         case show_percent: return module_option::Toggle("Percentage", "Show the client's current cast percentage.", &this->show_percent_);
         case show_items: return module_option::Toggle("Item use", "Include item-use progress as well as spell casts.", &this->show_items_);
         case show_interrupted: return module_option::Toggle("Interruptions", "Briefly retain an interrupted cast with its interruption color.", &this->show_interrupted_);
+        case fastcast_enabled: return module_option::Toggle("Manual Fast Cast / true progress", "Adjust displayed spell progress using your configured reductions. Does not change actual casting speed.", &this->fastcast_.enabled);
+        case fastcast_job: return module_option::Element("Fast Cast job", "Choose the main job whose total Fast Cast reduction to edit.", &this->selected_job_, cast_job_names, 22).VisibleWhen(this->fastcast_.enabled);
+        case fastcast_amount: return module_option::Slider("Fast Cast percent", "Total Fast Cast for this main job, including equipment and traits.", &this->fastcast_.jobs[this->selected_job_], 0, 80, 1).VisibleWhen(this->fastcast_.enabled);
+        case fastcast_rdm_sub: return module_option::Slider("RDM subjob percent", "Additional Fast Cast when your subjob is RDM; combined reduction is capped at 80%.", &this->fastcast_.rdm_sub, 0, 80, 1).VisibleWhen(this->fastcast_.enabled);
+        case fastcast_cure: return module_option::Slider("WHM Cure speed percent", "Cure/Curaga cast-time reduction, multiplied with WHM Fast Cast.", &this->fastcast_.cure, 0, 80, 1).VisibleWhen(this->fastcast_.enabled);
+        case fastcast_singing: return module_option::Slider("BRD singing speed percent", "Singing cast-time reduction, multiplied with BRD Fast Cast.", &this->fastcast_.singing, 0, 80, 1).VisibleWhen(this->fastcast_.enabled);
+        case fastcast_summoning: return module_option::Slider("SMN summoning speed percent", "Summoning cast-time reduction, multiplied with SMN Fast Cast.", &this->fastcast_.summoning, 0, 80, 1).VisibleWhen(this->fastcast_.enabled);
         case width: return ModuleWidthOption(this->state_);
         case fill_top: return module_option::Color("Fill top", "Top of the cast progress gradient.", &this->top_, module_option_group::colors).Ordered(500, true);
         case fill_bottom: return module_option::Color("Fill bottom", "Bottom of the cast progress gradient.", &this->bottom_, module_option_group::colors).Ordered(501);
@@ -105,7 +114,7 @@ namespace xiui
         const auto started = cast != nullptr ? cast->started : 0;
         if (started != this->cast_started_) { this->animation_ = {}; this->cast_started_ = started; }
         const bool interrupted = cast != nullptr && cast->interrupted != 0;
-        const float progress = cast != nullptr ? cast->progress : 0.55f;
+        const float progress = cast != nullptr ? (cast->item ? cast->progress : this->fastcast_.Progress(cast->progress, this->source_->MainJob(), this->source_->SubJob(), cast->id, cast->skill)) : 0.55f;
         const char* name = interrupted ? "Interrupted" : cast != nullptr ? cast->name.c_str() : "Cure III";
         char percentage[16]{};
         if (this->show_percent_) std::snprintf(percentage, sizeof(percentage), "%.0f%%", progress * 100);

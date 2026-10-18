@@ -151,7 +151,7 @@ namespace xiui
             if (!Check(!module.State().enabled && !target.State().enabled && !target.PreviewVisible(), "new Pet and Pet Target displays start disabled")) return false;
             module.State().enabled = true; module.target_settings_.enabled = true;
             const auto cooldowns = module.Cooldowns(pet_kind::jug, now);
-            if (!Check(cooldowns.size() == 1 && cooldowns[0]->charges == 2 && cooldowns[0]->maximum_charges == 3,
+            if (!Check(cooldowns.size() == 1 && cooldowns[0].charges == 2 && cooldowns[0].maximum_charges == 3,
                 "Pet reuses native Ready charges from the existing recast source")) return false;
             ui::design_system design; module_render_context context{design}; module.Render({}, context);
             if (!Check(module.HasStatusDetails() && module.BeginControllerStatus() && module.ControllerStatusBounds().width > 0,
@@ -179,7 +179,7 @@ namespace xiui
             if (!Check(restored.types_[1].portrait && restored.types_[1].portrait_size == 64 && !restored.types_[1].lifetime,
                 "per-type portrait and lifetime visibility preferences persist")) return false;
             size_t visits{}; restored.VisitTextSettings([&](ui::text_style&) { ++visits; }); restoredTarget.VisitTextSettings([&](ui::text_style&) { ++visits; });
-            if (!Check(visits == pet_kind_count * 5 + 3, "global text visits every pet type and target profile exactly once")) return false;
+            if (!Check(visits == pet_kind_count * 9 + 3, "global text visits every pet type and target profile exactly once")) return false;
             auto theme = ui::theme::CreateDefault(); theme.caption_text.scale = 0.77f; theme.meter.height = 13;
             pet_module reset, resetTarget{true}; resetTarget.SetOwner(&reset);
             reset.ResetDefaults(theme); resetTarget.ResetDefaults(theme);

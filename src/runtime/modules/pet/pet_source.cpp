@@ -1,5 +1,9 @@
 #include "pet_source.hpp"
 #include "chat/chat_encoding.hpp"
+#include "pet_lifetimes.hpp"
+#include "modules/equipment/equipment_source.hpp"
+#include "modules/mobinfo/mob_database.hpp"
+#include <cstring>
 
 #include <algorithm>
 #include <cmath>
@@ -40,9 +44,52 @@ namespace xiui
         const bool same = sample.owner == this->state_.owner && sample.zone == this->state_.zone && sample.main_job == this->state_.main_job &&
             sample.sub_job == this->state_.sub_job && sample.pet.id != 0 && sample.pet.id == this->state_.pet.id && sample.pet.index == this->state_.pet.index;
         sample.observed_since = same ? this->state_.observed_since : sample.pet.id != 0 ? now : 0;
+        if (same) sample.estimated_expires = this->state_.estimated_expires;
+        else if (sample.kind == pet_kind::jug && sample.pet.id != 0)
+        {
+            const auto duration = JugLifetimeSeconds(sample.pet.name, this->rules_);
+            if (duration) sample.estimated_expires = now + uint64_t{duration} * 1000;
+        }
+        if (sample.kind == pet_kind::charm && sample.pet.id == this->charm_target_ && sample.owner == this->charm_owner_ && sample.estimated_expires == 0 && this->charm_started_ && now - this->charm_started_ < 30000)
+        {
+            if (this->charm_level_ == 0)
+                if (const auto* mob = MobById(sample.pet.id); mob && mob->minimum_level == mob->maximum_level) this->charm_level_ = mob->minimum_level;
+            const auto duration = CharmLifetimeSeconds(this->charm_player_level_, this->charm_level_, this->charm_charisma_, this->bonus_charisma_, this->charm_gear_);
+            if (duration) sample.estimated_expires = this->charm_started_ + uint64_t{duration} * 1000;
+        }
         this->state_ = std::move(sample);
     }
 
+    auto pet_source::HandlePacket(IAshitaCore* core, uint16_t id, std::span<const uint8_t> data, uint64_t now, const combat_action_packet* decoded) -> void
+    {
+        auto* memory = core ? core->GetMemoryManager() : nullptr; auto* player = memory ? memory->GetPlayer() : nullptr;
+        const auto* party = memory ? memory->GetParty() : nullptr;
+        if (!player || !party || !party->GetMemberServerId(0)) return;
+        if (id == 0x29 && data.size() >= 26 && this->charm_started_ && now >= this->charm_started_ && now - this->charm_started_ < 30000)
+        {
+            uint32_t target{}, level{}, parameter{}; uint16_t message{};
+            std::memcpy(&target, data.data() + 8, 4); std::memcpy(&level, data.data() + 12, 4);
+            std::memcpy(&parameter, data.data() + 16, 4); std::memcpy(&message, data.data() + 24, 2); message &= 0x7FFF;
+            if (target == this->charm_target_ && level > 0 && level <= 255 && ((message >= 0xAA && message <= 0xB2) || (parameter >= 0x40 && parameter <= 0x47))) this->charm_level_ = level;
+            return;
+        }
+        if (id != 0x28 || !decoded || !decoded->Action()) return;
+        const auto& action = *decoded->Action();
+        if (action.actor != party->GetMemberServerId(0) || action.category != 6 || action.target_count == 0) return;
+        auto ability = action.parameter & 0xFFFF; if (ability >= 512 && ability < 1024) ability -= 512;
+        if (ability == 8 && this->state_.kind == pet_kind::charm && this->state_.estimated_expires)
+        { this->state_.estimated_expires += 1500000; return; }
+        if (ability != 52) return;
+        this->charm_target_ = action.targets[0].id; this->charm_owner_ = action.actor; this->charm_started_ = now; this->charm_level_ = this->charm_gear_ = 0;
+        this->charm_player_level_ = player->GetMainJobLevel(); this->charm_charisma_ = player->GetStat(6);
+        if (const auto* inventory = memory->GetInventory())
+            for (uint32_t slot = 0; slot < 16; ++slot)
+            {
+                const auto item = equipment_source::ReadSlot(*inventory, slot);
+                for (const auto& bonus : charm_equipment_bonuses)
+                    if (item.ready && item.id == bonus.id && (bonus.id != 13667 || (this->rules_ == server_rules::horizon && player->GetSubJob() == 9))) this->charm_gear_ += bonus.ranks;
+            }
+    }
     auto pet_source::Update(IAshitaCore* core, const combat_source& combat, const uint64_t now) -> void
     {
         if (now < this->next_update_) return;

@@ -179,7 +179,7 @@ namespace xiui
             else if (!this->controller_status_.crossbar_mapping_known) crossbarState = "controller mappings are not ready";
             else if (!this->CrossbarSettings().enabled) crossbarState = "paused: another window owns input";
             if (this->core_ != nullptr && this->core_->GetChatManager() != nullptr)
-                this->core_->GetChatManager()->Writef(1, false, "[XIUI] Action Bars: %zu palettes, %zu macros; crossbar %s; native macro replacement %s. %s",
+                this->core_->GetChatManager()->Writef(1, false, "[XIUI] Action Bars: %zu palettes, %zu shared actions, 7 stored crossbar banks; crossbar %s; native macro replacement %s. %s",
                     this->action_store_.AllPalettes().size(), this->action_store_.Macros().size(),
                     crossbarState, this->actionbars_.ReplaceNativeMacros() ? "on" : "off", this->action_executor_.Status().c_str());
             if (const auto library = this->actionbars_.LibraryStatus(); !library.empty() && this->core_ != nullptr && this->core_->GetChatManager() != nullptr)

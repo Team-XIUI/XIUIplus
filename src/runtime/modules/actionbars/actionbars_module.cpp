@@ -22,7 +22,7 @@ namespace xiui
         constexpr const char* bar_names[]{"Hotbar 1", "Hotbar 2", "Hotbar 3", "Hotbar 4", "Hotbar 5", "Hotbar 6", "Hotbar 7", "Hotbar 8", "Hotbar 9", "Hotbar 10", "Crossbar"};
         constexpr const char* config_views[]{"Hotbar 1", "Hotbar 2", "Hotbar 3", "Hotbar 4", "Hotbar 5", "Hotbar 6", "Hotbar 7", "Hotbar 8", "Hotbar 9", "Hotbar 10", "Crossbar", "Actions & Macros", "Action Sets", "Import"};
         constexpr const char* bar_ids[]{"hotbar", "hotbar2", "hotbar3", "hotbar4", "hotbar5", "hotbar6", "hotbar7", "hotbar8", "hotbar9", "hotbar10", "crossbar"};
-        constexpr const char* bank_names[]{"Left trigger", "Right trigger", "Left then right", "Right then left", "Double left", "Double right"};
+        constexpr const char* bank_names[]{"Left trigger", "Right trigger", "Left then right", "Right then left", "Double left", "Double right", "Shared expanded"};
         constexpr std::array<size_t, 10> crossbar_sections{0, 6, 9, 1, 2, 3, 4, 5, 7, 8};
         constexpr std::array<size_t, 9> hotbar_sections{0, 9, 1, 2, 3, 4, 5, 7, 8};
         constexpr const char* profile_sections[]{"text.actionbars.title", "text.actionbars.label", "text.actionbars.binding", "text.actionbars.timer", "text.actionbars.tooltip", "text.actionbars.count", "text.actionbars.cost"};
@@ -34,8 +34,8 @@ namespace xiui
         constexpr const char* target_labels[]{"Current target <t>", "Self <me>", "Choose player <stpc>", "Choose enemy <stnpc>", "Choose target <st>", "Battle target <bt>", "Last subtarget <lastst>", "Choose alliance <stal>", "Choose party <stpt>", "Pet <pet>", "Party 1 <p0>", "Party 2 <p1>", "Party 3 <p2>", "Party 4 <p3>", "Party 5 <p4>", "Party 6 <p5>"};
         constexpr const char* equipment_slots[]{"main", "sub", "range", "ammo", "head", "body", "hands", "legs", "feet", "neck", "waist", "ear1", "ear2", "ring1", "ring2", "back"};
         constexpr size_t visible_results = 9;
-        constexpr int field_query = 1, field_name = 2, field_label = 3, field_target = 4, field_icon = 5, field_path = 6;
-        constexpr int result_first = 10000, category_first = 200, palette_first = 300, line_first = 400;
+        constexpr int field_query = 1, field_name = 2, field_label = 3, field_target = 4, field_icon = 5, field_path = 6, field_recast = 7;
+        constexpr int result_first = 10000, category_first = 200, palette_first = 3000, line_first = 400;
         constexpr int command_cancel = 500, command_save = 501, command_picker = 502, command_clear = 503, command_binding = 504, command_unbind = 505;
         constexpr int command_new = 510, command_copy = 511, command_rename = 512, command_delete = 513, command_up = 514, command_down = 515, command_select = 516;
         constexpr int command_previous = 520, command_next = 521, command_more_lines = 522, command_remove_line = 523;
@@ -43,7 +43,7 @@ namespace xiui
         constexpr int command_kind = 540, command_target = 541, command_equipment = 542, command_native_book = 543, command_native_set = 544, command_native_slot = 545, command_native_alt = 546;
         constexpr int command_macro_copy = 547, command_macro_delete = 548;
         constexpr int menu_library = 550, menu_edit = 551, menu_palettes = 552, menu_lock = 553, menu_shape = 554, menu_settings = 555, menu_keybinds = 556;
-        constexpr int new_macro = 560, new_command = 561, new_native = 562;
+        constexpr int new_macro = 560, new_command = 561, new_native = 562, command_recast = 563, command_available = 564, command_library = 565;
         constexpr int setup_enable = 600;
 
         auto Contains(const ui::rect& bounds, const float x, const float y) -> bool
@@ -58,8 +58,7 @@ namespace xiui
         }
         auto Numeric(const std::string& value, uint32_t fallback = 0) -> uint32_t
         { uint32_t parsed{}; const auto result = std::from_chars(value.data(), value.data() + value.size(), parsed); return result.ec == std::errc{} && result.ptr == value.data() + value.size() ? parsed : fallback; }
-        auto BankIndex(crossbar_bank bank) -> size_t
-        { return bank == crossbar_bank::none ? 0 : static_cast<size_t>(bank) - 1; }
+
     }
 
     actionbars_module::actionbars_module()
@@ -107,6 +106,7 @@ namespace xiui
         this->bars_[action_bar_count].size = 32; this->bars_[action_bar_count].slots = this->bars_[action_bar_count].columns = 8;
         this->bars_[0].state.enabled = true;
         this->inactive_ = this->prompts_ = this->allow_native_keys_ = this->crossbar_animations_ = true;
+        this->shared_expanded_ = false; this->crossbar_visibility_ = 0; this->crossbar_delay_ = 5; this->crossbar_fade_ = .15f; this->crossbar_alpha_ = 1;
         this->skillchain_predictions_ = true;
         this->local_combat_settings_.ResetDefaults();
         this->magic_burst_settings_request_ = false;
@@ -138,6 +138,10 @@ namespace xiui
             const auto number = [&](const char* key, float value, float minimum, float maximum) { const auto result = settings.ReadFloat(section.c_str(), key, value); return std::clamp(std::isfinite(result) ? result : value, minimum, maximum); };
             bar.columns = std::round(number("columns", bar.columns, 1, 12)); bar.slots = std::round(number("slots", bar.slots, 1, 12));
             bar.size = number("icon_size", bar.size, 24, 72); bar.gap = number("spacing", bar.gap, 0, 24);
+            bar.gap_y = number("vertical_spacing", -1, -1, 24); bar.custom_text = settings.ReadBool(section.c_str(), "custom_text", false);
+            bar.label_wrap = settings.ReadBool(section.c_str(), "label_wrap", false); bar.button_icons = settings.ReadBool(section.c_str(), "button_icons", true);
+            bar.diamond_spacing = number("diamond_spacing", -1, -1, 128); bar.group_spacing = number("group_spacing", 32, 0, 128);
+            bar.prompt_size = number("prompt_size", 16, 8, 48); bar.prompt_gap_x = number("prompt_gap_x", 8, 0, 48); bar.prompt_gap_y = number("prompt_gap_y", 2, 0, 48);
             const auto slotSection = section + ".slots"; auto& style = bar.style;
             style.frame = std::clamp(settings.ReadInt(slotSection.c_str(), "frame", style.frame), 0, actionbar_slot_style::window_frame);
             style.cooldown_style = std::clamp(settings.ReadInt(slotSection.c_str(), "cooldown_style", style.cooldown_style), 0, 3);
@@ -171,6 +175,12 @@ namespace xiui
             }
             this->Layout(index);
         }
+        this->shared_expanded_ = settings.ReadBool("actionbars", "shared_expanded", false);
+        this->crossbar_visibility_ = std::clamp(settings.ReadInt("actionbars", "crossbar_visibility", 0), 0, 2);
+        this->crossbar_delay_ = std::clamp(settings.ReadFloat("actionbars", "crossbar_release_delay", 5), 0.0f, 30.0f);
+        this->crossbar_fade_ = std::clamp(settings.ReadFloat("actionbars", "crossbar_fade", .15f), 0.0f, 2.0f);
+        this->crossbar_alpha_ = this->crossbar_visibility_ == 0 ? 1.0f : 0.0f;
+        this->visibility_updated_ = this->last_trigger_ = 0;
         this->inactive_ = settings.ReadBool("actionbars", "inactive_crossbar", true);
         this->prompts_ = settings.ReadBool("actionbars", "controller_prompts", true);
         this->crossbar_animations_ = settings.ReadBool("actionbars", "crossbar_animations", true);
@@ -224,6 +234,9 @@ namespace xiui
             }
             this->settings_changed_ = true;
         }
+        for (size_t barIndex = 0; barIndex < this->bars_.size(); ++barIndex)
+            for (size_t role = 0; role < this->text_.size(); ++role)
+                this->bars_[barIndex].text[role] = LoadTextProfile(settings, ("text.actionbars.bar" + std::to_string(barIndex) + "." + std::to_string(role)).c_str(), this->text_[role]);
         auto& controller = this->controller_settings_;
         for (auto [key, value] : {std::pair{"enabled", &controller.enabled}, {"replace_native", &controller.replace_native}, {"expanded", &controller.expanded}, {"double_tap", &controller.double_tap}, {"palette_cycle", &controller.palette_cycle}, {"palette_left_shoulder", &controller.palette_left_shoulder}})
             *value = settings.ReadBool("controller.crossbar.device", key, *value);
@@ -275,6 +288,17 @@ namespace xiui
                 settings.WriteInt((section + ".keys").c_str(), key.c_str(), bar.keys[slot].key);
                 settings.WriteInt((section + ".modifiers").c_str(), key.c_str(), bar.keys[slot].modifiers);
             }
+        }
+        settings.WriteBool("actionbars", "shared_expanded", this->shared_expanded_);
+        settings.WriteInt("actionbars", "crossbar_visibility", this->crossbar_visibility_);
+        settings.WriteFloat("actionbars", "crossbar_release_delay", this->crossbar_delay_); settings.WriteFloat("actionbars", "crossbar_fade", this->crossbar_fade_);
+        for (size_t barIndex = 0; barIndex < this->bars_.size(); ++barIndex)
+        {
+            const auto section = std::string{"actionbars."} + bar_ids[barIndex]; const auto& bar = this->bars_[barIndex];
+            settings.WriteFloat(section.c_str(), "vertical_spacing", bar.gap_y); settings.WriteBool(section.c_str(), "custom_text", bar.custom_text);
+            settings.WriteBool(section.c_str(), "label_wrap", bar.label_wrap); settings.WriteBool(section.c_str(), "button_icons", bar.button_icons);
+            for (const auto& [key, value] : {std::pair{"diamond_spacing", bar.diamond_spacing}, {"group_spacing", bar.group_spacing}, {"prompt_size", bar.prompt_size}, {"prompt_gap_x", bar.prompt_gap_x}, {"prompt_gap_y", bar.prompt_gap_y}}) settings.WriteFloat(section.c_str(), key, value);
+            for (size_t role = 0; role < this->text_.size(); ++role) SaveTextProfile(settings, ("text.actionbars.bar" + std::to_string(barIndex) + "." + std::to_string(role)).c_str(), bar.text[role]);
         }
         settings.WriteBool("actionbars", "inactive_crossbar", this->inactive_); settings.WriteBool("actionbars", "controller_prompts", this->prompts_);
         settings.WriteBool("actionbars", "crossbar_animations", this->crossbar_animations_);
@@ -344,6 +368,10 @@ namespace xiui
         if (index == edit || index == palettes || index == import) return false;
         if (index == bar_selector) return this->view_ < action_bar_count;
         if (index == bank) return this->view_ == action_bar_count && topic == "layout";
+        if (index == shared_expanded || index == visibility_mode || index == visibility_delay || index == visibility_fade) return topic == "controller";
+        if (index == vertical_gap || index == diamond_spacing || index == group_spacing) return topic == "layout";
+        if (index == per_bar_text || index == label_wrap) return topic == "text";
+        if (index == button_icons || index == prompt_size || index == prompt_gap_x || index == prompt_gap_y) return topic == "controller";
         if (index == crossbar_animations) return topic == "controller";
         if (index >= skillchain_predictions && index <= magic_burst_settings) return topic == "skillchains";
         if (index >= base_options || index == selected_text) return topic == "text";
@@ -368,11 +396,24 @@ namespace xiui
         static constexpr const char* cooldownStyles[]{"Clock sweep", "Fill from bottom", "Fill from top", "No overlay"};
         static constexpr const char* anchors[]{"Top left", "Top center", "Top right", "Middle left", "Center", "Middle right", "Bottom left", "Bottom center", "Bottom right"};
         static constexpr const char* promptThemes[]{"Auto", "Xbox", "PlayStation", "Nintendo", "Position labels"};
-        if (index >= base_options) return TextProfileOption(index - base_options, this->text_[this->selected_text_]);
+        if (index >= base_options) return TextProfileOption(index - base_options, bar.custom_text ? bar.text[this->selected_text_] : this->text_[this->selected_text_]);
         const auto controllerOnly = [&](module_option option) { return option.VisibleWhen(this->view_ == action_bar_count); };
         const auto customSlot = [&](module_option option) { return option.VisibleWhen(bar.style.frame != actionbar_slot_style::window_frame); };
         switch (index)
         {
+        case shared_expanded: return controllerOnly(module_option::Toggle("Shared expanded bank", "Both trigger orders use a separate Shared bank. Ordered-bank assignments are retained.", &this->shared_expanded_));
+        case vertical_gap: return module_option::Slider("Vertical spacing", "Row spacing; -1 follows horizontal spacing.", &bar.gap_y, -1, 24, 1).Ordered(122);
+        case per_bar_text: return module_option::Toggle("Independent text styles", "Customize text for this bar instead of the shared Action Bars styles.", &bar.custom_text).Ordered(-50);
+        case label_wrap: return module_option::Toggle("Wrap action labels", "Allow up to two lines below action icons.", &bar.label_wrap).VisibleWhen(bar.labels);
+        case diamond_spacing: return controllerOnly(module_option::Slider("Diamond spacing", "Space between D-pad and face-button diamonds; -1 uses the default.", &bar.diamond_spacing, -1, 128, 1).Ordered(123));
+        case group_spacing: return controllerOnly(module_option::Slider("Trigger group spacing", "Space between the left and right crossbar groups.", &bar.group_spacing, 0, 128, 1).Ordered(124));
+        case button_icons: return controllerOnly(module_option::Toggle("Button icons", "Show button prompts for crossbar slots.", &bar.button_icons));
+        case prompt_size: return controllerOnly(module_option::Slider("Button icon size", "Size of crossbar button artwork.", &bar.prompt_size, 8, 48, 1).VisibleWhen(bar.button_icons));
+        case prompt_gap_x: return controllerOnly(module_option::Slider("Button icon horizontal spacing", "Horizontal separation of center button prompts.", &bar.prompt_gap_x, 0, 48, 1).VisibleWhen(bar.button_icons));
+        case prompt_gap_y: return controllerOnly(module_option::Slider("Button icon vertical spacing", "Vertical separation of center button prompts.", &bar.prompt_gap_y, 0, 48, 1).VisibleWhen(bar.button_icons));
+        case visibility_mode: { static constexpr const char* modes[]{"Normal", "Triggers held", "Combat or triggers"}; return controllerOnly(module_option::Choice("Crossbar visibility", "Show normally, while triggers are held, or during combat and after trigger use.", &this->crossbar_visibility_, modes, 3)); }
+        case visibility_delay: return controllerOnly(module_option::Slider("Trigger release delay", "Seconds to retain Combat or triggers mode after releasing a trigger.", &this->crossbar_delay_, 0, 30, .5f).VisibleWhen(this->crossbar_visibility_ == 2));
+        case visibility_fade: return controllerOnly(module_option::Slider("Visibility fade", "Seconds for crossbar visibility transitions; zero changes immediately.", &this->crossbar_fade_, 0, 2, .05f).VisibleWhen(this->crossbar_visibility_ != 0));
         case keybinds: return module_option::Action("Keybinds", "Open the slot list to rebind hotbar keys or crossbar controller buttons.", "Open").Ordered(-40);
         case skillchain_predictions: return module_option::Toggle("Action predictions", "Highlight compatible weapon skills/abilities and burstable spells on all hotbars and the crossbar. Works independently of the Magic Burst HUD.", &this->skillchain_predictions_);
         case skillchain_rules: return module_option::Choice("Skillchain rules", "Shared combat profile for predictions, debuff estimates and Phantom Roll base values. Phoenix uses its 75-cap rules. Changing rules clears combat observations.", this->CombatSettings().RulesChoice(), server_rule_names, 3);
@@ -404,7 +445,7 @@ namespace xiui
         case tooltips: return module_option::Toggle("Tooltips", "Show action, target, resource and availability details on hover or focus.", &bar.tooltips);
         case opacity: return module_option::Slider("Background opacity", "Opacity shared by action-bar containers.", &this->container_.opacity, 0.1f, 1, 0.05f).Ordered(300, true);
         case padding: return module_option::Slider("Padding", "Space inside action-bar containers.", &this->container_.padding, 0, 24, 1).Ordered(301);
-        case bank: return controllerOnly(module_option::Element("Edited bank", "Choose which trigger bank the editor and storage controls modify.", &this->selected_bank_, bank_names, 6));
+        case bank: return controllerOnly(module_option::Element("Edited bank", "Choose which trigger bank the editor and storage controls modify.", &this->selected_bank_, bank_names, action_crossbar_banks));
         case setup: return controllerOnly(module_option::Action("Controller Setup", "Choose your device, trigger feel and explicit native macro replacement.", "Set up controller").Ordered(-100));
         case crossbar_enabled: return controllerOnly(module_option::Toggle("Use XIUI trigger controls", "Route trigger actions to XIUI. Chat, native menus and target selection retain their controls. Device settings stay local.", &this->trigger_controls_));
         case native_replace: return module_option::Toggle("Native trigger replacement", "", &this->controller_settings_.replace_native).VisibleWhen(false);
@@ -471,6 +512,8 @@ namespace xiui
     }
     auto actionbars_module::OnOptionChanged(const size_t index) -> void
     {
+        if (index == per_bar_text && this->bars_[this->view_].custom_text) this->bars_[this->view_].text = this->text_;
+        if (index == shared_expanded) this->SuspendInput();
         switch (index)
         {
         case keybinds: this->OpenKeybinds(this->Surface() == action_surface::crossbar, this->ConfigBar()); break;
@@ -517,7 +560,18 @@ namespace xiui
 
     auto actionbars_module::Update(const uint64_t now) -> void
     {
-        this->now_ = now;
+        const auto elapsed = this->visibility_updated_ && now >= this->visibility_updated_ ? (now - this->visibility_updated_) / 1000.0f : 0.0f;
+        this->visibility_updated_ = now; this->now_ = now;
+        const auto* memory = this->core_ ? this->core_->GetMemoryManager() : nullptr;
+        const auto* party = memory ? memory->GetParty() : nullptr;
+        const auto* entity = memory ? memory->GetEntity() : nullptr;
+        const auto index = party ? party->GetMemberTargetIndex(0) : 0;
+        this->engaged_ = entity && index && index < entity->GetEntityMapSize() && entity->GetStatus(index) == 1;
+        if (this->triggers_ != 0) this->last_trigger_ = now;
+        const bool wanted = this->crossbar_visibility_ == 0 || this->triggers_ != 0 ||
+            (this->crossbar_visibility_ == 2 && (this->engaged_ || (this->last_trigger_ && now - this->last_trigger_ < this->crossbar_delay_ * 1000)));
+        const float target = wanted ? 1.0f : 0.0f, step = this->crossbar_fade_ > 0 ? elapsed / this->crossbar_fade_ : 1;
+        this->crossbar_alpha_ += std::clamp(target - this->crossbar_alpha_, -step, step);
         if (this->store_ && this->store_revision_ != this->store_->Revision()) { this->store_revision_ = this->store_->Revision(); this->SyncStorage(); }
         if (this->dialog_ == dialog::picker && now - this->last_catalog_refresh_ > 2000) { this->RebuildResults(); this->last_catalog_refresh_ = now; }
         if (this->message_until_ && now > this->message_until_) { this->message_.clear(); this->message_until_ = 0; }
@@ -568,6 +622,7 @@ namespace xiui
 {
     auto actionbars_module::OpenEditor(const bool crossbar, const size_t bar, const size_t slot) -> void
     {
+        this->library_edit_ = false;
         this->CommitField(); this->binding_capture_ = false;
         this->selected_ = {crossbar ? action_surface::crossbar : action_surface::hotbar, std::min(bar, crossbar ? action_crossbar_banks - 1 : action_bar_count - 1), std::min(slot, crossbar ? action_crossbar_slots - 1 : action_bar_slots - 1)};
         this->view_ = crossbar ? action_bar_count : this->selected_.bar;
@@ -576,6 +631,7 @@ namespace xiui
         {
             const auto& source = this->store_->Resolve(this->selected_.surface, this->selected_.bar, this->selected_.slot);
             this->draft_ = this->store_->ExpandMacro(source); this->draft_.macro_id = source.macro_id;
+            this->library_draft_ = !source.macro_id.empty();
         }
         else this->draft_ = {};
         this->draft_pet_ = this->store_ && this->store_->PetAware(this->selected_.surface, this->selected_.bar) && !this->store_->Context().pet.empty();
@@ -634,15 +690,26 @@ namespace xiui
             this->PrepareAction(action);
             this->results_.push_back(std::move(action));
         }
-        if (this->store_ && (this->category_ == 0 || this->category_ == 7))
+        if (this->store_)
             for (const auto& macro : this->store_->Macros())
             {
                 if (!query.empty() && Lower(macro.name).find(query) == std::string::npos) continue;
-                action_slot action; action.kind = action_kind::macro; action.name = macro.name; action.icon = macro.icon; action.lines = macro.lines; action.macro_id = macro.id;
+                action_slot action = macro.definition;
+                if (action.Empty()) { action.kind = action_kind::macro; action.name = macro.name; action.icon = macro.icon; action.lines = macro.lines; }
+                if (this->category_ != 0 && this->category_ != 7 && category_kinds[this->category_] != action.kind) continue;
+                action.macro_id = macro.id; action.inherit_appearance = true;
                 this->results_.push_back(std::move(action));
             }
         this->focused_result_ = std::min(this->focused_result_, this->results_.empty() ? 0 : this->results_.size() - 1);
         this->SetScroll(static_cast<int>(this->result_scroll_));
+    }
+    auto actionbars_module::EditLibraryEntry(const size_t index) -> bool
+    {
+        if (!this->store_ || index >= this->results_.size() || this->results_[index].macro_id.empty()) return false;
+        this->CommitField(); const auto& source = this->results_[index];
+        this->draft_ = this->store_->ExpandMacro(source); this->draft_.macro_id = source.macro_id;
+        this->library_edit_ = this->library_draft_ = true; this->line_scroll_ = 0; this->dialog_ = dialog::editor;
+        this->focused_control_ = field_name; this->message_.clear(); this->SetWindowFocused(true); return true;
     }
     auto actionbars_module::ChooseResult(const size_t index) -> void
     {
@@ -654,6 +721,7 @@ namespace xiui
     }
     auto actionbars_module::NewDraft(const action_kind kind) -> void
     {
+        this->library_edit_ = false; this->library_draft_ = kind == action_kind::macro;
         this->draft_ = {}; this->draft_.kind = kind; this->draft_.target = "<t>";
         if (kind == action_kind::macro || kind == action_kind::command) this->draft_.lines = {""};
         if (kind == action_kind::equip) this->draft_.equipment_slot = "main";
@@ -666,11 +734,16 @@ namespace xiui
         this->draft_.name = Trim(this->draft_.name); this->draft_.label = Trim(this->draft_.label); this->draft_.target = Trim(this->draft_.target);
         const auto error = ValidateAction(this->draft_);
         if (!error.empty()) { this->Notice(error); return; }
-        if (this->store_ && this->draft_.kind == action_kind::macro)
+        if (this->store_ && (this->library_draft_ || !this->draft_.macro_id.empty()))
         {
-            if (this->draft_.macro_id.empty()) this->draft_.macro_id = this->store_->CreateMacro(this->draft_.name.empty() ? "Macro" : this->draft_.name, this->draft_.lines, this->draft_.icon);
-            else if (!this->store_->SaveMacro({this->draft_.macro_id, this->draft_.name, this->draft_.icon, this->draft_.lines})) { this->Notice("The shared macro could not be saved."); return; }
+            auto definition = this->draft_; definition.macro_id.clear();
+            const auto name = !this->draft_.label.empty() ? this->draft_.label : this->draft_.name.empty() ? std::string{ActionKindName(this->draft_.kind)} : this->draft_.name;
+            action_macro macro{this->draft_.macro_id, name, this->draft_.icon, this->draft_.lines, definition};
+            if (macro.id.empty()) { this->draft_.macro_id = this->store_->ImportMacro(std::move(macro)); this->draft_.inherit_appearance = true; }
+            else if (!this->store_->SaveMacro(macro)) { this->Notice("The shared action could not be saved."); return; }
+            if (this->draft_.macro_id.empty()) { this->Notice("The shared library is full or the action is invalid."); return; }
         }
+        if (this->library_edit_) { this->library_edit_ = false; this->OpenPicker(); return; }
         if (this->store_ && this->store_->Assign(this->selected_.surface, this->selected_.bar, this->selected_.slot, this->draft_, this->draft_pet_))
         {
             this->Presentation(this->selected_).state.enabled = true; this->settings_changed_ = true; this->CloseDialog();
@@ -682,7 +755,7 @@ namespace xiui
         this->FinishWindowGesture(false); this->window_focused_ = false;
         this->input_.Cancel(); this->editing_field_ = 0; this->binding_capture_ = false;
         this->CancelSetupControls();
-        this->dialog_ = dialog::none; this->navigation_focus_ = this->browsing_;
+        this->dialog_ = dialog::none; this->library_edit_ = false; this->navigation_focus_ = this->browsing_;
         if (this->pointer_down_) this->discard_pointer_release_ = true;
         this->pointer_down_ = this->dragging_ = this->scrolling_ = false; this->pressed_control_ = 0;
         this->library_drag_.reset(); this->library_pressed_.reset(); this->placing_ = false;
@@ -694,6 +767,7 @@ namespace xiui
         if (id == field_label) return this->draft_.label;
         if (id == field_target) return this->draft_.target;
         if (id == field_icon) return this->draft_.icon;
+        if (id == field_recast) return this->draft_.recast_name;
         if (id == field_path) return this->import_path_;
         if (id >= line_first && id < line_first + 32) { const auto line = static_cast<size_t>(id - line_first); return line < this->draft_.lines.size() ? this->draft_.lines[line] : std::string{}; }
         return {};
@@ -705,6 +779,7 @@ namespace xiui
         else if (id == field_label) this->draft_.label = std::move(value);
         else if (id == field_target) this->draft_.target = std::move(value);
         else if (id == field_icon) this->draft_.icon = std::move(value);
+        else if (id == field_recast) { this->draft_.recast_name = Trim(std::move(value)); this->draft_.recast_id = Numeric(this->draft_.recast_name); if (this->draft_.recast_id) this->draft_.recast_name.clear(); }
         else if (id == field_path) { this->import_path_ = std::move(value); this->import_preview_ = {}; }
         else if (id >= line_first && id < line_first + 32) { const auto line = static_cast<size_t>(id - line_first); if (line < this->draft_.lines.size()) this->draft_.lines[line] = std::move(value); }
     }
@@ -730,7 +805,7 @@ namespace xiui
         std::ifstream stream(this->import_path_, std::ios::binary | std::ios::ate);
         if (!stream) { this->Notice("The local file could not be opened."); return; }
         const auto size = stream.tellg();
-        if (size <= 0 || size > 2 * 1024 * 1024) { this->Notice("Choose a non-empty file smaller than 2 MB."); return; }
+        if (size <= 0 || size > 16 * 1024 * 1024) { this->Notice("Choose a non-empty file smaller than 16 MB."); return; }
         std::string text(static_cast<size_t>(size), '\0'); stream.seekg(0); stream.read(text.data(), static_cast<std::streamsize>(text.size()));
         if (!stream) { this->Notice("The local file could not be read completely."); return; }
         this->import_preview_ = PreviewActionImport(text, this->import_path_);
@@ -758,7 +833,7 @@ namespace xiui
         { this->category_ = id - category_first; this->result_scroll_ = this->focused_result_ = 0; this->RebuildResults(); return; }
         if (this->dialog_ == dialog::picker && id >= result_first && static_cast<size_t>(id - result_first) < this->results_.size())
         { this->ChooseResult(static_cast<size_t>(id - result_first)); return; }
-        if (id >= palette_first && id < line_first)
+        if (id >= palette_first && id < palette_first + 512)
         {
             const auto palettes = this->store_ ? this->store_->Palettes(this->selected_.surface, this->selected_.bar) : std::vector<const action_palette*>{};
             const auto index = static_cast<size_t>(id - palette_first);
@@ -773,6 +848,7 @@ namespace xiui
         switch (id)
         {
         case command_cancel:
+            if (this->library_edit_ && this->dialog_ == dialog::editor) { this->library_edit_ = false; this->OpenPicker(); break; }
             if (this->dialog_ == dialog::delete_macro) { this->dialog_ = dialog::editor; this->focused_control_ = command_macro_delete; }
             else if (this->dialog_ == dialog::name || this->dialog_ == dialog::delete_palette) { this->dialog_ = dialog::palettes; this->focused_control_ = command_cancel; }
             else this->CloseDialog();
@@ -817,7 +893,7 @@ namespace xiui
         case command_delete:
             if (this->dialog_ == dialog::delete_macro)
             {
-                if (this->store_ && this->store_->DeleteMacro(this->draft_.macro_id)) { this->draft_.macro_id.clear(); this->dialog_ = dialog::editor; this->focused_control_ = command_save; }
+                if (this->store_ && this->store_->DeleteMacro(this->draft_.macro_id)) { this->draft_.macro_id.clear(); this->library_draft_ = false; if (this->library_edit_) { this->library_edit_ = false; this->OpenPicker(); } else { this->dialog_ = dialog::editor; this->focused_control_ = command_save; } }
                 else this->Notice("The macro could not be removed.");
             }
             else if (this->dialog_ == dialog::delete_palette)
@@ -849,8 +925,19 @@ namespace xiui
             break;
         case command_learned: case command_all_actions:
             this->only_learned_ = id == command_learned; this->result_scroll_ = this->focused_result_ = 0; this->RebuildResults(); break;
+        case command_library:
+            if (!this->library_edit_) { if (!this->draft_.macro_id.empty()) { this->draft_.macro_id.clear(); this->library_draft_ = false; } else this->library_draft_ = !this->library_draft_; }
+            break;
+        case command_available: this->draft_.always_available = !this->draft_.always_available; break;
+        case command_recast:
+        {
+            constexpr action_kind kinds[]{action_kind::none, action_kind::none, action_kind::spell, action_kind::ability, action_kind::pet, action_kind::item};
+            auto index = this->draft_.recast_disabled ? ptrdiff_t{1} : this->draft_.recast_kind == action_kind::none ? ptrdiff_t{0} : std::find(std::begin(kinds) + 2, std::end(kinds), this->draft_.recast_kind) - std::begin(kinds);
+            index = (index + adjustment + 6) % 6;
+            this->draft_.recast_kind = kinds[index]; this->draft_.recast_disabled = index == 1; this->draft_.recast_id = 0; break;
+        }
         case command_pet: this->draft_pet_ = !this->draft_pet_; break;
-        case command_macro_copy: this->draft_.macro_id.clear(); this->draft_.name += " copy"; break;
+        case command_macro_copy: this->draft_.macro_id.clear(); this->library_draft_ = true; this->draft_.name += " copy"; break;
         case command_macro_delete: this->dialog_ = dialog::delete_macro; this->focused_control_ = command_cancel; break;
         case command_kind:
             this->draft_.kind = static_cast<action_kind>((std::max(1, static_cast<int>(this->draft_.kind)) - 1 + adjustment + 9) % 9 + 1);
@@ -977,7 +1064,7 @@ namespace xiui
                 const auto& entry = this->results_[index];
                 const ui::rect cell{layout.list.x + static_cast<float>(offset % layout.columns) * layout.column_pitch,
                     layout.list.y + static_cast<float>(offset / layout.columns) * layout.row_pitch, layout.column_width, layout.row_height};
-                result.push_back({result_first + static_cast<int>(index), cell, entry.name, this->category_ == 0 ? ActionKindName(entry.kind) : "", control_kind::list, true, index == this->focused_result_});
+                result.push_back({result_first + static_cast<int>(index), cell, entry.label.empty() ? entry.name : entry.label, this->category_ == 0 ? ActionKindName(entry.kind) : "", control_kind::list, true, index == this->focused_result_});
             }
             result.push_back({new_macro, layout.create[0], "New macro", {}, control_kind::button});
             result.push_back({new_command, layout.create[1], "Command", {}, control_kind::button});
@@ -996,23 +1083,23 @@ namespace xiui
                 choice(command_target, top + 102, "Target", target == std::end(targets) ? this->draft_.target : target_labels[target - std::begin(targets)]);
             }
             field(field_icon, top + 136, "Icon override", this->draft_.icon);
-            if (this->draft_.kind == action_kind::equip) choice(command_equipment, top + 170, "Equipment slot", this->draft_.equipment_slot.empty() ? "main" : this->draft_.equipment_slot);
+            if (this->draft_.kind != action_kind::macro && this->draft_.kind != action_kind::command) choice(command_library, top + 170, "Shared library", this->library_draft_ ? "Shared action" : "Slot only");
+            if (this->draft_.kind == action_kind::equip) choice(command_equipment, top + 204, "Equipment slot", this->draft_.equipment_slot.empty() ? "main" : this->draft_.equipment_slot);
             if (this->draft_.kind == action_kind::macro || this->draft_.kind == action_kind::command)
             {
-                const size_t count = this->draft_.kind == action_kind::command ? 1 : 5;
+                choice(command_library, top + 102, "Shared library", this->library_draft_ || !this->draft_.macro_id.empty() ? "Shared action" : "Slot only");
+                choice(command_recast, top + 170, "Cooldown source", this->draft_.recast_disabled ? "None" : this->draft_.recast_kind == action_kind::none ? "Automatic" : ActionKindName(this->draft_.recast_kind));
+                if (this->draft_.recast_kind != action_kind::none) field(field_recast, top + 204, "Cooldown action", this->draft_.recast_name.empty() && this->draft_.recast_id ? std::to_string(this->draft_.recast_id) : this->draft_.recast_name);
+                choice(command_available, top + 238, "Availability", this->draft_.always_available ? "Always available" : "Follow action");
+                const size_t count = this->draft_.kind == action_kind::command ? 1 : 3;
                 for (size_t row = 0; row < count && row + this->line_scroll_ < this->draft_.lines.size(); ++row)
-                    field(line_first + static_cast<int>(row + this->line_scroll_), top + 174 + static_cast<float>(row) * 31, "Line " + std::to_string(row + this->line_scroll_ + 1), this->draft_.lines[row + this->line_scroll_]);
+                    field(line_first + static_cast<int>(row + this->line_scroll_), top + 272 + static_cast<float>(row) * 31, "Line " + std::to_string(row + this->line_scroll_ + 1), this->draft_.lines[row + this->line_scroll_]);
                 if (this->draft_.kind == action_kind::macro)
                 {
                     button(command_previous, left, bounds.y + bounds.height - 116, 80, "Previous", this->line_scroll_ > 0);
-                    button(command_next, left + 88, bounds.y + bounds.height - 116, 80, "Next", this->line_scroll_ + 5 < this->draft_.lines.size());
+                    button(command_next, left + 88, bounds.y + bounds.height - 116, 80, "Next", this->line_scroll_ + 3 < this->draft_.lines.size());
                     button(command_more_lines, left + 176, bounds.y + bounds.height - 116, 94, "Add line", this->draft_.lines.size() < 32);
                     button(command_remove_line, left + 278, bounds.y + bounds.height - 116, 108, "Remove last", this->draft_.lines.size() > 1);
-                    if (!this->draft_.macro_id.empty())
-                    {
-                        button(command_macro_copy, left + 394, bounds.y + bounds.height - 116, 116, "Make a copy");
-                        button(command_macro_delete, left + 518, bounds.y + bounds.height - 116, right - left - 518, "Delete shared...", true, false, true);
-                    }
                 }
             }
             if (this->draft_.kind == action_kind::native_macro)
@@ -1022,8 +1109,13 @@ namespace xiui
                 choice(command_native_slot, top + 242, "Native slot", std::to_string(this->draft_.native.slot));
                 choice(command_native_alt, top + 276, "Native row", this->draft_.native.alt ? "Alt" : "Ctrl");
             }
-            button(command_picker, left, bounds.y + bounds.height - 78, 136, "Choose action...");
-            if (this->selected_.surface == action_surface::hotbar)
+            if (!this->draft_.macro_id.empty())
+            {
+                button(command_macro_copy, left + 394, bounds.y + bounds.height - 116, 116, "Make a copy");
+                button(command_macro_delete, left + 518, bounds.y + bounds.height - 116, right - left - 518, "Delete shared...", true, false, true);
+            }
+            button(command_picker, left, bounds.y + bounds.height - 78, 136, "Choose action...", !this->library_edit_);
+            if (this->selected_.surface == action_surface::hotbar && !this->library_edit_)
             {
                 button(command_binding, left + 144, bounds.y + bounds.height - 78, 186, this->binding_capture_ ? "Press a key..." : "Binding: " + this->BindingLabel(this->Binding(this->selected_)));
                 button(command_unbind, left + 338, bounds.y + bounds.height - 78, 88, "Unbind", this->Binding(this->selected_).key != 0);
@@ -1032,8 +1124,8 @@ namespace xiui
             }
             else if (this->store_ && this->store_->PetAware(this->selected_.surface, this->selected_.bar) && !this->store_->Context().pet.empty())
                 button(command_pet, left + 144, bounds.y + bounds.height - 78, 260, this->draft_pet_ ? "Save for pet: " + this->store_->Context().pet : "Save for all pets");
-            button(command_clear, left, bounds.y + bounds.height - 44, 96, "Clear slot", true, false, true);
-            footer(); button(command_save, right - 104, bounds.y + bounds.height - 44, 104, "Save action");
+            button(command_clear, left, bounds.y + bounds.height - 44, 96, "Clear slot", !this->library_edit_, false, true);
+            footer(); button(command_save, right - 104, bounds.y + bounds.height - 44, 104, this->library_edit_ ? "Save shared" : "Save action");
             return result;
         }
         if (this->dialog_ == dialog::palettes)
@@ -1152,7 +1244,7 @@ namespace xiui
             }
             focusResult();
         }
-        if ((this->dialog_ == dialog::palettes || this->dialog_ == dialog::palette_dropdown) && this->focused_control_ >= palette_first && this->focused_control_ < line_first && dy != 0)
+        if ((this->dialog_ == dialog::palettes || this->dialog_ == dialog::palette_dropdown) && this->focused_control_ >= palette_first && this->focused_control_ < palette_first + 512 && dy != 0)
         {
             const auto count = this->store_ ? this->store_->Palettes(this->selected_.surface, this->selected_.bar).size() : 0;
             const auto current = this->focused_control_ - palette_first;
@@ -1242,6 +1334,7 @@ namespace xiui
         }
         if (this->dialog_ != dialog::none)
         {
+            if (this->dialog_ == dialog::picker && action == controller_action::actions && this->focused_control_ >= result_first && this->EditLibraryEntry(static_cast<size_t>(this->focused_control_ - result_first))) return true;
             if (action == controller_action::cancel) { if (this->dialog_ == dialog::palette_dropdown || this->dialog_ == dialog::slot_menu || this->dialog_ == dialog::bar_menu) this->CloseDialog(); else this->ActivateControl(command_cancel); }
             else if (action == controller_action::confirm || action == controller_action::actions) this->ActivateControl(this->focused_control_);
             else if (direction) this->MoveControl(action == controller_action::left ? -1 : action == controller_action::right ? 1 : 0, action == controller_action::up ? -1 : action == controller_action::down ? 1 : 0);
@@ -1494,6 +1587,9 @@ namespace xiui
         }
         if (message == WM_RBUTTONDOWN)
         {
+            if (this->dialog_ == dialog::picker)
+                for (const auto& item : this->Controls())
+                    if (item.id >= result_first && Contains(item.bounds, x, y) && this->EditLibraryEntry(static_cast<size_t>(item.id - result_first))) return true;
             if (this->IsWindowDialog(this->dialog_))
             {
                 if (!Contains(this->WindowBounds(), x, y)) { this->SetWindowFocused(false); return false; }
@@ -1717,7 +1813,7 @@ namespace xiui
             controls.Text("No matching actions.", {layout.list.x + 6, layout.list.y + 6, layout.list.width - 12, layout.name_height + 8}, captionText);
         }
         if (this->dialog_ == dialog::editor && !this->draft_.macro_id.empty())
-            controls.Text("Shared macro: edits update every slot using it.", {bounds.x + 16, bounds.y + 36, bounds.width - 32, 16}, captionText);
+            controls.Text("Shared action: edits update every slot using it.", {bounds.x + 16, bounds.y + 36, bounds.width - 32, 16}, captionText);
         if (this->dialog_ == dialog::delete_palette || this->dialog_ == dialog::delete_macro)
         {
             std::string description = "Cancel keeps your current setup.";

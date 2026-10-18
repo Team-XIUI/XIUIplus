@@ -60,6 +60,14 @@ namespace xiui
             this->player_ = party->GetMemberServerId(0); this->zone_ = party->GetMemberZone(0);
             this->job_ = player->GetMainJob(); this->subjob_ = player->GetSubJob();
             this->level_ = player->GetMainJobLevel(); this->sublevel_ = player->GetSubJobLevel();
+            this->known_names_.clear(); this->known_timers_.fill(false);
+            for (uint32_t abilityId = 0x200; abilityId < 0x700; ++abilityId)
+                if (const auto* ability = resources->GetAbilityById(abilityId); ability && (player->HasAbility(ability->Id) || player->HasPetCommand(ability->Id)))
+                {
+                    if (ability->RecastTimerId < this->known_timers_.size()) this->known_timers_[ability->RecastTimerId] = true;
+                    const auto* name = ability->Name[2] ? ability->Name[2] : ability->Name[0];
+                    if (name && *name) this->known_names_.insert(FromGameText(name));
+                }
         }
         this->available_ = true;
         std::array<bool, 256> seen{};

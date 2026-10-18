@@ -46,6 +46,7 @@ namespace xiui
         const auto id = party->GetMemberServerId(0);
         const auto zone = party->GetMemberZone(0);
         if (id != this->player_ || zone != this->zone_) { this->Clear(); this->player_ = id; this->zone_ = zone; }
+        this->main_job_ = player->GetMainJob(); this->sub_job_ = player->GetSubJob();
         this->available_ = bar != nullptr;
         this->native_ = bar != nullptr ? native_cast_sample{bar->GetPercent(), bar->GetMax(), bar->GetCount(), bar->GetCastType()} : native_cast_sample{};
         this->state_.Update(this->native_, now);
@@ -76,6 +77,8 @@ namespace xiui
         }
         this->state_.Begin(name != nullptr ? FromGameText(name) : std::string{item ? "Item " : "Spell "} + std::to_string(id), id, item, now, this->native_);
         this->state_.target_id = action.targets[0].id;
+        if (!item && resources != nullptr)
+            if (const auto* spell = resources->GetSpellById(id)) this->state_.skill = spell->Skill;
     }
 
     auto player_cast_source::HandlePacket(IAshitaCore* core, uint16_t id, std::span<const uint8_t> data, uint64_t now, const combat_action_packet* decoded) -> void

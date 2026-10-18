@@ -7,7 +7,7 @@
 
 namespace xiui
 {
-    inline constexpr size_t action_bar_count = 10, action_bar_slots = 12, action_crossbar_banks = 6, action_crossbar_slots = 8;
+    inline constexpr size_t action_bar_count = 10, action_bar_slots = 12, action_crossbar_banks = 7, action_crossbar_slots = 8;
     enum class action_kind : uint8_t { none, spell, ability, weapon_skill, item, equip, pet, macro, native_macro, command };
     enum class action_surface : uint8_t { hotbar, crossbar };
     enum class action_scope : uint8_t { global, shared_subjob, job_subjob };
@@ -26,6 +26,10 @@ namespace xiui
         std::string name{}, target{"<t>"}, label{}, icon{}, equipment_slot{}, macro_id{};
         std::vector<std::string> lines{};
         native_macro_ref native{};
+        action_kind recast_kind{};
+        std::string recast_name{};
+        uint32_t recast_id{};
+        bool always_available{}, recast_disabled{}, inherit_appearance{};
         auto Empty(void) const -> bool { return this->kind == action_kind::none; }
         auto operator==(const action_slot&) const -> bool = default;
     };
@@ -41,6 +45,7 @@ namespace xiui
     {
         std::string id{}, name{}, icon{};
         std::vector<std::string> lines{};
+        action_slot definition{};
     };
 
     struct action_layout
@@ -61,6 +66,7 @@ namespace xiui
         uint8_t job{}, subjob{};
         action_layout actions{};
         std::vector<action_pet_layout> pets{};
+        uint8_t surfaces{3};
     };
 
     struct action_catalog_entry

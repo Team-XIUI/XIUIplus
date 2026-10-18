@@ -5,6 +5,7 @@
 #include "modules/recast/recast_source.hpp"
 #include "ui/status_strip.hpp"
 #include "ui/pet_portraits.hpp"
+#include "pet_recast_settings.hpp"
 
 namespace xiui
 {
@@ -17,7 +18,7 @@ namespace xiui
         auto State(void) -> module_state& override;
         auto State(void) const -> const module_state& override;
         auto SetOwner(pet_module* owner) -> void { this->owner_ = owner; if (owner != nullptr) owner->target_adapter_ = this; }
-        auto SetSource(const pet_source* source) -> void { this->source_ = source; }
+        auto SetSource(pet_source* source) -> void { this->source_ = source; }
         auto SetRecasts(const recast_source* source) -> void { this->recasts_ = source; }
         auto SetDisplayAllowed(bool allowed) -> void { this->Main().target_allowed_ = allowed; }
         auto HasEditableBounds(void) const -> bool override { return !this->target_ || !this->Main().target_settings_.snapped; }
@@ -34,6 +35,7 @@ namespace xiui
         auto SelectConfigView(size_t index) -> void override { this->view_ = std::min(index, pet_kind_count); }
         auto OptionCount(void) const -> size_t override;
         auto Option(size_t index) -> module_option override;
+        auto OnOptionChanged(size_t) -> void override { if (this->Main().source_) this->Main().source_->SetBonusCharisma(this->Main().types_[static_cast<size_t>(pet_kind::charm)].bonus_charisma); }
         auto ConfigSections(void) const -> std::span<const module_config_section> override;
         auto ConfigSectionContains(size_t section, size_t index) -> bool override;
         auto ShouldRender(const hud_snapshot&) const -> bool override;
@@ -68,7 +70,11 @@ namespace xiui
             ui::container_style container{1, 5, 6, false};
             std::array<ui::meter_style, 3> meters{};
             std::array<D3DCOLOR, 3> top{0xFF416348, 0xFF355D81, 0xFF77643C}, bottom{0xFF94D89D, 0xFF8DC7F4, 0xFFFFD787};
-            std::array<module_text_profile, 5> text{};
+            std::array<module_text_profile, 9> text{};
+            std::array<float, 3> resource_width{};
+            bool split_values{}, align_bottom{}, estimate_lifetime{};
+            float bonus_charisma{};
+            pet_recast_settings recast_style{};
             ui::status_strip_settings statuses{};
             int resource{}, selected_text{};
         };
@@ -91,7 +97,7 @@ namespace xiui
         module_state state_{false, {24, 330, 320, 180}, 140, 40};
         pet_module* owner_{};
         pet_module* target_adapter_{};
-        const pet_source* source_{};
+        pet_source* source_{};
         const recast_source* recasts_{};
         std::array<type_settings, pet_kind_count> types_{};
         std::array<portrait_settings, std::size(ui::avatar_portrait_keys)> avatar_portraits_{};
@@ -112,6 +118,8 @@ namespace xiui
         auto ControllerStatusIndex(void) const -> std::optional<size_t>;
         static constexpr size_t base_options = 29, meter_start = base_options, text_start = meter_start + meter_style_option_count;
         static constexpr size_t status_start = text_start + text_profile_option_count;
+        static constexpr size_t recast_start = status_start + ui::status_strip_settings::option_count;
+        static constexpr size_t resource_extra_start = recast_start + pet_recast_settings::option_count;
         static constexpr size_t target_base_options = 18;
         auto Main(void) -> pet_module& { return this->owner_ != nullptr ? *this->owner_ : *this; }
         auto Main(void) const -> const pet_module& { return this->owner_ != nullptr ? *this->owner_ : *this; }
@@ -119,7 +127,8 @@ namespace xiui
         auto TargetOption(size_t index) -> module_option;
         auto TargetContains(size_t section, size_t index) const -> bool;
         auto DrawTarget(const pet_entity& target, const ui::rect& bounds, const module_render_context& context) -> float;
-        auto Cooldowns(pet_kind kind, uint64_t now) const -> std::vector<const recast_entry*>;
+        auto Cooldowns(pet_kind kind, uint64_t now) const -> std::vector<recast_entry>;
+        auto DrawRecasts(pet_kind kind, std::span<const recast_entry> entries, float x, float y, float width, const module_render_context& context) -> void;
         auto DisplayKind(void) const -> pet_kind;
         auto PortraitStyle(pet_kind kind, std::string_view name) -> portrait_settings&;
         static auto DefaultPortrait(size_t index) -> portrait_settings;

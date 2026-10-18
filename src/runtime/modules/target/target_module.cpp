@@ -154,7 +154,7 @@ namespace xiui
         store.WriteRect("layout.target", this->state_.bounds);
     }
 
-    auto target_module::OptionCount(void) const -> size_t { return ring_options_start + target_ring_settings::option_count; }
+    auto target_module::OptionCount(void) const -> size_t { return ring_options_start + target_ring_settings::option_count + 6; }
 
     auto target_module::OnOptionChanged(const size_t index) -> void
     {
@@ -163,7 +163,7 @@ namespace xiui
             this->cast_state_.bounds = this->AttachedCastBounds(this->state_.bounds);
             this->cast_positioned_ = true;
         }
-        if (index >= ring_options_start) this->settings_.rings.Changed(index - ring_options_start);
+        if (index >= ring_options_start && index < ring_options_start + target_ring_settings::option_count) this->settings_.rings.Changed(index - ring_options_start);
         if (index >= mob_info_options_start && index < world_options_start) this->settings_.mob_info.OnOptionChanged(index - mob_info_options_start, this->state_.bounds);
     }
 
@@ -193,6 +193,7 @@ namespace xiui
     auto target_module::ConfigSectionContains(const size_t section, const size_t index) -> bool
     {
         if (section >= this->ConfigSections().size() || index >= this->OptionCount()) return false;
+        if (index >= ring_options_start + target_ring_settings::option_count) return this->config_view_ == 0 && section == 8;
         if (this->config_view_ == 4) return index >= ring_options_start && section == target_ring_settings::Section(index - ring_options_start);
         if (this->config_view_ == 3) return index >= world_options_start && index < ring_options_start && section == world_target_bar::Section(index - world_options_start);
         if (index >= world_options_start) return false;
@@ -215,6 +216,11 @@ namespace xiui
 
     auto target_module::Option(const size_t index) -> module_option
     {
+        if (index >= ring_options_start + target_ring_settings::option_count)
+        {
+            const auto family = index - ring_options_start - target_ring_settings::option_count;
+            return this->combat_settings_ && family < 6 ? module_option::Slider(song_bonus_names[family], "Song+ ranks for your own debuff duration estimates; each rank adds 10%. Existing timers are unchanged.", &this->combat_settings_->SongBonuses()[family], 0, 9, 1).Ordered(500 + static_cast<int>(family)) : module_option{};
+        }
         if (index >= ring_options_start) return this->settings_.rings.Option(index - ring_options_start);
         if (index >= world_options_start) return this->settings_.world_bar.Option(index - world_options_start);
         if (index >= mob_info_options_start) return this->settings_.mob_info.Option(index - mob_info_options_start);

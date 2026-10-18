@@ -249,7 +249,7 @@ namespace xiui
         }
         else if (item.id == keybind_bank && this->dialog_ == dialog::keybinds)
         {
-            constexpr const char* names[]{"Left trigger", "Right trigger", "Left then right", "Right then left", "Double left", "Double right"};
+            constexpr const char* names[]{"Left trigger", "Right trigger", "Left then right", "Right then left", "Double left", "Double right", "Shared expanded"};
             for (int bank = 0; bank < static_cast<int>(action_crossbar_banks); ++bank) add(bank, names[bank]);
             current = static_cast<int>(this->selected_.bar);
         }

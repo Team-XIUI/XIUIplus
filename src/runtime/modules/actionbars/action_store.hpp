@@ -27,6 +27,8 @@ namespace xiui
         auto Rename(const std::string& id, std::string name) -> bool;
         auto Copy(const std::string& id, std::string name) -> std::string;
         auto Move(const std::string& id, int delta) -> bool;
+        auto SetPaletteOrder(action_surface surface, std::vector<std::string> ids) -> void;
+        auto PaletteOrder(action_surface surface) const -> const std::vector<std::string>& { return this->orders_[static_cast<size_t>(surface)]; }
         auto Delete(const std::string& id) -> bool;
         auto Cycle(action_surface surface, int delta, size_t bar = 0) -> bool;
         auto Resolve(action_surface surface, size_t bar, size_t slot) const -> const action_slot&;
@@ -40,6 +42,7 @@ namespace xiui
         auto Macro(const std::string& id) const -> const action_macro*;
         auto CreateMacro(std::string name, std::vector<std::string> lines, std::string icon = {}) -> std::string;
         auto SaveMacro(const action_macro& macro) -> bool;
+        auto ImportMacro(action_macro macro) -> std::string;
         auto DeleteMacro(const std::string& id) -> bool;
         auto ExpandMacro(const action_slot& slot) const -> action_slot;
 
@@ -49,6 +52,7 @@ namespace xiui
         std::vector<action_palette> palettes_{};
         std::vector<selection> selections_{};
         std::vector<action_macro> macros_{};
+        std::array<std::vector<std::string>, 2> orders_{};
         std::array<action_scope, action_bar_count> hotbar_scope_{};
         std::array<action_scope, action_crossbar_banks> crossbar_scope_{};
         std::array<bool, action_bar_count> hotbar_pet_{};

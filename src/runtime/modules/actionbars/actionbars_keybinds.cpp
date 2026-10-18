@@ -7,7 +7,7 @@ namespace xiui
     namespace
     {
         constexpr const char* slot_names[]{"D-pad Up", "D-pad Right", "D-pad Down", "D-pad Left", "Face Top", "Face Right", "Face Bottom", "Face Left"};
-        constexpr const char* banks[]{"Left trigger", "Right trigger", "Left then right", "Right then left", "Double left", "Double right"};
+        constexpr const char* banks[]{"Left trigger", "Right trigger", "Left then right", "Right then left", "Double left", "Double right", "Shared expanded"};
     }
 
     auto actionbars_module::OpenKeybinds(const bool crossbar, const size_t bar) -> void

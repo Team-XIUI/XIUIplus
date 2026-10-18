@@ -114,6 +114,7 @@ namespace xiui
         this->modules_.Add(this->satchel_);
         this->actionbars_.Initialize(nullptr, &this->action_store_, &this->action_executor_);
         this->actionbars_.SetCombatSettings(&this->combat_settings_);
+        this->target_.SetCombatSettings(&this->combat_settings_);
         this->modules_.Add(this->actionbars_);
         this->actionbar_members_[0] = &this->actionbars_;
         for (size_t index = 0; index < this->actionbar_children_.size(); ++index)
@@ -985,7 +986,9 @@ namespace xiui
             this->blue_magic_.HandlePacket(this->core_, id, {data, size}, now);
             this->phantom_roll_.HandlePacket(this->core_, id, {data, size}, now, &actionPacket);
             this->combat_source_.SetRules(this->combat_settings_.Rules());
+        this->combat_source_.SetSongBonuses(this->combat_settings_.SongBonuses());
             this->combat_source_.HandlePacket(this->core_, id, {data, size}, now, &actionPacket);
+            this->pet_source_.HandlePacket(this->core_, id, {data, size}, now, &actionPacket);
             this->skillchain_source_.SetRules(this->combat_settings_.Rules());
             if (this->magic_burst_.State().enabled || this->actionbars_.SkillchainPredictionsEnabled()) this->skillchain_source_.HandlePacket(this->core_, id, {data, size}, now, &actionPacket);
             else this->skillchain_source_.Clear();
@@ -2709,6 +2712,7 @@ namespace xiui
         if (this->hud_target_pressed_ && (::GetAsyncKeyState(VK_LBUTTON) & 0x8000) == 0)
         { this->hud_target_pressed_ = false; this->hud_target_module_ = nullptr; }
         this->combat_source_.SetRules(this->combat_settings_.Rules());
+        this->combat_source_.SetSongBonuses(this->combat_settings_.SongBonuses());
         this->combat_source_.Update(this->core_, now);
         this->UpdateTreasure(now);
         this->skillchain_source_.SetRules(this->combat_settings_.Rules());
@@ -2738,6 +2742,7 @@ namespace xiui
         this->cast_cost_source_.Update(this->core_, now);
         this->heal_prediction_source_.Update(this->core_, this->party_source_, this->player_cast_source_, this->cast_cost_source_, now);
         this->recast_source_.Update(this->core_, now);
+        this->pet_source_.SetRules(this->combat_settings_.Rules());
         this->pet_source_.Update(this->core_, this->combat_source_, now);
         this->ready_check_.Update(this->core_, now);
         this->inventory_source_.Update(this->core_, now);

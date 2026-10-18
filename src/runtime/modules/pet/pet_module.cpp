@@ -1,6 +1,7 @@
 #include "pet_module.hpp"
 #include "ui/health_colors.hpp"
 #include "modules/bar_config.hpp"
+#include "ui/recast_icons.hpp"
 
 #include <cmath>
 #include <cstdio>
@@ -8,8 +9,8 @@
 namespace
 {
     constexpr const char* resource_names[]{"HP", "MP", "TP"};
-    constexpr const char* text_names[]{"Name", "Values", "Details", "Status timers", "Recasts"};
-    constexpr const char* text_keys[]{"name", "values", "details", "status", "recasts"};
+    constexpr const char* text_names[]{"Name", "Values", "Details", "Status timers", "Recast names", "HP values", "MP values", "TP values", "Recast timers"};
+    constexpr const char* text_keys[]{"name", "values", "details", "status", "recasts", "hp", "mp", "tp", "recast_timer"};
     constexpr uint8_t pet_jobs[]{15, 9, 9, 14, 18};
 }
 
@@ -109,7 +110,7 @@ namespace xiui
         if (this->target_ && this->owner_ != nullptr) return;
         for (auto& type : this->types_)
             type.text = {module_text_profile{theme.title_text}, module_text_profile{theme.meter_text}, module_text_profile{theme.caption_text},
-                module_text_profile{theme.caption_text}, module_text_profile{theme.caption_text}};
+                module_text_profile{theme.caption_text}, module_text_profile{theme.caption_text}, module_text_profile{theme.meter_text}, module_text_profile{theme.meter_text}, module_text_profile{theme.meter_text}, module_text_profile{theme.caption_text}};
         this->target_settings_.text = {module_text_profile{theme.title_text}, module_text_profile{theme.meter_text}, module_text_profile{theme.caption_text}};
     }
     auto pet_module::VisitTextSettings(const text_settings_visitor& visit) -> void
@@ -159,28 +160,34 @@ namespace xiui
             type.elapsed = store.ReadBool(section.c_str(), "observed_elapsed", false);
             type.portrait = store.ReadBool(section.c_str(), "portrait", true);
             type.lifetime = store.ReadBool(section.c_str(), "lifetime", true);
+            type.split_values = store.ReadBool(section.c_str(), "split_values", false); type.align_bottom = store.ReadBool(section.c_str(), "align_bottom", false);
+            type.estimate_lifetime = store.ReadBool(section.c_str(), "estimate_lifetime", false);
+            type.bonus_charisma = std::clamp(store.ReadFloat(section.c_str(), "bonus_charisma", 0), 0.0f, 500.0f);
+            type.recast_style.Load(store, section + ".recasts");
             const auto number = [&](const char* key, float fallback, float minimum, float maximum) {
                 const auto value = store.ReadFloat(section.c_str(), key, fallback);
                 return std::clamp(std::isfinite(value) ? value : fallback, minimum, maximum);
             };
-            type.spacing = number("spacing", 4, 0, 24); type.container.opacity = number("opacity", 1, 0, 1); type.container.padding = number("padding", 6, 0, 24);
+            type.spacing = number("spacing", 4, 0, 24);
+            type.recast_style.gap = std::clamp(store.ReadFloat((section + ".recasts").c_str(), "spacing", type.spacing), 0.0f, 32.0f); type.container.opacity = number("opacity", 1, 0, 1); type.container.padding = number("padding", 6, 0, 24);
             type.portrait_size = number("portrait_size", index == 0 ? 126.0f : 48.0f, 16, 512);
             type.portrait_position = std::clamp(store.ReadInt(section.c_str(), "portrait_position", index == 0 ? 1 : 0), 0, 1);
             if (upgradePortraits && index == 0 && type.portrait_size == 48 && type.portrait_position == 0)
             { type.portrait_size = 126; type.portrait_position = 1; }
             type.portrait_style = {};
             type.portrait_style.Load(store, "portrait." + section);
-            type.resource = std::clamp(store.ReadInt(section.c_str(), "resource", 0), 0, 2); type.selected_text = std::clamp(store.ReadInt(section.c_str(), "selected_text", 0), 0, 4);
+            type.resource = std::clamp(store.ReadInt(section.c_str(), "resource", 0), 0, 2); type.selected_text = std::clamp(store.ReadInt(section.c_str(), "selected_text", 0), 0, 8);
             type.statuses.Load(store, ("status." + section).c_str());
             for (size_t resource = 0; resource < 3; ++resource)
             {
                 const auto key = std::string{resource_names[resource]};
                 type.top[resource] = store.ReadArgb(section.c_str(), (key + "_top").c_str(), type.top[resource]);
                 type.bottom[resource] = store.ReadArgb(section.c_str(), (key + "_bottom").c_str(), type.bottom[resource]);
+                type.resource_width[resource] = number((key + "_width").c_str(), 0, 0, 1200);
                 type.meters[resource] = LoadMeterStyle(store, ("meter." + section + "." + key).c_str(), type.meters[resource]);
             }
             for (size_t text = 0; text < type.text.size(); ++text)
-                type.text[text] = LoadTextProfile(store, ("text." + section + "." + text_keys[text]).c_str(), type.text[text]);
+                type.text[text] = LoadTextProfile(store, ("text." + section + "." + text_keys[text]).c_str(), text >= 5 && text <= 7 ? type.text[1] : text == 8 ? type.text[4] : type.text[text]);
         }
         auto& target = this->target_settings_;
         target.enabled = store.ReadBool("pet.target", "enabled", false); target.snapped = store.ReadBool("pet.target", "snapped", true);
@@ -222,6 +229,9 @@ namespace xiui
             store.WriteFloat(section.c_str(), "portrait_size", type.portrait_size);
             store.WriteInt(section.c_str(), "portrait_position", type.portrait_position);
             type.portrait_style.Save(store, "portrait." + section);
+            store.WriteBool(section.c_str(), "split_values", type.split_values); store.WriteBool(section.c_str(), "align_bottom", type.align_bottom);
+            store.WriteBool(section.c_str(), "estimate_lifetime", type.estimate_lifetime); store.WriteFloat(section.c_str(), "bonus_charisma", type.bonus_charisma);
+            type.recast_style.Save(store, section + ".recasts");
             store.WriteFloat(section.c_str(), "spacing", type.spacing); store.WriteFloat(section.c_str(), "opacity", type.container.opacity); store.WriteFloat(section.c_str(), "padding", type.container.padding);
             store.WriteInt(section.c_str(), "resource", type.resource); store.WriteInt(section.c_str(), "selected_text", type.selected_text);
             type.statuses.Save(store, ("status." + section).c_str());
@@ -229,9 +239,10 @@ namespace xiui
             {
                 const auto key = std::string{resource_names[resource]};
                 store.WriteArgb(section.c_str(), (key + "_top").c_str(), type.top[resource]); store.WriteArgb(section.c_str(), (key + "_bottom").c_str(), type.bottom[resource]);
+                store.WriteFloat(section.c_str(), (key + "_width").c_str(), type.resource_width[resource]);
                 SaveMeterStyle(store, ("meter." + section + "." + key).c_str(), type.meters[resource]);
             }
-            for (size_t text = 0; text < type.text.size(); ++text) SaveTextProfile(store, ("text." + section + "." + text_keys[text]).c_str(), type.text[text]);
+            for (size_t text = 0; text < type.text.size(); ++text) SaveTextProfile(store, ("text." + section + "." + text_keys[text]).c_str(), text >= 5 && text <= 7 ? type.text[1] : text == 8 ? type.text[4] : type.text[text]);
         }
         const auto& target = this->target_settings_;
         for (auto [key, value] : {std::pair{"enabled", target.enabled}, {"snapped", target.snapped}, {"distance", target.distance}, {"percent", target.percent}, {"label", target.label},
@@ -252,18 +263,20 @@ namespace xiui
         return this->target_ ? std::span<const char* const>{} : std::span<const char* const>{views};
     }
     auto pet_module::OptionCount(void) const -> size_t
-    { return this->TargetConfig() ? target_base_options + meter_style_option_count + text_profile_option_count : status_start + ui::status_strip_settings::option_count; }
+    { return this->TargetConfig() ? target_base_options + meter_style_option_count + text_profile_option_count : resource_extra_start + 5; }
     auto pet_module::ConfigSections(void) const -> std::span<const module_config_section>
     {
-        static const auto sections = [] { std::array<module_config_section, 9> result{}; std::copy(BarConfigSections().begin(), BarConfigSections().end(), result.begin());
+        static const auto sections = [] { std::array<module_config_section, 10> result{}; std::copy(BarConfigSections().begin(), BarConfigSections().end(), result.begin());
             result[7] = {"Statuses", "Observed pet effects, native icons and unknown-duration presentation.", "statuses"};
-            result[8] = {"Portrait", "Avatar artwork, independent image offsets, scale, opacity and clipping.", "portrait"}; return result; }();
+            result[8] = {"Portrait", "Avatar artwork, independent image offsets, scale, opacity and clipping.", "portrait"}; result[9] = {"Recasts", "Ability visibility, ready/cooldown styles and icon layouts.", "recasts"}; return result; }();
         return this->TargetConfig() ? BarConfigSections() : std::span<const module_config_section>{sections};
     }
     auto pet_module::ConfigSectionContains(const size_t section, const size_t index) -> bool
     {
         if (index >= this->OptionCount() || section >= this->ConfigSections().size()) return false;
         if (this->TargetConfig()) return this->TargetContains(section, index);
+        if (index >= resource_extra_start) return section == (index == resource_extra_start + 2 || index == resource_extra_start + 3 ? 0 : index == resource_extra_start + 1 ? 6 : 1);
+        if (index >= recast_start) return section == 9;
         if (index >= status_start) return section == 7;
         if (index >= text_start || index == 17) return section == 6;
         if (index >= meter_start) return section == static_cast<size_t>(MeterConfigSection(index - meter_start));
@@ -282,11 +295,23 @@ namespace xiui
         const bool mpType = this->view_ == static_cast<size_t>(pet_kind::avatar) || this->view_ == static_cast<size_t>(pet_kind::automaton);
         const bool resourceVisible = type.resource == 0 ? type.hp : type.resource == 1 ? mpType && type.mp : type.tp;
         const bool lifetimeType = this->view_ == static_cast<size_t>(pet_kind::jug) || this->view_ == static_cast<size_t>(pet_kind::charm);
+        if (index >= resource_extra_start)
+        {
+            switch (index - resource_extra_start)
+            {
+            case 0: return module_option::Slider("Resource width", "Width of the selected resource meter; zero follows the pet window.", &type.resource_width[type.resource], 0, 1200, 1);
+            case 1: return module_option::Toggle("Independent resource text", "Use separate HP, MP and TP value text profiles.", &type.split_values);
+            case 2: return module_option::Toggle("Estimated remaining lifetime", "Show a labeled estimate when jug duration or observed Charm level/stat data is available. Unknown deadlines stay unknown.", &type.estimate_lifetime).VisibleWhen(lifetimeType);
+            case 3: return module_option::Slider("Charm bonus charisma", "Additional charisma used by future charm duration estimates.", &type.bonus_charisma, 0, 500, 1).VisibleWhen(this->view_ == static_cast<size_t>(pet_kind::charm));
+            default: return module_option::Toggle("Anchor bottom", "Keep the bottom edge fixed as pet contents change height.", &type.align_bottom);
+            }
+        }
+        if (index >= recast_start) return type.recast_style.Option(index - recast_start, static_cast<pet_kind>(this->view_));
         if (index >= status_start) return type.statuses.Option(index - status_start);
         if (index >= text_start) return TextProfileOption(index - text_start, type.text[type.selected_text]).VisibleWhen(
             type.selected_text == 0 || (type.selected_text == 1 ? type.hp || (mpType && type.mp) || type.tp :
             type.selected_text == 2 ? type.distance || type.elapsed || (lifetimeType && type.lifetime) :
-            type.selected_text == 3 ? type.statuses.enabled : type.recasts));
+            type.selected_text == 3 ? type.statuses.enabled : type.selected_text >= 5 && type.selected_text <= 7 ? type.split_values : type.recasts));
         if (index >= meter_start) return MeterStyleOption(index - meter_start, type.meters[type.resource]).VisibleWhen(resourceVisible);
         auto& portraitStyle = this->PortraitStyle(static_cast<pet_kind>(this->view_), ui::avatar_portrait_names[this->selected_avatar_]);
         static constexpr const char* portraitPositions[]{"Inline", "Overlay"};
@@ -309,7 +334,7 @@ namespace xiui
         case 14: return module_option::EditScope("Resource", "Choose the pet meter to style.", &type.resource, resource_names, 3);
         case 15: return module_option::Color("Fill top", "Upper resource gradient.", &type.top[type.resource]).VisibleWhen(resourceVisible);
         case 16: return module_option::Color("Fill bottom", "Lower resource gradient.", &type.bottom[type.resource]).VisibleWhen(resourceVisible);
-        case 17: return module_option::Element("Selected text", "Independent text profiles for this pet type.", &type.selected_text, text_names, 5);
+        case 17: return module_option::Element("Selected text", "Independent text profiles for this pet type.", &type.selected_text, text_names, 9);
         case 18: return module_option::Slider("Row spacing", "Space between resources and ability timers.", &type.spacing, 0, 24, 1);
         case 19: return module_option::Toggle("Pet portrait", "Use XIUI's original pet artwork when available.", &type.portrait).Ordered(-50);
         case 20: return module_option::Slider("Portrait size", "Base image size in pixels; each avatar's scale adjusts this independently.", &type.portrait_size, 16, 512, 1).Ordered(100, true).VisibleWhen(type.portrait);
@@ -365,13 +390,25 @@ namespace xiui
         default: return module_option::Slider("Tint strength", "Strength of the color wash; it follows background opacity and leaves the native frame unchanged.", &target.tint_strength, 0, 1, 0.05f).Ordered(331).VisibleWhen(target.background && target.tint);
         }
     }
-    auto pet_module::Cooldowns(const pet_kind kind, const uint64_t now) const -> std::vector<const recast_entry*>
+    auto pet_module::Cooldowns(const pet_kind kind, const uint64_t now) const -> std::vector<recast_entry>
     {
-        std::vector<const recast_entry*> result;
-        const auto* source = this->Main().recasts_;
-        if (source != nullptr && source->Available())
+        std::vector<recast_entry> result;
+        const auto* source = this->Main().recasts_; if (source == nullptr || !source->Available()) return result;
+        const auto& preferences = this->Main().types_[static_cast<size_t>(kind)].recast_style;
+        if (preferences.display == 0)
+        {
             for (const auto& recast : source->Entries())
-                if (recast.kind == recast_kind::ability && PetRecast(recast.id, kind) && recast.Visible(now, 2)) result.push_back(&recast);
+                if (recast.kind == recast_kind::ability && PetRecast(recast.id, kind) && recast.Visible(now, 2) && preferences.Style(recast, kind).enabled) result.push_back(recast);
+            return result;
+        }
+        for (const auto i : pet_recast_settings::Indices(kind))
+        {
+            const auto& definition = pet_recast_definitions[i];
+            if (!preferences.abilities[i].enabled || !(definition.timer == 0 ? source->KnownTimer(0) : source->Known(definition.name))) continue;
+            recast_entry entry{}; entry.kind = recast_kind::ability; entry.id = definition.timer; entry.name = definition.name; entry.ready = true;
+            for (const auto& observed : source->Entries()) if (observed.kind == recast_kind::ability && observed.id == definition.timer) { entry = observed; entry.name = definition.name; break; }
+            result.push_back(std::move(entry));
+        }
         return result;
     }
     auto pet_module::DisplayKind(void) const -> pet_kind
@@ -466,9 +503,11 @@ namespace xiui
             this->drawn_since_ = snapshot.observed_since;
             this->EndControllerStatus();
         }
-        const auto cooldowns = settings.recasts ? this->Cooldowns(kind, now) : std::vector<const recast_entry*>{};
+        if (main.source_) main.source_->SetBonusCharisma(main.types_[static_cast<size_t>(pet_kind::charm)].bonus_charisma);
+        const auto cooldowns = settings.recasts ? this->Cooldowns(kind, now) : std::vector<recast_entry>{};
         const auto inset = settings.container.padding + (settings.background ? settings.container.edge_size : 0);
         const auto lineHeight = [&](size_t profile) { return std::max(16.0f, context.Design().TextHeight(settings.text[profile].style) + 4); };
+        const auto resourceTextHeight = [&](size_t resource) { return lineHeight(settings.split_values ? 5 + resource : 1); };
         const std::string_view imageName = context.IsEditing() && kind == pet_kind::avatar ? ui::avatar_portrait_names[this->selected_avatar_] :
             actual ? std::string_view{snapshot.pet.name} : kind == pet_kind::avatar ? "Carbuncle" : "";
         const auto& portraitStyle = this->PortraitStyle(kind, imageName);
@@ -483,12 +522,19 @@ namespace xiui
         float height = inset * 2 + heading + settings.spacing;
         for (size_t resource = 0; resource < 3; ++resource)
             if ((resource == 0 && settings.hp) || (resource == 1 && mp) || (resource == 2 && tp))
-                height += std::max(1.0f, settings.meters[resource].height) + 2 + lineHeight(1) * .5f + settings.spacing;
+                height += std::max(1.0f, settings.meters[resource].height) + 2 + resourceTextHeight(resource) * .5f + settings.spacing;
         const bool lifetime = settings.lifetime && (kind == pet_kind::jug || kind == pet_kind::charm) && (actual || context.IsEditing());
         if (settings.distance || (settings.elapsed && !lifetime)) height += lineHeight(2) + settings.spacing;
         if (lifetime) height += lineHeight(2) + settings.spacing;
         height += ui::StatusStripHeight(statuses.size(), width, settings.statuses);
-        height += static_cast<float>(cooldowns.size()) * (lineHeight(4) + settings.spacing);
+        const auto& recasts = settings.recast_style;
+        const float recastWidth = recasts.width > 0 ? recasts.width : width;
+        const float recastTextHeight = std::max(lineHeight(4), lineHeight(8));
+        const float recastRow = recasts.display == 1 ? std::max(recasts.height, recastTextHeight) : recasts.display >= 2 ? recasts.size + (recasts.display == 2 && recasts.timers ? recastTextHeight : 0) : recastTextHeight;
+        const auto iconColumns = std::max(size_t{1}, static_cast<size_t>((recastWidth + recasts.gap) / (recasts.size + recasts.gap)));
+        const auto recastRows = recasts.display >= 2 ? (cooldowns.size() + iconColumns - 1) / iconColumns : cooldowns.size();
+        if (!cooldowns.empty() && !(recasts.absolute && recasts.display >= 2)) height += recasts.top_gap + static_cast<float>(recastRows) * (recastRow + recasts.gap);
+        if (settings.align_bottom && this->state_.bounds.height > 0) this->state_.bounds.y += this->state_.bounds.height - std::max(40.0f, height);
         this->state_.bounds.height = this->state_.minimum_height = std::max(40.0f, height);
         const bool frameOverPortrait = settings.background && portraitStyle.clip;
         if (settings.background)
@@ -528,12 +574,12 @@ namespace xiui
             const auto value = resource == 0 ? snapshot.pet.hp : resource == 1 ? snapshot.mp_percent : snapshot.tp;
             const auto maximum = resource == 2 ? 3000 : 100;
             const auto text = actual ? std::to_string(value) + (resource == 2 ? "" : "%") : "--";
-            const ui::rect meter{x, y, width, std::max(1.0f, settings.meters[resource].height) + 2};
-            auto label = settings.text[1], percent = settings.text[1]; label.style.alignment = ui::text_alignment::left; percent.style.alignment = ui::text_alignment::right;
+            const ui::rect meter{x, y, settings.resource_width[resource] > 0 ? settings.resource_width[resource] : width, std::max(1.0f, settings.meters[resource].height) + 2};
+            auto label = settings.split_values ? settings.text[5 + resource] : settings.text[1], percent = label; label.style.alignment = ui::text_alignment::left; percent.style.alignment = ui::text_alignment::right;
             if (resource == 0 && actual) percent = TintTextProfile(percent, ui::HPValueColor(value));
             context.DrawMeter(meter, resource_names[resource], text.c_str(), actual ? static_cast<float>(value) / maximum : 0, settings.top[resource], settings.bottom[resource],
                 settings.meters[resource], this->animations_[resource], true, &label, &percent, ui::meter_text_anchor::automatic, ui::meter_text_anchor::automatic, resource == 0 ? meter_fill_mode::health : meter_fill_mode::single);
-            y += meter.height + lineHeight(1) * .5f + settings.spacing;
+            y += meter.height + resourceTextHeight(resource) * .5f + settings.spacing;
         }
         if (settings.distance || (settings.elapsed && !lifetime))
         {
@@ -546,7 +592,7 @@ namespace xiui
         }
         if (lifetime)
         {
-            const auto text = LifetimeLabel(actual ? snapshot.observed_since : 0, now, settings.elapsed);
+            const auto text = actual && settings.estimate_lifetime && snapshot.estimated_expires ? (snapshot.estimated_expires > now ? "Estimated " + FormatRecastTime(static_cast<float>(snapshot.estimated_expires - now) / 1000, false) : std::string{"Lifetime estimate elapsed"}) : LifetimeLabel(actual ? snapshot.observed_since : 0, now, settings.elapsed);
             const ui::rect at{x, y, width, lineHeight(2)}; context.DrawText(text.c_str(), at, at, settings.text[2]); y += lineHeight(2) + settings.spacing;
         }
         this->status_bounds_ = {x, y, width, 0}; this->drawn_kind_ = kind;
@@ -557,20 +603,73 @@ namespace xiui
             for (size_t index = 0; index < layout.count; ++index) this->status_hits_.push_back({statuses[index], layout.Icon(index), snapshot.pet.id});
         }
         y += ui::StatusStripHeight(statuses.size(), width, settings.statuses);
-        for (const auto* recast : cooldowns)
-        {
-            auto text = recast->id == 102 && kind == pet_kind::charm ? std::string{"Sic"} : recast->name;
-            if (recast->maximum_charges != 0 && kind != pet_kind::charm)
-                text += " " + std::to_string(recast->charges) + "/" + std::to_string(recast->maximum_charges);
-            text += recast->Remaining(now) > 0 ? "  " + FormatRecastTime(recast->Remaining(now), false) : "  Ready";
-            const ui::rect at{x, y, width, lineHeight(4)}; context.DrawText(text.c_str(), at, at, settings.text[4]); y += lineHeight(4) + settings.spacing;
-        }
+        this->DrawRecasts(kind, cooldowns, x, y, width, context);
         if (main.target_settings_.enabled && main.target_settings_.snapped && main.target_allowed_ && (context.IsEditing() || (actual && snapshot.target.id != 0)))
         {
             const auto& target = main.target_settings_;
             const ui::rect area{this->state_.bounds.x + target.offset_x, this->state_.bounds.y + this->state_.bounds.height + target.gap + target.offset_y,
                 target.width > 0 ? target.width : this->state_.bounds.width, 0};
             this->DrawTarget(snapshot.target, area, context);
+        }
+    }
+    auto pet_module::DrawRecasts(const pet_kind kind, std::span<const recast_entry> entries, float x, float y, float width, const module_render_context& context) -> void
+    {
+        if (entries.empty()) return;
+        const auto& settings = this->Main().types_[static_cast<size_t>(kind)]; const auto& preferences = settings.recast_style;
+        const auto& design = context.Design(); const auto now = ::GetTickCount64();
+        const float textHeight = std::max({16.0f, design.TextHeight(settings.text[4].style) + 4, design.TextHeight(settings.text[8].style) + 4});
+        const float available = preferences.width > 0 ? preferences.width : width;
+        x += preferences.offset_x + (preferences.alignment == 1 ? (width - available) / 2 : preferences.alignment == 2 ? width - available : 0);
+        y += preferences.top_gap + preferences.offset_y;
+        if (preferences.absolute && preferences.display >= 2) { x = this->state_.bounds.x + preferences.offset_x; y = this->state_.bounds.y + preferences.offset_y; }
+        const size_t columns = std::max(size_t{1}, static_cast<size_t>((available + preferences.gap) / (preferences.size + preferences.gap)));
+        const float rowHeight = preferences.display == 1 ? std::max(preferences.height, textHeight) : preferences.display >= 2 ? preferences.size + (preferences.display == 2 && preferences.timers ? textHeight : 0) : textHeight;
+        for (size_t index = 0; index < entries.size(); ++index)
+        {
+            const auto& entry = entries[index]; const auto& style = preferences.Style(entry, kind);
+            const bool ready = entry.Remaining(now) <= 0 || (entry.maximum_charges && entry.charges);
+            const auto top = ready ? style.ready_top : style.cooldown_top, bottom = ready ? style.ready_bottom : style.cooldown_bottom;
+            auto name = entry.id == 102 && kind == pet_kind::charm ? std::string{"Sic"} : entry.name;
+            auto time = entry.Remaining(now) > 0 ? FormatRecastTime(entry.Remaining(now), false) : std::string{"Ready"};
+            if (entry.maximum_charges && kind != pet_kind::charm) time += "  " + std::to_string(entry.charges) + "/" + std::to_string(entry.maximum_charges);
+            const ui::rect row{x + (preferences.display >= 2 ? static_cast<float>(index % columns) * (preferences.size + preferences.gap) : 0),
+                y + static_cast<float>(preferences.display >= 2 ? index / columns : index) * (rowHeight + preferences.gap), preferences.display >= 2 ? preferences.size : available, rowHeight};
+            if (preferences.display == 0)
+            {
+                auto text = preferences.names ? name : std::string{};
+                if (preferences.timers) text += (text.empty() ? "" : "  ") + time;
+                context.DrawText(text.c_str(), row, row, settings.text[4]); continue;
+            }
+            if (preferences.display < 2)
+            {
+                if (preferences.display == 1) { auto meter = settings.meters[0]; meter.height = preferences.height; context.DrawBar(row, entry.Progress(now), top, bottom, 0, meter); }
+                auto nameText = settings.text[4], timerText = settings.text[8];
+                nameText.style.alignment = ui::text_alignment::left; timerText.style.alignment = ui::text_alignment::right;
+                const float timerWidth = preferences.timers ? std::min(row.width * .55f, design.MeasureText(time.c_str(), timerText.style) + 8) : 0;
+                if (preferences.names) context.DrawText(name.c_str(), {row.x + 3, row.y, std::max(1.0f, row.width - timerWidth - 6), row.height}, row, nameText);
+                if (preferences.timers) context.DrawText(time.c_str(), {row.x + row.width - timerWidth - 3, row.y, timerWidth, row.height}, row, timerText);
+                continue;
+            }
+            const ui::rect icon{row.x, row.y, preferences.size, preferences.size}; const auto* cache = context.Icons();
+            const auto uv = ui::RecastIconUV(false, entry.id, pet_jobs[static_cast<size_t>(kind)]);
+            if (auto* atlas = cache ? cache->RecastAtlas() : nullptr; atlas && uv.width > 0) design.DrawTexture(atlas, icon, 0xFFFFFFFF, uv);
+            else design.FillRect(icon, bottom);
+            const auto ratio = std::clamp(1 - entry.Progress(now), 0.0f, 1.0f);
+            const auto overlay = (style.cooldown_bottom & 0xFFFFFF) | 0xA0000000;
+            if (ratio > 0)
+            {
+                if (preferences.fill == 0) design.FillRect({icon.x, icon.y + icon.height * (1 - ratio), icon.width, icon.height * ratio}, overlay);
+                else
+                {
+                    std::array<ui::point, 65> points{}; const auto steps = static_cast<size_t>(std::max(1.0f, std::ceil(64 * (preferences.fill == 2 ? ratio : 1))));
+                    const float radius = icon.width / 2 * (preferences.fill == 1 ? std::sqrt(ratio) : 1);
+                    const ui::point center{icon.x + icon.width / 2, icon.y + icon.height / 2};
+                    for (size_t step = 0; step <= steps; ++step) { const float angle = -1.5707963f + static_cast<float>(step) / steps * 6.2831853f * (preferences.fill == 2 ? ratio : 1); points[step] = {center.x + std::cos(angle) * radius, center.y + std::sin(angle) * radius}; }
+                    design.DrawTriangleFan(center, {points.data(), steps + 1}, overlay, overlay);
+                }
+            }
+            design.BorderRect(icon, bottom, 1);
+            if (preferences.display == 2 && preferences.timers) { auto text = settings.text[8]; text.style.alignment = ui::text_alignment::center; const ui::rect at{row.x, row.y + preferences.size, row.width, textHeight}; context.DrawText(time.c_str(), at, at, text); }
         }
     }
     auto pet_module::ControllerStatusIndex(void) const -> std::optional<size_t>

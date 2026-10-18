@@ -171,7 +171,7 @@ namespace xiui
     }
     auto action_executor::Inspect(IAshitaCore* core, const action_slot& slot, const bool presentation) -> action_availability
     {
-        if (slot.kind == action_kind::macro && !slot.macro_id.empty())
+        if (!slot.macro_id.empty())
         {
             const auto expanded = this->macro_resolver_ ? this->macro_resolver_(slot) : slot;
             if (expanded.macro_id.empty()) return this->Inspect(core, expanded, presentation);
@@ -186,14 +186,15 @@ namespace xiui
         if (slot.kind == action_kind::macro || slot.kind == action_kind::command)
         {
             result.known = result.learned = result.usable = true;
-            if (presentation)
-                if (const auto representative = RepresentativeAction(slot))
+            if (presentation && !slot.recast_disabled)
+                if (const auto representative = slot.recast_kind != action_kind::none ? std::optional<action_slot>{[&] { action_slot value{}; value.kind = slot.recast_kind; value.id = slot.recast_id; value.name = slot.recast_name; return value; }()} : RepresentativeAction(slot))
                 {
                     auto metadata = this->Inspect(core, *representative, true);
                     if (metadata.known)
                     {
                         if (!result.name.empty()) metadata.name = result.name;
                         if (!result.icon.empty()) metadata.icon = result.icon;
+                        if (slot.always_available) { metadata.reason.clear(); metadata.learned = metadata.usable = true; }
                         return metadata;
                     }
                 }
@@ -344,7 +345,7 @@ namespace xiui
     auto action_executor::Activate(IAshitaCore* core, const action_slot& slot, uint64_t now) -> bool
     {
         if (this->restricted_) { this->status_ = "Close the editor or finish typing first."; return false; }
-        if (slot.kind == action_kind::macro && !slot.macro_id.empty())
+        if (!slot.macro_id.empty())
         {
             const auto expanded = this->macro_resolver_ ? this->macro_resolver_(slot) : slot;
             if (expanded.macro_id.empty()) return this->Activate(core, expanded, now);

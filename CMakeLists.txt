@@ -424,6 +424,7 @@ set(XIUI_HUD_SOURCES
     src/runtime/modules/game_hud/game_hud_module.hpp
     src/shared/native_hud_options.hpp
     src/runtime/settings/settings_store.cpp
+    src/runtime/settings/lua_data.cpp
     src/runtime/settings/text_style_settings.cpp
     src/runtime/settings/text_style_settings.hpp
     src/runtime/settings/settings_profiles.cpp
@@ -707,7 +708,7 @@ add_test(NAME xiui_keyboard_suppression_smoke COMMAND xiui_keyboard_suppression_
 
 add_executable(xiui_actionbars_data_smoke tests/actionbars_data_smoke.cpp
     src/runtime/modules/actionbars/action_store.cpp src/runtime/modules/actionbars/action_executor.cpp
-    src/runtime/modules/actionbars/action_import.cpp src/runtime/settings/settings_store.cpp
+    src/runtime/modules/actionbars/action_import.cpp src/runtime/settings/settings_store.cpp src/runtime/settings/lua_data.cpp
     src/runtime/chat/chat_encoding.cpp src/runtime/combat/ability_recast.cpp)
 configure_xiui_target(xiui_actionbars_data_smoke)
 set_target_properties(xiui_actionbars_data_smoke PROPERTIES RUNTIME_OUTPUT_DIRECTORY "${CMAKE_SOURCE_DIR}/bin/tests")
@@ -719,6 +720,7 @@ target_compile_definitions(xiui_actionbars_ui_smoke PRIVATE XIUI_ENABLE_ACTIONBA
 target_link_libraries(xiui_actionbars_ui_smoke PRIVATE "${ASHITA_D3D8_LIB_DIR}/d3d8.lib")
 set_target_properties(xiui_actionbars_ui_smoke PROPERTIES RUNTIME_OUTPUT_DIRECTORY "${CMAKE_SOURCE_DIR}/bin/tests")
 add_test(NAME xiui_actionbars_ui_smoke COMMAND xiui_actionbars_ui_smoke)
+add_test(NAME xiui_migration_capabilities_smoke COMMAND xiui_actionbars_ui_smoke --migration-capabilities-only)
 
 add_executable(xiui_controller_smoke
     tests/controller_smoke.cpp
