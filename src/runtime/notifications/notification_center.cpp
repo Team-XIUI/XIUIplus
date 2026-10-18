@@ -12,8 +12,7 @@ namespace xiui
         if (!std::isfinite(event.amount) || (!IsTextNotification(event.kind) && event.amount <= 0.0))
             return;
         event.subject.resize(std::min<size_t>(event.subject.size(), 96));
-        if (event.kind == notification_kind::party_invite)
-            this->Dismiss(notification_kind::party_invite);
+        if (IsInvitation(event.kind)) this->Dismiss(event.kind);
         if (!IsTextNotification(event.kind))
         {
             for (auto entry = this->entries_.rbegin(); entry != this->entries_.rend(); ++entry)
@@ -31,10 +30,10 @@ namespace xiui
         if (this->entries_.size() == capacity)
         {
             const auto oldest = std::find_if(this->entries_.begin(), this->entries_.end(),
-                [](const notification_entry& entry) { return entry.event.kind != notification_kind::party_invite; });
+                [](const notification_entry& entry) { return !IsInvitation(entry.event.kind); });
             this->entries_.erase(oldest != this->entries_.end() ? oldest : this->entries_.begin());
         }
-        this->entries_.push_back({std::move(event), now, now});
+        this->entries_.push_back({std::move(event), now, now, this->next_id_++});
     }
 
     auto notification_center::Update(const uint64_t now, const uint64_t lifetime) -> void
@@ -45,6 +44,27 @@ namespace xiui
     auto notification_center::Dismiss(const notification_kind kind) -> void
     {
         std::erase_if(this->entries_, [kind](const notification_entry& entry) { return entry.event.kind == kind; });
+    }
+
+    auto notification_center::Update(const uint64_t now, const std::span<const uint64_t> lifetimes) -> void
+    {
+        std::erase_if(this->entries_, [&](const notification_entry& entry) {
+            const auto kind = static_cast<size_t>(entry.event.kind);
+            return entry.Remaining(now, kind < lifetimes.size() ? lifetimes[kind] : 3200) == 0;
+        });
+    }
+
+    auto notification_center::Find(const uint64_t id) const -> const notification_entry*
+    {
+        const auto found = std::find_if(this->entries_.begin(), this->entries_.end(), [id](const auto& entry) { return entry.id == id; });
+        return found != this->entries_.end() ? &*found : nullptr;
+    }
+
+    auto notification_center::ResolveTrade(const uint32_t sender) -> void
+    {
+        std::erase_if(this->entries_, [sender](const auto& entry) {
+            return entry.event.kind == notification_kind::trade_invite && (sender == 0 || sender == entry.event.key);
+        });
     }
 
     auto DecodeRewardPacket(const uint16_t id, const std::span<const uint8_t> data, const uint32_t playerId) -> std::optional<notification_event>

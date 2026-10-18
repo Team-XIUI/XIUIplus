@@ -3,12 +3,21 @@
 #include "Ashita.h"
 #include "chat_data.hpp"
 #include "native_menu_data.hpp"
+#include "controller_input.hpp"
 
 #include <cstdint>
+#include <array>
 
 namespace xiui
 {
-    inline constexpr uint32_t runtime_abi_version = 8;
+    inline constexpr uint32_t runtime_abi_version = 18;
+
+    struct world_party_anchor
+    {
+        uint32_t id{};
+        float x{}, y{};
+        bool valid{};
+    };
 
     struct hud_snapshot
     {
@@ -36,13 +45,26 @@ namespace xiui
         bool chat_capture_available{};
         chat_palette chat_colors{};
         native_ui_state native_ui{};
+        uint32_t target_server_id{};
+        bool target_screen_valid{};
+        float target_screen_x{}, target_screen_y{};
+        std::array<world_party_anchor, 18> party_anchors{};
+        bool camera_valid{};
+        D3DMATRIX scene_view{}, scene_projection{};
+        D3DVIEWPORT8 scene_viewport{};
+        IDirect3DSurface8* scene_target{};
+        IDirect3DSurface8* scene_depth{};
     };
+
+    using native_macro_runner = BOOL(__stdcall*)(void* context, uint8_t book, uint8_t set, uint8_t slot, BOOL alt);
 
     struct runtime_create_context
     {
         uint32_t size{};
         IAshitaCore* core{};
         const char* install_path{};
+        void* native_macro_context{};
+        native_macro_runner run_native_macro{};
     };
 
     struct runtime_state
@@ -82,6 +104,11 @@ namespace xiui
         BOOL (__stdcall* handle_key)(void* instance, WPARAM key, LPARAM flags, BOOL blocked){};
         BOOL (__stdcall* chat_focused)(void* instance){};
         void (__stdcall* menu_layout)(void* instance, native_menu_layout* layout){};
+        BOOL (__stdcall* handle_controller)(void* instance, const controller_event* event){};
+        uint32_t (__stdcall* controller_input_state)(void* instance){};
+        void (__stdcall* update_controller_status)(void* instance, const controller_status* status){};
+        BOOL (__stdcall* render_world)(void* instance, const hud_snapshot* snapshot){};
+        void (__stdcall* crossbar_settings)(void* instance, controller_crossbar_settings* settings){};
     };
 
     using get_runtime_api_fn = BOOL(__stdcall*)(uint32_t hostAbiVersion, runtime_api* api);

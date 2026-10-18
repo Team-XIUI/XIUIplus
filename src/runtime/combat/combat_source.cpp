@@ -1,6 +1,6 @@
 #include "combat_source.hpp"
+#include "status_durations.hpp"
 #include "chat/chat_encoding.hpp"
-#include "resources/status_rules.hpp"
 
 #include <algorithm>
 
@@ -70,7 +70,7 @@ namespace xiui
     }
 
     auto combat_source::ApplyStatus(const uint32_t target, const uint32_t status, const uint32_t spell, const uint32_t message,
-        const uint64_t now, const bool uncertain, const uint32_t duration) -> void
+        const uint64_t now, uint32_t seconds) -> void
     {
         if (target == 0 || status == 0 || status == 255 || status > 1023) return;
         if (IsStatusLoss(message))
@@ -79,18 +79,28 @@ namespace xiui
                 std::erase_if(found->second.statuses, [status](const auto& value) { return value.id == status; });
             return;
         }
-        if (!uncertain && !IsStatusGain(message)) return;
+        if (!IsStatusGain(message)) return;
+        if (seconds == 0) seconds = XIUIStatusSeconds(spell != 0 ? 4 : 0, spell, status, message);
         auto& statuses = this->Actor(target, now).statuses;
-        const auto rule = std::find_if(resources::spell_status_rules.begin(), resources::spell_status_rules.end(),
-            [spell, status](const auto& value) { return value.spell == spell && value.status == status; });
-        const auto seconds = duration != 0 ? duration : rule != resources::spell_status_rules.end() ? rule->seconds : 0;
-        const auto expires = seconds > 0 ? now + seconds * uint64_t{1000} : 0;
-        const combat_status next{static_cast<uint16_t>(status), static_cast<uint16_t>(spell), now, expires, uncertain};
+        auto next = combat_status{static_cast<uint16_t>(status), static_cast<uint16_t>(spell), now,
+            seconds != 0 ? now + static_cast<uint64_t>(seconds) * 1000 : 0, false, seconds != 0};
+        if (this->rules_ == 2)
+        {
+            uint32_t minimum{}, maximum{};
+            if (spell == 58 || spell == 80 || spell == 59) { minimum = 30; maximum = 120; }
+            else if (spell == 254 || spell == 276) { minimum = 80; maximum = 300; }
+            else if (spell == 220 || spell == 225) minimum = maximum = 30;
+            if (maximum != 0)
+            {
+                next.expires = now + uint64_t{maximum} * 1000;
+                next.earliest = minimum != maximum ? now + uint64_t{minimum} * 1000 : 0;
+                next.estimated = true;
+            }
+        }
         const auto existing = std::find_if(statuses.begin(), statuses.end(), [status](const auto& value) { return value.id == status; });
         if (existing != statuses.end())
         {
-            // A merely inferred hit must not replace a confirmed status application.
-            if (!uncertain || existing->uncertain) *existing = next;
+            *existing = next;
             return;
         }
         if (statuses.size() == status_capacity) statuses.erase(statuses.begin());
@@ -132,22 +142,11 @@ namespace xiui
             for (size_t j = 0; j < target.result_count; ++j)
             {
                 const auto& result = target.results[j];
-                this->ApplyStatus(target.id, result.parameter, spell, result.message, now);
+                this->ApplyStatus(target.id, result.parameter, spell, result.message, now,
+                    XIUIStatusSeconds(action.category, action.parameter, result.parameter, result.message));
                 this->ApplyStatus(result.additional_message == 166 ? action.actor : target.id, result.additional_parameter, 0, result.additional_message, now);
                 this->ApplyStatus(action.actor, result.spikes_parameter, 0, result.spikes_message, now);
                 if (result.message == 6 || result.message == 20) this->actors_.erase(target.id);
-                if (action.category == 4 && (result.message == 2 || result.message == 252 || result.message == 264))
-                {
-                    const auto rule = std::find_if(resources::spell_status_rules.begin(), resources::spell_status_rules.end(),
-                        [spell](const auto& value) { return value.spell == spell && value.inferred; });
-                    if (rule != resources::spell_status_rules.end()) this->ApplyStatus(target.id, rule->status, spell, result.message, now, true);
-                }
-                if (action.category == 3 && (result.message == 185 || result.message == 264))
-                {
-                    const auto rule = std::find_if(resources::weapon_status_rules.begin(), resources::weapon_status_rules.end(),
-                        [&action](const auto& value) { return value.spell == action.parameter; });
-                    if (rule != resources::weapon_status_rules.end()) this->ApplyStatus(target.id, rule->status, 0, result.message, now, true, rule->seconds);
-                }
             }
         }
     }
@@ -157,6 +156,9 @@ namespace xiui
         for (auto& [actorId, actor] : this->actors_)
         {
             (void)actorId;
+            if (this->rules_ == 2)
+                for (auto& status : actor.statuses)
+                    if (status.estimated && status.expires != 0 && now >= status.expires) { status.expires = 0; status.uncertain = true; }
             std::erase_if(actor.statuses, [now](const auto& status) { return status.expires != 0 && now >= status.expires; });
             if (!actor.cast.Active(now)) actor.cast = {};
             if (now >= actor.targeted && now - actor.targeted > 30000) actor.target = 0;

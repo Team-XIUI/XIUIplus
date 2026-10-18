@@ -15,6 +15,13 @@ namespace xiui::ui
         size_t count{}, selected{};
         bool combined{};
         auto Enabled(void) const -> bool { return this->element.available && (!this->combined || this->scope.available); }
+        auto Status(const size_t index) const -> std::optional<bool>
+        {
+            if (index >= this->count || (this->combined && index == 0)) return {};
+            const auto choice = index - (this->combined ? 1 : 0);
+            if (choice >= 32 || (this->element.choice_status_mask & (1u << choice)) == 0) return {};
+            return (this->element.choice_status_enabled & (1u << choice)) != 0;
+        }
     };
 
     struct element_selector_layout

@@ -28,14 +28,14 @@ namespace xiui::ui
         this->tp_goal = std::clamp(store.ReadInt(section, "tp_goal", 0), 0, 2);
         this->sound = std::clamp(store.ReadInt(section, "sound", 0), 0, static_cast<int>(std::size(sound_values)));
         this->display = std::clamp(store.ReadInt(section, "display", 0), 0, 1); this->direction = std::clamp(store.ReadInt(section, "direction", 0), 0, 1);
-        this->attack_layout = std::clamp(store.ReadInt(section, "attack_layout", 0), 0, 2);
+        this->attack_layout = std::clamp(store.ReadInt(section, "attack_layout", 2), 0, 2);
         this->mini_text = std::clamp(store.ReadInt(section, "mini_text", 0), 0, 2);
         this->mini_height = std::clamp(FiniteFloat(store, section, "mini_height", 3), 1.0f, 12.0f);
-        this->mini_gap = std::clamp(FiniteFloat(store, section, "mini_gap", 3), 0.0f, 24.0f);
-        this->recovery_layout = std::clamp(store.ReadInt(section, "recovery_layout", 0), 0, 2);
+        this->mini_gap = std::clamp(FiniteFloat(store, section, "mini_gap", 2), 0.0f, 24.0f);
+        this->recovery_layout = std::clamp(store.ReadInt(section, "recovery_layout", 2), 0, 2);
         this->recovery_mini_text = std::clamp(store.ReadInt(section, "recovery_mini_text", 0), 0, 2);
         this->recovery_mini_height = std::clamp(FiniteFloat(store, section, "recovery_mini_height", 3), 1.0f, 12.0f);
-        this->recovery_mini_gap = std::clamp(FiniteFloat(store, section, "recovery_mini_gap", 3), 0.0f, 24.0f);
+        this->recovery_mini_gap = std::clamp(FiniteFloat(store, section, "recovery_mini_gap", 2), 0.0f, 24.0f);
         this->goal = std::clamp(FiniteFloat(store, section, "goal", 100), 1.0f, 100.0f);
         this->height = std::clamp(FiniteFloat(store, section, "height", 6), 2.0f, 24.0f);
         this->offset_x = std::clamp(FiniteFloat(store, section, "offset_x", 0), -1000.0f, 1000.0f);
@@ -73,6 +73,11 @@ namespace xiui::ui
 
     auto player_timing_settings::Option(const size_t index) -> module_option
     {
+        const bool attackDetails = this->attack && (this->attack_layout != 2 || this->mini_text == 2);
+        const bool recoveryDetails = this->resting && (this->recovery_layout != 2 || this->recovery_mini_text == 2);
+        const bool attackBar = this->attack && (this->attack_layout == 2 || this->display == 0);
+        const bool recoveryBar = this->resting && (this->recovery_layout == 2 || this->display == 0);
+        const bool fullReadout = (this->attack && this->attack_layout != 2) || (this->resting && this->recovery_layout != 2);
         static constexpr const char* goals[]{"1000", "2000", "3000"}, *displays[]{"Bar + text", "Text only"}, *directions[]{"Fill", "Drain"};
         static constexpr const char* layouts[]{"Below Player Bar", "Above Player Bar", "Mini below TP"};
         static constexpr const char* miniText[]{"None", "Countdown", "Countdown + TP"};
@@ -80,41 +85,41 @@ namespace xiui::ui
         static constexpr const char* recoveryMiniText[]{"None", "Countdown", "Countdown + Recovery"};
         switch (index)
         {
-        case 0: return module_option::Toggle("Auto attack timer", "Predict the next round from weapons, known bonuses and observed attacks. ~ means estimated.", &this->attack);
-        case 1: return module_option::Choice("TP goal", "Goal for rounds, successful hits and time estimates.", &this->tp_goal, goals, 3);
-        case 2: return module_option::Toggle("Rounds to goal", "Estimated rounds, including observed TP gains outside your own attacks.", &this->rounds);
-        case 3: return module_option::Toggle("Successful hits", "Normal successful hits still needed; excludes TP from other sources.", &this->hits);
-        case 4: return module_option::Toggle("Time to TP goal", "Approximate time at the current attack rate. Hidden while timing is held or unknown.", &this->tp_time);
-        case 5: return module_option::Toggle("Resting timer", "Watch real recovery ticks and the Phoenix 9 / 9 / 12 second pattern.", &this->resting);
-        case 6: return module_option::Toggle("Last tick gains", "HP and MP restored by the last observed resting tick.", &this->gains);
-        case 7: return module_option::Toggle("Time to recovery goal", "Estimate from known recovery bonuses, refined by observed uncapped gains.", &this->recovery_time);
-        case 8: return module_option::Toggle("Hide when full", "Hide the resting readout when both HP and MP are full.", &this->hide_full);
-        case 9: return module_option::Slider("Recovery goal %", "Target percentage for recovery time estimates; completion sound is for full HP/MP.", &this->goal, 1, 100, 1);
+        case 0: return module_option::Toggle("Auto attack timer", "Predict the next round from weapons, known bonuses and observed attacks. ~ means estimated.", &this->attack).Ordered(-40);
+        case 1: return module_option::Choice("TP goal", "Goal for rounds, successful hits and time estimates.", &this->tp_goal, goals, 3).VisibleWhen(attackDetails);
+        case 2: return module_option::Toggle("Rounds to goal", "Estimated rounds, including observed TP gains outside your own attacks.", &this->rounds).VisibleWhen(attackDetails);
+        case 3: return module_option::Toggle("Successful hits", "Normal successful hits still needed; excludes TP from other sources.", &this->hits).VisibleWhen(attackDetails);
+        case 4: return module_option::Toggle("Time to TP goal", "Approximate time at the current attack rate. Hidden while timing is held or unknown.", &this->tp_time).VisibleWhen(attackDetails);
+        case 5: return module_option::Toggle("Resting timer", "Watch real recovery ticks and the Phoenix 9 / 9 / 12 second pattern.", &this->resting).Ordered(-40);
+        case 6: return module_option::Toggle("Last tick gains", "HP and MP restored by the last observed resting tick.", &this->gains).VisibleWhen(recoveryDetails);
+        case 7: return module_option::Toggle("Time to recovery goal", "Estimate from known recovery bonuses, refined by observed uncapped gains.", &this->recovery_time).VisibleWhen(recoveryDetails);
+        case 8: return module_option::Toggle("Hide when full", "Hide the resting readout when both HP and MP are full.", &this->hide_full).VisibleWhen(this->resting);
+        case 9: return module_option::Slider("Recovery goal %", "Target percentage for recovery time estimates; completion sound is for full HP/MP.", &this->goal, 1, 100, 1).VisibleWhen(recoveryDetails && this->recovery_time);
         case 10:
         {
             auto option = module_option::Dropdown("Full recovery sound", "Play once when resting fills HP and MP. Off by default.", &this->sound, sound_names, std::size(sound_names));
-            option.choice_preview = true; option.preview_first = 1; return option;
+            option.choice_preview = true; option.preview_first = 1; return option.VisibleWhen(this->resting);
         }
-        case 11: return module_option::Slider("Timer bar height", "Height of attack and recovery tracks.", &this->height, 2, 24, 1);
-        case 12: return module_option::Slider("Timer X offset", "Move timers relative to Player Bar; negative values are supported.", &this->offset_x, -1000, 1000, 1);
-        case 13: return module_option::Slider("Timer Y offset", "Move timers above, over or below Player Bar.", &this->offset_y, -1000, 1000, 1);
-        case 14: return module_option::Slider("Timer spacing", "Gap between Player Bar and its timer readouts.", &this->spacing, 0, 30, 1);
-        case 15: return module_option::Choice("Timer display", "Full timer readouts: bar and text, or text only. Mini bars have their own text choices.", &this->display, displays, 2);
-        case 16: return module_option::Choice("Timer direction", "Fill toward the next action or drain its remaining time.", &this->direction, directions, 2);
-        case 17: return module_option::Slider("Almost ready seconds", "Highlight the final part of the attack countdown.", &this->ready_seconds, 0, 2, 0.1f);
-        case 18: return module_option::Toggle("Tick highlight", "Briefly highlight a real resting tick.", &this->flash);
-        case 19: return module_option::Toggle("Separate HP / MP times", "Show individual recovery estimates instead of one combined goal time.", &this->resource_times);
-        case 20: return module_option::Color("Attack timer color", "Attack fill; HUD text keeps its normal effects.", &this->attack_color);
-        case 21: return module_option::Color("Recovery timer color", "Recovery fill and tick highlight.", &this->rest_color);
-        case 22: return module_option::Color("Almost ready color", "Final attack countdown and tick highlight.", &this->ready_color);
-        case 23: return module_option::Choice("Attack placement", "Full readout below or above Player Bar, or a slim bar attached beneath TP.", &this->attack_layout, layouts, 3);
-        case 24: return module_option::Slider("Mini bar height", "Track thickness when Attack placement is Mini below TP.", &this->mini_height, 1, 12, 1);
-        case 25: return module_option::Slider("Mini bar gap", "Space between the TP track and its mini attack bar.", &this->mini_gap, 0, 24, 1);
-        case 26: return module_option::Choice("Mini bar text", "Optional styled text beneath the mini bar. None keeps only the thin track.", &this->mini_text, miniText, 3);
-        case 27: return module_option::Choice("Resting placement", "Full readout below or above Player Bar, or a slim bar attached beneath HP.", &this->recovery_layout, recoveryLayouts, 3);
-        case 28: return module_option::Slider("Mini bar height", "Track thickness when Resting placement is Mini below HP.", &this->recovery_mini_height, 1, 12, 1);
-        case 29: return module_option::Slider("Mini bar gap", "Space between the HP track and its mini resting bar.", &this->recovery_mini_gap, 0, 24, 1);
-        case 30: return module_option::Choice("Mini bar text", "Optional styled text beneath the resting mini bar. None keeps only the thin track.", &this->recovery_mini_text, recoveryMiniText, 3);
+        case 11: return module_option::Slider("Timer bar height", "Height of attack and recovery tracks.", &this->height, 2, 24, 1).Ordered(112).VisibleWhen(fullReadout && this->display == 0);
+        case 12: return module_option::Slider("Timer X offset", "Move timers relative to Player Bar; negative values are supported.", &this->offset_x, -1000, 1000, 1).Ordered(210, true).VisibleWhen(this->attack || this->resting);
+        case 13: return module_option::Slider("Timer Y offset", "Move timers above, over or below Player Bar.", &this->offset_y, -1000, 1000, 1).Ordered(211).VisibleWhen(this->attack || this->resting);
+        case 14: return module_option::Slider("Timer spacing", "Gap between Player Bar and its timer readouts.", &this->spacing, 0, 30, 1).Ordered(300, true).VisibleWhen(fullReadout);
+        case 15: return module_option::Choice("Timer display", "Full timer readouts: bar and text, or text only. Mini bars have their own text choices.", &this->display, displays, 2).Ordered(-30).VisibleWhen(fullReadout);
+        case 16: return module_option::Choice("Timer direction", "Fill toward the next action or drain its remaining time.", &this->direction, directions, 2).VisibleWhen(attackBar || recoveryBar);
+        case 17: return module_option::Slider("Almost ready seconds", "Highlight the final part of the attack countdown.", &this->ready_seconds, 0, 2, 0.1f).VisibleWhen(this->attack);
+        case 18: return module_option::Toggle("Tick highlight", "Briefly highlight a real resting tick.", &this->flash).VisibleWhen(recoveryBar);
+        case 19: return module_option::Toggle("Separate HP / MP times", "Show individual recovery estimates instead of one combined goal time.", &this->resource_times).VisibleWhen(recoveryDetails && this->recovery_time);
+        case 20: return module_option::Color("Attack timer color", "Attack fill; HUD text keeps its normal effects.", &this->attack_color).VisibleWhen(attackBar);
+        case 21: return module_option::Color("Recovery timer color", "Recovery fill and tick highlight.", &this->rest_color).VisibleWhen(recoveryBar);
+        case 22: return module_option::Color("Almost ready color", "Final attack countdown and tick highlight.", &this->ready_color).VisibleWhen(this->attack || (recoveryBar && this->flash));
+        case 23: return module_option::Choice("Attack placement", "Full readout below or above Player Bar, or a slim bar attached beneath TP.", &this->attack_layout, layouts, 3).Ordered(200).VisibleWhen(this->attack);
+        case 24: return module_option::Slider("Mini bar height", "Track thickness when Attack placement is Mini below TP.", &this->mini_height, 1, 12, 1).Ordered(112).VisibleWhen(this->attack && this->attack_layout == 2);
+        case 25: return module_option::Slider("Mini bar gap", "Space between the TP track and its mini attack bar.", &this->mini_gap, 0, 24, 1).Ordered(302).VisibleWhen(this->attack && this->attack_layout == 2);
+        case 26: return module_option::Choice("Mini bar text", "Optional styled text beneath the mini bar. None keeps only the thin track.", &this->mini_text, miniText, 3).VisibleWhen(this->attack && this->attack_layout == 2);
+        case 27: return module_option::Choice("Resting placement", "Full readout below or above Player Bar, or a slim bar attached beneath HP.", &this->recovery_layout, recoveryLayouts, 3).Ordered(200).VisibleWhen(this->resting);
+        case 28: return module_option::Slider("Mini bar height", "Track thickness when Resting placement is Mini below HP.", &this->recovery_mini_height, 1, 12, 1).Ordered(112).VisibleWhen(this->resting && this->recovery_layout == 2);
+        case 29: return module_option::Slider("Mini bar gap", "Space between the HP track and its mini resting bar.", &this->recovery_mini_gap, 0, 24, 1).Ordered(302).VisibleWhen(this->resting && this->recovery_layout == 2);
+        case 30: return module_option::Choice("Mini bar text", "Optional styled text beneath the resting mini bar. None keeps only the thin track.", &this->recovery_mini_text, recoveryMiniText, 3).VisibleWhen(this->resting && this->recovery_layout == 2);
         default: return {};
         }
     }
@@ -138,12 +143,12 @@ namespace xiui::ui
     {
         switch (index)
         {
-        case 0: return module_option::Toggle("Enemy attack timer", "Observed melee timing with cast/action holds and disabling effects. Off by default; ~ means estimated.", &this->enabled);
-        case 1: return module_option::Slider("Attack timer height", "Height of the enemy attack track.", &this->height, 2, 24, 1);
-        case 2: return module_option::Toggle("Text only", "Keep the countdown and status without drawing a track.", &this->text_only);
-        case 3: return module_option::Toggle("Drain", "Drain remaining time instead of filling toward the next attack.", &this->drain);
-        case 4: return module_option::Color("Attack timer color", "Enemy countdown fill.", &this->color);
-        case 5: return module_option::Color("Almost ready color", "Final half second before an expected attack.", &this->ready_color);
+        case 0: return module_option::Toggle("Enemy attack timer", "Observed melee timing with cast/action holds and disabling effects. Off by default; ~ means estimated.", &this->enabled).Ordered(-40);
+        case 1: return module_option::Slider("Attack timer height", "Height of the enemy attack track.", &this->height, 2, 24, 1).Ordered(112).VisibleWhen(this->enabled && !this->text_only);
+        case 2: return module_option::Toggle("Text only", "Keep the countdown and status without drawing a track.", &this->text_only).VisibleWhen(this->enabled);
+        case 3: return module_option::Toggle("Drain", "Drain remaining time instead of filling toward the next attack.", &this->drain).VisibleWhen(this->enabled && !this->text_only);
+        case 4: return module_option::Color("Attack timer color", "Enemy countdown fill.", &this->color).VisibleWhen(this->enabled && !this->text_only);
+        case 5: return module_option::Color("Almost ready color", "Final half second before an expected attack.", &this->ready_color).VisibleWhen(this->enabled);
         default: return {};
         }
     }

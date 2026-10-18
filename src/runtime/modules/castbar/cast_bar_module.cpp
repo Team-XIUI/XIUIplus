@@ -75,19 +75,20 @@ namespace xiui
         static constexpr const char* profiles[]{"Spell / item name", "Progress"};
         switch (index)
         {
-        case enabled: return module_option::Toggle("Enabled", "Show your own cast progress independently of the Party module.", &this->state_.enabled);
+        case enabled: return module_option::Toggle("Enabled", "Show your own cast progress independently of the Party module.", &this->state_.enabled).Ordered(-50);
         case show_name: return module_option::Toggle("Action name", "Show the spell or item being used.", &this->show_name_);
         case show_percent: return module_option::Toggle("Percentage", "Show the client's current cast percentage.", &this->show_percent_);
         case show_items: return module_option::Toggle("Item use", "Include item-use progress as well as spell casts.", &this->show_items_);
         case show_interrupted: return module_option::Toggle("Interruptions", "Briefly retain an interrupted cast with its interruption color.", &this->show_interrupted_);
         case width: return ModuleWidthOption(this->state_);
-        case fill_top: return module_option::Color("Fill top", "Top of the cast progress gradient.", &this->top_, module_option_group::colors);
-        case fill_bottom: return module_option::Color("Fill bottom", "Bottom of the cast progress gradient.", &this->bottom_, module_option_group::colors);
-        case interrupted_color: return module_option::Color("Interrupted", "Tint for interrupted progress and text, preserving text effects.", &this->interrupted_, module_option_group::colors);
+        case fill_top: return module_option::Color("Fill top", "Top of the cast progress gradient.", &this->top_, module_option_group::colors).Ordered(500, true);
+        case fill_bottom: return module_option::Color("Fill bottom", "Bottom of the cast progress gradient.", &this->bottom_, module_option_group::colors).Ordered(501);
+        case interrupted_color: return module_option::Color("Interrupted", "Tint for interrupted progress and text, preserving text effects.", &this->interrupted_, module_option_group::colors).VisibleWhen(this->show_interrupted_);
         case selected_text: return module_option::Element("Selected text", "Independent name and percentage profiles.", &this->selected_text_, profiles, 2, module_option_group::text);
         default:
             if (index < base_options + meter_style_option_count) return MeterStyleOption(index - base_options, this->meter_);
-            return TextProfileOption(index - base_options - meter_style_option_count, this->text_[this->selected_text_]);
+            return TextProfileOption(index - base_options - meter_style_option_count, this->text_[this->selected_text_]).VisibleWhen(
+                this->selected_text_ == 0 ? this->show_name_ || this->show_interrupted_ : this->show_percent_);
         }
     }
 

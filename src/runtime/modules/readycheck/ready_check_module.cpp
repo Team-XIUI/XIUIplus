@@ -29,6 +29,7 @@ namespace xiui
         this->state_.enabled = true;
         this->settings_ = {};
         this->ApplyTextDefaults(theme);
+        this->ConfigureSound();
     }
 
     auto ready_check_module::Load(const settings_store& store) -> void
@@ -43,6 +44,10 @@ namespace xiui
             return std::clamp(std::isfinite(value) ? value : fallback, minimum, maximum);
         };
         this->settings_.volume = number("volume", 50, 0, 150);
+        this->settings_.sound_choice = std::clamp(store.ReadInt("readycheck", "sound_choice", 0), 0, 1);
+        this->settings_.sound_file = store.ReadString("readycheck", "sound_file", "");
+        if (!ReadyCheckWavFilename(this->settings_.sound_file)) this->settings_.sound_file.clear();
+        this->ConfigureSound();
         this->settings_.column_width = number("column_width", 280, 220, 480);
         this->settings_.row_spacing = number("row_spacing", 4, 0, 20);
         this->settings_.icon_size = number("icon_size", 24, 16, 48);
@@ -61,6 +66,8 @@ namespace xiui
     {
         store.WriteRect("layout.readycheck", this->state_.bounds);
         store.WriteBool("readycheck", "enabled", this->state_.enabled);
+        store.WriteInt("readycheck", "sound_choice", this->settings_.sound_choice);
+        store.WriteString("readycheck", "sound_file", ReadyCheckWavFilename(this->settings_.sound_file) ? this->settings_.sound_file : "");
         for (const auto& [key, value] : {std::pair{"announce", this->settings_.announce}, {"sound_checker", this->settings_.sound_checker},
             {"sound_prompt", this->settings_.sound_prompt}, {"job_icons", this->settings_.job_icons}})
             store.WriteBool("readycheck", key, value);
@@ -88,6 +95,7 @@ namespace xiui
 
     auto ready_check_module::ConfigSectionContains(size_t section, size_t index) -> bool
     {
+        if (index >= sound_options_start) return index < this->OptionCount() && section == 0;
         return index < this->OptionCount() && section == (index <= test_sound ? size_t{0} : index <= icon_size ? size_t{1} :
             index <= pending_color ? size_t{2} : size_t{3});
     }
@@ -95,10 +103,20 @@ namespace xiui
     auto ready_check_module::Option(size_t index) -> module_option
     {
         auto& settings = this->settings_;
+        if (index >= sound_options_start)
+        {
+            static constexpr const char* sounds[]{"Built-in chime", "Custom WAV"};
+            switch (index - sound_options_start)
+            {
+            case 0: return module_option::Choice("Sound", "Choose a sound; use Test sound for an explicit preview.", &settings.sound_choice, sounds, 2);
+            case 1: return module_option::Text("Custom WAV filename", "Filename in XIUI config/sounds. PCM 8/16-bit mono/stereo, up to 30 seconds and 8 MiB. Missing or unsupported files use the built-in chime.", &settings.sound_file, 128).VisibleWhen(settings.sound_choice == 1);
+            default: return module_option::Action("Reload custom WAV", this->sound_.Status().c_str(), "Reload").VisibleWhen(settings.sound_choice == 1);
+            }
+        }
         static constexpr const char* profiles[]{"Heading", "Member names", "Responses", "Details", "Buttons"};
         switch (index)
         {
-        case enabled: return module_option::Toggle("Enabled", "Receive ready checks and show their prompts and results.", &this->state_.enabled);
+        case enabled: return module_option::Toggle("Enabled", "Receive ready checks and show their prompts and results.", &this->state_.enabled).Ordered(-50);
         case start:
         {
             auto result = module_option::Action("Start ready check", "Ask the party or alliance to reply within 30 seconds.", "Start");
@@ -110,13 +128,13 @@ namespace xiui
         case sound_checker: return module_option::Toggle("Sound when sending", "Play the ready-check chime when starting a check.", &settings.sound_checker);
         case sound_prompt: return module_option::Toggle("Sound when receiving", "Play the ready-check chime when another member asks.", &settings.sound_prompt);
         case volume: return module_option::Slider("Sound volume", "Chime volume in percent, without changing the game's or system's volume.", &settings.volume, 0, 150, 5);
-        case test_sound: return module_option::Action("Test sound", "Play the built-in ready-check chime at the selected volume.", "Play");
-        case column_width: return module_option::Slider("Party column width", "Width of each party's column in pixels.", &settings.column_width, 220, 480, 4);
-        case row_spacing: return module_option::Slider("Entry spacing", "Extra pixels between member rows.", &settings.row_spacing, 0, 20, 1);
+        case test_sound: return module_option::Action("Test sound", "Play the selected ready-check sound at the selected volume.", "Play");
+        case column_width: return module_option::Slider("Party column width", "Width of each party's column in pixels.", &settings.column_width, 220, 480, 4).Ordered(100, true);
+        case row_spacing: return module_option::Slider("Entry spacing", "Extra pixels between member rows.", &settings.row_spacing, 0, 20, 1).Ordered(300, true);
         case job_icons: return module_option::Toggle("Job icons", "Use the shared XIVParty job artwork beside member names.", &settings.job_icons);
-        case icon_size: return module_option::Slider("Icon size", "Job icon size in pixels.", &settings.icon_size, 16, 48, 1);
-        case opacity: return module_option::Slider("Container opacity", "Opacity of the native frame and background.", &settings.container.opacity, 0, 1, 0.05f);
-        case padding: return module_option::Slider("Container padding", "Space inside the native frame.", &settings.container.padding, 0, 24, 1);
+        case icon_size: return module_option::Slider("Icon size", "Job icon size in pixels.", &settings.icon_size, 16, 48, 1).Ordered(110).VisibleWhen(settings.job_icons);
+        case opacity: return module_option::Slider("Container opacity", "Opacity of the native frame and background.", &settings.container.opacity, 0, 1, 0.05f).Ordered(450);
+        case padding: return module_option::Slider("Container padding", "Space inside the native frame.", &settings.container.padding, 0, 24, 1).Ordered(402);
         case ready_color: return module_option::Color("Ready", "Tint for ready responses; retains text gradients and effects.", &settings.ready);
         case no_color: return module_option::Color("Not ready", "Tint for negative responses and members who did not answer.", &settings.no);
         case pending_color: return module_option::Color("Waiting", "Tint for pending responses.", &settings.pending);
@@ -130,6 +148,7 @@ namespace xiui
         if (index == enabled && !this->state_.enabled) this->Stop();
         if (index == start) this->Start(::GetTickCount64());
         if (index == test_sound) this->sound_.Play(this->settings_.volume);
+        if (index >= sound_options_start) this->ConfigureSound();
     }
 
     auto ready_check_module::Roster(void) const -> std::vector<ready_check_member>
@@ -151,7 +170,7 @@ namespace xiui
     auto ready_check_module::Report(const char* message) const -> void
     {
         if (this->core_ != nullptr && this->core_->GetChatManager() != nullptr)
-            this->core_->GetChatManager()->Writef(1, false, "[XIUI Native] %s", message);
+            this->core_->GetChatManager()->Writef(1, false, "[XIUI] %s", message);
     }
 
     auto ready_check_module::Start(uint64_t now) -> void
@@ -221,10 +240,11 @@ namespace xiui
         {
             const auto text = "Ready Check: " + std::string{!this->state_.enabled ? "disabled" : this->check_.Mode() == ready_check_mode::idle ? "idle" :
                 this->check_.Mode() == ready_check_mode::prompt ? "awaiting your answer" : this->check_.Completed() ? "complete" : "tracking responses"} +
-                "; ready " + std::to_string(this->check_.Count(ready_response::ready)) + "/" + std::to_string(this->check_.Members().size()) + ".";
+                "; ready " + std::to_string(this->check_.Count(ready_response::ready)) + "/" + std::to_string(this->check_.Members().size()) +
+                "; sound " + this->sound_.Status() + ".";
             this->Report(text.c_str());
         }
-        else this->Report("/readycheck [start|yes|no|close|status|test|volume <0-150>]; /xiuin readycheck opens settings.");
+        else this->Report("/readycheck [start|yes|no|close|status|test|volume <0-150>]; /xiui readycheck opens settings.");
     }
 
     auto ready_check_module::ShouldRender(const hud_snapshot&) const -> bool
@@ -261,6 +281,22 @@ namespace xiui
             this->pressed_deadline_ = this->check_.Deadline();
             this->pressed_ = Inside(this->buttons_[0], x, y) ? 0 : Inside(this->buttons_[1], x, y) ? 1 : -1;
         }
+        return true;
+    }
+
+    auto ready_check_module::ControllerButtonCount(void) const -> size_t
+    {
+        if (!this->state_.enabled || this->check_.Mode() == ready_check_mode::idle) return 0;
+        return this->check_.Mode() == ready_check_mode::prompt ? 2 : 1;
+    }
+
+    auto ready_check_module::ActivateControllerButton(const size_t index, const uint64_t now) -> bool
+    {
+        this->check_.Tick(now);
+        if (index >= this->ControllerButtonCount()) return false;
+        if (this->ui_sounds_ != nullptr) this->ui_sounds_->Select(now);
+        if (this->check_.Mode() == ready_check_mode::prompt) this->Answer(index == 0, now);
+        else this->Stop();
         return true;
     }
 

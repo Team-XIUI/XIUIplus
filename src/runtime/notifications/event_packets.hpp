@@ -11,6 +11,16 @@
 namespace xiui
 {
     struct invitation_packet { uint32_t sender{}, index{}; bool alliance{}; std::string name{}; };
+    struct trade_response { uint32_t sender{}, kind{}; };
+
+    inline auto DecodeTradeResponse(uint16_t id, std::span<const uint8_t> data) -> std::optional<trade_response>
+    {
+        if (id != 0x22 || data.size() < 12) return std::nullopt;
+        trade_response result;
+        std::memcpy(&result.sender, data.data() + 4, 4);
+        std::memcpy(&result.kind, data.data() + 8, 4);
+        return result;
+    }
 
     inline auto DecodeInvitation(const uint16_t id, const std::span<const uint8_t> data) -> std::optional<invitation_packet>
     {

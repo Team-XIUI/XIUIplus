@@ -3,6 +3,7 @@
 #include "notification_center.hpp"
 #include "design_system.hpp"
 #include "ui/game_icon_cache.hpp"
+#include <array>
 
 namespace xiui { class module_render_context; }
 
@@ -28,10 +29,25 @@ namespace xiui
         bool skills{true};
         bool party_invites{true}, trade_invites{true}, key_items{true}, gil{true}, treasure{true};
         bool background{};
+        bool stack_down{}, pin_invites{true};
+        float minify_after{3.0f};
         D3DCOLOR item_color{0xFFF2F3FA};
         D3DCOLOR experience_color{0xFFFFDD83};
         D3DCOLOR skill_color{0xFF96D5FF};
         D3DCOLOR party_color{0xFFF2F3FA}, trade_color{0xFFF2F3FA}, key_item_color{0xFFF2F3FA}, gil_color{0xFFF2F3FA}, treasure_color{0xFFF2F3FA};
+    };
+
+    struct notification_rows
+    {
+        std::array<const notification_entry*, 10> entries{};
+        size_t count{};
+    };
+
+    struct notification_draw_result
+    {
+        struct hit { uint64_t id{}; ui::rect bounds{}; };
+        std::array<hit, 10> hits{};
+        size_t count{};
     };
 
     class notification_renderer
@@ -40,6 +56,7 @@ namespace xiui
         static auto KindEnabled(notification_kind kind, const notification_style& style) -> bool;
         static auto KindColor(notification_kind kind, const notification_style& style) -> D3DCOLOR;
         static auto ScreenBounds(const ui::rect& viewport, const ui::rect& bounds, float offsetX, float offsetY, ui::text_alignment alignment = ui::text_alignment::right) -> ui::rect;
-        static auto Draw(const ui::design_system& design, const notification_center& center, const ui::rect& bounds, const notification_style& style, uint64_t now, ui::game_icon_cache* icons = nullptr, const module_render_context* context = nullptr) -> void;
+        static auto Rows(const notification_center& center, const notification_style& style, uint64_t now, std::span<const int> routing = {}, int group = 0) -> notification_rows;
+        static auto Draw(const ui::design_system& design, const notification_center& center, const ui::rect& bounds, const notification_style& style, uint64_t now, ui::game_icon_cache* icons = nullptr, const module_render_context* context = nullptr, std::span<const int> routing = {}, int group = 0, notification_draw_result* result = nullptr) -> void;
     };
 } // namespace xiui

@@ -12,8 +12,11 @@ namespace xiui::ui
 {
     struct config_text_settings
     {
-        static constexpr size_t option_count = 15;
+        static constexpr size_t option_count = 16;
+        static constexpr float reference_size = 12;
+        static constexpr float default_size = 14;
         int font{};
+        float size{default_size};
         float letter_spacing{};
         shadow_effect shadow{true, 1, 1, 0xEE000000, false};
         int outline{1};

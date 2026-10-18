@@ -9,6 +9,8 @@ Apply to the XIUI Native repository containing this skill.
 
 Read its `AGENTS.md` and relevant shared foundations. Consult `docs/controller-plan.md` for the researched UX and rollout. That document is a proposal: inspect the current source before assuming its planned adapters, focus system or controller actions exist. A request for research or planning authorizes documentation, not application implementation.
 
+Read `docs/controller-implementation.md` for the implemented entry commands, ABI, semantic actions and remaining native-keyboard/hardware limits. Reuse the current normalized input and focus foundations when extending features.
+
 For live diagnostics, consult `docs/controller-agentlink-findings.md`. AgentLink can forward existing Ashita diagnostic commands, but an accepted `QueueButtonData` call does not prove a connected or emulated controller, delivered input or successful navigation. Confirm runtime readiness, device/backend availability and observed callbacks/state transitions first. Honor the task's authorization for experiments and preserve current user work.
 
 ## Native behavior and input contract
@@ -19,6 +21,8 @@ For live diagnostics, consult `docs/controller-agentlink-findings.md`. AgentLink
 - Normalize device input to shared actions. Mouse, keyboard and controller should activate the same module operations and validation; do not build a second behavior path by synthesizing clicks or globally injecting Enter/Escape.
 - Keep native movement, camera, macros, menus and targeting available outside explicit XIUI focus. Respect an already-blocked event and other input owners. A hidden native window may still own input.
 - Consume owned press, held state and release consistently. Handle direction repeat separately from one-shot activation. Require neutral after releasing a captured stick. Never let closing a dialog also act in the game.
+- Chat browsing captures navigation only: movement/camera sticks and unrelated keyboard movement remain available. Typing retains keyboard text ownership; config/modals may capture exclusively. Party browsing yields to the live native menu-input flag, including main menu, inventory and equipment, rather than relying only on movable command-panel visibility.
+- Keep native controller callbacks independent of the runtime/render mutex. Read cached routing, decide suppression immediately, and queue accepted actions for the render thread; never invoke UI/native actions while holding the mailbox lock. Expire stale work and invalidate it on suspension, profile changes and runtime replacement.
 - Decide suppression before native input processing; next-frame queued work alone cannot block the original input. Verify the installed state-copy contract, not only per-button blocking. Preserve provenance to prevent replay loops without rejecting legitimate remapper input merely because it is injected.
 - Release/suspend ownership on disconnect, lost game-window focus, zoning, cutscenes, hidden/disabled UI, profile changes, runtime replacement and unload. Do not globally change Ashita's background-controller policy.
 

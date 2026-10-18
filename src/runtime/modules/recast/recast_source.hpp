@@ -15,6 +15,9 @@ namespace xiui
         auto Entries(void) const -> std::span<const recast_entry> { return this->tracker_.Entries(); }
 
     private:
+#if defined(XIUI_ENABLE_PARITY_TESTS)
+        friend struct pet_hud_test;
+#endif
         recast_tracker tracker_{};
         uint64_t next_update_{};
         uint32_t player_{}, zone_{};

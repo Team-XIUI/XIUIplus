@@ -1,0 +1,19 @@
+XIUI status duration database
+
+Source: tirem/XIUI, XIUI/handlers/database/debuff_retail.lua
+https://github.com/tirem/XIUI
+Local checkout: a9e8d0c93710e5838749f8afc36f0058451c9a7e
+The exact imported file is retained as debuff_retail.lua; its SHA-256 is
+recorded in src/runtime/resources/xiui_status_durations.hpp.
+
+Copyright: the XIUI contributors. Distributed under XIUI's GNU General
+Public License version 3; the upstream license is retained in LICENSE.txt.
+The upstream database credits existing XIUI tables and LandSandBoat scripts.
+
+Native imports fixed literal durations, including per-effect overrides.
+TP formulas, gear/merit/job-point duration models, server overlays and
+unconfirmed secondary-effect inference are not included. Database values
+are displayed as estimates and clear on observed removal or estimated expiry.
+
+Regenerate:
+python scripts/build-status-rules.py assets/status/debuff_retail.lua src/runtime/resources/xiui_status_durations.hpp

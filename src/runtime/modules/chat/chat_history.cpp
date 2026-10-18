@@ -21,7 +21,7 @@ namespace xiui
         float x = left, y = viewport.y + margin;
         for (size_t index = 0; index < result.tabs.size(); ++index)
         {
-            const float width = std::min(right - left, std::max(56.0f, design.MeasureText(chat_history_tabs[index], this->chrome_.style) + 24));
+            const float width = std::min(right - left, std::max(56.0f, design.MeasureText(this->HistoryTabName(index), this->chrome_.style) + 24));
             if (x > left && x + width > right) { x = left; y += height + 2; }
             result.tabs[index] = {x, y, width, height};
             x += width + 2;
@@ -61,45 +61,92 @@ namespace xiui
         scroll = std::min(scroll, maximum);
     }
 
-    auto chat_module::HandleHistoryKey(const WPARAM key, const LPARAM flags, const bool blocked, const bool replaceNative, const ui::design_system& design) -> bool
+    auto chat_module::BeginHistory(const bool controller) -> bool
     {
-        if (!this->WindowVisible() || this->secondary_ || this->Focused() || this->resizing_) return false;
-        const bool released = (static_cast<uint32_t>(flags) & 0x80000000u) != 0;
-        if (released) return this->HistoryFocused();
-        const bool repeated = (static_cast<uint32_t>(flags) & 0x40000000u) != 0;
-        const bool control = (::GetKeyState(VK_CONTROL) & 0x8000) != 0;
-        const bool alt = (::GetKeyState(VK_MENU) & 0x8000) != 0 || (static_cast<uint32_t>(flags) & 0x20000000u) != 0;
-        const bool shift = (::GetKeyState(VK_SHIFT) & 0x8000) != 0;
-        if (alt && key == VK_TAB) { this->Focus(false); return false; }
-        if (!this->HistoryFocused())
+        if (!this->WindowVisible() || this->resizing_) return false;
+        if (this->parent_ != nullptr) this->parent_->Focus(false);
+        if (this->second_window_ != nullptr) this->second_window_->Focus(false);
+        this->focused_ = false;
+        this->controller_composition_ = this->controller_channel_adjusting_ = false;
+        this->editor_.ResetCompletion();
+        this->history_view_.focused = true;
+        this->controller_history_ = controller;
+        if (this->sounds_ != nullptr) this->sounds_->Select(::GetTickCount64());
+        return true;
+    }
+
+    auto chat_module::BeginControllerCompose(void) -> bool
+    {
+        auto& editor = this->parent_ != nullptr ? *this->parent_ : *this;
+        if (!editor.WindowVisible()) return false;
+        this->Focus(false);
+        editor.error_.clear();
+        editor.Focus(true);
+        editor.controller_composition_ = true;
+        editor.controller_compose_action_ = 0;
+        editor.controller_return_history_ = this;
+        return true;
+    }
+
+    auto chat_module::SetControllerHistoryPrompts(std::string compact, std::string expanded) -> void
+    {
+        this->controller_compact_prompt_ = std::move(compact);
+        this->controller_expanded_prompt_ = std::move(expanded);
+    }
+
+    auto chat_module::HandleControllerAction(const controller_action action, const bool repeated, const ui::design_system& design, IChatManager* chat) -> bool
+    {
+        if (this->Focused() && !this->controller_composition_ && action != controller_action::none)
         {
-            if (key != 'F' || repeated || blocked || !replaceNative || control || alt || shift) return false;
-            this->history_view_.focused = true;
-            if (this->sounds_ != nullptr) this->sounds_->Select(::GetTickCount64());
-            return true;
+            this->controller_composition_ = true;
+            this->controller_compose_action_ = 0;
+            this->controller_return_history_ = this;
         }
-        if (((key == VK_OEM_2 || key == VK_DIVIDE) && !shift && !control && !alt) || (key == 'R' && alt))
-        { this->Focus(false); return false; }
-        if (key == VK_ESCAPE) { this->Focus(false); return true; }
-        if (key == VK_RETURN)
+        if (this->ControllerComposing()) return this->HandleControllerCompose(action, repeated, chat);
+        if (this->parent_ != nullptr && this->parent_->ControllerComposing())
+            return this->parent_->HandleControllerCompose(action, repeated, chat);
+        if (!this->HistoryFocused()) return false;
+        this->controller_history_ = true;
+        if (action == controller_action::actions) return repeated || this->BeginControllerCompose();
+        return this->NavigateHistory(action, repeated, design, true);
+    }
+
+    auto chat_module::NavigateHistory(const controller_action action, const bool repeated, const ui::design_system& design, const bool layered) -> bool
+    {
+        if (action == controller_action::cancel)
         {
             if (!repeated)
             {
-                if (this->HistoryExpanded()) this->Focus(false);
+                if (layered && this->HistoryExpanded()) this->history_view_.expanded = false;
+                else this->Focus(false);
+                this->cache_revision_ = UINT64_MAX;
+            }
+            return true;
+        }
+        if (action == controller_action::confirm)
+        {
+            if (!repeated)
+            {
+                if (this->HistoryExpanded())
+                {
+                    if (layered) this->history_view_.expanded = false;
+                    else this->Focus(false);
+                    this->cache_revision_ = UINT64_MAX;
+                }
                 else
                 {
                     this->history_view_.expanded = true;
-                    this->SelectHistoryTab(0);
+                    this->cache_revision_ = UINT64_MAX;
                     if (this->sounds_ != nullptr) this->sounds_->MenuOpened(::GetTickCount64());
                 }
             }
             return true;
         }
-        if (key == 'F')
+        if (action == controller_action::next_tab || action == controller_action::previous_tab || action == controller_action::cycle_window)
         {
             if (!repeated && this->HistoryExpanded())
             {
-                this->SelectHistoryTab(this->history_view_.tab + (shift ? std::size(chat_history_tabs) - 1 : 1));
+                this->SelectHistoryTab(this->history_view_.tab + (action == controller_action::previous_tab ? std::size(chat_history_tabs) - 1 : 1));
                 if (this->sounds_ != nullptr) this->sounds_->Select(::GetTickCount64());
             }
             return true;
@@ -107,12 +154,52 @@ namespace xiui
         const auto log = this->HistoryExpanded() ? this->HistoryLayout(design).log : this->Layout(design).log;
         this->RebuildRows(design, log.width);
         this->visible_rows_ = std::max<size_t>(1, static_cast<size_t>(log.height / (design.TextHeight(this->text_.style) + this->line_spacing_)));
+        switch (action)
+        {
+        case controller_action::left: this->Scroll(static_cast<int>(std::max<size_t>(1, this->visible_rows_ - 1))); break;
+        case controller_action::right: this->Scroll(-static_cast<int>(std::max<size_t>(1, this->visible_rows_ - 1))); break;
+        case controller_action::up: this->ScrollMessage(1); break;
+        case controller_action::down: this->ScrollMessage(-1); break;
+        default: return false;
+        }
+        const size_t maximum = this->rows_.size() > this->visible_rows_ ? this->rows_.size() - this->visible_rows_ : 0;
+        this->CurrentScroll() = std::min(this->CurrentScroll(), maximum);
+        return true;
+    }
+
+    auto chat_module::HandleHistoryKey(const WPARAM key, const LPARAM flags, const bool blocked, const bool, const ui::design_system& design) -> bool
+    {
+        if (blocked || !this->WindowVisible() || this->Focused() || this->resizing_) return false;
+        const bool released = (static_cast<uint32_t>(flags) & 0x80000000u) != 0;
+        if (released) return false;
+        const bool repeated = (static_cast<uint32_t>(flags) & 0x40000000u) != 0;
+        const bool control = (::GetKeyState(VK_CONTROL) & 0x8000) != 0;
+        const bool alt = (::GetKeyState(VK_MENU) & 0x8000) != 0 || (static_cast<uint32_t>(flags) & 0x20000000u) != 0;
+        const bool shift = (::GetKeyState(VK_SHIFT) & 0x8000) != 0;
+        if (alt && key == VK_TAB) { this->Focus(false, true); return false; }
+        if (!this->HistoryFocused())
+            return false;
+        if (((key == VK_OEM_2 || key == VK_DIVIDE) && !shift && !control && !alt) || (key == 'R' && alt))
+        { this->Focus(false); return false; }
+        if (key != VK_ESCAPE && key != VK_RETURN && key != 'F' && key != VK_LEFT && key != VK_PRIOR &&
+            key != VK_RIGHT && key != VK_NEXT && key != VK_UP && key != VK_DOWN && key != VK_HOME && key != VK_END) return false;
+        this->controller_history_ = false;
         switch (key)
         {
-        case VK_LEFT: case VK_PRIOR: this->Scroll(static_cast<int>(std::max<size_t>(1, this->visible_rows_ - 1))); break;
-        case VK_RIGHT: case VK_NEXT: this->Scroll(-static_cast<int>(std::max<size_t>(1, this->visible_rows_ - 1))); break;
-        case VK_UP: this->ScrollMessage(1); break;
-        case VK_DOWN: this->ScrollMessage(-1); break;
+        case VK_ESCAPE: return this->NavigateHistory(controller_action::cancel, repeated, design, true);
+        case VK_RETURN: return this->NavigateHistory(controller_action::confirm, repeated, design, false);
+        case 'F': return this->NavigateHistory(shift ? controller_action::previous_tab : controller_action::next_tab, repeated, design, false);
+        case VK_LEFT: case VK_PRIOR: return this->NavigateHistory(controller_action::left, repeated, design, false);
+        case VK_RIGHT: case VK_NEXT: return this->NavigateHistory(controller_action::right, repeated, design, false);
+        case VK_UP: return this->NavigateHistory(controller_action::up, repeated, design, false);
+        case VK_DOWN: return this->NavigateHistory(controller_action::down, repeated, design, false);
+        default: break;
+        }
+        const auto log = this->HistoryExpanded() ? this->HistoryLayout(design).log : this->Layout(design).log;
+        this->RebuildRows(design, log.width);
+        this->visible_rows_ = std::max<size_t>(1, static_cast<size_t>(log.height / (design.TextHeight(this->text_.style) + this->line_spacing_)));
+        switch (key)
+        {
         case VK_HOME: this->CurrentScroll() = this->rows_.size(); break;
         case VK_END: this->CurrentScroll() = 0; break;
         default: break;
@@ -164,10 +251,11 @@ namespace xiui
         context.DrawContainer(layout.frame, this->container_);
         auto label = this->chrome_; label.style.alignment = ui::text_alignment::center;
         for (size_t index = 0; index < layout.tabs.size(); ++index)
-            context.DrawButton(layout.tabs[index], chat_history_tabs[index], index == this->history_view_.tab ||
+            context.DrawButton(layout.tabs[index], this->HistoryTabName(index), index == this->history_view_.tab ||
                 Contains(layout.tabs[index], this->history_view_.pointer.x, this->history_view_.pointer.y), label);
         this->DrawLog(snapshot, context, layout.log, layout.scrollbar);
         auto help = this->chrome_; help.style.scale *= 0.85f; help.style.alignment = ui::text_alignment::left;
-        context.DrawText("F: next tab   Shift+F: previous   Left/Right: page   Up/Down: message   Enter/Esc: close", layout.footer, layout.footer, help);
+        context.DrawText(this->controller_history_ ? this->controller_expanded_prompt_.c_str() :
+            "F: next tab   Shift+F: previous   Left/Right: page   Up/Down: message   Enter: close   Esc: back", layout.footer, layout.footer, help);
     }
 }

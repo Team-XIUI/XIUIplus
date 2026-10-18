@@ -13,7 +13,7 @@ namespace xiui::ui
         ~embedded_sound_player(void) { this->Stop(); }
         embedded_sound_player(const embedded_sound_player&) = delete;
         auto operator=(const embedded_sound_player&) -> embedded_sound_player& = delete;
-        auto Initialize(HMODULE module) -> void;
+        auto Initialize(HMODULE module, uint16_t firstResource = 401) -> void;
         auto Available(size_t index) const -> bool { return index < this->clips_.size() && this->clips_[index].data != nullptr; }
         auto Play(size_t index) const -> bool;
         auto Stop(void) const -> void;

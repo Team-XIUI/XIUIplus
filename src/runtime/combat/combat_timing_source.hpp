@@ -20,6 +20,9 @@ namespace xiui
         auto Count(void) const -> size_t { return this->enemies_.size(); }
 
     private:
+#if defined(XIUI_ENABLE_INPUT_TESTS)
+        friend struct party_timing_test;
+#endif
         struct enemy_clock { attack_clock clock{}; uint32_t index{}; uint64_t effect_key{}; float base{4}; };
         attack_clock attack_{};
         recovery_clock recovery_{};

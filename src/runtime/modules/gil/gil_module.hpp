@@ -37,7 +37,7 @@ namespace xiui
             background, opacity, padding, positive, negative, selected_text, base_options };
         module_state state_{true, {-1, -1, 140, 42}, 24, 18};
         gil_source* source_{};
-        bool hide_menu_{}, tracking_{true}, icon_{true}, icon_right_{true}, right_align_{}, background_{};
+        bool tracking_{true}, icon_{true}, icon_right_{true}, right_align_{}, background_{};
         int mode_{}, selected_text_{};
         float icon_size_{24}, spacing_{2};
         ui::container_style container_{1, 5, 6, false};

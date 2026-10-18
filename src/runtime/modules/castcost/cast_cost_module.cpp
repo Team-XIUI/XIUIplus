@@ -87,24 +87,26 @@ namespace xiui
         static constexpr const char* names[]{"Action name", "MP / TP / charges", "Base cast / recast", "Recast label", "Recast value"};
         switch (index)
         {
-        case enabled: return module_option::Toggle("Enabled", "Show the action highlighted in native magic, ability and mount menus.", &this->state_.enabled);
+        case enabled: return module_option::Toggle("Enabled", "Show the action highlighted in native magic, ability and mount menus.", &this->state_.enabled).Ordered(-50);
         case show_name: return module_option::Toggle("Action name", "Show the highlighted action's resource name.", &this->show_name_);
         case show_cost: return module_option::Toggle("Cost", "Show resource MP/TP costs or charge requirements; red when insufficient.", &this->show_cost_);
         case show_timing: return module_option::Toggle("Base cast / recast", "Show base resource times. Equipment and buff adjustments are not included.", &this->show_timing_);
         case show_cooldown: return module_option::Toggle("Live cooldown", "Show the current native recast timer and readiness.", &this->show_cooldown_);
         case width: return ModuleWidthOption(this->state_);
-        case line_spacing: return module_option::Slider("Line spacing", "Space between information rows.", &this->line_spacing_, 0, 20, 1);
-        case container: return module_option::Toggle("Container", "Use the shared native Window Type container.", &this->container_);
-        case opacity: return module_option::Slider("Container opacity", "Opacity of the native frame and backing.", &this->container_style_.opacity, 0, 1, 0.05f);
-        case padding: return module_option::Slider("Container padding", "Space inside the native frame.", &this->container_style_.padding, 0, 24, 1);
-        case fill_top: return module_option::Color("Fill top", "Top of the cooldown progress gradient.", &this->top_, module_option_group::colors);
-        case fill_bottom: return module_option::Color("Fill bottom", "Bottom of the cooldown progress gradient.", &this->bottom_, module_option_group::colors);
-        case ready_color: return module_option::Color("Ready", "Ready-state text tint, retaining gradients and effects.", &this->ready_, module_option_group::colors);
-        case unavailable_color: return module_option::Color("Insufficient resources", "Tint for insufficient MP, TP or charges.", &this->unavailable_, module_option_group::colors);
+        case line_spacing: return module_option::Slider("Line spacing", "Space between information rows.", &this->line_spacing_, 0, 20, 1).Ordered(300, true);
+        case container: return module_option::Toggle("Container", "Use the shared native Window Type container.", &this->container_).Ordered(-10);
+        case opacity: return module_option::Slider("Container opacity", "Opacity of the native frame and backing.", &this->container_style_.opacity, 0, 1, 0.05f).Ordered(450).VisibleWhen(this->container_);
+        case padding: return module_option::Slider("Container padding", "Space inside the native frame.", &this->container_style_.padding, 0, 24, 1).Ordered(402).VisibleWhen(this->container_);
+        case fill_top: return module_option::Color("Fill top", "Top of the cooldown progress gradient.", &this->top_, module_option_group::colors).Ordered(500, true).VisibleWhen(this->show_cooldown_);
+        case fill_bottom: return module_option::Color("Fill bottom", "Bottom of the cooldown progress gradient.", &this->bottom_, module_option_group::colors).Ordered(501).VisibleWhen(this->show_cooldown_);
+        case ready_color: return module_option::Color("Ready", "Ready-state text tint, retaining gradients and effects.", &this->ready_, module_option_group::colors).VisibleWhen(this->show_cooldown_);
+        case unavailable_color: return module_option::Color("Insufficient resources", "Tint for insufficient MP, TP or charges.", &this->unavailable_, module_option_group::colors).VisibleWhen(this->show_cost_ || this->show_cooldown_);
         case selected_text: return module_option::Element("Selected text", "Style the name, cost, timing and cooldown text independently.", &this->selected_text_, names, 5, module_option_group::text);
         default:
-            if (index < base_options + meter_style_option_count) return MeterStyleOption(index - base_options, this->meter_);
-            return TextProfileOption(index - base_options - meter_style_option_count, this->text_[this->selected_text_]);
+            if (index < base_options + meter_style_option_count) return MeterStyleOption(index - base_options, this->meter_).VisibleWhen(this->show_cooldown_);
+            return TextProfileOption(index - base_options - meter_style_option_count, this->text_[this->selected_text_]).VisibleWhen(
+                this->selected_text_ == 0 ? this->show_name_ : this->selected_text_ == 1 ? this->show_cost_ :
+                this->selected_text_ == 2 ? this->show_timing_ : this->show_cooldown_);
         }
     }
 

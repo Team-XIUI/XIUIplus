@@ -16,6 +16,17 @@ namespace xiui::resources
         return (color & 0xFF00FF00) | ((color & 0xFF) << 16) | ((color >> 16) & 0xFF);
     }
 
+    inline auto MenuVertexColorFromRgba(const uint32_t color) -> uint32_t
+    {
+        const auto argb = MenuColorFromRgba(color);
+        uint32_t result{};
+        for (unsigned shift = 0; shift < 24; shift += 8)
+            result |= std::min(255u, ((argb >> shift) & 255) + 1) << shift;
+        const auto alpha = argb >> 24;
+        // The client adjusts DAT vertex colors while constructing menu sprites.
+        return result | ((alpha == 0 || alpha == 255 ? alpha : std::min(255u, (alpha + 1) * 3 / 2)) << 24);
+    }
+
     struct menu_texture
     {
         uint32_t width{}, height{};

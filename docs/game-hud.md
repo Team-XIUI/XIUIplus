@@ -1,6 +1,12 @@
 # Native game HUD visibility
 
-Open `/xiuin gamehud`, or select **Game HUD** in the config sidebar. Each element has a visibility toggle: on leaves it available to the game, off hides it. All elements start on. **Enable controls** pauses or resumes the selected hides without clearing them. The reset button restores all visibility choices for this section.
+For a temporary clean view, use **General → Visibility → Hide all UI** or `/xiui hide`. The configuration action has a red label/button and opens a Cancel-first warning before hiding. It explains that chat and configuration also disappear and gives recovery instructions: press `/`, type `xiui show`, then press Enter. Typing is invisible while hidden.
+
+Hiding XIUI and every supported native HUD element together exits edit mode and releases XIUI input focus. `/xiui show` restores XIUI and the previous native visibility choices; `/xiui toggleui` toggles between them. Module enable switches, layouts and individual native settings remain unchanged. The hidden state survives runtime hot reloads and resets when the plugin is unloaded.
+
+Open `/xiui gamehud`, or select **Extras → Game HUD** in configuration. **Hide all** hides every supported native HUD element and enables Game HUD controls. **Show all** restores every element. Both actions update the individual visibility switches and save through the normal settings path. XIUI modules retain their visibility and positions.
+
+Each element has a visibility toggle: on leaves it available to the game, off hides it. All elements start on. **Game HUD controls** pauses or resumes the selected hides without clearing them. The reset button restores all visibility choices for this section.
 
 The section includes player HP/MP/TP bars, party, both alliance lists, target box, cast bar, status icons, compass, clock, connection information, menu title, help bar, both chat windows, and expanded chat. **Chat window 1** hides or restores both the main log and its typing input. Unavailable controls are labeled and cannot be changed. These settings affect the game's built-in HUD; XIUI modules retain their own Enabled options. Hiding the target box preserves the native main-target and sub-target arrows above entities.
 
@@ -10,11 +16,12 @@ Preferences save under `[game_hud]` in `xiuinative.ini`. Native windows still fo
 
 Development commands:
 
-- `/xiuin gamehud` opens this config section.
-- `/xiuin gamehud show all` restores every element.
-- `/xiuin gamehud hide <element>` hides one supported element.
-- `/xiuin gamehud show <element>` restores one element.
-- `/xiuin gamehud status` reports supported controls, active hides, and suppressed draws.
+- `/xiui gamehud` opens this config section.
+- `/xiui gamehud show all` restores every element.
+- `/xiui gamehud hide all` hides every supported element and enables Game HUD controls.
+- `/xiui gamehud hide <element>` hides one supported element.
+- `/xiui gamehud show <element>` restores one element.
+- `/xiui gamehud status` reports supported controls, active hides, and suppressed draws.
 
 Element keys are `player`, `party`, `alliance1`, `alliance2`, `target`, `castbar`, `status`, `compass`, `clock`, `connection`, `title`, `help`, `chat1`, `chat2`, and `chatlog`.
 

@@ -1,6 +1,8 @@
 #include "design_system.hpp"
 #include "ui/meter_skin.hpp"
 #include "ui/text_metrics.hpp"
+#include "ui/clipped_quad.hpp"
+#include "ui/rounded_rect.hpp"
 #include "utf8.hpp"
 
 #include <algorithm>
@@ -26,16 +28,7 @@ namespace
         D3DCOLOR color;
     };
 
-    struct text_vertex
-    {
-        float x;
-        float y;
-        float z;
-        float rhw;
-        D3DCOLOR color;
-        float u;
-        float v;
-    };
+    using text_vertex = xiui::ui::textured_vertex;
 
     constexpr DWORD font_pixel_shader[] = {
         0xFFFF0101u,
@@ -320,6 +313,8 @@ namespace xiui::ui
             return false;
 
         this->frame_active_ = true;
+        // HUD draws share these states until EndFrame restores the captured game state.
+        this->ConfigureCommonPipeline();
         this->ConfigureShapePipeline();
         return true;
     }
@@ -694,14 +689,11 @@ namespace xiui::ui
         this->dot_texture_ = nullptr;
     }
 
-    auto design_system::ConfigureShapePipeline(void) const -> void
+    auto design_system::ConfigureCommonPipeline(void) const -> void
     {
         if (this->device_ == nullptr)
             return;
 
-        this->device_->SetTexture(0, nullptr);
-        this->device_->SetPixelShader(0);
-        this->device_->SetVertexShader(shape_vertex_format);
         this->device_->SetRenderState(D3DRS_ZENABLE, FALSE);
         this->device_->SetRenderState(D3DRS_ZWRITEENABLE, FALSE);
         this->device_->SetRenderState(D3DRS_ALPHATESTENABLE, FALSE);
@@ -715,20 +707,15 @@ namespace xiui::ui
         this->device_->SetRenderState(D3DRS_SHADEMODE, D3DSHADE_GOURAUD);
         this->device_->SetRenderState(D3DRS_ALPHABLENDENABLE, TRUE);
         this->device_->SetRenderState(D3DRS_SRCBLEND, D3DBLEND_SRCALPHA);
-        this->device_->SetRenderState(D3DRS_DESTBLEND, D3DBLEND_INVSRCALPHA);
         this->device_->SetRenderState(D3DRS_BLENDOP, D3DBLENDOP_ADD);
         this->device_->SetRenderState(
             D3DRS_COLORWRITEENABLE,
             D3DCOLORWRITEENABLE_RED | D3DCOLORWRITEENABLE_GREEN | D3DCOLORWRITEENABLE_BLUE | D3DCOLORWRITEENABLE_ALPHA);
-        this->device_->SetTextureStageState(0, D3DTSS_COLOROP, D3DTOP_SELECTARG1);
-        this->device_->SetTextureStageState(0, D3DTSS_COLORARG1, D3DTA_DIFFUSE);
-        this->device_->SetTextureStageState(0, D3DTSS_ALPHAOP, D3DTOP_SELECTARG1);
-        this->device_->SetTextureStageState(0, D3DTSS_ALPHAARG1, D3DTA_DIFFUSE);
+        this->device_->SetTextureStageState(0, D3DTSS_COLORARG2, D3DTA_DIFFUSE);
+        this->device_->SetTextureStageState(0, D3DTSS_ALPHAARG2, D3DTA_DIFFUSE);
         this->device_->SetTextureStageState(0, D3DTSS_RESULTARG, D3DTA_CURRENT);
         this->device_->SetTextureStageState(0, D3DTSS_TEXCOORDINDEX, 0);
         this->device_->SetTextureStageState(0, D3DTSS_TEXTURETRANSFORMFLAGS, D3DTTFF_DISABLE);
-        this->device_->SetTextureStageState(0, D3DTSS_ADDRESSU, D3DTADDRESS_CLAMP);
-        this->device_->SetTextureStageState(0, D3DTSS_ADDRESSV, D3DTADDRESS_CLAMP);
         this->device_->SetTextureStageState(0, D3DTSS_MINFILTER, D3DTEXF_LINEAR);
         this->device_->SetTextureStageState(0, D3DTSS_MAGFILTER, D3DTEXF_LINEAR);
         this->device_->SetTextureStageState(0, D3DTSS_MIPFILTER, D3DTEXF_NONE);
@@ -736,19 +723,35 @@ namespace xiui::ui
         this->device_->SetTextureStageState(1, D3DTSS_ALPHAOP, D3DTOP_DISABLE);
     }
 
+    auto design_system::ConfigureShapePipeline(void) const -> void
+    {
+        if (this->device_ == nullptr) return;
+        this->device_->SetTexture(0, nullptr);
+        this->device_->SetPixelShader(0);
+        this->device_->SetVertexShader(shape_vertex_format);
+        this->device_->SetRenderState(D3DRS_DESTBLEND, D3DBLEND_INVSRCALPHA);
+        this->device_->SetTextureStageState(0, D3DTSS_COLOROP, D3DTOP_SELECTARG1);
+        this->device_->SetTextureStageState(0, D3DTSS_COLORARG1, D3DTA_DIFFUSE);
+        this->device_->SetTextureStageState(0, D3DTSS_ALPHAOP, D3DTOP_SELECTARG1);
+        this->device_->SetTextureStageState(0, D3DTSS_ALPHAARG1, D3DTA_DIFFUSE);
+        this->device_->SetTextureStageState(0, D3DTSS_ADDRESSU, D3DTADDRESS_CLAMP);
+        this->device_->SetTextureStageState(0, D3DTSS_ADDRESSV, D3DTADDRESS_CLAMP);
+    }
+
     auto design_system::ConfigureImagePipeline(IDirect3DTexture8* texture) const -> void
     {
         if (this->device_ == nullptr)
             return;
-        this->ConfigureShapePipeline();
         this->device_->SetTexture(0, texture);
+        this->device_->SetPixelShader(0);
         this->device_->SetVertexShader(text_vertex_format);
+        this->device_->SetRenderState(D3DRS_DESTBLEND, D3DBLEND_INVSRCALPHA);
+        this->device_->SetTextureStageState(0, D3DTSS_ADDRESSU, D3DTADDRESS_CLAMP);
+        this->device_->SetTextureStageState(0, D3DTSS_ADDRESSV, D3DTADDRESS_CLAMP);
         this->device_->SetTextureStageState(0, D3DTSS_COLOROP, D3DTOP_MODULATE);
         this->device_->SetTextureStageState(0, D3DTSS_COLORARG1, D3DTA_TEXTURE);
-        this->device_->SetTextureStageState(0, D3DTSS_COLORARG2, D3DTA_DIFFUSE);
         this->device_->SetTextureStageState(0, D3DTSS_ALPHAOP, D3DTOP_MODULATE);
         this->device_->SetTextureStageState(0, D3DTSS_ALPHAARG1, D3DTA_TEXTURE);
-        this->device_->SetTextureStageState(0, D3DTSS_ALPHAARG2, D3DTA_DIFFUSE);
     }
 
     auto design_system::ConfigureTextPipeline(IDirect3DTexture8* texture, const bool additive) const -> void
@@ -759,25 +762,13 @@ namespace xiui::ui
         this->device_->SetTexture(0, texture);
         this->device_->SetVertexShader(text_vertex_format);
         this->device_->SetPixelShader(this->pixel_shader_);
-        this->device_->SetRenderState(D3DRS_ALPHATESTENABLE, FALSE);
-        this->device_->SetRenderState(D3DRS_ALPHABLENDENABLE, TRUE);
-        this->device_->SetTextureStageState(0, D3DTSS_MINFILTER, D3DTEXF_LINEAR);
-        this->device_->SetTextureStageState(0, D3DTSS_MAGFILTER, D3DTEXF_LINEAR);
-        this->device_->SetTextureStageState(0, D3DTSS_MIPFILTER, D3DTEXF_NONE);
-        this->device_->SetTextureStageState(1, D3DTSS_COLOROP, D3DTOP_DISABLE);
-        this->device_->SetTextureStageState(1, D3DTSS_ALPHAOP, D3DTOP_DISABLE);
         this->device_->SetTextureStageState(0, D3DTSS_ADDRESSU, D3DTADDRESS_CLAMP);
         this->device_->SetTextureStageState(0, D3DTSS_ADDRESSV, D3DTADDRESS_CLAMP);
-        this->device_->SetRenderState(D3DRS_SRCBLEND, D3DBLEND_SRCALPHA);
         this->device_->SetRenderState(D3DRS_DESTBLEND, additive ? D3DBLEND_ONE : D3DBLEND_INVSRCALPHA);
-        this->device_->SetRenderState(D3DRS_BLENDOP, D3DBLENDOP_ADD);
         this->device_->SetTextureStageState(0, D3DTSS_COLOROP, D3DTOP_MODULATE);
         this->device_->SetTextureStageState(0, D3DTSS_COLORARG1, D3DTA_TEXTURE);
-        this->device_->SetTextureStageState(0, D3DTSS_COLORARG2, D3DTA_DIFFUSE);
         this->device_->SetTextureStageState(0, D3DTSS_ALPHAOP, D3DTOP_MODULATE);
         this->device_->SetTextureStageState(0, D3DTSS_ALPHAARG1, D3DTA_TEXTURE);
-        this->device_->SetTextureStageState(0, D3DTSS_ALPHAARG2, D3DTA_DIFFUSE);
-        this->device_->SetTextureStageState(0, D3DTSS_RESULTARG, D3DTA_CURRENT);
     }
 
     auto design_system::DrawLayoutGrid(const rect& viewport, const float spacing, const float opacity) const -> void
@@ -825,6 +816,50 @@ namespace xiui::ui
         this->device_->DrawPrimitiveUP(D3DPT_TRIANGLESTRIP, 2, vertices, sizeof(shape_vertex));
     }
 
+    auto design_system::FillCircles(const std::span<const circle_fill> circles) const -> void
+    {
+        if (!this->frame_active_ || this->device_ == nullptr || circles.empty()) return;
+        static const auto directions = [] {
+            std::array<std::array<point, 72>, 11> result{};
+            for (size_t level = 0; level < result.size(); ++level)
+                for (size_t i = 0; i < (level + 8) * 4; ++i)
+                {
+                    const float angle = -1.570796327f + i * 6.283185307f / ((level + 8) * 4);
+                    result[level][i] = {std::cos(angle), std::sin(angle)};
+                }
+            return result;
+        }();
+        this->ConfigureShapePipeline();
+        std::array<shape_vertex, 32 * 9 * 16> vertices;
+        size_t count{};
+        const auto flush = [&] {
+            if (count != 0) this->device_->DrawPrimitiveUP(D3DPT_TRIANGLELIST, static_cast<UINT>(count / 3), vertices.data(), sizeof(shape_vertex));
+            count = 0;
+        };
+        for (const auto& circle : circles)
+        {
+            if (!std::isfinite(circle.radius) || circle.radius <= 0 || (circle.color >> 24) == 0) continue;
+            const size_t level = static_cast<size_t>(std::clamp(std::ceil(circle.radius * 0.8f), 8.0f, 18.0f)) - 8;
+            const size_t segments = (level + 8) * 4;
+            if (count + segments * 9 > vertices.size()) flush();
+            const float innerRadius = circle.radius - std::min(1.0f, circle.radius * 0.5f);
+            const shape_vertex center{circle.center.x - 0.5f, circle.center.y - 0.5f, 0, 1, circle.color};
+            const auto at = [&](const size_t index, const float radius, const D3DCOLOR color) -> shape_vertex {
+                const auto& direction = directions[level][index];
+                return {center.x + direction.x * radius, center.y + direction.y * radius, 0, 1, color};
+            };
+            this->TrackContentBounds({circle.center.x - circle.radius, circle.center.y - circle.radius, circle.radius * 2, circle.radius * 2});
+            for (size_t i = 0; i < segments; ++i)
+            {
+                const size_t next = (i + 1) % segments;
+                const auto a = at(i, innerRadius, circle.color), b = at(next, innerRadius, circle.color);
+                const auto c = at(i, circle.radius, circle.color & 0x00FFFFFF), d = at(next, circle.radius, circle.color & 0x00FFFFFF);
+                for (const auto& vertex : {center, a, b, a, c, b, b, c, d}) vertices[count++] = vertex;
+            }
+        }
+        flush();
+    }
+
     auto design_system::DrawTriangle(const float x1, const float y1, const float x2, const float y2, const float x3, const float y3, const D3DCOLOR color) const -> void
     {
         if (!this->frame_active_ || this->device_ == nullptr) return;
@@ -832,6 +867,25 @@ namespace xiui::ui
         const shape_vertex vertices[]{{x1 - 0.5f, y1 - 0.5f, 0, 1, color}, {x2 - 0.5f, y2 - 0.5f, 0, 1, color}, {x3 - 0.5f, y3 - 0.5f, 0, 1, color}};
         this->TrackContentBounds({std::min({x1, x2, x3}), std::min({y1, y2, y3}), std::max({x1, x2, x3}) - std::min({x1, x2, x3}), std::max({y1, y2, y3}) - std::min({y1, y2, y3})});
         this->device_->DrawPrimitiveUP(D3DPT_TRIANGLELIST, 1, vertices, sizeof(shape_vertex));
+    }
+
+    auto design_system::DrawTriangleFan(const point center, const std::span<const point> arc, const D3DCOLOR centerColor, const D3DCOLOR edgeColor) const -> void
+    {
+        if (!this->frame_active_ || this->device_ == nullptr || arc.size() < 2) return;
+        this->ConfigureShapePipeline();
+        std::vector<shape_vertex> vertices; vertices.reserve((arc.size() - 1) * 3);
+        float left = center.x, right = center.x, top = center.y, bottom = center.y;
+        for (size_t i = 0; i < arc.size(); ++i)
+        {
+            left = std::min(left, arc[i].x); right = std::max(right, arc[i].x);
+            top = std::min(top, arc[i].y); bottom = std::max(bottom, arc[i].y);
+            if (i == 0) continue;
+            vertices.push_back({center.x - 0.5f, center.y - 0.5f, 0, 1, centerColor});
+            vertices.push_back({arc[i - 1].x - 0.5f, arc[i - 1].y - 0.5f, 0, 1, edgeColor});
+            vertices.push_back({arc[i].x - 0.5f, arc[i].y - 0.5f, 0, 1, edgeColor});
+        }
+        this->TrackContentBounds({left, top, right - left, bottom - top});
+        this->device_->DrawPrimitiveUP(D3DPT_TRIANGLELIST, static_cast<UINT>(arc.size() - 1), vertices.data(), sizeof(shape_vertex));
     }
 
     auto design_system::DrawSlotDots(const std::span<const slot_dot> dots) const -> void
@@ -898,13 +952,132 @@ namespace xiui::ui
         this->device_->SetTextureStageState(0, D3DTSS_COLOROP, modulation);
         this->device_->SetTextureStageState(0, D3DTSS_ALPHAOP, modulation);
 
-        const text_vertex vertices[] = {
+        const std::array<text_vertex, 4> vertices{{
             {points[0].x - 0.5f, points[0].y - 0.5f, 0.0f, 1.0f, style.colors[0], uv.x, uv.y},
             {points[1].x - 0.5f, points[1].y - 0.5f, 0.0f, 1.0f, style.colors[1], uv.x + uv.width, uv.y},
             {points[2].x - 0.5f, points[2].y - 0.5f, 0.0f, 1.0f, style.colors[2], uv.x, uv.y + uv.height},
             {points[3].x - 0.5f, points[3].y - 0.5f, 0.0f, 1.0f, style.colors[3], uv.x + uv.width, uv.y + uv.height},
+        }};
+        if (this->clip_bounds_)
+        {
+            std::vector<text_vertex> clipped;
+            AppendClippedQuad(clipped, vertices, this->clip_bounds_);
+            if (!clipped.empty()) this->device_->DrawPrimitiveUP(D3DPT_TRIANGLELIST, static_cast<UINT>(clipped.size() / 3), clipped.data(), sizeof(text_vertex));
+        }
+        else this->device_->DrawPrimitiveUP(D3DPT_TRIANGLESTRIP, 2, vertices.data(), sizeof(text_vertex));
+    }
+
+    auto design_system::DrawTextureQuads(IDirect3DTexture8* texture, const std::span<const texture_quad> quads) const -> void
+    {
+        if (!this->frame_active_ || this->device_ == nullptr || texture == nullptr || quads.empty()) return;
+        constexpr size_t vertexLimit = 1536;
+        std::vector<text_vertex> vertices;
+        vertices.reserve(std::min(quads.size(), vertexLimit / 6) * 6);
+        texture_style paint{};
+        bool configured{};
+        const auto flush = [&] {
+            if (vertices.empty()) return;
+            if (!configured) { this->ConfigureImagePipeline(texture); configured = true; }
+            this->device_->SetTextureStageState(0, D3DTSS_ADDRESSU, paint.repeat_x ? D3DTADDRESS_WRAP : D3DTADDRESS_CLAMP);
+            this->device_->SetTextureStageState(0, D3DTSS_ADDRESSV, paint.repeat_y ? D3DTADDRESS_WRAP : D3DTADDRESS_CLAMP);
+            this->device_->SetRenderState(D3DRS_DESTBLEND, paint.additive ? D3DBLEND_ONE : D3DBLEND_INVSRCALPHA);
+            const auto modulation = paint.double_modulation ? D3DTOP_MODULATE2X : D3DTOP_MODULATE;
+            this->device_->SetTextureStageState(0, D3DTSS_COLOROP, modulation);
+            this->device_->SetTextureStageState(0, D3DTSS_ALPHAOP, modulation);
+            this->device_->DrawPrimitiveUP(D3DPT_TRIANGLELIST, static_cast<UINT>(vertices.size() / 3), vertices.data(), sizeof(text_vertex));
+            vertices.clear();
         };
-        this->device_->DrawPrimitiveUP(D3DPT_TRIANGLESTRIP, 2, vertices, sizeof(text_vertex));
+        for (const auto& quad : quads)
+        {
+            if (paint.repeat_x != quad.style.repeat_x || paint.repeat_y != quad.style.repeat_y ||
+                paint.additive != quad.style.additive || paint.double_modulation != quad.style.double_modulation) flush();
+            paint = quad.style;
+            float left = quad.points[0].x, right = left, top = quad.points[0].y, bottom = top;
+            for (const auto& point : quad.points)
+            {
+                left = std::min(left, point.x); right = std::max(right, point.x);
+                top = std::min(top, point.y); bottom = std::max(bottom, point.y);
+            }
+            this->TrackContentBounds({left, top, right - left, bottom - top});
+            const auto& uv = quad.uv;
+            AppendClippedQuad(vertices, {{{quad.points[0].x - 0.5f, quad.points[0].y - 0.5f, 0, 1, paint.colors[0], uv.x, uv.y},
+                {quad.points[1].x - 0.5f, quad.points[1].y - 0.5f, 0, 1, paint.colors[1], uv.x + uv.width, uv.y},
+                {quad.points[2].x - 0.5f, quad.points[2].y - 0.5f, 0, 1, paint.colors[2], uv.x, uv.y + uv.height},
+                {quad.points[3].x - 0.5f, quad.points[3].y - 0.5f, 0, 1, paint.colors[3], uv.x + uv.width, uv.y + uv.height}}}, this->clip_bounds_);
+            if (vertices.size() >= vertexLimit) flush();
+        }
+        flush();
+    }
+
+    auto design_system::DrawTextureDisc(IDirect3DTexture8* texture, const rect& bounds, const rect& uv, const D3DCOLOR color) const -> void
+    {
+        if (!this->frame_active_ || this->device_ == nullptr || texture == nullptr || bounds.width <= 0 || bounds.height <= 0) return;
+        this->ConfigureImagePipeline(texture);
+        this->TrackContentBounds(bounds);
+        this->device_->SetTextureStageState(0, D3DTSS_ADDRESSU, D3DTADDRESS_CLAMP);
+        this->device_->SetTextureStageState(0, D3DTSS_ADDRESSV, D3DTADDRESS_CLAMP);
+        this->device_->SetRenderState(D3DRS_DESTBLEND, D3DBLEND_INVSRCALPHA);
+        this->device_->SetTextureStageState(0, D3DTSS_COLOROP, D3DTOP_MODULATE);
+        this->device_->SetTextureStageState(0, D3DTSS_ALPHAOP, D3DTOP_MODULATE);
+        const auto vertex = [&](const float x, const float y) -> text_vertex {
+            return {bounds.x + bounds.width * x - 0.5f, bounds.y + bounds.height * y - 0.5f, 0, 1, color, uv.x + uv.width * x, uv.y + uv.height * y};
+        };
+        std::vector<text_vertex> vertices; vertices.reserve(96 * 9);
+        for (int i = 0; i < 96; ++i)
+        {
+            const float a = i * 6.283185307f / 96, b = (i + 1) * 6.283185307f / 96;
+            const auto center = vertex(0.5f, 0.5f), first = vertex(0.5f + std::cos(a) * 0.5f, 0.5f + std::sin(a) * 0.5f),
+                second = vertex(0.5f + std::cos(b) * 0.5f, 0.5f + std::sin(b) * 0.5f);
+            AppendClippedQuad(vertices, {center, first, second, second}, this->clip_bounds_);
+        }
+        if (!vertices.empty()) this->device_->DrawPrimitiveUP(D3DPT_TRIANGLELIST, static_cast<UINT>(vertices.size() / 3), vertices.data(), sizeof(text_vertex));
+    }
+
+    auto design_system::DrawTextureRoundedRect(IDirect3DTexture8* texture, const rect& bounds, const rect& uv, const float radius, const D3DCOLOR color) const -> void
+    {
+        if (!this->frame_active_ || this->device_ == nullptr || texture == nullptr || bounds.width <= 0 || bounds.height <= 0) return;
+        if (radius < 1) { this->DrawTexture(texture, bounds, color, uv); return; }
+        this->ConfigureImagePipeline(texture); this->TrackContentBounds(bounds);
+        this->device_->SetTextureStageState(0, D3DTSS_ADDRESSU, D3DTADDRESS_CLAMP);
+        this->device_->SetTextureStageState(0, D3DTSS_ADDRESSV, D3DTADDRESS_CLAMP);
+        this->device_->SetRenderState(D3DRS_DESTBLEND, D3DBLEND_INVSRCALPHA);
+        this->device_->SetTextureStageState(0, D3DTSS_COLOROP, D3DTOP_MODULATE);
+        this->device_->SetTextureStageState(0, D3DTSS_ALPHAOP, D3DTOP_MODULATE);
+        const auto vertex = [&](const point& at, const D3DCOLOR tint) -> text_vertex {
+            return {at.x - 0.5f, at.y - 0.5f, 0, 1, tint,
+                uv.x + uv.width * (at.x - bounds.x) / bounds.width, uv.y + uv.height * (at.y - bounds.y) / bounds.height};
+        };
+        const auto center = vertex({bounds.x + bounds.width / 2, bounds.y + bounds.height / 2}, color);
+        std::vector<text_vertex> vertices; vertices.reserve(rounded_rect_points * 18);
+        for (size_t i = 0; i < rounded_rect_points; ++i)
+        {
+            const auto next = (i + 1) % rounded_rect_points;
+            const auto a = vertex(RoundedRectPoint(bounds, radius, i, 1), color), b = vertex(RoundedRectPoint(bounds, radius, next, 1), color);
+            AppendClippedQuad(vertices, {center, a, b, b}, this->clip_bounds_);
+            const auto c = vertex(RoundedRectPoint(bounds, radius, i), color & 0xFFFFFF), d = vertex(RoundedRectPoint(bounds, radius, next), color & 0xFFFFFF);
+            AppendClippedQuad(vertices, {a, b, c, d}, this->clip_bounds_);
+        }
+        if (!vertices.empty()) this->device_->DrawPrimitiveUP(D3DPT_TRIANGLELIST, static_cast<UINT>(vertices.size() / 3), vertices.data(), sizeof(text_vertex));
+    }
+
+    auto design_system::DrawRing(const rect& bounds, const D3DCOLOR color, const float thickness) const -> void
+    {
+        if (!this->frame_active_ || this->device_ == nullptr || bounds.width <= 0 || bounds.height <= 0) return;
+        this->ConfigureShapePipeline(); this->TrackContentBounds(bounds);
+        std::array<shape_vertex, 96 * 6> vertices{};
+        const float rx = bounds.width / 2, ry = bounds.height / 2, inset = std::clamp(thickness, 0.0f, std::min(rx, ry));
+        const auto vertex = [&](const float a, const bool inner) -> shape_vertex {
+            return {bounds.x + rx + std::cos(a) * (rx - (inner ? inset : 0)) - 0.5f,
+                bounds.y + ry + std::sin(a) * (ry - (inner ? inset : 0)) - 0.5f, 0, 1, color};
+        };
+        for (int i = 0; i < 96; ++i)
+        {
+            const float a = i * 6.283185307f / 96, b = (i + 1) * 6.283185307f / 96;
+            const std::array<shape_vertex, 4> quad{vertex(a, false), vertex(b, false), vertex(a, true), vertex(b, true)};
+            size_t offset = i * 6;
+            for (const int index : {0, 1, 2, 1, 3, 2}) vertices[offset++] = quad[index];
+        }
+        this->device_->DrawPrimitiveUP(D3DPT_TRIANGLELIST, 96 * 2, vertices.data(), sizeof(shape_vertex));
     }
 
     auto design_system::GradientRect(const rect& bounds, const D3DCOLOR leftColor, const D3DCOLOR rightColor) const -> void
@@ -1081,7 +1254,10 @@ namespace xiui::ui
         const meter_style& style,
         const meter_skin* skin,
         const std::span<const meter_fill_layer> layers,
-        const bool fillFromRight) const -> void
+        const bool fillFromRight,
+        const std::span<const meter_strip> strips,
+        const std::span<const meter_range> ranges,
+        const std::span<const meter_range> feedback) const -> void
     {
         if (!this->frame_active_ || bounds.width <= 0.0f || bounds.height <= 0.0f)
             return;
@@ -1202,6 +1378,65 @@ namespace xiui::ui
         if (style.sheen_enabled && widest > 0)
             this->DrawSheen({content.x + (fillFromRight ? content.width - widest : 0), content.y, widest, content.height}, style.sheen, sheenPhase, style.sheen_width,
                 themed || style.bookends ? 0.0f : std::min(contentRadius, widest * 0.5f));
+        for (const auto collection : {feedback, ranges})
+        for (const auto& range : collection)
+        {
+            const auto segment = LayoutMeterRange(content, range, ratio, fillFromRight);
+            if (segment.width <= 0 || content.width <= 0 || ((range.top | range.bottom) >> 24) == 0) continue;
+            if (themed && !range.striped)
+            {
+                auto paint = skin->fill.style;
+                paint.additive = paint.double_modulation = false;
+                paint.colors = {range.top, range.top, range.bottom, range.bottom};
+                auto uv = skin->fill.uv;
+                uv.x += uv.width * (segment.x - content.x) / content.width;
+                uv.width *= segment.width / content.width;
+                this->DrawTexture(skin->fill.texture, segment, uv, paint);
+            }
+            else
+            {
+                const auto fill = LayoutMeterFill(content, range.beyond_fill ? 1.0f : ratio, fillFromRight);
+                const uint8_t corners = static_cast<uint8_t>((segment.x <= fill.x ? 0xC : 0) |
+                    (segment.x + segment.width >= fill.x + fill.width - 0.01f ? 0x3 : 0));
+                const float radius = themed || style.bookends ? 0.0f : std::min(contentRadius, segment.width * 0.5f);
+                this->GradientRoundedRect(segment, range.top, range.bottom, radius, corners);
+                if (range.striped) this->DrawMeterStripes(segment, range.bottom, radius, corners);
+            }
+        }
+        for (const auto& strip : strips)
+        {
+            auto rail = LayoutMeterStrip(content, strip.height, strip.inset);
+            const float inset = std::min(contentRadius, rail.width * 0.5f);
+            rail.x += inset; rail.width -= inset * 2;
+            this->GradientRoundedRect(rail, WithAlpha(Darken(strip.top, 0.4f), 0.6f), WithAlpha(Darken(strip.bottom, 0.4f), 0.6f), 0);
+            this->GradientRoundedRect(LayoutMeterFill(rail, strip.ratio, fillFromRight), strip.top, strip.bottom, 0);
+        }
+    }
+
+    auto design_system::DrawMeterStripes(const rect& bounds, const D3DCOLOR color, const float radius, const uint8_t roundedCorners) const -> void
+    {
+        rect pattern = bounds;
+        const float leftInset = (roundedCorners & 0xC) != 0 ? radius : 0;
+        const float rightInset = (roundedCorners & 0x3) != 0 ? radius : 0;
+        pattern.x += leftInset;
+        pattern.width -= leftInset + rightInset;
+        if (pattern.width <= 0 || pattern.height <= 0) return;
+        const auto clip = this->Clip(pattern);
+        const float pitch = std::clamp(bounds.height * 1.1f, 6.0f, 12.0f), width = pitch * 0.4f;
+        const auto tint = Darken(color, 0.22f);
+        const auto vertex = [tint](const float x, const float y) -> text_vertex { return {x - 0.5f, y - 0.5f, 0, 1, tint, 0, 0}; };
+        std::vector<text_vertex> vertices;
+        vertices.reserve(static_cast<size_t>((pattern.width + bounds.height) / pitch + 2) * 12);
+        for (float x = bounds.x - bounds.height; x < pattern.x + pattern.width; x += pitch)
+        {
+            const auto a = vertex(x, bounds.y), b = vertex(x + width, bounds.y);
+            const auto c = vertex(x + bounds.height, bounds.y + bounds.height), d = vertex(x + bounds.height + width, bounds.y + bounds.height);
+            AppendClippedQuad(vertices, {a, b, c, d}, this->clip_bounds_);
+        }
+        if (vertices.empty()) return;
+        this->ConfigureShapePipeline();
+        this->device_->SetVertexShader(text_vertex_format);
+        this->device_->DrawPrimitiveUP(D3DPT_TRIANGLELIST, static_cast<UINT>(vertices.size() / 3), vertices.data(), sizeof(text_vertex));
     }
 
     auto design_system::DrawToggle(const rect& bounds, const bool enabled) const -> void
@@ -1229,38 +1464,80 @@ namespace xiui::ui
     {
         if (!this->tracking_content_bounds_ || bounds.width <= 0.0f || bounds.height <= 0.0f)
             return;
+        auto visible = bounds;
+        if (this->clip_bounds_)
+        {
+            const auto& clip = *this->clip_bounds_;
+            const auto left = std::max(bounds.x, clip.x), top = std::max(bounds.y, clip.y);
+            visible = {left, top, std::max(0.0f, std::min(bounds.x + bounds.width, clip.x + clip.width) - left),
+                std::max(0.0f, std::min(bounds.y + bounds.height, clip.y + clip.height) - top)};
+        }
+        if (visible.width <= 0 || visible.height <= 0) return;
         if (this->content_bounds_.width <= 0.0f || this->content_bounds_.height <= 0.0f)
         {
-            this->content_bounds_ = bounds;
+            this->content_bounds_ = visible;
             return;
         }
-        const float left = std::min(this->content_bounds_.x, bounds.x);
-        const float top = std::min(this->content_bounds_.y, bounds.y);
-        const float right = std::max(this->content_bounds_.x + this->content_bounds_.width, bounds.x + bounds.width);
-        const float bottom = std::max(this->content_bounds_.y + this->content_bounds_.height, bounds.y + bounds.height);
+        const float left = std::min(this->content_bounds_.x, visible.x);
+        const float top = std::min(this->content_bounds_.y, visible.y);
+        const float right = std::max(this->content_bounds_.x + this->content_bounds_.width, visible.x + visible.width);
+        const float bottom = std::max(this->content_bounds_.y + this->content_bounds_.height, visible.y + visible.height);
         this->content_bounds_ = {left, top, right - left, bottom - top};
     }
 
     auto design_system::DrawEditFrame(const rect& bounds, const bool resizable) const -> void
     {
+        if (!this->frame_active_ || this->device_ == nullptr) return;
+        this->ConfigureShapePipeline();
+        std::array<shape_vertex, 4092> vertices;
+        size_t used{};
+        const auto flush = [&] {
+            if (used != 0) this->device_->DrawPrimitiveUP(D3DPT_TRIANGLELIST, static_cast<UINT>(used / 3), vertices.data(), sizeof(shape_vertex));
+            used = 0;
+        };
+        const auto fill = [&](const rect& at, const D3DCOLOR color) {
+            if (at.width <= 0 || at.height <= 0) return;
+            const float left = at.x - 0.5f, top = at.y - 0.5f;
+            const float right = at.x + at.width - 0.5f, bottom = at.y + at.height - 0.5f;
+            vertices[used++] = {left, top, 0, 1, color}; vertices[used++] = {right, top, 0, 1, color}; vertices[used++] = {left, bottom, 0, 1, color};
+            vertices[used++] = {left, bottom, 0, 1, color}; vertices[used++] = {right, top, 0, 1, color}; vertices[used++] = {right, bottom, 0, 1, color};
+            if (used == vertices.size()) flush();
+        };
         constexpr float dash = 6.0f;
         constexpr float gap = 4.0f;
         for (float x = bounds.x; x < bounds.x + bounds.width; x += dash + gap)
         {
-            this->FillRect({x, bounds.y, std::min(dash, bounds.x + bounds.width - x), 1.0f}, this->theme_.colors.accent_dim);
-            this->FillRect({x, bounds.y + bounds.height - 1.0f, std::min(dash, bounds.x + bounds.width - x), 1.0f}, this->theme_.colors.accent_dim);
+            fill({x, bounds.y, std::min(dash, bounds.x + bounds.width - x), 1.0f}, this->theme_.colors.accent_dim);
+            fill({x, bounds.y + bounds.height - 1.0f, std::min(dash, bounds.x + bounds.width - x), 1.0f}, this->theme_.colors.accent_dim);
         }
         for (float y = bounds.y; y < bounds.y + bounds.height; y += dash + gap)
         {
-            this->FillRect({bounds.x, y, 1.0f, std::min(dash, bounds.y + bounds.height - y)}, this->theme_.colors.accent_dim);
-            this->FillRect({bounds.x + bounds.width - 1.0f, y, 1.0f, std::min(dash, bounds.y + bounds.height - y)}, this->theme_.colors.accent_dim);
+            fill({bounds.x, y, 1.0f, std::min(dash, bounds.y + bounds.height - y)}, this->theme_.colors.accent_dim);
+            fill({bounds.x + bounds.width - 1.0f, y, 1.0f, std::min(dash, bounds.y + bounds.height - y)}, this->theme_.colors.accent_dim);
         }
         if (resizable)
         {
-            this->FillRect({bounds.x + bounds.width - 10.0f, bounds.y + bounds.height - 3.0f, 8.0f, 1.0f}, this->theme_.colors.accent);
-            this->FillRect({bounds.x + bounds.width - 6.0f, bounds.y + bounds.height - 7.0f, 4.0f, 1.0f}, this->theme_.colors.accent);
+            fill({bounds.x + bounds.width - 10.0f, bounds.y + bounds.height - 3.0f, 8.0f, 1.0f}, this->theme_.colors.accent);
+            fill({bounds.x + bounds.width - 6.0f, bounds.y + bounds.height - 7.0f, 4.0f, 1.0f}, this->theme_.colors.accent);
         }
+        flush();
     }
+
+    design_system::clip_scope::clip_scope(const design_system& design, const rect& bounds)
+        : design_(design), previous_(design.clip_bounds_)
+    {
+        auto clipped = bounds;
+        if (this->previous_)
+        {
+            const auto& previous = *this->previous_;
+            const auto left = std::max(bounds.x, previous.x), top = std::max(bounds.y, previous.y);
+            clipped = {left, top, std::max(0.0f, std::min(bounds.x + bounds.width, previous.x + previous.width) - left),
+                std::max(0.0f, std::min(bounds.y + bounds.height, previous.y + previous.height) - top)};
+        }
+        design.clip_bounds_ = clipped;
+    }
+
+    design_system::clip_scope::~clip_scope(void) { this->design_.clip_bounds_ = this->previous_; }
 
     auto design_system::DrawText(const char* text, const rect& bounds, const text_style& style) const -> void
     {
@@ -1358,11 +1635,8 @@ namespace xiui::ui
                     const D3DCOLOR topRight = sheen ? SheenColor(style.sheen.color, right, sheenCenter, style.sheen.width) : style.top_color;
                     const D3DCOLOR bottomLeft = sheen ? topLeft : style.bottom_color;
                     const D3DCOLOR bottomRight = sheen ? topRight : style.bottom_color;
-                    vertices.insert(vertices.end(), {
-                        {left, top, 0, 1, topLeft, glyph.u0, glyph.v0}, {right, top, 0, 1, topRight, glyph.u1, glyph.v0},
-                        {left, bottom, 0, 1, bottomLeft, glyph.u0, glyph.v1}, {right, top, 0, 1, topRight, glyph.u1, glyph.v0},
-                        {right, bottom, 0, 1, bottomRight, glyph.u1, glyph.v1}, {left, bottom, 0, 1, bottomLeft, glyph.u0, glyph.v1},
-                    });
+                    AppendClippedQuad(vertices, {{{left, top, 0, 1, topLeft, glyph.u0, glyph.v0}, {right, top, 0, 1, topRight, glyph.u1, glyph.v0},
+                        {left, bottom, 0, 1, bottomLeft, glyph.u0, glyph.v1}, {right, bottom, 0, 1, bottomRight, glyph.u1, glyph.v1}}}, this->clip_bounds_);
                 }
             }
             advance += metrics.advance + static_cast<double>(tracking);

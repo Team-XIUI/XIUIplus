@@ -1,71 +1,82 @@
-"""Extract status IDs and base duration facts from the local Phoenix spell data."""
+"""Import fixed durations from the retained XIUI Lua database; no Lua runtime needed."""
 
 import argparse
+import hashlib
 from pathlib import Path
 import re
 
 
-def enum(text):
-    return {name: int(value) for name, value in re.findall(r"^\s*(\w+)\s*=\s*(\d+)\s*,", text, re.M)}
+def tables(text):
+    tokens = re.findall(r"'[^']*'|\"[^\"]*\"|\d+|\w+|[{}\[\]=,;]", re.sub(r"--[^\n]*", "", text))
+
+    def value(at):
+        token = tokens[at]
+        if token != "{":
+            return (int(token) if token.isdigit() else token.strip("'\"")), at + 1
+        result, at, ordinal = {}, at + 1, 1
+        while tokens[at] != "}":
+            if tokens[at] in (",", ";"):
+                at += 1
+                continue
+            if tokens[at] == "[":
+                key, at = value(at + 1)
+                assert tokens[at:at + 2] == ["]", "="]
+                at += 2
+            elif tokens[at + 1] == "=":
+                key, at = tokens[at], at + 2
+            else:
+                key, ordinal = ordinal, ordinal + 1
+            result[key], at = value(at)
+        return result, at + 1
+
+    result = {}
+    for at in range(len(tokens) - 3):
+        if tokens[at] == "durations" and tokens[at + 2:at + 4] == ["=", "{"]:
+            result[tokens[at + 1]], _ = value(at + 3)
+    return result
 
 
 def main():
-    parser = argparse.ArgumentParser()
-    parser.add_argument("phoenix", type=Path)
+    parser = argparse.ArgumentParser(description=__doc__)
+    parser.add_argument("source", type=Path)
     parser.add_argument("output", type=Path)
     args = parser.parse_args()
-    scripts = args.phoenix / "scripts"
-    spells = enum((scripts / "enum/magic.lua").read_text(encoding="utf-8").split("xi.magic.spell =", 1)[1].split("\n}", 1)[0])
-    effects = enum((scripts / "enum/effect.codegen.lua").read_text(encoding="utf-8"))
-    rules = {}
-    sources = [("enfeebling_spell.lua", 0, 5), ("enfeebling_song.lua", 0, 4), ("enhancing_spell.lua", 1, 4)]
-    for filename, effect_column, duration_column in sources:
-        text = (scripts / "globals/spells" / filename).read_text(encoding="utf-8")
-        for name, row in re.findall(r"^\s*\[xi\.magic\.spell\.(\w+)\s*\]\s*=\s*\{([^}\n]+)\}", text, re.M):
-            columns = [value.strip() for value in row.split(",")]
-            effect = re.fullmatch(r"xi\.effect\.(\w+)", columns[effect_column])
-            if effect and columns[duration_column].isdigit() and effects[effect[1]] > 0:
-                rules[spells[name]] = (effects[effect[1]], int(columns[duration_column]), False, name)
-    # These spells apply their status after damage, without a status-bearing result.
-    for name in ("dia", "dia_ii", "dia_iii", "diaga", "bio", "bio_ii", "bio_iii"):
-        matches = list((scripts / "actions/spells").glob(f"*/{name}.lua"))
-        if len(matches) != 1:
-            raise ValueError(f"Expected one {name} spell")
-        text = matches[0].read_text(encoding="utf-8")
-        found = re.search(r"target:addStatusEffect\(xi\.effect\.(\w+),\s*\{[^}]*?duration\s*=\s*(\d+)", text)
-        if found:
-            rules[spells[name.upper()]] = (effects[found[1]], int(found[2]), True, name.upper())
-    # BLU/WS hits do not expose the second status-resistance roll; mark these uncertain.
-    for filename in (scripts / "actions/spells/blue").glob("*.lua"):
-        text = filename.read_text(encoding="utf-8")
-        name = filename.stem.upper()
-        if name not in spells or "usePhysicalSpell" not in text:
-            continue
-        effect = re.search(r"\[1\]\s*=\s*\{\s*xi\.effect\.(\w+),", text)
-        duration = re.search(r"local\s+duration\s*=\s*(\d+)", text)
-        if effect and duration:
-            rules[spells[name]] = (effects[effect[1]], int(duration[1]), True, name)
+    data = tables(args.source.read_text(encoding="utf-8-sig"))
+    assert {"spells", "weaponSkills", "ja", "jaPhysical", "pet", "additionalEffect", "mobBuff"} <= data.keys()
+    fallback = {status: row["duration"] for status, row in data["additionalEffect"].items()}
+    fallback.update(data["mobBuff"])
+    maximum = {}
+    rows = {}
+    for name in ("spells", "weaponSkills", "jaPhysical", "ja", "pet"):
+        entries = {}
+        for action, row in data[name].items():
+            seconds = row.get("duration", 0)
+            if not isinstance(seconds, int) or seconds <= 0:
+                continue
+            statuses = set(row.get("buffIds", {}).values())
+            if "buffId" in row:
+                statuses.add(row["buffId"])
+            for status in statuses:
+                maximum[status] = max(maximum.get(status, 0), seconds)
+            for status in statuses or {0}:
+                entries[action, status] = row.get("buffDurations", {}).get(status, seconds)
+        rows[name] = entries
+    fallback.update(maximum)
+    rows["ja"] = rows.pop("jaPhysical") | rows["ja"]
+    rows["fallback"] = {(status, 0): seconds for status, seconds in fallback.items()}
+    rows["additional"] = {(status, 0): row["duration"] for status, row in data["additionalEffect"].items()}
+    digest = hashlib.sha256(args.source.read_bytes()).hexdigest()
     lines = ["#pragma once", "", "#include <array>", "#include <cstdint>", "", "namespace xiui::resources", "{",
-             "    // Generated by scripts/build-status-rules.py from Phoenix spell tables.",
-             "    struct spell_status_rule { uint16_t spell, status, seconds; bool inferred; };",
-             f"    inline constexpr std::array<spell_status_rule, {len(rules)}> spell_status_rules{{{{"]
-    for spell, (effect, duration, inferred, name) in sorted(rules.items()):
-        lines.append(f"        {{{spell}, {effect}, {duration}, {'true' if inferred else 'false'}}}, // {name}")
-    lines += ["    }};", "}", ""]
-    weapon_ids = enum((scripts / "enum/weaponskill.lua").read_text(encoding="utf-8"))
-    weapon_rules = []
-    for filename in (scripts / "actions/weaponskills").glob("*.lua"):
-        text = filename.read_text(encoding="utf-8")
-        name = filename.stem.upper()
-        effect = re.search(r"local\s+effectId\s*=\s*xi\.effect\.(\w+)", text)
-        duration = re.search(r"^\s*local\s+duration\s*=\s*(\d+)\s*(?:--[^\n]*)?$", text, re.M)
-        if name in weapon_ids and effect:
-            weapon_rules.append((weapon_ids[name], effects[effect[1]], int(duration[1]) if duration else 0, name))
-    lines[-2:-2] = [f"    inline constexpr std::array<spell_status_rule, {len(weapon_rules)}> weapon_status_rules{{{{"] + [
-        f"        {{{weapon}, {effect}, {duration}, true}}, // {name}" for weapon, effect, duration, name in sorted(weapon_rules)
-    ] + ["    }};"]
+             "    // Generated from assets/status/debuff_retail.lua by scripts/build-status-rules.py.",
+             f"    // XIUI database SHA-256: {digest}",
+             "    struct status_duration_rule { uint16_t action, status, seconds; };"]
+    for name, entries in rows.items():
+        lines.append(f"    inline constexpr std::array<status_duration_rule, {len(entries)}> xiui_{name}_durations{{{{")
+        lines.extend(f"        {{{action}, {status}, {seconds}}}," for (action, status), seconds in sorted(entries.items()))
+        lines.append("    }};")
+    lines += ["}", ""]
     args.output.write_text("\n".join(lines), encoding="utf-8")
-    print(f"Extracted {len(rules)} spell status rules.")
+    print("Imported XIUI fixed durations: " + ", ".join(f"{name}={len(entries)}" for name, entries in rows.items()))
 
 
 if __name__ == "__main__":

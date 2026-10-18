@@ -54,6 +54,7 @@ namespace
             auto runtime = std::unique_ptr<xiui::hud_runtime>{new (std::nothrow) xiui::hud_runtime{}};
             if (runtime == nullptr)
                 return nullptr;
+            runtime->SetNativeMacroRunner(context->run_native_macro, context->native_macro_context);
             runtime->Initialize(context->core, context->install_path);
             return runtime.release();
         }
@@ -77,6 +78,12 @@ namespace
     auto __stdcall set_device(void* instance, IDirect3DDevice8* device) -> BOOL
     {
         return guard_bool(instance, [device](xiui::hud_runtime& runtime) { return runtime.SetDevice(device); });
+    }
+
+    auto __stdcall render_world(void* instance, const xiui::hud_snapshot* snapshot) -> BOOL
+    {
+        if (!snapshot) return FALSE;
+        return guard_bool(instance,[snapshot](xiui::hud_runtime& runtime) { runtime.RenderWorld(*snapshot); return true; });
     }
 
     auto __stdcall render(void* instance, const xiui::hud_snapshot* snapshot) -> BOOL
@@ -140,6 +147,31 @@ namespace
     {
         // Keep the existing host ABI while reporting every XIUI keyboard input owner.
         return guard_bool(instance, [](xiui::hud_runtime& runtime) { return runtime.KeyboardFocused(); });
+    }
+
+    auto __stdcall handle_controller(void* instance, const xiui::controller_event* event) -> BOOL
+    {
+        if (event == nullptr) return FALSE;
+        return guard_bool(instance, [event](xiui::hud_runtime& runtime) { return runtime.HandleController(*event); });
+    }
+
+    auto __stdcall controller_input_state(void* instance) -> uint32_t
+    {
+        uint32_t state{};
+        guard_void(instance, [&](xiui::hud_runtime& runtime) { state = runtime.ControllerInputState(); });
+        return state;
+    }
+
+    auto __stdcall update_controller_status(void* instance, const xiui::controller_status* status) -> void
+    {
+        if (status != nullptr) guard_void(instance, [status](xiui::hud_runtime& runtime) { runtime.UpdateControllerStatus(*status); });
+    }
+
+    auto __stdcall crossbar_settings(void* instance, xiui::controller_crossbar_settings* settings) -> void
+    {
+        if (settings == nullptr) return;
+        *settings = {};
+        guard_void(instance, [&](xiui::hud_runtime& runtime) { *settings = runtime.CrossbarSettings(); });
     }
 
     auto __stdcall handle_command(void* instance, const char* command) -> BOOL
@@ -221,10 +253,15 @@ extern "C" __declspec(dllexport) auto __stdcall XiuiGetRuntimeApi(const uint32_t
     result.size = sizeof(result);
     result.abi_version = xiui::runtime_abi_version;
     result.get_build_id = &get_build_id;
+    result.handle_controller = &handle_controller;
+    result.controller_input_state = &controller_input_state;
+    result.update_controller_status = &update_controller_status;
+    result.crossbar_settings = &crossbar_settings;
     result.create = &create_runtime;
     result.destroy = &destroy_runtime;
     result.set_device = &set_device;
     result.render = &render;
+    result.render_world = &render_world;
     result.capture_state = &capture_state;
     result.apply_state = &apply_state;
     result.handle_mouse = &handle_mouse;

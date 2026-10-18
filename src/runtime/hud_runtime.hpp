@@ -5,17 +5,31 @@
 #include "config/config_controls.hpp"
 #include "config/color_picker.hpp"
 #include "config/experience_display_editor.hpp"
+#include "config/settings_search.hpp"
 #include "input/cursor_renderer.hpp"
 #include "modules/experience/experience_module.hpp"
 #include "modules/module_registry.hpp"
 #include "modules/player/player_module.hpp"
 #include "modules/target/target_module.hpp"
+#include "modules/target/target_child_module.hpp"
+#include "modules/pet/pet_module.hpp"
+#include "modules/pet/pet_source.hpp"
+#include "modules/bluemagic/blue_magic_module.hpp"
+#include "modules/phantomroll/phantom_roll_module.hpp"
+#include "modules/magicburst/magic_burst_module.hpp"
 #include "modules/enemylist/enemy_list_module.hpp"
 #include "modules/party/party_module.hpp"
 #include "modules/inventory/inventory_module.hpp"
+#include "modules/satchel/satchel_module.hpp"
+#include "modules/satchel/satchel_source.hpp"
+#include "modules/satchel/satchel_cache.hpp"
+#include "modules/satchel/satchel_actions.hpp"
+#include "modules/actionbars/actionbars_module.hpp"
+#include "modules/actionbars/native_macros.hpp"
 #include "modules/equipment/equipment_module.hpp"
 #include "modules/gil/gil_module.hpp"
 #include "modules/readycheck/ready_check_module.hpp"
+#include "modules/status/status_effects_module.hpp"
 #include "modules/castbar/cast_bar_module.hpp"
 #include "modules/castcost/cast_cost_module.hpp"
 #include "modules/recast/recast_module.hpp"
@@ -25,6 +39,8 @@
 #include "modules/general/general_module.hpp"
 #include "modules/chat/chat_module.hpp"
 #include "modules/compass/compass_module.hpp"
+#include "modules/minimap/minimap_module.hpp"
+#include "modules/minimap/minimap_source.hpp"
 #include "modules/world/world_info_module.hpp"
 #include "modules/commands/command_menu_module.hpp"
 #include "world/world_source.hpp"
@@ -34,11 +50,16 @@
 #include "notifications/notification_source.hpp"
 #include "settings/settings_writer.hpp"
 #include "settings/settings_profiles.hpp"
+#include "settings/profile_identity.hpp"
 #include "config/profile_layout.hpp"
 #include "config/share_key_view.hpp"
 #include "config/choice_dropdown.hpp"
 #include "config/movement_toolbar.hpp"
 #include "config/element_selector.hpp"
+#include "input/config_controller_focus.hpp"
+#include "controller_input.hpp"
+#include "startup_profile.hpp"
+#include "modules/treasure/treasure_module.hpp"
 
 #include <cstdint>
 #include <string>
@@ -52,19 +73,27 @@ namespace xiui
         ~hud_runtime(void);
 
         auto Initialize(IAshitaCore* core, const char* installPath = nullptr) -> void;
+        auto SetNativeMacroRunner(native_macro_runner runner, void* context) -> void { this->native_macros_.SetRunner(runner, context); }
         auto Shutdown(void) -> void;
         auto SetDevice(IDirect3DDevice8* device) -> bool;
         auto Render(const hud_snapshot& snapshot) -> void;
+        auto RenderWorld(const hud_snapshot& snapshot) -> void;
         auto HandleMouseMessage(uint32_t message, WPARAM wParam, LPARAM lParam, bool blocked) -> bool;
-        auto HandleChat(const chat_event& event) -> void { this->chat_.Receive(this->core_, event, this->chat_alerts_ready_ && this->visible_); }
+        auto HandleChat(const chat_event& event) -> void { this->chat_.Receive(this->core_, event, this->chat_alerts_ready_ && this->ContextVisible(this->chat_)); }
         auto HandleKey(WPARAM key, LPARAM flags, bool blocked) -> bool;
-        auto ChatFocused(void) const -> bool { return this->visible_ && (this->chat_.Focused() || this->chat_.HistoryFocused()); }
-        auto KeyboardFocused(void) const -> bool { return this->ChatFocused() || (this->visible_ && this->editing_ && (this->slider_input_.Focused() || this->option_text_input_.Focused() || this->choice_input_.Opened() || this->profile_name_.Focused() || this->profile_dropdown_ || this->profile_actions_)); }
+        auto HandleController(const controller_event& event) -> bool;
+        auto ControllerCapture(void) const -> controller_capture_mode;
+        auto ControllerInputState(void) const -> uint32_t;
+        auto CrossbarSettings(void) const -> controller_crossbar_settings;
+        auto ControllerCaptured(void) const -> bool { return this->ControllerCapture() != controller_capture_mode::none; }
+        auto UpdateControllerStatus(const controller_status& status) -> void;
+        auto ChatFocused(void) const -> bool { return (this->ContextVisible(this->chat_) && (this->chat_.Focused() || this->chat_.HistoryFocused())) || (this->ContextVisible(this->chat_second_) && this->chat_second_.HistoryFocused()); }
+        auto KeyboardFocused(void) const -> bool { return this->treasure_.InputFocused() || (this->ActionBarsInputAvailable() && this->actionbars_.KeyboardCapture()) || (this->SatchelInputAvailable() && this->satchel_.InputFocused()) || (this->visible_ && this->confirmation_key_release_ != 0) || (this->ContextVisible(this->chat_) && this->chat_.Focused()) || (this->visible_ && this->controller_surface_ == controller_surface::picker) || (this->visible_ && this->editing_ && (this->settings_search_open_ || this->slider_input_.Focused() || this->option_text_input_.Focused() || this->choice_input_.Opened() || this->profile_name_.Focused() || this->profile_dropdown_ || this->profile_actions_)); }
         auto CaptureChat(runtime_state& state) const -> void { this->chat_.Capture(state); }
         auto RestoreChat(const runtime_state& state) -> void
         {
             this->chat_.Restore(state);
-            if (!this->visible_) this->chat_.Focus(false);
+            if (!this->ContextVisible(this->chat_)) this->chat_.Focus(false);
         }
 
         auto PostNotification(notification_event event) -> void;
@@ -81,13 +110,19 @@ namespace xiui
         auto IsEditing(void) const -> bool;
         auto IsVisible(void) const -> bool;
         auto IsGpuShaderActive(void) const -> bool;
-        auto NativeHudHiddenMask(void) const -> uint32_t { return this->game_hud_.HiddenMask(); }
+        auto NativeHudHiddenMask(void) const -> uint32_t;
         auto MenuLayout(void) const -> native_menu_layout { return this->commands_.Layout(this->visible_); }
 #if defined(XIUI_ENABLE_TEST_FAULTS)
         auto SetRenderFaultForTesting(bool enabled) -> void;
 #endif
 
     private:
+#if defined(XIUI_ENABLE_ACTIONBAR_TESTS)
+        friend struct actionbars_ui_test;
+#endif
+#if defined(XIUI_ENABLE_SATCHEL_TESTS)
+        friend struct satchel_ui_test;
+#endif
 #if defined(XIUI_ENABLE_PARITY_TESTS)
         friend struct module_parity_test;
 #endif
@@ -96,6 +131,8 @@ namespace xiui
 #endif
 #if defined(XIUI_ENABLE_INPUT_TESTS)
         friend struct config_input_test;
+        friend struct controller_config_test;
+        friend struct controller_runtime_test;
 #endif
 #if defined(XIUI_ENABLE_GRID_TESTS)
         friend struct layout_grid_test;
@@ -115,13 +152,17 @@ namespace xiui
             none,
             drag_module,
             drag_config,
+            resize_config,
             module_toolbar,
             close_config,
             color_pick,
             option_slider,
+            option_scrollbar,
         };
 
         IAshitaCore* core_{};
+        startup_profile startup_profile_{};
+        bool startup_render_recorded_{};
         IMouse* mouse_{};
         IDirect3DDevice8* device_{};
         ui::design_system design_system_{};
@@ -129,6 +170,7 @@ namespace xiui
         ui::game_icon_cache game_icons_{};
         ui::native_ui_assets native_assets_{};
         native_window_config window_config_{};
+        native_chat_filters chat_filters_{};
         ui::native_ui_sounds ui_sounds_{};
         native_chat_palette chat_palette_{};
         native_chat_input chat_input_{};
@@ -141,13 +183,26 @@ namespace xiui
         player_cast_source player_cast_source_{};
         cast_bar_module cast_bar_{};
         cast_cost_source cast_cost_source_{};
+        heal_prediction_source heal_prediction_source_{};
         cast_cost_module cast_cost_{};
         recast_source recast_source_{};
         recast_module recast_{};
         target_module target_{};
+        target_cast_module target_cast_{this->target_};
+        target_ring_renderer target_rings_{};
+        target_child_module target_recipient_{this->target_, false};
+        target_child_module subtarget_{this->target_, true};
+        std::array<target_mob_info_module, mob_info_group_count> mob_info_groups_{{
+            {this->target_, 0}, {this->target_, 1}, {this->target_, 2}, {this->target_, 3}, {this->target_, 4},
+            {this->target_, 5}, {this->target_, 6}, {this->target_, 7}, {this->target_, 8}, {this->target_, 9}}};
         enemy_list_module enemy_list_{};
+        pet_source pet_source_{};
+        pet_module pet_{};
+        pet_module pet_target_{true};
+        std::array<hud_module*, 6> pet_config_members_{};
         combat_source combat_source_{};
         combat_timing_source timing_source_{};
+        party_timing_source party_timing_source_{};
         bool timing_ready_{};
         uint64_t recovery_completion_{};
         party_source party_source_{};
@@ -156,25 +211,58 @@ namespace xiui
         party_module alliance_second_{2};
         experience_module experience_{};
         inventory_source inventory_source_{};
+        satchel_source satchel_source_{};
+        satchel_cache satchel_cache_{};
+        satchel_actions satchel_actions_{};
+        satchel_module satchel_{};
+        action_store action_store_{};
+        action_executor action_executor_{};
+        native_macros native_macros_{};
+        actionbars_module actionbars_{};
+        std::array<actionbar_module, action_bar_count> actionbar_children_{{
+            {this->actionbars_, 1}, {this->actionbars_, 2}, {this->actionbars_, 3}, {this->actionbars_, 4}, {this->actionbars_, 5},
+            {this->actionbars_, 6}, {this->actionbars_, 7}, {this->actionbars_, 8}, {this->actionbars_, 9}, {this->actionbars_, 10}}};
+        std::array<hud_module*, action_bar_count + 1> actionbar_members_{};
+        std::array<bool, 256> actionbar_key_release_{};
+        uint32_t actionbar_pointer_release_{};
+        std::array<bool, 256> satchel_key_release_{};
+        uint32_t satchel_pointer_release_{};
         std::array<inventory_module, 6> inventory_{{inventory_module{0}, inventory_module{1}, inventory_module{2}, inventory_module{3}, inventory_module{4}, inventory_module{5}}};
         std::array<hud_module*, 6> inventory_pages_{};
-        std::array<hud_module*, 8> inventory_config_members_{};
+        std::array<hud_module*, 9> inventory_config_members_{};
         equipment_source equipment_source_{};
         equipment_module equipment_{};
         gil_source gil_source_{};
         gil_module gil_{};
         ready_check_module ready_check_{};
+        status_effects_module buffs_{};
+        status_effects_module debuffs_{true};
         notification_module notifications_{};
+        std::array<notification_group_module, 5> notification_groups_{{{this->notifications_, 1}, {this->notifications_, 2}, {this->notifications_, 3}, {this->notifications_, 4}, {this->notifications_, 5}}};
+        blue_magic_module blue_magic_{};
+        phantom_roll_module phantom_roll_{};
+        skillchain_source skillchain_source_{};
+        magic_burst_module magic_burst_{};
+        treasure_source treasure_source_{};
+        treasure_module treasure_{};
+        std::array<bool, 256> treasure_key_release_{};
         general_module general_{};
         game_hud_module game_hud_{};
         chat_module chat_{};
         chat_module chat_second_{true};
         chat_module* chat_pointer_{};
         compass_module compass_{};
+        minimap_module minimap_{};
+        minimap_source minimap_source_{};
+        minimap_maps minimap_maps_{};
         world_info_module world_info_{};
+        std::array<world_info_part_module, 4> world_parts_{{{this->world_info_, 0}, {this->world_info_, 1}, {this->world_info_, 2}, {this->world_info_, 3}}};
         command_menu_module commands_{};
-        std::array<hud_module*, 4> extras_pages_{};
+        std::array<hud_module*, 9> extras_pages_{};
         native_ui_state native_ui_{};
+        module_visibility_source visibility_source_{};
+        module_visibility_context visibility_context_{};
+        bool visibility_pointer_release_{};
         world_source world_source_{};
         bool chat_capture_available_{};
         bool chat_alerts_ready_{};
@@ -186,10 +274,24 @@ namespace xiui
         bool chat_mouse_block_saved_{}, previous_chat_mouse_blocked_{};
         notification_source notification_source_{};
         module_registry modules_{};
+        std::vector<module_state> default_module_states_{};
         hud_module* active_module_{};
         hud_module* interaction_module_{};
         rect config_bounds_{-1.0f, 20.0f, ui::config_layout::default_width, ui::config_layout::default_height};
         bool config_collapsed_{};
+        bool config_sidebar_collapsed_{};
+        enum class controller_surface : uint8_t { none, picker, config, chat, chat2, party, enemies, ready_check, equipment, target_status, buffs, debuffs, pet_status, notifications, satchel, hotbar, crossbar, treasure };
+        uint64_t controller_notification_id_{};
+        controller_surface controller_surface_{};
+        controller_status controller_status_{};
+        uint32_t controller_input_revision_{};
+        bool controller_presented_{}, controller_pointer_down_{};
+        bool controller_status_details_{};
+        size_t controller_picker_index_{}, controller_party_group_{}, controller_equipment_slot_{}, controller_ready_button_{};
+        std::string controller_hint_{};
+        config_controller_focus controller_config_{};
+        bool input_mode_menu_{};
+        size_t input_mode_selection_{};
         auto ConfigVisibleBounds(void) const -> rect
         {
             auto bounds = this->config_bounds_;
@@ -201,9 +303,13 @@ namespace xiui
         mutable settings_writer settings_writer_{};
         mutable settings_writer profile_writer_{};
         settings_profiles profiles_{};
+        profile_identity_source profile_identity_{};
+        std::string profile_character_{}, profile_observed_character_{};
+        bool profile_tracking_{}, profile_character_ready_{};
+        uint64_t next_profile_identity_update_{};
         ui::text_input profile_name_{};
         bool profile_dropdown_{};
-        enum class profile_dialog : uint8_t { create, duplicate, share, import_profile, delete_profile };
+        enum class profile_dialog : uint8_t { create, duplicate, share, import_profile, delete_profile, confirm_action, reset_defaults, rename };
         profile_dialog profile_dialog_{profile_dialog::create};
         bool profile_actions_{}, profile_key_copied_{};
         size_t profile_source_{};
@@ -212,6 +318,10 @@ namespace xiui
         std::optional<settings_store> profile_import_{};
         int profile_scroll_{};
         size_t profile_keyboard_selection_{};
+        hud_module* confirmation_module_{};
+        size_t confirmation_option_{}, confirmation_view_{};
+        std::string confirmation_message_{};
+        WPARAM confirmation_key_release_{};
         std::string profile_error_{};
         bool settings_error_reported_{};
         bool visible_{true};
@@ -228,6 +338,7 @@ namespace xiui
         int mouse_y_{};
         bool mouse_down_{false};
         bool hud_target_pressed_{};
+        const hud_module* hud_target_module_{};
         HWND mouse_capture_window_{};
         D3DCOLOR* active_color_{};
         ui::color_picker color_picker_{};
@@ -237,6 +348,17 @@ namespace xiui
         size_t slider_input_option_index_{};
         rect slider_input_bounds_{};
         ui::text_input option_text_input_{};
+        ui::text_input settings_search_input_{};
+        bool settings_search_open_{};
+        float settings_search_expansion_{};
+        uint64_t settings_search_animation_at_{};
+        std::vector<ui::settings_search_entry> settings_search_entries_{};
+        std::vector<size_t> settings_search_matches_{};
+        size_t settings_search_selection_{}, settings_search_scroll_{};
+        hud_module* settings_search_revealed_module_{};
+        hud_module* settings_search_highlight_module_{};
+        size_t settings_search_highlight_option_{};
+        uint64_t settings_search_highlight_until_{};
         hud_module* text_input_module_{};
         size_t text_input_option_index_{};
         std::string* text_input_value_{};
@@ -252,23 +374,83 @@ namespace xiui
         module_option_group active_option_group_{module_option_group::general};
         size_t active_config_section_{};
         int option_scroll_{};
+        float scrollbar_grab_offset_{};
         std::string config_tooltip_{};
         rect config_tooltip_anchor_{};
-        bool reset_defaults_armed_{};
         interaction interaction_{interaction::none};
         float drag_offset_x_{};
         float drag_offset_y_{};
         ui::point drag_origin_{};
         bool drag_moved_{};
+        rect config_resize_original_{};
+        ui::point config_resize_pointer_{};
+        uint8_t config_resize_edges_{};
         std::vector<rect> layout_snap_targets_{};
         ui::layout_snap_result layout_snap_{};
 
         auto SetEditing(bool editing, bool playSound = true) -> bool;
+        auto ContextVisible(const hud_module& module) const -> bool;
+        auto TargetStatusVisible(void) const -> bool;
+        auto UpdateVisibilityContext(void) -> void;
+        auto ControllerSurfaceVisible(void) const -> bool;
+        auto ControllerPartyVisible(size_t group) const -> bool;
+        auto ControllerPresented(void) const -> bool;
+        auto ReleaseControllerFocus(bool preserveExpandedHistory = false) -> void;
+        auto UpdateControllerFocus(void) -> void;
+        auto BeginControllerFocus(controller_surface surface) -> bool;
+        auto ControllerSurfaces(void) const -> std::vector<controller_surface>;
+        auto ControllerSurfaceName(controller_surface surface) const -> const char*;
+        auto ControllerCommand(std::string_view command) -> bool;
+        auto DrawControllerOverlay(const D3DVIEWPORT8& viewport, const module_render_context& context) -> void;
+        auto HandleControllerStatus(controller_action action) -> bool;
+        auto ControllerStatusBounds(void) const -> rect;
+        auto DrawStatusTooltips(const D3DVIEWPORT8& viewport, const module_render_context& context) -> void;
+        auto ControllerPickerBounds(const D3DVIEWPORT8& viewport) const -> rect;
+        auto HandleControllerPointer(uint32_t message, float x, float y, const D3DVIEWPORT8& viewport) -> bool;
+        auto SelectHudTarget(uint32_t id, uint32_t index) -> bool;
+        auto ControllerNativeBusy(void) const -> bool;
+        auto GameWindowFocused(void) const -> bool;
+        auto ControllerNativeMenuOpen(void) const -> bool;
+        auto HandleControllerConfig(controller_action action, bool repeated) -> bool;
+        auto DrawControllerConfig(const D3DVIEWPORT8& viewport) -> void;
+        auto DrawInputModeControl(const D3DVIEWPORT8& viewport) -> void;
+        auto ProcessInputModeClick(const D3DVIEWPORT8& viewport) -> bool;
+        auto InputModeControlTarget(const D3DVIEWPORT8& viewport) const -> uint64_t;
+        auto ResetControllerConfigFocus(void) -> void;
+        auto ControllerConfigItems(config_controller_region region) -> std::vector<config_controller_item>;
+        auto ActivateControllerConfigItem(const config_controller_item& item, controller_action action, bool repeated) -> bool;
+        auto RefreshControllerConfigFocus(void) -> void;
+        auto ConfigResizeEdges(float x, float y) const -> uint8_t;
+        auto ToggleConfigSidebar(const D3DVIEWPORT8& viewport) -> void;
+        auto BuildSettingsSearch(void) -> void;
+        auto BeginSettingsSearch(void) -> void;
+        auto CloseSettingsSearch(void) -> void;
+        auto ClearSettingsSearch(void) -> void;
+        auto AnimateSettingsSearch(uint64_t now) -> void;
+        auto SettingsSearchBounds(void) const -> rect;
+        auto UpdateSettingsSearch(void) -> void;
+        auto MoveSettingsSearch(int steps) -> void;
+        auto SelectSettingsSearch(size_t index) -> bool;
+        auto HandleSettingsSearchKey(WPARAM key, LPARAM flags, HWND window) -> bool;
+        auto HandleSettingsSearchController(controller_action action, bool repeated) -> bool;
+        auto ProcessSettingsSearchClick(const D3DVIEWPORT8& viewport) -> bool;
+        auto SettingsSearchTarget(const D3DVIEWPORT8& viewport) const -> uint64_t;
+        auto DrawSettingsSearch(const D3DVIEWPORT8& viewport) -> void;
+        auto ApplyConfigResize(const rect& original, uint8_t edges, float dx, float dy, const D3DVIEWPORT8& viewport) -> void;
+        auto BeginConfigResize(bool keyboard = false) -> void;
+        auto FinishConfigResize(bool apply) -> void;
+        auto HandleConfigResize(controller_action action, bool repeated) -> bool;
+        auto DrawControllerInputStatus(void) -> void;
+        auto ControllerMovableModules(void) const -> std::vector<hud_module*>;
+        auto FinishControllerMove(bool apply) -> void;
+        auto HandleControllerMove(controller_action action, bool repeated) -> bool;
+        auto DrawControllerMovement(const D3DVIEWPORT8& viewport) -> void;
+        auto CenterModuleLayout(hud_module& module, size_t axis, const D3DVIEWPORT8& viewport) -> bool;
         auto ConfigSoundTarget(const D3DVIEWPORT8& viewport) -> uint64_t;
         auto HudSoundTarget(void) -> uint64_t;
         auto UpdateSoundHover(const D3DVIEWPORT8& viewport, bool active) -> void;
         auto SetChatMouseCapture(bool capture) -> void;
-        auto ReleaseChatInput(void) -> void;
+        auto ReleaseChatInput(bool preserveExpandedHistory = false) -> void;
         auto FinishConfigInput(bool apply, bool keepInvalid = true) -> bool;
         auto HandleConfigInputKey(WPARAM key, LPARAM flags) -> bool;
         auto CloseChoiceInput(void) -> void;
@@ -279,6 +461,23 @@ namespace xiui
         auto ChoiceSoundTarget(const D3DVIEWPORT8& viewport) const -> uint64_t;
         auto DrawChoiceInput(const D3DVIEWPORT8& viewport) -> void;
         auto HandleChatKey(WPARAM key, LPARAM flags, bool blocked, bool replacement, bool targeting, uint8_t nativeInput) -> bool;
+        auto SatchelInputAvailable(void) const -> bool;
+        auto SuspendSatchelInput(void) -> void;
+        auto UpdateSatchel(uint64_t now) -> void;
+        auto HandleSatchelCommand(std::string_view command) -> bool;
+        auto HandleSatchelKey(WPARAM key, LPARAM flags, bool blocked) -> bool;
+        auto ActionBarsNativePaletteOwned(bool candidate = false) const -> bool;
+        auto ActionBarsInputAvailable(bool keyboardReplacement = false) const -> bool;
+        auto ActionBarsPointerOwns(float x, float y) const -> bool;
+        auto ActionBarsExecutionAvailable(bool keyboardReplacement = false) const -> bool;
+        auto SuspendActionBarsInput(bool closeWindow = true) -> void;
+        auto FinishActionBarsLaunch(void) -> void;
+        auto UpdateActionBars(uint64_t now) -> void;
+        auto HandleActionBarsCommand(std::string_view command) -> bool;
+        auto HandleActionBarsKey(WPARAM, LPARAM, bool blocked) -> bool;
+        auto HandleActionBarsMouse(uint32_t, WPARAM, float, float, bool blocked) -> bool;
+        auto HandleSatchelMouse(uint32_t message, WPARAM buttons, float x, float y, bool blocked) -> bool;
+        auto CycleWindowFocus(bool controller) -> bool;
         auto SyncNativeChatInput(IChatManager* manager, bool nativeMenu, bool targeting = false) -> void;
         auto SelectedChatRecipient(void) const -> std::string;
         auto ChatAt(float x, float y) -> chat_module*;
@@ -297,10 +496,20 @@ namespace xiui
         auto ProcessProfileClick(const D3DVIEWPORT8& viewport) -> bool;
         auto HandleProfileKey(WPARAM key, LPARAM flags) -> bool;
         auto SelectProfile(size_t index) -> bool;
+        auto UpdateCharacterProfile(uint64_t now) -> void;
+        auto ObserveProfileCharacter(std::string character) -> bool;
+        auto BindObservedProfile(void) -> void;
         auto CreateProfile(void) -> bool;
+        auto RenameProfile(void) -> bool;
         auto DeleteProfile(void) -> bool;
         auto CloseProfileControls(void) -> void;
+        auto ActivateConfigAction(hud_module& module, size_t option) -> bool;
+        auto ApplyConfirmedAction(void) -> bool;
         auto OpenProfileDialog(profile_dialog mode) -> bool;
+        auto ProfileActionAvailable(size_t index) const -> bool;
+        auto OpenProfileAction(size_t index) -> bool;
+        auto MoveProfileAction(int direction) -> void;
+        auto ConfirmingAction(void) const -> bool { return this->profile_dialog_ == profile_dialog::confirm_action || this->profile_dialog_ == profile_dialog::reset_defaults; }
         auto CopyProfileKey(void) -> bool;
         auto PasteProfileKey(void) -> bool;
         auto LoadProfileKey(std::string_view key) -> bool;
@@ -317,6 +526,7 @@ namespace xiui
         auto MovementBounds(const hud_module& module) const -> rect;
         auto SnapModuleLayout(const D3DVIEWPORT8& viewport) -> void;
         auto DrawLayoutBackground(const rect& viewport) -> void;
+        auto MovementSelectionModule(void) const -> hud_module*;
         auto MovementToolbar(const D3DVIEWPORT8& viewport) const -> std::optional<ui::movement_toolbar>;
         auto MovementToolbarTarget(const D3DVIEWPORT8& viewport) const -> uint64_t;
         auto ProcessMovementToolbarClick(const D3DVIEWPORT8& viewport) -> bool;
@@ -328,16 +538,42 @@ namespace xiui
             const char* id; const char* name; hud_module* primary; hud_module* secondary{}; hud_module* tertiary{};
             std::span<hud_module* const> members{};
             size_t primary_count{1};
+            const char* primary_section_name{};
+            size_t primary_section_index{};
+            size_t grouped_views{1};
             auto Count(void) const -> size_t { return !this->members.empty() ? this->members.size() : this->tertiary != nullptr ? 3 : this->secondary != nullptr ? 2 : 1; }
             auto Module(size_t index) const -> hud_module* { return !this->members.empty() ? this->members[index] : index == 0 ? this->primary : index == 1 ? this->secondary : this->tertiary; }
             auto Views(void) const -> std::span<const char* const> { return this->primary != nullptr ? this->primary->ConfigViews() : std::span<const char* const>{}; }
-            auto SectionCount(void) const -> size_t { return !this->Views().empty() ? this->Views().size() : this->Count() - this->primary_count + 1; }
-            auto SectionModule(size_t index) const -> hud_module* { return !this->Views().empty() ? this->primary : this->Module(index == 0 ? 0 : index + this->primary_count - 1); }
-            auto SectionName(size_t index) const -> const char* { return !this->Views().empty() ? this->Views()[index] : this->SectionModule(index)->DisplayName(); }
+            auto SectionCount(void) const -> size_t { return !this->Views().empty() ? this->Views().size() - this->grouped_views + 1 : this->Count() - this->primary_count + 1; }
+            auto SectionView(size_t index) const -> size_t
+            {
+                if (index == 0 && this->grouped_views > 1)
+                    return this->primary->ConfigView() < this->grouped_views ? this->primary->ConfigView() : 0;
+                return index + this->grouped_views - 1;
+            }
+            auto SectionIndex(size_t index) const -> size_t { return index == this->primary_section_index ? 0 : index < this->primary_section_index ? index + 1 : index; }
+            auto SectionModule(size_t index) const -> hud_module*
+            {
+                const auto group = this->SectionIndex(index);
+                return !this->Views().empty() ? this->primary : this->Module(group == 0 ? 0 : group + this->primary_count - 1);
+            }
+            auto SectionName(size_t index) const -> const char*
+            {
+                if (!this->Views().empty())
+                    return index == 0 && this->grouped_views > 1 && this->primary_section_name != nullptr ? this->primary_section_name : this->Views()[this->SectionView(index)];
+                return this->SectionIndex(index) == 0 && this->primary_section_name != nullptr ? this->primary_section_name : this->SectionModule(index)->DisplayName();
+            }
             auto SectionContains(size_t index, const hud_module* module) const -> bool
             {
-                if (!this->Views().empty()) return this->primary == module && this->primary->ConfigView() == index;
-                if (index != 0) return this->SectionModule(index) == module;
+                if (!this->Views().empty())
+                {
+                    if (this->primary == module) return index == 0 && this->grouped_views > 1 ? this->primary->ConfigView() < this->grouped_views : this->primary->ConfigView() == this->SectionView(index);
+                    const auto view = this->SectionView(index);
+                    if (index == 0 && this->grouped_views > 1)
+                        for (size_t member = 1; member < this->grouped_views && member < this->Count(); ++member) if (this->Module(member) == module) return true;
+                    return view != 0 && view < this->Count() && this->Module(view) == module;
+                }
+                if (this->SectionIndex(index) != 0) return this->SectionModule(index) == module;
                 for (size_t i = 0; module != nullptr && i < this->primary_count; ++i) if (this->Module(i) == module) return true;
                 return false;
             }
@@ -347,12 +583,14 @@ namespace xiui
                 return false;
             }
         };
-        static constexpr size_t config_page_count = 12;
+        static constexpr size_t config_page_count = 15;
         auto ConfigPages(void) -> std::array<config_page, config_page_count>;
         auto ConfigPageVisible(const config_page& page) const -> bool;
         auto VisibleConfigPages(void) const -> std::vector<config_page>;
         auto ActiveConfigPage(void) -> config_page;
         auto SelectConfigModule(hud_module* module, std::optional<size_t> view = std::nullopt) -> void;
+        auto SaveConfigSelection(const settings_store& store) const -> void;
+        auto LoadConfigSelection(const settings_store& store) -> void;
         auto HasConfigSections(void) const -> bool
         {
             return const_cast<hud_runtime*>(this)->ActiveConfigPage().SectionCount() > 1;
@@ -375,6 +613,10 @@ namespace xiui
         auto IsXIUIContributors(void) const -> bool { return this->IsAttribution() && this->general_.AttributionView() == 1; }
         auto IsGeneralAppearance(void) const -> bool { return this->active_module_ == &this->general_ && this->active_config_section_ == general_module::appearance_section; }
         auto ConfigLayout(void) const -> ui::config_layout;
+        auto ConfigScrollbar(void) const -> ui::config_scrollbar;
+        auto ProcessConfigScrollbarClick(void) -> bool;
+        auto UpdateConfigScrollbar(void) -> void;
+        auto DrawConfigScrollbar(void) -> void;
         auto ElementSelector(void) const -> ui::element_selector;
         auto ElementSelectorLayout(const ui::element_selector& selector, const ui::config_layout& layout) const -> ui::element_selector_layout;
         auto ElementSelectorTarget(void) const -> uint64_t;
@@ -392,6 +634,7 @@ namespace xiui
         auto ResolveCursorShape(const D3DVIEWPORT8& viewport) const -> cursor_shape;
         auto ApplyPickedColor(void) -> void;
         auto SetActiveSliderFromMouse(void) -> void;
+        auto GroupOptionSlots(void) const -> std::vector<size_t>;
         auto GroupOptionCount(void) const -> size_t;
         auto MatchesConfigOption(size_t index) const -> bool;
         auto GroupOptionIndex(size_t filteredIndex) const -> size_t;

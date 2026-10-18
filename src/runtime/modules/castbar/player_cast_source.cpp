@@ -75,6 +75,7 @@ namespace xiui
             else if (const auto* resource = resources->GetSpellById(id)) name = resource->Name[2] != nullptr ? resource->Name[2] : resource->Name[0];
         }
         this->state_.Begin(name != nullptr ? FromGameText(name) : std::string{item ? "Item " : "Spell "} + std::to_string(id), id, item, now, this->native_);
+        this->state_.target_id = action.targets[0].id;
     }
 
     auto player_cast_source::HandlePacket(IAshitaCore* core, uint16_t id, std::span<const uint8_t> data, uint64_t now) -> void

@@ -1,0 +1,3 @@
+600 RCDATA "@CMAKE_SOURCE_DIR@/assets/bluemagic/blue_magic_learned.bgra"
+601 RCDATA "@CMAKE_SOURCE_DIR@/assets/bluemagic/blue_magic_learned.wav"
+602 RCDATA "@CMAKE_SOURCE_DIR@/assets/bluemagic/LICENSE.txt"

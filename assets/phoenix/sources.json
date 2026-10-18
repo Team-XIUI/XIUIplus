@@ -1,0 +1,19 @@
+{
+  "phoenix_commit": "11c6ee57720a8c6fd79c0fd46ff38ea8e074bf5e",
+  "profile": "Phoenix ToAU (75 cap)",
+  "source": "https://github.com/phoenixffxi/Phoenix",
+  "settings_source": "https://github.com/Tanyrus/headsup/blob/161ad60f7d0ed10fd5b71a6889bd777a43d5dc7b/tools/phoenix/live_settings.lua",
+  "sha256": {
+    "LICENSE": "0b383d5a63da644f628d99c33976ea6487ed89aaa59f0b3257992deac1171e6b",
+    "live_settings.lua": "b4c5179886cdbd15e54aa399f40856e717b576d7d30bbc774322c22efdf78f02",
+    "modules__era__lua__globals__job_utils__corsair.lua": "3f1593dfca8144a918573a1f0f62a3fc93dbed6649b833b7913848f56c7a5425",
+    "modules__era__sql__soa__bloodpact_skillchains.sql": "4315e93c8d201ae912d6cb3e8ccb2869f22d5138b847bea63efc9ae00fb0a972",
+    "modules__phoenix__lua__globals__spells__enfeebling_spell.lua": "5422ed7962dc7ec6d568bb152c237c1afb19986a24ac1d1ba2659748e871c3fc",
+    "scripts__globals__job_utils__corsair.lua": "d75c15808ec12ee6ae2de531e7edc98d90cfc7bda7b333d466a885246c8c7605",
+    "sql__abilities_charges.sql": "a5e90b6420dbf22d1ff80ac7abce459c2e12521554bf50d668a723ec7ccc9cb1",
+    "sql__blue_spell_list.sql": "81af2ccdbb5b3639231fc19fd1ec66b6f66dcbc37c405a4c385624bc4b98c636",
+    "sql__mob_skills.sql": "e00dd55abfcfa2a3ade1c99a46f3dfb37af15e779094ceff2022d35595e6052b",
+    "sql__pet_skills.sql": "48435959d38678148fcc1ad96eb730b4d8c63ad28327dfc7b28b65bd8526b55d",
+    "sql__weapon_skills.sql": "2a2876d1ec256fe0a13d7503fdf3a57c643575f1caee8bc58d7b6f22b2ac2e5a"
+  }
+}

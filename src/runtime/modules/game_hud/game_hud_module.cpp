@@ -32,7 +32,15 @@ namespace xiui
     auto game_hud_module::Option(const size_t index) -> module_option
     {
         if (index == 0)
-            return module_option::Toggle("Game HUD controls", "Apply the native HUD visibility choices below.", &this->preferences_.enabled);
+            return module_option::Toggle("Game HUD controls", "Apply the native HUD visibility choices below.", &this->preferences_.enabled).Ordered(-100);
+        if (index == hide_all_option || index == show_all_option)
+        {
+            auto result = index == hide_all_option ?
+                module_option::Action("Hide native UI", "Hide every supported native HUD element, including native chat. XIUI modules keep their own visibility settings.", "Hide all").Ordered(-90) :
+                module_option::Action("Restore native UI", "Show every supported native HUD element again.", "Show all").Ordered(-89);
+            result.available = this->available_ != 0;
+            return result;
+        }
         if (index > native_hud_options.size())
             return {};
         const size_t element = index - 1;
@@ -41,6 +49,12 @@ namespace xiui
             available ? native_hud_options[element].description : "Unavailable on this client.", &this->preferences_.shown[element]);
         result.available = available;
         return result;
+    }
+
+    auto game_hud_module::OnOptionChanged(const size_t index) -> void
+    {
+        if (index == hide_all_option) this->HideAll();
+        else if (index == show_all_option) this->ShowAll();
     }
 
     auto game_hud_module::ConfigSections(void) const -> std::span<const module_config_section>

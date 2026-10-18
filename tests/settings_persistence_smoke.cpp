@@ -48,12 +48,42 @@ int main(void)
         disk.ReadFloat("general", "scale", 0) == 1.25f && disk.ReadColor("general", "rgb", 0) == 0xFF123456 &&
         disk.ReadArgb("general", "argb", 0) == 0x80123456 && disk.ReadRect("layout.exp", {}).y == 45,
         "every persisted value type keeps its existing INI representation")) return 1;
+    const auto cached = xiui::settings_store::CachedFile(path.string());
+    if (!check(!cached.ReadBool("GENERAL", "enabled", true) && cached.ReadInt("general", "COUNT", 0) == 9 &&
+        cached.ReadFloat("general", "scale", 0) == 1.25f && cached.ReadColor("general", "rgb", 0) == 0xFF123456 &&
+        cached.ReadArgb("general", "argb", 0) == 0x80123456 && cached.ReadRect("layout.exp", {}).y == 45 &&
+        cached.ReadInt("missing", "key", 42) == 42, "cached sections retain every saved type and missing-key fallbacks")) return 1;
+    const auto compatibilityPath = root / "compatibility.ini";
+    {
+        std::ofstream file{compatibilityPath};
+        file << "[values]\nempty=\nhex=0x10\nleading=010\nnegative=-17\nquoted=\"32\"\nsingle='abc'\n"
+            "invalid=abc\ntrailing=42x\nspaces=   foo   \nduplicate=first\nduplicate=second\n"
+            "wide=4294967295\nspacedhex=\"  0x10\"\nplus=+17\n";
+        file << "[large]\n";
+        for (int key = 0; key < 1000; ++key) file << "key" << key << "=" << key << "\n";
+    }
+    const xiui::settings_store compatibilityDisk{compatibilityPath.string()};
+    const auto compatibilityCached = xiui::settings_store::CachedFile(compatibilityPath.string());
+    for (const auto* key : {"empty", "hex", "leading", "negative", "quoted", "single", "invalid", "trailing", "spaces", "duplicate", "wide", "spacedhex", "plus", "missing"})
+        if (!check(compatibilityCached.ReadString("VALUES", key, "fallback") == compatibilityDisk.ReadString("values", key, "fallback") &&
+            compatibilityCached.ReadInt("values", key, 51) == compatibilityDisk.ReadInt("values", key, 51),
+            "cached reads match Windows INI quotes, empty values, integers and duplicate keys")) return 1;
+    if (!check(compatibilityCached.ReadInt("large", "key999", -1) == 999, "large cached sections grow without truncating values")) return 1;
+    compatibilityCached.WriteInt("values", "hex", 25);
+    if (!check(compatibilityCached.ReadInt("values", "hex", 0) == 25 && compatibilityDisk.ReadInt("values", "hex", 0) == 16,
+        "staged writes override cached reads without modifying the file")) return 1;
     const auto original = contents(path);
     const auto stamp = std::filesystem::last_write_time(path);
     store.WriteBool("general", "enabled", false);
     store.WriteInt("general", "count", 9);
     if (!check(store.Flush() && contents(path) == original && std::filesystem::last_write_time(path) == stamp,
         "unchanged saves do not rewrite the file")) return 1;
+    const std::string longValue(200, 'x');
+    store.WriteString("general", "long", longValue);
+    if (!check(store.Flush() && disk.ReadString("general", "long") == longValue, "long values persist completely")) return 1;
+    const auto longStamp = std::filesystem::last_write_time(path);
+    store.WriteString("general", "long", longValue);
+    if (!check(store.Flush() && std::filesystem::last_write_time(path) == longStamp, "unchanged long values do not trigger another write")) return 1;
     {
         std::ofstream file{path, std::ios::app};
         file << "\r\n[custom]\r\n; keep this comment\r\nunknown=42\r\n";

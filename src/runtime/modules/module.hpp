@@ -6,12 +6,15 @@
 #include "ui/native_ui_assets.hpp"
 #include "ui/meter_text_layout.hpp"
 #include "runtime_api.hpp"
+#include "ui/health_feedback.hpp"
 #include "settings/settings_store.hpp"
 
 #include <cstddef>
 #include <cstdint>
 #include <span>
 #include <functional>
+
+namespace xiui::ui { struct tp_meter_colors; }
 
 namespace xiui
 {
@@ -47,6 +50,7 @@ namespace xiui
         const char* description{};
         const char* submodules{};
         bool available{true};
+        bool visible{true};
         bool* toggle{};
         D3DCOLOR* color{};
         float* slider{};
@@ -57,12 +61,33 @@ namespace xiui
         int* choice{};
         const char* const* choices{};
         size_t choice_count{};
+        uint32_t choice_status_mask{}, choice_status_enabled{};
         const char* action_text{};
+        const char* confirmation{};
         ui::icon_glyph action_icon{ui::icon_glyph::unknown};
         std::string* text{};
         size_t text_limit{500};
         bool choice_preview{};
         size_t preview_first{};
+        // Presentation only; option IDs and saved keys stay stable.
+        int display_order{1000};
+        bool pair_next{};
+        bool card{};
+        bool warning{};
+
+        auto Ordered(int order, bool pairNext = false) const -> module_option
+        {
+            auto result = *this;
+            result.display_order = order;
+            result.pair_next = pairNext;
+            return result;
+        }
+        auto VisibleWhen(bool condition) const -> module_option
+        {
+            auto result = *this;
+            result.visible = result.visible && condition;
+            return result;
+        }
 
         static auto Toggle(const char* label, const char* description, bool* value, module_option_group group = module_option_group::general) -> module_option;
         static auto Color(const char* label, const char* description, D3DCOLOR* value, module_option_group group = module_option_group::general) -> module_option;
@@ -95,9 +120,13 @@ namespace xiui
         float displayed_ratio{};
         uint64_t last_tick{};
         bool initialized{};
+        ui::health_feedback_state health{};
+        uint64_t identity{};
+        auto Bind(uint64_t value) -> void { if (this->identity != value) { *this = {}; this->identity = value; } }
+        auto Update(float ratio, uint64_t now, bool enabled = true, float speed = 10.0f) -> float;
     };
 
-    enum class meter_fill_mode : uint8_t { single, tp, tp_blink };
+    enum class meter_fill_mode : uint8_t { single, tp, tp_blink, health };
 
     struct module_state
     {
@@ -132,21 +161,24 @@ namespace xiui
     class module_render_context
     {
     public:
-        explicit module_render_context(ui::design_system& design, ui::container_renderer* containers = nullptr, bool editing = false, ui::game_icon_cache* icons = nullptr, const ui::rect& viewport = {}, ui::native_ui_assets* nativeAssets = nullptr);
+        explicit module_render_context(ui::design_system& design, ui::container_renderer* containers = nullptr, bool editing = false, ui::game_icon_cache* icons = nullptr, const ui::rect& viewport = {}, ui::native_ui_assets* nativeAssets = nullptr, const ui::health_feedback_style* feedback = nullptr);
         auto Design(void) const -> const ui::design_system& { return this->design_; }
+        auto Containers(void) const -> const ui::container_renderer* { return this->containers_; }
         auto Viewport(void) const -> const ui::rect& { return this->viewport_; }
         auto Icons(void) const -> ui::game_icon_cache* { return this->icons_; }
         auto NativeAssets(void) const -> ui::native_ui_assets* { return this->native_assets_; }
         auto DrawButton(const ui::rect& bounds, const char* label, bool highlighted, const module_text_profile& profile) const -> void;
         auto IsEditing(void) const -> bool { return this->editing_; }
-        auto DrawContainer(const ui::rect& bounds, const ui::container_style& style = {}) const -> ui::rect;
+        auto DrawContainer(const ui::rect& bounds, const ui::container_style& style = {}, std::span<const ui::container_fill> fills = {}) const -> ui::rect;
+        auto DrawContainerFrame(const ui::rect& bounds, const ui::container_style& style) const -> void;
+        auto DrawTooltip(const ui::rect& bounds) const -> ui::rect;
         auto DrawFadingContainer(const ui::rect& bounds, const ui::container_style& style, bool anchoredRight) const -> void;
         auto DrawSelection(const ui::rect& bounds, bool subtarget, const ui::selection_style& style) const -> void;
         auto DrawText(const char* text, const ui::rect& bounds, const ui::rect& placementBounds, const module_text_profile& profile) const -> void;
         auto TextBounds(const char* text, const ui::rect& bounds, const ui::rect& placementBounds, const module_text_profile& profile) const -> ui::rect;
         auto DrawBar(const ui::rect& bounds, float ratio, D3DCOLOR fillTop, D3DCOLOR fillBottom, float phase, const ui::meter_style& style, bool fillFromRight = false) const -> void;
         auto MeterTextBounds(const ui::rect& bounds, const ui::meter_style& style) const -> ui::rect;
-        auto DrawMeter(const ui::rect& bounds, const char* label, const char* value, float ratio, D3DCOLOR fillTop, D3DCOLOR fillBottom, const ui::meter_style& style, meter_animation_state& animation, bool overlayLabel = false, const module_text_profile* labelProfile = nullptr, const module_text_profile* valueProfile = nullptr, ui::meter_text_anchor textAnchor = ui::meter_text_anchor::automatic, ui::meter_text_anchor valueAnchor = ui::meter_text_anchor::automatic, meter_fill_mode fillMode = meter_fill_mode::single) const -> void;
+        auto DrawMeter(const ui::rect& bounds, const char* label, const char* value, float ratio, D3DCOLOR fillTop, D3DCOLOR fillBottom, const ui::meter_style& style, meter_animation_state& animation, bool overlayLabel = false, const module_text_profile* labelProfile = nullptr, const module_text_profile* valueProfile = nullptr, ui::meter_text_anchor textAnchor = ui::meter_text_anchor::automatic, ui::meter_text_anchor valueAnchor = ui::meter_text_anchor::automatic, meter_fill_mode fillMode = meter_fill_mode::single, std::span<const ui::meter_strip> strips = {}, std::span<const ui::meter_range> ranges = {}, const ui::tp_meter_colors* tpColors = nullptr, bool healthWarnings = true) const -> void;
         static auto Ratio(uint32_t value, uint32_t maximum) -> float;
 
     private:
@@ -154,6 +186,7 @@ namespace xiui
         ui::container_renderer* containers_{};
         ui::game_icon_cache* icons_{};
         ui::native_ui_assets* native_assets_{};
+        const ui::health_feedback_style* feedback_{};
         bool editing_{};
         ui::rect viewport_{};
         auto MeterSkin(const ui::meter_style& style) const -> std::optional<ui::meter_skin>;
@@ -175,6 +208,7 @@ namespace xiui
     auto SaveTextProfile(const settings_store& settings, const char* section, const module_text_profile& profile) -> void;
     auto MeterGradientTop(D3DCOLOR color) -> D3DCOLOR;
     auto MeterStyleOption(size_t index, ui::meter_style& style) -> module_option;
+    auto CopyMeterStyleOption(size_t index, ui::meter_style& source, ui::meter_style& destination) -> void;
     auto LoadMeterStyle(const settings_store& settings, const char* section, const ui::meter_style& fallback) -> ui::meter_style;
     auto SaveMeterStyle(const settings_store& settings, const char* section, const ui::meter_style& style) -> void;
 
@@ -189,7 +223,7 @@ namespace xiui
         virtual auto State(void) const -> const module_state& = 0;
         virtual auto HasEditableBounds(void) const -> bool { return true; }
         virtual auto PositionBoundsReady(void) const -> bool { return true; }
-        virtual auto PreviewVisible(void) const -> bool { return true; }
+        virtual auto PreviewVisible(void) const -> bool { return this->State().enabled; }
         virtual auto ApplyMeterDefaults(const ui::meter_style&) -> void {}
         virtual auto ApplyTextDefaults(const ui::theme&) -> void {}
         virtual auto VisitTextSettings(const text_settings_visitor&) -> void {}

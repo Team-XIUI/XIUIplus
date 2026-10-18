@@ -41,9 +41,9 @@ namespace xiui
     {
         static constexpr const char* anchors[]{"Top", "Bottom"};
         if (index == 1)
-            return module_option::Choice("Window anchor", "Align command, magic, ability and detail windows along their top or bottom edges as their heights change.", &this->anchor_, anchors, 2);
+            return module_option::Choice("Window anchor", "Align command, magic, ability and detail windows along their top or bottom edges as their heights change.", &this->anchor_, anchors, 2).Ordered(200);
         if (index != 0) return {};
-        auto option = module_option::Toggle("Move native menus", "Commands, item details and spell panels share this anchor. Off restores the game's position.", &this->state_.enabled);
+        auto option = module_option::Toggle("Move native menus", "Commands, item details and spell panels share this anchor. Off restores the game's position.", &this->state_.enabled).Ordered(-50);
         option.available = this->native_.menu_available;
         return option;
     }

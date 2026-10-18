@@ -236,6 +236,8 @@ namespace xiui::ui
             if (x >= 80) return bounds.x + bounds.width - (88 - x) * cap / 8;
             return bounds.x + cap + (x - 8) * (bounds.width - cap * 2) / 72;
         };
+        std::array<texture_quad, 12> quads{};
+        size_t used{};
         for (int layer = 0; layer < 2; ++layer)
         for (const auto& patch : this->buttons_->front())
         {
@@ -263,11 +265,12 @@ namespace xiui::ui
                 const float right = std::min(end, left < 8 ? 8.0f : left < 80 ? 80.0f : end);
                 const float u = patch.u + (left - start) / (end - start) * patch.width;
                 const std::array<point, 4> points{{{position(left), top}, {position(right), top}, {position(left), top + height}, {position(right), top + height}}};
-                design.DrawTextureQuad(texture, points, {u / image.width, static_cast<float>(patch.v) / image.height,
-                    (right - left) / (end - start) * patch.width / image.width, static_cast<float>(patch.height) / image.height}, style);
+                quads[used++] = {points, {u / image.width, static_cast<float>(patch.v) / image.height,
+                    (right - left) / (end - start) * patch.width / image.width, static_cast<float>(patch.height) / image.height}, style};
                 left = right;
             }
         }
+        design.DrawTextureQuads(texture, std::span{quads}.first(used));
     }
 
     auto native_ui_assets::DrawAutoTranslateCap(const design_system& design, const bool closing, const float x, const float y, const float scale, const float opacity) const -> bool

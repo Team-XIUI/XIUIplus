@@ -41,6 +41,7 @@ namespace xiui::ui
         auto SetDevice(IDirect3DDevice8* device) -> void;
         auto Shutdown(void) -> void;
         auto Open(D3DCOLOR color) -> void;
+        auto SetColor(D3DCOLOR color) -> void { this->color_ = FromColor(color, this->color_.hue); }
         auto Restore(void) -> void { this->color_ = FromColor(this->original_, this->color_.hue); }
         auto Color(void) const -> D3DCOLOR { return ToColor(this->color_); }
         auto Original(void) const -> D3DCOLOR { return this->original_; }

@@ -6,12 +6,12 @@
 
 namespace xiui::ui
 {
-    auto embedded_sound_player::Initialize(const HMODULE module) -> void
+    auto embedded_sound_player::Initialize(const HMODULE module, const uint16_t firstResource) -> void
     {
         this->Stop(); this->clips_ = {};
         for (size_t index = 0; index < this->clips_.size(); ++index)
         {
-            const auto resource = ::FindResourceW(module, MAKEINTRESOURCEW(401 + index), MAKEINTRESOURCEW(10));
+            const auto resource = ::FindResourceW(module, MAKEINTRESOURCEW(firstResource + index), MAKEINTRESOURCEW(10));
             const auto size = resource != nullptr ? ::SizeofResource(module, resource) : 0;
             const auto loaded = resource != nullptr ? ::LoadResource(module, resource) : nullptr;
             const auto* bytes = loaded != nullptr ? static_cast<const char*>(::LockResource(loaded)) : nullptr;

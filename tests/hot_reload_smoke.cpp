@@ -5,6 +5,8 @@
 #include <string>
 #include <thread>
 
+namespace xiui { auto RunControllerHostChecks(void) -> bool; }
+
 namespace
 {
     auto fail(const char* message, const int code) -> int
@@ -65,6 +67,7 @@ namespace
 
 int main(const int argc, char** argv)
 {
+    if (!xiui::RunControllerHostChecks()) return 40;
     if (argc != 7)
         return fail("expected working, rejected, stateful, activation-failure, exit-failure, and render-failure runtime paths", 1);
 

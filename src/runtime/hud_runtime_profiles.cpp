@@ -3,6 +3,7 @@
 #include "config/clipboard.hpp"
 
 #include <algorithm>
+#include <string_view>
 
 namespace
 {
@@ -11,8 +12,80 @@ namespace
 
 namespace xiui
 {
+    auto hud_runtime::UpdateCharacterProfile(const uint64_t now) -> void
+    {
+        if (this->core_ == nullptr) return;
+        if (now < this->next_profile_identity_update_) return;
+        this->next_profile_identity_update_ = now + 250;
+        this->ObserveProfileCharacter(this->profile_identity_.Read(this->core_).value_or(""));
+    }
+
+    auto hud_runtime::BindObservedProfile(void) -> void
+    {
+        if (this->profile_observed_character_.empty()) return;
+        this->profile_character_ = this->profile_observed_character_;
+        this->profile_character_ready_ = true;
+    }
+
+    auto hud_runtime::ObserveProfileCharacter(std::string character) -> bool
+    {
+        this->profile_tracking_ = true;
+        if (!this->profiles_.Ready()) return false;
+        if (character.empty())
+        {
+            if (this->profile_character_ready_)
+            {
+                this->SaveSettings();
+                this->profile_character_ready_ = false;
+                this->ReleaseControllerFocus();
+                this->CloseProfileControls();
+                this->FinishConfigInput(false);
+                this->CloseChoiceInput();
+                this->ReleaseChatInput();
+                this->FinishInteraction();
+            }
+            this->profile_character_ready_ = false;
+            this->profile_observed_character_.clear();
+            return false;
+        }
+        if (character == this->profile_character_)
+        {
+            this->profile_observed_character_ = std::move(character);
+            const bool resumed = !this->profile_character_ready_;
+            this->profile_character_ready_ = true;
+            if (resumed) this->SaveSettings();
+            return true;
+        }
+        if (character == this->profile_observed_character_) return false;
+        if (this->profile_character_ready_) this->SaveSettings();
+        this->profile_character_ready_ = false;
+        this->profile_observed_character_ = std::move(character);
+        this->ReleaseControllerFocus();
+        this->CloseProfileControls();
+        this->FinishConfigInput(false);
+        this->CloseChoiceInput();
+        this->ReleaseChatInput();
+        this->FinishInteraction();
+        if (!this->DrainSettings())
+        { this->profile_error_ = "Could not save the previous profile. Choose a profile to retry."; return false; }
+        if (const auto bound = this->profiles_.BoundProfile(this->profile_observed_character_))
+        {
+            const auto preferences = this->profiles_.Read(*bound, this->profile_error_);
+            if (!preferences) return false;
+            auto snapshot = this->CaptureSettings();
+            OverlayProfilePreferences(snapshot, *preferences);
+            this->profiles_.Select(*bound);
+            this->LoadSettings(snapshot);
+        }
+        this->BindObservedProfile();
+        this->SaveSettings();
+        return true;
+    }
+
     auto hud_runtime::CloseProfileControls(void) -> void
     {
+        this->controller_config_.modal_item = 0;
+        this->controller_config_.modal_id.clear();
         this->profile_name_.Cancel();
         this->profile_dropdown_ = false;
         this->profile_actions_ = false;
@@ -22,13 +95,77 @@ namespace xiui
         this->profile_key_copied_ = false;
         this->profile_dialog_ = profile_dialog::create;
         this->profile_error_.clear();
+        this->confirmation_module_ = nullptr;
+        this->confirmation_message_.clear();
+    }
+
+    auto hud_runtime::ActivateConfigAction(hud_module& module, const size_t index) -> bool
+    {
+        if (index >= module.OptionCount()) return false;
+        const auto option = module.Option(index);
+        if (!option.available || option.kind != module_option_kind::action) return false;
+        if (option.confirmation == nullptr || option.confirmation[0] == '\0')
+        {
+            module.OnOptionChanged(index);
+            if (&module == &this->actionbars_ && this->actionbars_.DialogOpen())
+                this->FinishActionBarsLaunch();
+            this->SaveSettings();
+            return true;
+        }
+        this->FinishConfigInput(true, false);
+        this->ReleaseChatInput();
+        this->CloseProfileControls();
+        this->active_color_ = nullptr;
+        this->active_slider_ = nullptr;
+        this->confirmation_module_ = &module;
+        this->confirmation_option_ = index;
+        this->confirmation_view_ = module.ConfigView();
+        this->confirmation_message_ = option.confirmation;
+        this->profile_dialog_ = profile_dialog::confirm_action;
+        this->profile_keyboard_selection_ = 0;
+        this->controller_config_.modal_item = 0;
+        this->controller_config_.modal_id = "profile/" + std::to_string(static_cast<int>(profile_dialog::confirm_action));
+        this->controller_config_.adjusting = false;
+        this->profile_name_.Open(option.label != nullptr ? option.label : "Selected settings");
+        this->ui_sounds_.MenuOpened(::GetTickCount64());
+        return true;
+    }
+
+    auto hud_runtime::ApplyConfirmedAction(void) -> bool
+    {
+        if (this->profile_dialog_ == profile_dialog::reset_defaults && this->profile_name_.Focused() && this->editing_)
+        {
+            this->CloseProfileControls();
+            this->ResetSettings();
+            return true;
+        }
+        auto* module = this->confirmation_module_;
+        const auto index = this->confirmation_option_;
+        if (this->profile_dialog_ != profile_dialog::confirm_action || !this->profile_name_.Focused() || module == nullptr) return false;
+        const bool current = this->editing_ && module == this->active_module_ && module->ConfigView() == this->confirmation_view_ &&
+            index < module->OptionCount() && this->MatchesConfigOption(index);
+        const auto option = current ? module->Option(index) : module_option{};
+        const bool valid = current && option.available && option.kind == module_option_kind::action && option.confirmation != nullptr &&
+            this->confirmation_message_ == option.confirmation;
+        this->CloseProfileControls();
+        if (!valid) return false;
+        if (module == &this->general_ && index == this->general_.HideAllUiOption())
+        {
+            this->SetVisible(false);
+            return true;
+        }
+        module->OnOptionChanged(index);
+        this->SaveSettings();
+        return true;
     }
 
     auto hud_runtime::OpenProfileDialog(const profile_dialog mode) -> bool
     {
-        if (!this->profiles_.Ready()) return false;
+        if (!this->profiles_.Ready() && mode != profile_dialog::reset_defaults) return false;
         if (mode == profile_dialog::delete_profile && this->profiles_.Selected() == 0)
         { this->profile_error_ = "Default cannot be deleted."; return false; }
+        if (mode == profile_dialog::rename && this->profiles_.Selected() == 0)
+        { this->profile_error_ = "Default cannot be renamed."; return false; }
         this->FinishConfigInput(true, false);
         this->ReleaseChatInput();
         this->CloseProfileControls();
@@ -36,9 +173,16 @@ namespace xiui
         this->profile_dialog_ = mode;
         this->profile_source_ = this->profiles_.Selected();
         this->profile_keyboard_selection_ = 0;
+        this->controller_config_.modal_id = "profile/" + std::to_string(static_cast<int>(mode));
+        this->controller_config_.adjusting = false;
         std::string name;
+        if (mode == profile_dialog::reset_defaults)
+        {
+            name = "Entire XIUI configuration";
+            this->confirmation_message_ = "This will reset all XIUI settings and layouts to defaults.";
+        }
         if (mode == profile_dialog::duplicate) name = this->profiles_.UniqueName(this->profiles_.Current().name + " Copy");
-        if (mode == profile_dialog::delete_profile) name = this->profiles_.Current().name;
+        if (mode == profile_dialog::delete_profile || mode == profile_dialog::rename) name = this->profiles_.Current().name;
         if (mode == profile_dialog::share)
         {
             this->SaveSettings();
@@ -50,6 +194,31 @@ namespace xiui
         this->profile_name_.Open(std::move(name));
         this->ui_sounds_.MenuOpened(::GetTickCount64());
         return true;
+    }
+
+    auto hud_runtime::ProfileActionAvailable(const size_t index) const -> bool
+    {
+        if (index >= std::size(ui::profile_actions)) return false;
+        return index == ui::profile_reset_action || (this->profiles_.Ready() &&
+            ((index != ui::profile_delete_action && index != ui::profile_rename_action) || this->profiles_.Selected() != 0));
+    }
+
+    auto hud_runtime::OpenProfileAction(const size_t index) -> bool
+    {
+        if (!this->ProfileActionAvailable(index)) return false;
+        static constexpr profile_dialog modes[]{profile_dialog::duplicate, profile_dialog::share, profile_dialog::import_profile,
+            profile_dialog::rename, profile_dialog::delete_profile, profile_dialog::reset_defaults};
+        return this->OpenProfileDialog(modes[index]);
+    }
+
+    auto hud_runtime::MoveProfileAction(const int direction) -> void
+    {
+        const auto count = std::size(ui::profile_actions);
+        for (size_t step = 0; step < count; ++step)
+        {
+            this->profile_keyboard_selection_ = (this->profile_keyboard_selection_ + (direction < 0 ? count - 1 : 1)) % count;
+            if (this->ProfileActionAvailable(this->profile_keyboard_selection_)) break;
+        }
     }
 
     auto hud_runtime::CopyProfileKey(void) -> bool
@@ -100,13 +269,13 @@ namespace xiui
 
     auto hud_runtime::ProfileSoundTarget(const D3DVIEWPORT8& viewport) const -> uint64_t
     {
-        if (!this->editing_ || this->config_collapsed_ || !this->profiles_.Ready()) return 0;
+        if (!this->editing_ || this->config_collapsed_) return 0;
         const auto x = static_cast<float>(this->mouse_x_), y = static_cast<float>(this->mouse_y_);
         if (this->profile_name_.Focused())
         {
             const bool extended = this->profile_dialog_ == profile_dialog::share || this->profile_dialog_ == profile_dialog::import_profile;
             const ui::profile_dialog_layout dialog{this->config_bounds_, viewport, extended};
-            if (this->profile_dialog_ != profile_dialog::share && this->profile_dialog_ != profile_dialog::delete_profile && Contains(dialog.Field(), x, y)) return profile_target | 10;
+            if (this->profile_dialog_ != profile_dialog::share && this->profile_dialog_ != profile_dialog::delete_profile && !this->ConfirmingAction() && Contains(dialog.Field(), x, y)) return profile_target | 10;
             if (Contains(dialog.Cancel(), x, y)) return profile_target | 11;
             if (Contains(dialog.Create(), x, y) && (this->profile_dialog_ != profile_dialog::import_profile || this->profile_import_)) return profile_target | 12;
             if (Contains(dialog.Close(), x, y)) return profile_target | 13;
@@ -114,13 +283,13 @@ namespace xiui
             if (this->profile_dialog_ == profile_dialog::import_profile && Contains(dialog.Paste(), x, y)) return profile_target | 15;
             return 0;
         }
-        if (Contains(this->ConfigLayout().ProfileSelector(), x, y)) return profile_target | 1;
-        if (Contains(this->ConfigLayout().ProfileAdd(), x, y)) return profile_target | 2;
+        if (this->profiles_.Ready() && Contains(this->ConfigLayout().ProfileSelector(), x, y)) return profile_target | 1;
+        if (this->profiles_.Ready() && Contains(this->ConfigLayout().ProfileAdd(), x, y)) return profile_target | 2;
         if (Contains(this->ConfigLayout().ProfileActionsButton(), x, y)) return profile_target | 3;
         if (this->profile_actions_)
             for (size_t i = 0; i < std::size(ui::profile_actions); ++i)
             {
-                if (i + 1 == static_cast<size_t>(profile_dialog::delete_profile) && this->profiles_.Selected() == 0) continue;
+                if (!this->ProfileActionAvailable(i)) continue;
                 if (Contains(this->ConfigLayout().ProfileActionRow(i), x, y)) return profile_target | (20 + i);
             }
         if (this->profile_dropdown_)
@@ -139,6 +308,8 @@ namespace xiui
             else if (target == 11 || target == 13) this->CloseProfileControls();
             else if (target == 12 && this->profile_dialog_ == profile_dialog::share) this->CopyProfileKey();
             else if (target == 12 && this->profile_dialog_ == profile_dialog::delete_profile) this->DeleteProfile();
+            else if (target == 12 && this->profile_dialog_ == profile_dialog::rename) this->RenameProfile();
+            else if (target == 12 && this->ConfirmingAction()) this->ApplyConfirmedAction();
             else if (target == 12) this->CreateProfile();
             else if (target == 14 && this->profile_dialog_ == profile_dialog::share) this->CopyProfileKey();
             else if (target == 14 || target == 15) this->PasteProfileKey();
@@ -154,11 +325,12 @@ namespace xiui
             this->FinishConfigInput(true, false); this->ReleaseChatInput(); this->active_color_ = nullptr;
             this->profile_dropdown_ = false; this->profile_actions_ = !this->profile_actions_;
             this->profile_keyboard_selection_ = 0; this->profile_error_.clear();
+            if (!this->ProfileActionAvailable(0)) this->MoveProfileAction(1);
             return true;
         }
         if (this->profile_actions_)
         {
-            if (target >= 20 && target < 20 + std::size(ui::profile_actions)) this->OpenProfileDialog(static_cast<profile_dialog>(target - 19));
+            if (target >= 20 && target < 20 + std::size(ui::profile_actions)) this->OpenProfileAction(static_cast<size_t>(target - 20));
             else this->profile_actions_ = false;
             return true;
         }
@@ -187,23 +359,36 @@ namespace xiui
         if (!this->profile_name_.Focused() && !this->profile_dropdown_ && !this->profile_actions_) return false;
         if ((static_cast<uint32_t>(flags) & 0x80000000u) != 0) return true;
         const bool repeat = (static_cast<uint32_t>(flags) & 0x40000000u) != 0;
-        if (key == VK_ESCAPE) { this->CloseProfileControls(); return true; }
+        if (key == VK_ESCAPE)
+        {
+            if (this->ConfirmingAction()) this->confirmation_key_release_ = key;
+            this->CloseProfileControls();
+            return true;
+        }
         if (this->profile_actions_)
         {
-            const auto count = std::size(ui::profile_actions) - (this->profiles_.Selected() == 0 ? 1 : 0);
-            if (key == VK_RETURN && !repeat) this->OpenProfileDialog(static_cast<profile_dialog>(this->profile_keyboard_selection_ + 1));
-            else if (key == VK_UP || key == VK_DOWN) this->profile_keyboard_selection_ = (this->profile_keyboard_selection_ + (key == VK_UP ? count - 1 : 1)) % count;
+            if (key == VK_RETURN && !repeat) this->OpenProfileAction(this->profile_keyboard_selection_);
+            else if (key == VK_UP || key == VK_DOWN) this->MoveProfileAction(key == VK_UP ? -1 : 1);
             return true;
         }
         if (this->profile_name_.Focused())
         {
-            if (this->profile_dialog_ == profile_dialog::delete_profile)
+            if (this->profile_dialog_ == profile_dialog::delete_profile || this->ConfirmingAction())
             {
-                if (key == VK_TAB || key == VK_LEFT || key == VK_RIGHT) this->profile_keyboard_selection_ ^= 1;
+                if (key == VK_TAB || key == VK_LEFT || key == VK_RIGHT)
+                {
+                    this->profile_keyboard_selection_ ^= 1;
+                    this->controller_config_.modal_item = static_cast<uint8_t>(this->profile_keyboard_selection_);
+                }
                 else if (key == VK_RETURN && !repeat)
                 {
+                    if (this->ConfirmingAction()) this->confirmation_key_release_ = key;
                     this->ui_sounds_.Select(::GetTickCount64());
-                    if (this->profile_keyboard_selection_ == 1) this->DeleteProfile();
+                    if (this->profile_keyboard_selection_ == 1)
+                    {
+                        if (this->ConfirmingAction()) this->ApplyConfirmedAction();
+                        else this->DeleteProfile();
+                    }
                     else this->CloseProfileControls();
                 }
                 return true;
@@ -224,7 +409,15 @@ namespace xiui
             }
             if (this->profile_dialog_ == profile_dialog::import_profile && control && key == 'V')
             { if (!repeat) this->PasteProfileKey(); return true; }
-            if (key == VK_RETURN) { if (!repeat) { this->ui_sounds_.Select(::GetTickCount64()); this->CreateProfile(); } }
+            if (key == VK_RETURN)
+            {
+                if (!repeat)
+                {
+                    this->ui_sounds_.Select(::GetTickCount64());
+                    if (this->profile_dialog_ == profile_dialog::rename) this->RenameProfile();
+                    else this->CreateProfile();
+                }
+            }
             else if (key != VK_TAB)
             {
                 const auto* properties = this->core_ != nullptr ? this->core_->GetProperties() : nullptr;
@@ -260,11 +453,25 @@ namespace xiui
         }
         else if (this->profile_dialog_ == profile_dialog::import_profile)
         {
-            snapshot.OverlayPreferences(*this->profile_import_);
+            OverlayProfilePreferences(snapshot, *this->profile_import_);
             if (!this->profiles_.Create(this->profile_name_.Editor().Text(), snapshot, this->profile_error_)) return false;
             this->LoadSettings(snapshot);
         }
         else if (!this->profiles_.Create(this->profile_name_.Editor().Text(), snapshot, this->profile_error_)) return false;
+        this->BindObservedProfile();
+        this->CloseProfileControls();
+        this->SaveSettings();
+        return true;
+    }
+
+    auto hud_runtime::RenameProfile(void) -> bool
+    {
+        if (this->profile_dialog_ != profile_dialog::rename || !this->profile_name_.Focused() ||
+            this->profile_source_ == 0 || this->profile_source_ != this->profiles_.Selected()) return false;
+        this->SaveSettings();
+        if (!this->DrainSettings())
+        { this->profile_error_ = "Could not save your settings. The profile was not renamed."; return false; }
+        if (!this->profiles_.Rename(this->profile_source_, this->profile_name_.Editor().Text(), this->profile_error_)) return false;
         this->CloseProfileControls();
         this->SaveSettings();
         return true;
@@ -280,8 +487,9 @@ namespace xiui
         const auto fallback = this->profiles_.Read(0, this->profile_error_);
         if (!fallback) return false;
         auto snapshot = this->CaptureSettings();
-        snapshot.OverlayPreferences(*fallback);
+        OverlayProfilePreferences(snapshot, *fallback);
         if (!this->profiles_.Remove(this->profile_source_, this->profile_error_)) return false;
+        this->BindObservedProfile();
         this->LoadSettings(snapshot);
         this->CloseProfileControls();
         this->profile_scroll_ = 0;
@@ -292,7 +500,13 @@ namespace xiui
     auto hud_runtime::SelectProfile(const size_t index) -> bool
     {
         if (index >= this->profiles_.Entries().size()) return false;
-        if (index == this->profiles_.Selected()) { this->profile_dropdown_ = false; return true; }
+        if (index == this->profiles_.Selected())
+        {
+            this->profile_dropdown_ = false;
+            if (this->profile_tracking_ && !this->profile_observed_character_.empty())
+            { this->BindObservedProfile(); this->profile_error_.clear(); this->SaveSettings(); }
+            return true;
+        }
         this->FinishConfigInput(true, false);
         this->FinishInteraction();
         this->SaveSettings();
@@ -301,10 +515,11 @@ namespace xiui
         const auto preferences = this->profiles_.Read(index, this->profile_error_);
         if (!preferences) return false;
         auto snapshot = this->CaptureSettings();
-        snapshot.OverlayPreferences(*preferences);
+        OverlayProfilePreferences(snapshot, *preferences);
         this->ReleaseChatInput();
         this->profiles_.Select(index);
         this->LoadSettings(snapshot);
+        this->BindObservedProfile();
         this->profile_dropdown_ = false;
         this->profile_error_.clear();
         this->SaveSettings();
@@ -315,10 +530,23 @@ namespace xiui
     {
         const auto selector = this->ConfigLayout().ProfileSelector(), add = this->ConfigLayout().ProfileAdd();
         const auto x = static_cast<float>(this->mouse_x_), y = static_cast<float>(this->mouse_y_);
-        this->config_controls_.Dropdown(selector, this->profiles_.Ready() ? this->profiles_.Current().name.c_str() : "Default", this->profile_dropdown_, Contains(selector, x, y));
+        const auto* profileName = this->profiles_.Ready() ? this->profiles_.Current().name.c_str() : "Default";
+        if (this->config_sidebar_collapsed_)
+            this->config_controls_.IconButton(selector, ui::icon_glyph::player, this->profile_dropdown_ || Contains(selector, x, y));
+        else this->config_controls_.Dropdown(selector, profileName, this->profile_dropdown_, Contains(selector, x, y));
         this->config_controls_.IconButton(add, ui::icon_glyph::add, Contains(add, x, y));
         const auto actions = this->ConfigLayout().ProfileActionsButton();
         this->config_controls_.IconButton(actions, ui::icon_glyph::more, this->profile_actions_ || Contains(actions, x, y));
+        if (this->config_sidebar_collapsed_ && Contains(selector, x, y))
+        {
+            this->config_tooltip_ = std::string{"Profile: "} + profileName;
+            this->config_tooltip_anchor_ = selector;
+        }
+        else if (Contains(add, x, y) || Contains(actions, x, y))
+        {
+            this->config_tooltip_ = Contains(add, x, y) ? "Create profile" : "Profile actions";
+            this->config_tooltip_anchor_ = Contains(add, x, y) ? add : actions;
+        }
     }
 
     auto hud_runtime::DrawProfileOverlay(const D3DVIEWPORT8& viewport) -> void
@@ -334,9 +562,10 @@ namespace xiui
             for (size_t i = 0; i < std::size(ui::profile_actions); ++i)
             {
                 const auto row = this->ConfigLayout().ProfileActionRow(i);
-                const bool available = i + 1 != static_cast<size_t>(profile_dialog::delete_profile) || this->profiles_.Selected() != 0;
+                const bool available = this->ProfileActionAvailable(i);
                 this->config_controls_.NavigationItem(row, ui::profile_actions[i], i == this->profile_keyboard_selection_, Contains(row, x, y), available);
-                if (!available && Contains(row, x, y)) this->config_controls_.Tooltip("Default cannot be deleted.", row, viewport);
+                if (!available && Contains(row, x, y)) this->config_controls_.Tooltip(!this->profiles_.Ready() ? "Profiles are unavailable." :
+                    i == ui::profile_rename_action ? "Default cannot be renamed." : "Default cannot be deleted.", row, viewport);
             }
         }
         if (this->profile_dropdown_)
@@ -360,25 +589,53 @@ namespace xiui
         const bool sharing = this->profile_dialog_ == profile_dialog::share;
         const bool importing = this->profile_dialog_ == profile_dialog::import_profile;
         const bool duplicate = this->profile_dialog_ == profile_dialog::duplicate;
+        const bool renaming = this->profile_dialog_ == profile_dialog::rename;
         const bool deleting = this->profile_dialog_ == profile_dialog::delete_profile;
+        const bool confirming = this->ConfirmingAction();
+        const auto confirmationOption = confirming && this->confirmation_module_ != nullptr && this->confirmation_option_ < this->confirmation_module_->OptionCount() ?
+            this->confirmation_module_->Option(this->confirmation_option_) : module_option{};
+        const bool warning = confirmationOption.warning;
+        const bool resetting = this->profile_dialog_ == profile_dialog::reset_defaults;
         const bool extended = sharing || importing;
         const ui::profile_dialog_layout dialog{this->config_bounds_, viewport, extended};
         const auto bounds = dialog.Bounds();
         this->config_controls_.Panel(bounds);
         auto title = body; title.scale = 0.9f;
-        this->config_controls_.Text(deleting ? "Delete profile?" : sharing ? "Share profile" : importing ? "Import profile" : duplicate ? "Duplicate profile" : "Create profile",
+        const auto warningColor = ui::button_renderer::FaceColor(theme, true, ui::button_tone::danger);
+        if (warning) title.top_color = title.bottom_color = warningColor;
+        const auto warningTitle = warning ? this->profile_name_.Editor().Text() + "?" : std::string{};
+        this->config_controls_.Text(warning ? warningTitle.c_str() : resetting ? "Reset to defaults?" : confirming ? "Apply changes?" : deleting ? "Delete profile?" : sharing ? "Share profile" : importing ? "Import profile" : duplicate ? "Duplicate profile" : renaming ? "Rename profile" : "Create profile",
             dialog.Title(), title);
-        const char* help = deleting ? "Delete this profile and switch to Default?" : sharing ? "Copy this key to share your layout and settings." : importing ? "Paste a share key, choose a name, then import." :
-            duplicate ? "Copy the selected profile into a separate setup." : "Start with your current layout and module settings.";
-        this->config_controls_.Text(help, dialog.Help(), caption);
-        this->config_controls_.Text("Profile name", dialog.NameLabel(), extended ? caption : body);
-        if (sharing || deleting)
+        const char* help = confirming ? this->confirmation_message_.c_str() : deleting ? "Delete this profile and switch to Default?" : sharing ? "Copy this key to share your layout and settings." : importing ? "Paste a share key, choose a name, then import." :
+            duplicate ? "Copy the selected profile into a separate setup." : renaming ? "Choose a new name for this profile." : "Start with your current layout and module settings.";
+        if (warning)
+        {
+            std::string_view remaining{help};
+            auto line = dialog.Help();
+            while (!remaining.empty())
+            {
+                const auto end = remaining.find('\n');
+                const std::string text{remaining.substr(0, end)};
+                auto style = caption;
+                if (line.y == dialog.Help().y) style.top_color = style.bottom_color = warningColor;
+                this->config_controls_.Text(text.c_str(), line, style);
+                if (end == std::string_view::npos) break;
+                remaining.remove_prefix(end + 1);
+                line.y += 25;
+            }
+        }
+        else
+        {
+            this->config_controls_.Text(help, dialog.Help(), caption);
+            this->config_controls_.Text(resetting ? "Scope" : confirming ? "Selection" : "Profile name", dialog.NameLabel(), extended ? caption : body);
+        }
+        if (!warning && (sharing || deleting || confirming))
         {
             const auto field = dialog.Field();
             this->design_system_.FillRoundedRect(field, (theme.colors.surface & 0x00FFFFFF) | 0xA0000000, 4);
             this->config_controls_.Text(this->profile_name_.Editor().Text().c_str(), {field.x + 10, field.y, field.width - 20, field.height}, body);
         }
-        else this->config_controls_.TextInput(dialog.Field(), this->profile_name_, !this->profile_error_.empty() && (!importing || this->profile_import_.has_value()));
+        else if (!warning) this->config_controls_.TextInput(dialog.Field(), this->profile_name_, !this->profile_error_.empty() && (!importing || this->profile_import_.has_value()));
         if (extended)
         {
             this->design_system_.FillRect({dialog.Field().x, bounds.y + 70, dialog.Field().width, 1}, theme.colors.border);
@@ -402,12 +659,12 @@ namespace xiui
         else if (deleting) this->config_controls_.Text("This cannot be undone.", dialog.Error(), caption);
         auto button = body; button.alignment = ui::text_alignment::center;
         this->config_controls_.Button(dialog.Cancel(), sharing ? "Close" : "Cancel", button,
-            Contains(dialog.Cancel(), x, y) || (deleting && this->profile_keyboard_selection_ == 0));
+            Contains(dialog.Cancel(), x, y) || ((deleting || confirming) && this->profile_keyboard_selection_ == 0));
         const bool available = !importing || this->profile_import_.has_value();
         if (!available) button.top_color = button.bottom_color = (button.top_color & 0x00FFFFFF) | 0x80000000;
-        this->config_controls_.Button(dialog.Create(), deleting ? "Delete" : sharing ? "Copy key" : importing ? "Import" : duplicate ? "Duplicate" : "Create", button,
-            available && (Contains(dialog.Create(), x, y) || (deleting && this->profile_keyboard_selection_ == 1)),
-            deleting ? ui::button_tone::danger : ui::button_tone::normal);
+        this->config_controls_.Button(dialog.Create(), warning ? confirmationOption.action_text : resetting ? "Reset" : confirming ? "Apply" : deleting ? "Delete" : sharing ? "Copy key" : importing ? "Import" : duplicate ? "Duplicate" : renaming ? "Rename" : "Create", button,
+            available && (Contains(dialog.Create(), x, y) || ((deleting || confirming) && this->profile_keyboard_selection_ == 1)),
+            deleting || resetting || warning ? ui::button_tone::danger : ui::button_tone::normal);
         this->config_controls_.IconButton(dialog.Close(), ui::icon_glyph::close, Contains(dialog.Close(), x, y));
     }
 }

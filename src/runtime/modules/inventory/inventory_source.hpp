@@ -49,6 +49,9 @@ namespace xiui
         static auto ReadBags(const IInventory& inventory) -> std::array<inventory_usage, 17>;
 
     private:
+#if defined(XIUI_ENABLE_SATCHEL_TESTS)
+        friend struct satchel_ui_test;
+#endif
 #if defined(XIUI_ENABLE_INVENTORY_TESTS)
         friend struct inventory_test;
 #endif

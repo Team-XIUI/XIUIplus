@@ -16,13 +16,17 @@ namespace xiui::ui
     experience_display_editor::geometry::geometry(const config_layout& layout)
     {
         const auto area = layout.ContentArea();
-        const float width = (area.width - 14) * 0.5f;
-        this->actions = {area.x, area.y + 42, width, 26};
-        this->filters = {area.x + width + 14, area.y + 42, width, 26};
-        this->rows = std::max(1, static_cast<int>((area.height - 166) / 28));
-        this->shown = {area.x, area.y + 76, width, this->rows * 28.0f};
-        this->available = {area.x + width + 14, this->shown.y, width, this->shown.height};
-        this->details = {area.x, this->shown.y + this->shown.height + 8, area.width, 54};
+        this->stacked = area.width < 560;
+        const float width = this->stacked ? area.width : (area.width - 14) * 0.5f;
+        this->rows = std::max(1, static_cast<int>((area.height - (this->stacked ? 190 : 168)) / (this->stacked ? 56 : 28)));
+        this->shown_title = {area.x, area.y, width, 22};
+        this->actions = {area.x, area.y + (this->stacked ? 24 : 42), width, 26};
+        this->shown = {area.x, area.y + (this->stacked ? 54 : 76), width, this->rows * 28.0f};
+        this->available_title = this->stacked ? rect{area.x, this->shown.y + this->shown.height + 8, width, 22} :
+            rect{area.x + width + 14, area.y, width, 22};
+        this->filters = {this->available_title.x, this->available_title.y + (this->stacked ? 24 : 42), width, 26};
+        this->available = {this->available_title.x, this->available_title.y + (this->stacked ? 54 : 76), width, this->shown.height};
+        this->details = {area.x, this->available.y + this->available.height + 8, area.width, this->stacked ? 36.0f : 54.0f};
         this->presets = {area.x, this->details.y + this->details.height + 4, area.width, 26};
     }
 
@@ -100,7 +104,11 @@ namespace xiui::ui
 
     auto experience_display_editor::Click(experience_module& module, const config_layout& layout, const float x, const float y) -> result
     {
-        const auto target = this->Target(module, layout, x, y);
+        return this->Activate(this->Target(module, layout, x, y), module, layout);
+    }
+
+    auto experience_display_editor::Activate(const uint32_t target, experience_module& module, const config_layout& layout) -> result
+    {
         if (target == 0) return result::none;
         if (target <= 3) { this->view_ = static_cast<experience_display_view>(target - 1); return result::navigation; }
         if (target >= 10 && target < 15) { this->filter_ = target - 10; this->available_scroll_ = 0; return result::navigation; }
@@ -136,6 +144,60 @@ namespace xiui::ui
         return result::changed;
     }
 
+    auto experience_display_editor::ControllerItems(const experience_module& module, const config_layout& layout) const -> std::vector<config_controller_item>
+    {
+        std::vector<config_controller_item> result;
+        if (this->view_ != experience_display_view::readouts) return result;
+        const geometry bounds{layout};
+        const auto shown = this->Items(module, true), available = this->Items(module, false);
+        const auto selected = this->Selected(shown);
+        const auto add = [&](const char* id, const rect& at, const size_t target, const char* help) {
+            result.push_back({id, at, target, help});
+        };
+        for (size_t index = 0; index < shown.count; ++index)
+        {
+            const auto readout = shown.items[index];
+            add(experience_readouts[readout].key, bounds.Row(true, static_cast<int>(index) - First(this->shown_scroll_, shown.count, bounds.rows)), 0x100 + readout, experience_readouts[readout].description);
+        }
+        for (size_t index = 0; index < available.count; ++index)
+        {
+            const auto readout = available.items[index];
+            add(experience_readouts[readout].key, bounds.Row(false, static_cast<int>(index) - First(this->available_scroll_, available.count, bounds.rows)), 0x200 + readout, experience_readouts[readout].description);
+        }
+        static constexpr const char* actions[]{"earlier", "later", "remove"};
+        static constexpr const char* help[]{"Move the selected shown readout earlier.", "Move the selected shown readout later.", "Remove the selected readout from the display."};
+        if (selected < experience_readout_count)
+            for (size_t index = 0; index < 3; ++index)
+            {
+                if ((index == 0 && selected == shown.items[0]) || (index == 1 && selected == shown.items[shown.count - 1])) continue;
+                add(actions[index], config_controls::Segment(bounds.actions, index, 3), 20 + index, help[index]);
+            }
+        for (size_t index = 0; index < std::size(filters); ++index)
+            add(filters[index], config_controls::Segment(bounds.filters, index, std::size(filters)), 10 + index, "Filter the available readouts.");
+        const rect recommended{bounds.presets.x, bounds.presets.y, 132, 26};
+        add("recommended", recommended, 30, "Use the recommended readouts.");
+        if (shown.count != 0) add("clear", {recommended.x + recommended.width + 6, recommended.y, 72, 26}, 31, "Remove all shown readouts.");
+        return result;
+    }
+
+    auto experience_display_editor::RevealControllerTarget(const uint32_t target, const experience_module& module, const config_layout& layout) -> void
+    {
+        if (target < 0x100) return;
+        const bool shown = target < 0x200;
+        const auto items = this->Items(module, shown);
+        const auto readout = target - (shown ? 0x100 : 0x200);
+        auto& scroll = shown ? this->shown_scroll_ : this->available_scroll_;
+        const auto rows = geometry{layout}.rows;
+        for (size_t index = 0; index < items.count; ++index)
+            if (items.items[index] == readout)
+            {
+                if (static_cast<int>(index) < scroll) scroll = static_cast<int>(index);
+                if (static_cast<int>(index) >= scroll + rows) scroll = static_cast<int>(index) - rows + 1;
+                break;
+            }
+        scroll = First(scroll, items.count, rows);
+    }
+
     auto experience_display_editor::Scroll(const experience_module& module, const config_layout& layout, const float x, const float y, const int steps) -> bool
     {
         if (this->view_ != experience_display_view::readouts) return false;
@@ -158,13 +220,15 @@ namespace xiui::ui
         auto caption = design.GetTheme().caption_text; caption.scale = 0.65f;
         caption.alignment = title.alignment = text_alignment::left;
         char text[96]{};
-        const auto area = layout.ContentArea();
         std::snprintf(text, sizeof(text), "Shown on HUD (%zu)", shown.count);
-        controls.Text(text, {bounds.shown.x, area.y, bounds.shown.width, 22}, title);
+        controls.Text(text, bounds.shown_title, title);
         std::snprintf(text, sizeof(text), "Available (%zu)", available.count);
-        controls.Text(text, {bounds.available.x, area.y, bounds.available.width, 22}, title);
-        controls.Text("Select a row to move or remove it.", {bounds.shown.x, area.y + 22, bounds.shown.width, 18}, caption);
-        controls.Text("Click a row to add it to the HUD.", {bounds.available.x, area.y + 22, bounds.available.width, 18}, caption);
+        controls.Text(text, bounds.available_title, title);
+        if (!bounds.stacked)
+        {
+            controls.Text("Select a row to move or remove it.", {bounds.shown_title.x, bounds.shown_title.y + 22, bounds.shown_title.width, 18}, caption);
+            controls.Text("Click a row to add it to the HUD.", {bounds.available_title.x, bounds.available_title.y + 22, bounds.available_title.width, 18}, caption);
+        }
         constexpr const char* actions[]{"Move up", "Move down", "Remove"};
         for (size_t index = 0; index < std::size(actions); ++index)
         {
@@ -202,7 +266,7 @@ namespace xiui::ui
         }
         const bool movesBarInfo = described == static_cast<size_t>(experience_readout::current_required) ||
             described == static_cast<size_t>(experience_readout::remaining) || described == static_cast<size_t>(experience_readout::percent);
-        controls.Text(described < experience_readout_count && module.ReadoutRepeatsBar(described) ? movesBarInfo ?
+        if (!bounds.stacked) controls.Text(described < experience_readout_count && module.ReadoutRepeatsBar(described) ? movesBarInfo ?
             "Bar = currently in bar info. Adding this readout moves it into the list." :
             "Bar = already shown by your current bar-info settings. Adding it is optional." :
             "Rows follow HUD order. Unknown values show --; hidden items leave no gaps.",
@@ -210,7 +274,7 @@ namespace xiui::ui
         auto button = title; button.scale = 0.68f; button.alignment = text_alignment::center;
         controls.Button({bounds.presets.x, bounds.presets.y, 132, 26}, "Recommended", button, target == 30);
         controls.Button({bounds.presets.x + 138, bounds.presets.y, 72, 26}, "Clear", shown.count != 0 ? button : caption, target == 31);
-        std::snprintf(text, sizeof(text), "%zu shown / %zu available - wheel to scroll", shown.count, available.count);
+        std::snprintf(text, sizeof(text), bounds.stacked ? "%zu / %zu" : "%zu shown / %zu available - wheel to scroll", shown.count, available.count);
         caption.alignment = text_alignment::right;
         controls.Text(text, {bounds.presets.x + 220, bounds.presets.y, std::max(1.0f, bounds.presets.width - 220), 26}, caption);
     }

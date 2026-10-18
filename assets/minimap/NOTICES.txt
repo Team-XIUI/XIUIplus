@@ -1,0 +1,25 @@
+XIUI Minimap map artwork
+
+Regular: FINAL FANTASY XI map art, copyright Square Enix Co., Ltd.
+Map catalog and original exports: Phoenix XI wiki, from phoenix-platform's
+standalone/wiki/assets/zone-maps.json and cdn.phoenix-xi.com/wiki/maps/v1/original/.
+These game assets retain their original ownership.
+
+Enhanced: Remapster project / AkadenTK and contributors.
+https://github.com/AkadenTK/remapster_maps
+Commit: 831bf3f2a27cc8581cb098af554f07bf70707420
+License: Creative Commons Attribution-ShareAlike 4.0 International.
+https://creativecommons.org/licenses/by-sa/4.0/
+The full license is supplied as Remapster-CC-BY-SA-4.0.txt.
+
+Enhanced artwork uses the project's minimaps/ffxidb exports, whose filenames
+match native zone and floor IDs. Wiki page numbers do not identify native floors.
+Both sets are resized to at most 512 x 512 and encoded as JPEG (quality 90,
+full chroma resolution) for this distribution. These modified Enhanced images
+remain available under CC BY-SA 4.0, with no additional restrictions.
+scripts/build-minimap-maps.py regenerates the bundled image archive; its index
+contains each zone, native floor, artwork set, image offset and byte length.
+The archive's image records can be extracted without decoding or modification.
+
+This plugin does not include or depend on the Ashita Minimap or Windower FFXIDB
+plugins. Native client map metadata supplies placement and floor selection.

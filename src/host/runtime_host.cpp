@@ -18,11 +18,12 @@ namespace xiui
         this->Shutdown();
     }
 
-    auto runtime_host::Initialize(IAshitaCore* core, const char* installPath) -> bool
+    auto runtime_host::Initialize(IAshitaCore* core, const char* installPath, const native_macro_runner macroRunner, void* macroContext) -> bool
     {
         std::lock_guard lock(this->mutex_);
         this->Shutdown();
         this->core_ = core;
+        this->macro_runner_ = macroRunner; this->macro_context_ = macroContext;
         this->install_root_ = installPath != nullptr && installPath[0] != '\0' ? installPath : ".";
         char absoluteRoot[2048]{};
         const auto rootLength = ::GetFullPathNameA(this->install_root_.c_str(), sizeof(absoluteRoot), absoluteRoot, nullptr);
@@ -31,7 +32,7 @@ namespace xiui
         runtime_api embedded{};
         embedded.size = sizeof(embedded);
         if (XiuiGetRuntimeApi(runtime_abi_version, &embedded) == FALSE || !ValidateApi(embedded)) return false;
-        const runtime_create_context context{sizeof(runtime_create_context), core, this->install_root_.c_str()};
+        const runtime_create_context context{sizeof(runtime_create_context), core, this->install_root_.c_str(), this->macro_context_, this->macro_runner_};
         this->instance_ = embedded.create(&context);
         if (this->instance_ == nullptr) return false;
         this->api_ = embedded;
@@ -56,12 +57,16 @@ namespace xiui
         }
         this->next_poll_time_ = ::GetTickCount64() + 250;
 #endif
+        this->RefreshInputState();
         return this->instance_ != nullptr;
     }
 
     auto runtime_host::Shutdown(void) -> void
     {
         std::lock_guard lock(this->mutex_);
+        this->controller_mailbox_.CrossbarSettings({});
+        this->controller_mailbox_.Reset();
+        this->keyboard_focused_ = false;
         if (this->instance_ != nullptr && this->api_.destroy != nullptr)
             this->api_.destroy(this->instance_);
         this->instance_ = nullptr;
@@ -77,6 +82,7 @@ namespace xiui
 
         this->device_ = nullptr;
         this->core_ = nullptr;
+        this->macro_runner_ = nullptr; this->macro_context_ = nullptr;
         this->runtime_build_id_.clear();
         this->shadow_path_.clear();
         this->shadow_directory_.clear();
@@ -121,6 +127,7 @@ namespace xiui
 
         const bool firstTransientAttempt = !this->has_transient_stamp_ || !(current == this->transient_stamp_);
         const load_result result = this->TryLoadPublished(false, current, message);
+        this->RefreshInputState();
         this->RegisterLoadResult(result, current);
         if (result == load_result::transient_failure && !firstTransientAttempt)
             message.clear();
@@ -134,33 +141,53 @@ namespace xiui
         this->device_ = device;
         if (this->instance_ != nullptr && this->api_.set_device != nullptr && this->api_.set_device(this->instance_, device) == FALSE)
             this->runtime_faulted_ = true;
+        this->RefreshInputState();
+    }
+
+    auto runtime_host::RenderWorld(const hud_snapshot& snapshot) -> bool
+    {
+        std::lock_guard lock(this->mutex_);
+        return !this->runtime_faulted_ && this->instance_ != nullptr && this->api_.render_world != nullptr &&
+            this->api_.render_world(this->instance_, &snapshot) != FALSE;
     }
 
     auto runtime_host::Render(const hud_snapshot& snapshot) -> bool
     {
         std::lock_guard lock(this->mutex_);
         if (this->runtime_faulted_ || this->instance_ == nullptr || this->api_.render == nullptr)
+        {
+            this->RefreshInputState();
             return false;
+        }
+        this->DrainControllerInput();
         if (this->api_.render(this->instance_, &snapshot) != FALSE)
+        {
+            this->RefreshInputState();
             return true;
+        }
         if (this->api_.exit_edit != nullptr)
             this->api_.exit_edit(this->instance_);
         this->runtime_faulted_ = true;
+        this->RefreshInputState();
         return false;
     }
 
     auto runtime_host::HandleMouseMessage(const uint32_t message, const WPARAM wParam, const LPARAM lParam, const bool blocked) -> bool
     {
         std::lock_guard lock(this->mutex_);
-        return !this->runtime_faulted_ && this->instance_ != nullptr && this->api_.handle_mouse != nullptr &&
+        const bool consumed = !this->runtime_faulted_ && this->instance_ != nullptr && this->api_.handle_mouse != nullptr &&
             this->api_.handle_mouse(this->instance_, message, wParam, lParam, blocked ? TRUE : FALSE) != FALSE;
+        this->RefreshInputState();
+        return consumed;
     }
 
     auto runtime_host::HandlePacket(const uint16_t id, const uint8_t* data, const uint32_t size) -> void
     {
         std::lock_guard lock(this->mutex_);
+        if (id == 0x000A || id == 0x000B) this->controller_mailbox_.Reset();
         if (!this->runtime_faulted_ && this->instance_ != nullptr && this->api_.handle_packet != nullptr)
             this->api_.handle_packet(this->instance_, id, data, size);
+        if (id == 0x000A || id == 0x000B) this->RefreshInputState();
     }
 
     auto runtime_host::HandleChat(chat_event event) -> void
@@ -189,56 +216,130 @@ namespace xiui
     auto runtime_host::HandleKey(const WPARAM key, const LPARAM flags, const bool blocked) -> bool
     {
         std::lock_guard lock(this->mutex_);
-        return !this->runtime_faulted_ && this->instance_ != nullptr && this->api_.handle_key(this->instance_, key, flags, blocked ? TRUE : FALSE) != FALSE;
+        const bool consumed = !this->runtime_faulted_ && this->instance_ != nullptr && this->api_.handle_key(this->instance_, key, flags, blocked ? TRUE : FALSE) != FALSE;
+        this->RefreshInputState();
+        return consumed;
     }
 
     auto runtime_host::ChatFocused(void) const -> bool
     {
-        std::lock_guard lock(this->mutex_);
-        return !this->runtime_faulted_ && this->instance_ != nullptr && this->api_.chat_focused(this->instance_) != FALSE;
+        return this->keyboard_focused_.load(std::memory_order_acquire);
+    }
+
+    auto runtime_host::CrossbarSettings(void) const -> controller_crossbar_settings
+    { return this->controller_mailbox_.CrossbarSettings(); }
+
+    auto runtime_host::HandleController(const controller_event& event, const bool nativeMenuOpen) -> bool
+    {
+        return this->controller_mailbox_.Submit(event, nativeMenuOpen);
+    }
+
+    auto runtime_host::ControllerCapture(const bool nativeMenuOpen) const -> controller_capture_mode
+    {
+        return static_cast<controller_capture_mode>(this->controller_mailbox_.State(nativeMenuOpen) & controller_capture_mask);
+    }
+
+    auto runtime_host::SuspendControllerInput(void) -> void
+    {
+        this->controller_mailbox_.Reset();
+    }
+
+    auto runtime_host::UpdateControllerStatus(const controller_status& status) -> void
+    {
+        this->controller_mailbox_.Status(status);
+    }
+
+    auto runtime_host::RefreshInputState(void) -> void
+    {
+        if (this->runtime_faulted_ || this->instance_ == nullptr)
+        {
+            this->controller_mailbox_.CrossbarSettings({});
+            this->controller_mailbox_.Reset();
+            this->keyboard_focused_ = false;
+            return;
+        }
+        this->keyboard_focused_.store(this->api_.chat_focused(this->instance_) != FALSE, std::memory_order_release);
+        controller_crossbar_settings crossbar{};
+        if (this->api_.crossbar_settings != nullptr) this->api_.crossbar_settings(this->instance_, &crossbar);
+        this->controller_mailbox_.CrossbarSettings(crossbar);
+        this->controller_mailbox_.Publish(this->api_.controller_input_state(this->instance_));
+    }
+
+    auto runtime_host::DrainControllerInput(void) -> void
+    {
+        const auto pending = this->controller_mailbox_.Take();
+        if (!this->controller_mailbox_.Current(pending.generation)) return;
+        if (pending.has_status) this->api_.update_controller_status(this->instance_, &pending.status);
+        const auto revision = this->api_.controller_input_state(this->instance_) & controller_revision_mask;
+        const auto now = ::GetTickCount64();
+        for (size_t index = 0; index < pending.count; ++index)
+        {
+            if (!this->controller_mailbox_.Current(pending.generation)) break;
+            const auto& event = pending.events[index];
+            if (now - event.timestamp > 500) continue;
+            this->api_.handle_controller(this->instance_, &event);
+            if ((this->api_.controller_input_state(this->instance_) & controller_revision_mask) != revision)
+            {
+                this->controller_mailbox_.Reset();
+                break;
+            }
+        }
     }
 
     auto runtime_host::HandleCommand(const char* command) -> bool
     {
         std::lock_guard lock(this->mutex_);
+        this->controller_mailbox_.Reset();
         const bool handled = !this->runtime_faulted_ && this->instance_ != nullptr && this->api_.handle_command != nullptr &&
             this->api_.handle_command(this->instance_, command) != FALSE;
         if (handled && command != nullptr && ::_stricmp(command, "chat clear") == 0) this->chat_history_.clear();
+        this->RefreshInputState();
         return handled;
     }
 
     auto runtime_host::ToggleEdit(void) -> bool
     {
         std::lock_guard lock(this->mutex_);
-        return !this->runtime_faulted_ && this->instance_ != nullptr && this->api_.toggle_edit != nullptr && this->api_.toggle_edit(this->instance_) != FALSE;
+        this->controller_mailbox_.Reset();
+        const bool toggled = !this->runtime_faulted_ && this->instance_ != nullptr && this->api_.toggle_edit != nullptr && this->api_.toggle_edit(this->instance_) != FALSE;
+        this->RefreshInputState();
+        return toggled;
     }
 
     auto runtime_host::ExitEdit(void) -> void
     {
         std::lock_guard lock(this->mutex_);
+        this->controller_mailbox_.Reset();
         if (this->instance_ != nullptr && this->api_.exit_edit != nullptr)
             this->api_.exit_edit(this->instance_);
+        this->RefreshInputState();
     }
 
     auto runtime_host::SetVisible(const bool visible) -> void
     {
         std::lock_guard lock(this->mutex_);
+        this->controller_mailbox_.Reset();
         if (this->instance_ != nullptr && this->api_.set_visible != nullptr)
             this->api_.set_visible(this->instance_, visible ? TRUE : FALSE);
+        this->RefreshInputState();
     }
 
     auto runtime_host::ReloadSettings(void) -> void
     {
         std::lock_guard lock(this->mutex_);
+        this->controller_mailbox_.Reset();
         if (this->instance_ != nullptr && this->api_.reload_settings != nullptr && this->api_.reload_settings(this->instance_) == FALSE)
             this->runtime_faulted_ = true;
+        this->RefreshInputState();
     }
 
     auto runtime_host::ResetSettings(void) -> void
     {
         std::lock_guard lock(this->mutex_);
+        this->controller_mailbox_.Reset();
         if (this->instance_ != nullptr && this->api_.reset_settings != nullptr && this->api_.reset_settings(this->instance_) == FALSE)
             this->runtime_faulted_ = true;
+        this->RefreshInputState();
     }
 
     auto runtime_host::IsLoaded(void) const -> bool
@@ -327,7 +428,7 @@ namespace xiui
         candidateApi.size = sizeof(candidateApi);
         if (getApi == nullptr || getApi(runtime_abi_version, &candidateApi) == FALSE || !ValidateApi(candidateApi))
         {
-            message = "[XIUI Native] Runtime ABI validation failed; previous runtime retained.";
+            message = "[XIUI] Runtime ABI validation failed; previous runtime retained.";
             rejectCandidate();
             return load_result::rejected;
         }
@@ -335,16 +436,16 @@ namespace xiui
         runtime_state previousState{sizeof(runtime_state), TRUE, FALSE};
         if (this->instance_ != nullptr && this->api_.capture_state(this->instance_, &previousState) == FALSE)
         {
-            message = "[XIUI Native] Could not capture runtime state; previous runtime retained.";
+            message = "[XIUI] Could not capture runtime state; previous runtime retained.";
             rejectCandidate();
             return load_result::rejected;
         }
 
-        const runtime_create_context context{sizeof(runtime_create_context), this->core_, this->install_root_.c_str()};
+        const runtime_create_context context{sizeof(runtime_create_context), this->core_, this->install_root_.c_str(), this->macro_context_, this->macro_runner_};
         void* candidateInstance = candidateApi.create(&context);
         if (candidateInstance == nullptr)
         {
-            message = "[XIUI Native] Runtime initialization failed; previous runtime retained.";
+            message = "[XIUI] Runtime initialization failed; previous runtime retained.";
             rejectCandidate();
             return load_result::rejected;
         }
@@ -357,7 +458,7 @@ namespace xiui
         if (candidateApi.set_device(candidateInstance, this->device_) == FALSE ||
             (this->instance_ != nullptr && candidateApi.reload_settings(candidateInstance) == FALSE))
         {
-            message = "[XIUI Native] Runtime candidate validation failed; previous runtime retained.";
+            message = "[XIUI] Runtime candidate validation failed; previous runtime retained.";
             destroyCandidate();
             return load_result::rejected;
         }
@@ -367,7 +468,7 @@ namespace xiui
         inactiveState.chat_focused = FALSE;
         if (candidateApi.apply_state(candidateInstance, &inactiveState) == FALSE)
         {
-            message = "[XIUI Native] Runtime candidate state validation failed; previous runtime retained.";
+            message = "[XIUI] Runtime candidate state validation failed; previous runtime retained.";
             destroyCandidate();
             return load_result::rejected;
         }
@@ -381,8 +482,8 @@ namespace xiui
             {
                 const bool previousStateRestored = this->api_.apply_state(this->instance_, &previousState) != FALSE;
                 message = previousStateRestored
-                    ? "[XIUI Native] Previous runtime could not exit edit mode; candidate rejected."
-                    : "[XIUI Native] Previous runtime edit-state recovery failed; candidate rejected.";
+                    ? "[XIUI] Previous runtime could not exit edit mode; candidate rejected."
+                    : "[XIUI] Previous runtime edit-state recovery failed; candidate rejected.";
                 destroyCandidate();
                 return load_result::rejected;
             }
@@ -395,8 +496,8 @@ namespace xiui
             if (previousInputReleased)
                 previousStateRestored = this->api_.apply_state(this->instance_, &previousState) != FALSE;
             message = previousStateRestored
-                ? "[XIUI Native] Runtime activation failed; previous runtime retained."
-                : "[XIUI Native] Runtime activation failed and edit mode could not be restored.";
+                ? "[XIUI] Runtime activation failed; previous runtime retained."
+                : "[XIUI] Runtime activation failed and edit mode could not be restored.";
             destroyCandidate();
             return load_result::rejected;
         }
@@ -414,6 +515,7 @@ namespace xiui
         this->runtime_build_id_ = buildId != nullptr ? buildId : "unknown";
         this->runtime_faulted_ = false;
 
+        this->controller_mailbox_.Reset();
         if (previousInstance != nullptr)
             previousApi.destroy(previousInstance);
         if (previousModule != nullptr)
@@ -422,9 +524,9 @@ namespace xiui
             ::DeleteFileA(previousShadowPath.c_str());
 
         if (initial)
-            message = "[XIUI Native] Runtime loaded.";
+            message = "[XIUI] Runtime loaded.";
         else
-            message = "[XIUI Native] Runtime hot-reloaded: " + this->runtime_build_id_ + ".";
+            message = "[XIUI] Runtime hot-reloaded: " + this->runtime_build_id_ + ".";
         UNREFERENCED_PARAMETER(stamp);
         return load_result::loaded;
     }
@@ -482,7 +584,9 @@ namespace xiui
             api.is_visible != nullptr &&
             api.is_gpu_shader_active != nullptr &&
             api.native_hud_hidden_mask != nullptr && api.menu_layout != nullptr &&
-            api.handle_chat != nullptr && api.handle_key != nullptr && api.chat_focused != nullptr;
+            api.handle_chat != nullptr && api.handle_key != nullptr && api.chat_focused != nullptr &&
+            api.handle_controller != nullptr && api.controller_input_state != nullptr && api.update_controller_status != nullptr &&
+            api.crossbar_settings != nullptr;
     }
 
 #if !defined(XIUI_SINGLE_DLL)
@@ -518,7 +622,7 @@ namespace xiui
     auto runtime_host::LastErrorText(const char* action) -> std::string
     {
         char message[256]{};
-        std::snprintf(message, sizeof(message), "[XIUI Native] %s (Windows error %lu); previous runtime retained.", action, static_cast<unsigned long>(::GetLastError()));
+        std::snprintf(message, sizeof(message), "[XIUI] %s (Windows error %lu); previous runtime retained.", action, static_cast<unsigned long>(::GetLastError()));
         return message;
     }
 #endif

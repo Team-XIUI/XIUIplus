@@ -33,7 +33,7 @@ namespace xiui
     auto gil_module::Load(const settings_store& store) -> void
     {
         this->state_.bounds = store.ReadRect("layout.gil", this->state_.bounds);
-        for (const auto& [key, value] : {std::pair{"enabled", &this->state_.enabled}, {"hide_menu", &this->hide_menu_},
+        for (const auto& [key, value] : {std::pair{"enabled", &this->state_.enabled},
             {"tracking", &this->tracking_}, {"icon", &this->icon_}, {"icon_right", &this->icon_right_},
             {"right_align", &this->right_align_}, {"background", &this->background_}})
             *value = store.ReadBool("gil", key, *value);
@@ -58,7 +58,7 @@ namespace xiui
     auto gil_module::Save(const settings_store& store) const -> void
     {
         store.WriteRect("layout.gil", this->state_.bounds);
-        for (const auto& [key, value] : {std::pair{"enabled", this->state_.enabled}, {"hide_menu", this->hide_menu_},
+        for (const auto& [key, value] : {std::pair{"enabled", this->state_.enabled},
             {"tracking", this->tracking_}, {"icon", this->icon_}, {"icon_right", this->icon_right_},
             {"right_align", this->right_align_}, {"background", this->background_}})
             store.WriteBool("gil", key, value);
@@ -87,7 +87,7 @@ namespace xiui
 
     auto gil_module::ConfigSectionContains(const size_t section, const size_t index) -> bool
     {
-        if (index >= this->OptionCount()) return false;
+        if (index >= this->OptionCount() || index == hide_menu) return false;
         return section == (index <= reset ? size_t{0} : index <= spacing ? size_t{1} : index <= negative ? size_t{2} : size_t{3});
     }
 
@@ -97,10 +97,10 @@ namespace xiui
         static constexpr const char* profiles[]{"Gil balance", "Session tracking"};
         switch (index)
         {
-        case enabled: return module_option::Toggle("Enabled", "Show the gil tracker.", &this->state_.enabled);
-        case hide_menu: return module_option::Toggle("Hide with menus", "Hide the tracker while a native menu is open.", &this->hide_menu_);
+        case enabled: return module_option::Toggle("Enabled", "Show the gil tracker.", &this->state_.enabled).Ordered(-50);
+        case hide_menu: return {};
         case tracking: return module_option::Toggle("Show tracking", "Show gil gained or spent since login or the last reset.", &this->tracking_);
-        case mode: return module_option::Choice("Tracking display", "Net gil change, or the hourly rate for the entire session.", &this->mode_, modes, 2);
+        case mode: return module_option::Choice("Tracking display", "Net gil change, or the hourly rate for the entire session.", &this->mode_, modes, 2).VisibleWhen(this->tracking_);
         case reset:
         {
             auto option = module_option::Action("Reset tracking", "Start a new session at your current balance.", "Reset");
@@ -108,17 +108,17 @@ namespace xiui
             return option;
         }
         case icon: return module_option::Toggle("Gil icon", "Use the game's original gil item icon from its DAT resources.", &this->icon_);
-        case icon_right: return module_option::Toggle("Icon on right", "Place the gil icon to the right of the balance.", &this->icon_right_);
-        case right_align: return module_option::Toggle("Right align", "Anchor the balance and tracking to the right edge as their lengths change.", &this->right_align_);
-        case icon_size: return module_option::Slider("Icon size", "Gil icon size in pixels.", &this->icon_size_, 12, 64, 1);
-        case spacing: return module_option::Slider("Line spacing", "Pixels between the balance and tracking lines.", &this->spacing_, 0, 24, 1);
-        case background: return module_option::Toggle("Container", "Use the shared native Window Type container.", &this->background_, module_option_group::appearance);
-        case opacity: return module_option::Slider("Container opacity", "Opacity of the native container and dark backing.", &this->container_.opacity, 0, 1, 0.05f, module_option_group::appearance);
-        case padding: return module_option::Slider("Container padding", "Space inside the native frame.", &this->container_.padding, 0, 24, 1, module_option_group::appearance);
-        case positive: return module_option::Color("Positive change", "Tint for net earnings; retains the tracking text gradient and effects.", &this->positive_, module_option_group::colors);
-        case negative: return module_option::Color("Negative change", "Tint for net spending; retains the tracking text gradient and effects.", &this->negative_, module_option_group::colors);
+        case icon_right: return module_option::Toggle("Icon on right", "Place the gil icon to the right of the balance.", &this->icon_right_).Ordered(202).VisibleWhen(this->icon_);
+        case right_align: return module_option::Toggle("Right align", "Anchor the balance and tracking to the right edge as their lengths change.", &this->right_align_).Ordered(202);
+        case icon_size: return module_option::Slider("Icon size", "Gil icon size in pixels.", &this->icon_size_, 12, 64, 1).Ordered(110).VisibleWhen(this->icon_);
+        case spacing: return module_option::Slider("Line spacing", "Pixels between the balance and tracking lines.", &this->spacing_, 0, 24, 1).Ordered(300, true).VisibleWhen(this->tracking_);
+        case background: return module_option::Toggle("Container", "Use the shared native Window Type container.", &this->background_, module_option_group::appearance).Ordered(-10);
+        case opacity: return module_option::Slider("Container opacity", "Opacity of the native container and dark backing.", &this->container_.opacity, 0, 1, 0.05f, module_option_group::appearance).Ordered(450).VisibleWhen(this->background_);
+        case padding: return module_option::Slider("Container padding", "Space inside the native frame.", &this->container_.padding, 0, 24, 1, module_option_group::appearance).Ordered(402).VisibleWhen(this->background_);
+        case positive: return module_option::Color("Positive change", "Tint for net earnings; retains the tracking text gradient and effects.", &this->positive_, module_option_group::colors).VisibleWhen(this->tracking_);
+        case negative: return module_option::Color("Negative change", "Tint for net spending; retains the tracking text gradient and effects.", &this->negative_, module_option_group::colors).VisibleWhen(this->tracking_);
         case selected_text: return module_option::Element("Selected text", "Style each line independently, including X/Y offsets.", &this->selected_text_, profiles, 2, module_option_group::text);
-        default: return TextProfileOption(index - base_options, this->text_[this->selected_text_]);
+        default: return TextProfileOption(index - base_options, this->text_[this->selected_text_]).VisibleWhen(this->selected_text_ == 0 || this->tracking_);
         }
     }
 
@@ -130,8 +130,7 @@ namespace xiui
 
     auto gil_module::ShouldRender(const hud_snapshot&) const -> bool
     {
-        return this->state_.enabled && this->source_ != nullptr && this->source_->Session().ready &&
-            (!this->hide_menu_ || !this->source_->MenuOpen());
+        return this->state_.enabled && this->source_ != nullptr && this->source_->Session().ready;
     }
 
     auto gil_module::UpdateText(const uint64_t now, const bool preview) -> void

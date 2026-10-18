@@ -48,6 +48,32 @@ namespace xiui::ui
         {
             switch (icon)
             {
+            case icon_glyph::center_x:
+            case icon_glyph::center_y: {
+                const auto line = [&](const float x1, const float y1, const float x2, const float y2) {
+                    const bool vertical = icon == icon_glyph::center_y;
+                    p.Begin(vertical ? y1 : x1, vertical ? x1 : y1);
+                    p.Line(vertical ? y2 : x2, vertical ? x2 : y2); p.End();
+                };
+                line(12, 3, 12, 21);
+                line(2, 12, 8, 12); line(5, 9, 8, 12); line(5, 15, 8, 12);
+                line(22, 12, 16, 12); line(19, 9, 16, 12); line(19, 15, 16, 12);
+                break;
+            }
+            case icon_glyph::keyboard:
+                p.RoundRect(2, 5, 20, 14);
+                for (int row = 0; row < 2; ++row)
+                    for (int key = 0; key < 5; ++key) p.RoundRect(5 + static_cast<float>(key) * 3, 8 + static_cast<float>(row) * 3, 1, 1, 0);
+                p.Begin(7, 16); p.Line(17, 16); p.End(); break;
+            case icon_glyph::controller:
+                p.Begin(8, 6); p.Line(16, 6); p.Curve(22, 6, 24, 20, 19, 19); p.Line(15, 15);
+                p.Line(9, 15); p.Line(5, 19); p.Curve(0, 20, 2, 6, 8, 6); p.End(true);
+                p.Begin(7, 9); p.Line(7, 14); p.End(); p.Begin(4.5f, 11.5f); p.Line(9.5f, 11.5f); p.End();
+                p.Circle(17, 9.5f, 0.8f); p.Circle(19, 12, 0.8f); break;
+            case icon_glyph::statuses:
+                p.Begin(11, 3); p.Line(13, 9); p.Line(19, 11); p.Line(13, 13); p.Line(11, 19); p.Line(9, 13); p.Line(3, 11); p.Line(9, 9); p.End(true);
+                p.Begin(19, 16); p.Line(19, 22); p.End(); p.Begin(16, 19); p.Line(22, 19); p.End();
+                p.Begin(3, 3); p.Line(7, 3); p.End(); break;
             case icon_glyph::player:
                 p.Circle(12, 7, 3.5f);
                 p.Begin(4, 21); p.Line(4, 19); p.Curve(4, 15.5f, 7.5f, 14, 12, 14); p.Curve(16.5f, 14, 20, 15.5f, 20, 19); p.Line(20, 21); p.End(); break;
@@ -90,8 +116,14 @@ namespace xiui::ui
             case icon_glyph::compass:
                 p.Circle(12, 12, 10); p.Begin(16, 8); p.Line(14, 14); p.Line(8, 16); p.Line(10, 10); p.End(true);
                 p.Begin(10, 10); p.Line(14, 14); p.End(); break;
+            case icon_glyph::search:
+                p.Circle(10, 10, 6); p.Begin(14.5f, 14.5f); p.Line(21, 21); p.End(); break;
             case icon_glyph::world:
                 p.Circle(12, 12, 9); p.Begin(12, 6); p.Line(12, 12); p.Line(16, 14); p.End(); break;
+            case icon_glyph::minimap:
+                p.Begin(2, 5); p.Line(8, 2); p.Line(16, 5); p.Line(22, 2); p.Line(22, 19); p.Line(16, 22); p.Line(8, 19); p.Line(2, 22); p.End(true);
+                p.Begin(8, 2); p.Line(8, 19); p.End(); p.Begin(16, 5); p.Line(16, 22); p.End();
+                p.Begin(10, 14); p.Line(13, 8); p.Line(15, 15); p.End(true); break;
             case icon_glyph::commands:
                 p.RoundRect(2, 3, 20, 18); p.Begin(6, 8); p.Line(10, 12); p.Line(6, 16); p.End();
                 p.Begin(13, 16); p.Line(18, 16); p.End(); break;
@@ -111,6 +143,11 @@ namespace xiui::ui
                 p.Begin(6, 21); p.Line(6, 17); p.Curve(6, 11, 18, 11, 18, 17); p.Line(18, 21); p.End();
                 p.Begin(1, 20); p.Line(1, 16); p.Curve(1, 13, 3, 12, 5, 13); p.End();
                 p.Begin(23, 20); p.Line(23, 16); p.Curve(23, 13, 21, 12, 19, 13); p.End(); break;
+            case icon_glyph::pet:
+                p.Begin(3, 6); p.Curve(8, 3, 16, 3, 21, 6);
+                p.Curve(21, 14, 17, 21, 12, 21); p.Curve(7, 21, 3, 14, 3, 6); p.End(true);
+                p.Begin(5, 5); p.Line(7, 13); p.Line(10, 4); p.End();
+                p.Begin(14, 4); p.Line(17, 13); p.Line(19, 5); p.End(); break;
             case icon_glyph::inventory:
                 p.RoundRect(4, 7, 16, 15, 3);
                 p.Begin(8, 7); p.Line(8, 5); p.Curve(8, 1, 16, 1, 16, 5); p.Line(16, 7); p.End();

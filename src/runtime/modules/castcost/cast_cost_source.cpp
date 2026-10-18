@@ -52,6 +52,26 @@ namespace xiui
         state.recast_known = true;
     }
 
+    auto AbilityChargePool(IAshitaCore* core, const uint32_t timer) -> ability_charge_pool
+    {
+        auto* memory = core != nullptr ? core->GetMemoryManager() : nullptr;
+        auto* player = memory != nullptr ? memory->GetPlayer() : nullptr;
+        auto* resources = core != nullptr ? core->GetResourceManager() : nullptr;
+        if (player == nullptr) return {};
+        if (timer == 102)
+        {
+            const auto* ready = resources != nullptr ? resources->GetAbilityByName("Ready", 2) : nullptr;
+            return ready != nullptr && player->HasAbility(ready->Id) ? ability_charge_pool{3, 90} : ability_charge_pool{};
+        }
+        if (timer == 195) return {2, 120};
+        if (timer == 231)
+        {
+            const int level = player->GetMainJob() == 20 ? player->GetMainJobLevel() : player->GetSubJob() == 20 ? player->GetSubJobLevel() : 0;
+            return {static_cast<uint32_t>(level >= 10 ? std::min(5, (level - 10) / 20 + 1) : 0), 240};
+        }
+        return {};
+    }
+
     auto cast_cost_source::Initialize(void) -> void
     {
         *this = {};
@@ -155,7 +175,7 @@ namespace xiui
         const auto* ability = core->GetResourceManager()->GetAbilityById(state.id);
         if (ability == nullptr) { state.recast_known = false; return; }
         const auto timer = ability->RecastTimerId;
-        uint32_t frames{}, maximum{}; int16_t modifier{};
+        uint32_t frames{}; int16_t modifier{};
         for (uint32_t i = 0; i < 32; ++i)
             if (recast->GetAbilityTimerId(i) == timer)
             {
@@ -165,17 +185,10 @@ namespace xiui
             }
         state.remaining = frames / 60.0f;
         state.total = std::max({state.total, state.base_recast, state.remaining});
-        float pool{};
-        if (timer == 102) { maximum = 3; pool = 90; }
-        else if (timer == 195) { maximum = 2; pool = 120; }
-        else if (timer == 231 && player != nullptr)
-        {
-            const auto level = player->GetMainJob() == 20 ? player->GetMainJobLevel() : player->GetSubJob() == 20 ? player->GetSubJobLevel() : 0;
-            maximum = level >= 10 ? std::min(5, (level - 10) / 20 + 1) : 0;
-            pool = 240;
-        }
-        ApplyChargeRecast(state, frames, maximum, pool + modifier);
-        if (state.charge_cost != 0 && maximum == 0) state.recast_known = false;
+        const auto pool = AbilityChargePool(core, timer);
+        if (timer == 102 && pool.maximum == 0) state.charge_cost = 0;
+        ApplyChargeRecast(state, frames, pool.maximum, pool.seconds + modifier);
+        if (state.charge_cost != 0 && pool.maximum == 0) state.recast_known = false;
     }
 
     auto cast_cost_source::Update(IAshitaCore* core, uint64_t now) -> void
@@ -186,16 +199,31 @@ namespace xiui
         if (player == nullptr || party == nullptr || core->GetResourceManager() == nullptr || player->GetLoginStatus() != static_cast<uint8_t>(Ashita::FFXI::Enums::LoginStatus::LoggedIn) ||
             party->GetMemberServerId(0) == 0 || party->GetMemberZone(0) == 0)
         { this->Clear(); return; }
-        if (this->player_ != party->GetMemberServerId(0) || this->zone_ != party->GetMemberZone(0))
-        { this->Clear(); this->player_ = party->GetMemberServerId(0); this->zone_ = party->GetMemberZone(0); }
-        if (now < this->next_update_) return;
-        this->next_update_ = now + 50;
+        if (this->player_ != party->GetMemberServerId(0) || this->zone_ != party->GetMemberZone(0) ||
+            this->main_job_ != player->GetMainJob() || this->sub_job_ != player->GetSubJob() ||
+            this->main_level_ != player->GetMainJobLevel() || this->sub_level_ != player->GetSubJobLevel())
+        {
+            this->Clear(); this->player_ = party->GetMemberServerId(0); this->zone_ = party->GetMemberZone(0);
+            this->main_job_ = player->GetMainJob(); this->sub_job_ = player->GetSubJob();
+            this->main_level_ = player->GetMainJobLevel(); this->sub_level_ = player->GetSubJobLevel();
+        }
         const auto [kind, id] = this->Selection();
-        if (kind == action_cost_kind::none || id < 0) { this->state_ = {}; return; }
+        if (kind == action_cost_kind::none || id < 0)
+        {
+            this->state_ = {};
+            this->mp_preview_ = {(this->AvailableMask() & 1) != 0, false, this->player_, 0, now};
+            return;
+        }
         const auto previousKind = this->state_.kind == action_cost_kind::weapon_skill ? action_cost_kind::ability : this->state_.kind;
-        if (id != static_cast<int32_t>(this->state_.id) || kind != previousKind) this->ReadResource(core, kind, static_cast<uint32_t>(id));
+        const bool changed = id != static_cast<int32_t>(this->state_.id) || kind != previousKind;
+        if (!changed && now < this->next_update_) return;
+        this->next_update_ = now + 50;
+        this->mp_preview_ = {(this->AvailableMask() & 1) != 0, false, this->player_, 0, now};
+        if (changed) this->ReadResource(core, kind, static_cast<uint32_t>(id));
         if (!this->state_.Valid()) return;
         this->state_.player_mp = party->GetMemberMP(0); this->state_.player_tp = std::min<uint32_t>(3000, party->GetMemberTP(0));
+        if (this->state_.kind == action_cost_kind::spell)
+        { this->mp_preview_.selected = true; this->mp_preview_.cost = this->state_.mp_cost; }
         this->ReadRecast(core);
     }
 }

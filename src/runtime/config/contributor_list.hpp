@@ -12,7 +12,7 @@ namespace xiui::ui
     {
     public:
         explicit contributor_list_layout(const config_layout& layout, const int scroll = 0)
-            : bounds_(layout.ContentArea()), scroll_(scroll) {}
+            : bounds_(layout.ContentArea()), scroll_(scroll), columns_(layout.Columns()) {}
 
         auto Header(const size_t group) const -> rect
         { return {this->bounds_.x, this->GroupTop(group), this->bounds_.width, header_height}; }
@@ -22,9 +22,9 @@ namespace xiui::ui
             const auto group = xiui_contributors[index].group;
             size_t preceding{};
             for (size_t i = 0; i < index; ++i) preceding += xiui_contributors[i].group == group;
-            const float width = std::max(1.0f, (this->bounds_.width - column_gap) * 0.5f);
-            return {this->bounds_.x + (preceding % 2) * (width + column_gap),
-                this->GroupTop(static_cast<size_t>(group)) + header_height + (preceding / 2) * member_height, width, member_height};
+            const float width = std::max(1.0f, (this->bounds_.width - column_gap * (this->columns_ - 1)) / this->columns_);
+            return {this->bounds_.x + (preceding % this->columns_) * (width + column_gap),
+                this->GroupTop(static_cast<size_t>(group)) + header_height + (preceding / this->columns_) * member_height, width, member_height};
         }
 
         auto Visible(const rect& row) const -> bool
@@ -45,7 +45,7 @@ namespace xiui::ui
         {
             float height{};
             for (size_t group = 0; group < std::size(contributor_groups); ++group)
-                height += header_height + ((GroupSize(group) + 1) / 2) * member_height + (group == 0 ? 0 : group_gap);
+                height += header_height + this->GroupRows(group) * member_height + (group == 0 ? 0 : group_gap);
             return static_cast<int>(std::ceil(std::max(0.0f, height - this->bounds_.height) / scroll_step));
         }
 
@@ -53,6 +53,9 @@ namespace xiui::ui
         static constexpr float header_height = 28, member_height = 44, group_gap = 12, column_gap = 10, scroll_step = 22;
         rect bounds_{};
         int scroll_{};
+        int columns_{2};
+        auto GroupRows(const size_t group) const -> size_t
+        { return (GroupSize(group) + this->columns_ - 1) / this->columns_; }
 
         static auto GroupSize(const size_t group) -> size_t
         {
@@ -64,7 +67,7 @@ namespace xiui::ui
         {
             float y = this->bounds_.y - this->scroll_ * scroll_step;
             for (size_t index = 0; index < group; ++index)
-                y += header_height + ((GroupSize(index) + 1) / 2) * member_height + group_gap;
+                y += header_height + this->GroupRows(index) * member_height + group_gap;
             return y;
         }
     };

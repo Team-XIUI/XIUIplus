@@ -4,12 +4,26 @@
 #include <algorithm>
 #include <atomic>
 #include <cstdio>
+#include <cstring>
 #include <filesystem>
 #include <fstream>
 #include <iterator>
 
 namespace xiui
 {
+    auto OverlayProfilePreferences(const settings_store& target, const settings_store& source) -> void
+    {
+        target.OverlayPreferences(source);
+        const int frameVersion = source.ReadInt("actionbars", "slot_frame_version", 0);
+        // A replaced legacy section must not inherit the snapshot's migration marker.
+        source.VisitPreferences([&](const std::string_view section, const std::string_view key, const std::string_view) {
+            if (key.size() != 5 || ::_strnicmp(key.data(), "frame", 5) != 0 || section.size() <= 17 ||
+                ::_strnicmp(section.data(), "actionbars.", 11) != 0 || ::_strnicmp(section.data() + section.size() - 6, ".slots", 6) != 0) return;
+            const std::string name{section};
+            target.WriteInt(name.c_str(), "frame_version", source.ReadInt(name.c_str(), "frame_version", frameVersion));
+        });
+    }
+
     auto settings_profiles::UniqueName(std::string name) const -> std::string
     {
         if (name.empty()) name = "Imported profile";
@@ -36,6 +50,20 @@ namespace xiui
         return ::CompareStringOrdinal(a.c_str(), -1, b.c_str(), -1, TRUE) == CSTR_EQUAL;
     }
 
+    auto settings_profiles::Rename(const size_t index, std::string name, std::string& error) -> bool
+    {
+        if (index >= this->entries_.size()) { error = "This profile is unavailable."; return false; }
+        if (index == 0) { error = "Default cannot be renamed."; return false; }
+        if (!this->ValidateName(name, index, error) || !this->Read(index, error)) return false;
+        auto& profile = this->entries_[index];
+        settings_store store{profile.path};
+        store.WriteString("profile", "name", name);
+        if (!store.Flush()) { error = "Could not rename this profile. Check the file and try again."; return false; }
+        profile.name = std::move(name);
+        error.clear();
+        return true;
+    }
+
     auto settings_profiles::Remove(const size_t index, std::string& error) -> bool
     {
         if (index >= this->entries_.size()) { error = "This profile is unavailable."; return false; }
@@ -51,6 +79,7 @@ namespace xiui
 
     auto settings_profiles::Initialize(const std::string& settingsPath) -> void
     {
+        this->settings_path_ = settingsPath;
         this->entries_.clear(); this->selected_ = 0;
         const auto directory = std::filesystem::path{settingsPath}.parent_path() / "xiuinative-profiles";
         this->directory_ = directory.string();
@@ -89,7 +118,21 @@ namespace xiui
         return store;
     }
 
-    auto settings_profiles::Create(std::string name, const settings_store& snapshot, std::string& error) -> bool
+    auto settings_profiles::BoundProfile(const std::string_view character) const -> std::optional<size_t>
+    {
+        if (character.empty() || !this->Ready()) return {};
+        const auto id = settings_store{this->settings_path_}.ReadString("profiles.characters", std::string{character}.c_str());
+        if (id.empty()) return {};
+        for (size_t index = 0; index < this->entries_.size(); ++index)
+            if (this->entries_[index].id == id)
+            {
+                std::error_code error;
+                return std::filesystem::is_regular_file(this->entries_[index].path, error) ? index : 0;
+            }
+        return 0;
+    }
+
+    auto settings_profiles::ValidateName(std::string& name, const size_t excludedIndex, std::string& error) const -> bool
     {
         const auto begin = name.find_first_not_of(" \t\r\n"), end = name.find_last_not_of(" \t\r\n");
         name = begin == std::string::npos ? "" : name.substr(begin, end - begin + 1);
@@ -97,8 +140,15 @@ namespace xiui
         if (name.size() > 64 || std::any_of(name.begin(), name.end(), [](const unsigned char c) { return c < 32 || c == 127; }))
         { error = "Use a shorter name without line breaks."; return false; }
         if (!this->Ready()) { error = "Profiles are unavailable."; return false; }
-        if (std::any_of(this->entries_.begin(), this->entries_.end(), [&](const auto& item) { return SameName(item.name, name); }))
-        { error = "A profile with that name already exists."; return false; }
+        for (size_t index = 0; index < this->entries_.size(); ++index)
+            if (index != excludedIndex && SameName(this->entries_[index].name, name))
+            { error = "A profile with that name already exists."; return false; }
+        return true;
+    }
+
+    auto settings_profiles::Create(std::string name, const settings_store& snapshot, std::string& error) -> bool
+    {
+        if (!this->ValidateName(name, this->entries_.size(), error)) return false;
         if (this->entries_.size() >= 128) { error = "The profile limit has been reached."; return false; }
         FILETIME time{}; ::GetSystemTimeAsFileTime(&time);
         static std::atomic<uint32_t> serial{};

@@ -7,6 +7,8 @@
 
 namespace xiui
 {
+    auto OverlayProfilePreferences(const settings_store& target, const settings_store& source) -> void;
+
     class settings_profiles
     {
     public:
@@ -20,13 +22,17 @@ namespace xiui
         auto Read(size_t index, std::string& error) const -> std::optional<settings_store>;
         auto Create(std::string name, const settings_store& snapshot, std::string& error) -> bool;
         auto Duplicate(size_t index, std::string name, std::string& error) -> bool;
+        auto Rename(size_t index, std::string name, std::string& error) -> bool;
         auto Remove(size_t index, std::string& error) -> bool;
         auto UniqueName(std::string name) const -> std::string;
+        auto BoundProfile(std::string_view character) const -> std::optional<size_t>;
 
     private:
         std::vector<entry> entries_{};
         std::string directory_{};
+        std::string settings_path_{};
         size_t selected_{};
         static auto SameName(const std::string& first, const std::string& second) -> bool;
+        auto ValidateName(std::string& name, size_t excludedIndex, std::string& error) const -> bool;
     };
 }

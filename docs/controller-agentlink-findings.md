@@ -5,7 +5,7 @@ Date: October 14, 2026, approximately 00:23–00:25 local time. Scope: the curre
 ## Observed client state
 
 - AgentLink responded to `?state`, `?loaded xiuinative` and `?ui menus`.
-- XIUI was initially unloaded. It was loaded during the session, independently of the research commands. Subsequent `/xiuin status` reported the development host present but its runtime unavailable. A loaded plugin alone is therefore not a sufficient XIUI test prerequisite.
+- XIUI was initially unloaded. It was loaded during the session, independently of the research commands. Subsequent `/xiui status` reported the development host present but its runtime unavailable. A loaded plugin alone is therefore not a sufficient XIUI test prerequisite.
 - The input manager reported `GetDisableGamepad() = true` and `GetAllowGamepadInBackground() = false`. These values were not changed.
 - The live boot configuration returned `-1` for `padmode000`, `padsin000` and `padguid000`; no explicit override was supplied there.
 - The queried Windows FFXI configuration contained `padmode000 = 1,1,0,0,0,1`, indicating gamepad and XInput enabled in that configuration. This is separate from Ashita's runtime enumeration-disable flag. The selected GUID was all zeros.
@@ -71,3 +71,11 @@ The installed Freecam addon assigns `e.blocked` on its state path, while the pub
 ## Still pending
 
 Native active-window identity; current native keyboard setting and opening path; real chat/tab and multi-member/alliance navigation; the installed C++ callbacks' ordering and suppression; held analog input; hotplug/background behavior; and coexistence with controller remappers. No new feature implementation is authorized by this investigation alone.
+
+## October 17: live controller enablement
+
+The running development client initially had enumeration disabled. `/gamepad disable 0` enabled it successfully. Windows reported the attached 8BitDo device as an Xbox 360 controller; all three tested Windows XInput libraries returned success for user 0.
+
+The real 32-bit US FFXI registry contained enabled XInput settings and a 32-value button map. In-process `RegQueryValueExA` instead returned `ERROR_FILE_NOT_FOUND` for `padmode000`, `padsin000` and `padguid000` while the boot overrides were `-1`. Explicitly copying those existing Windows values through the configuration manager's `SetValue` made all three in-process reads succeed and updated `config/boot/phoenix-launch.ini`. The original override values were all `-1`; enumeration remains enabled and background input remains disabled. Reloading XIUI then reported XInput with resolved bindings.
+
+Passive input counters still observed no DirectInput or XInput callbacks. The final interval contained 1,029 render callbacks and **zero foreground game frames**, so it cannot establish that foreground input fails or that a client restart is necessary. The next check must occur with the game focused. All temporary callbacks and diagnostic globals were removed. No controller input was injected or native game input initialization patched.

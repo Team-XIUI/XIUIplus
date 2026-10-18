@@ -42,10 +42,10 @@ int main(const int argc, char** argv)
         Check(!restored.State().enabled && restored.State().bounds.x == 10 && restored.State().bounds.width == 180 && *restored.Option(5).slider == 75 && !*restored.Option(2).toggle, "compass layout and options persist");
         world_info_module info; info.ApplyTextDefaults(theme); info.State().bounds = {30, 40, 260, 90};
         *info.Option(4).toggle = true; *info.Option(5).choice = 2;
-        *info.Option(6 + 10).toggle = true;
+        *info.Option(9 + 10).toggle = true;
         info.Save(settings);
         world_info_module restoredInfo; restoredInfo.ApplyTextDefaults(theme); restoredInfo.Load(settings);
-        Check(restoredInfo.State().bounds.x == 30 && *restoredInfo.Option(4).toggle && *restoredInfo.Option(5).choice == 2 && *restoredInfo.Option(6 + 10).toggle, "world text profiles and options persist");
+        Check(restoredInfo.State().bounds.x == 30 && *restoredInfo.Option(4).toggle && *restoredInfo.Option(5).choice == 2 && *restoredInfo.Option(9 + 10).toggle, "world text profiles and options persist");
         ui::design_system design;
         module_render_context context{design, nullptr, true};
         hud_snapshot snapshot{};
@@ -53,6 +53,35 @@ int main(const int argc, char** argv)
         Check(restoredInfo.State().bounds.height > 45 && restoredInfo.State().bounds.height < 51 && !settings.ReadBool("world", "background", true), "compact frameless date row");
         *restoredInfo.Option(4).toggle = false; restoredInfo.Render(snapshot, context);
         Check(restoredInfo.State().bounds.height < 35, "compact time and weather rows");
+        const float stackedHeight = restoredInfo.State().bounds.height;
+        *restoredInfo.Option(6).choice = 1; restoredInfo.OnOptionChanged(6);
+        restoredInfo.Render(snapshot, context);
+        Check(restoredInfo.State().bounds.height < stackedHeight && restoredInfo.State().bounds.width == 260 && restoredInfo.State().bounds.x == 30,
+            "one row retains the configured width and anchor while removing the weather line break");
+        *restoredInfo.Option(4).toggle = true;
+        restoredInfo.Render(snapshot, context);
+        Check(restoredInfo.State().bounds.height < stackedHeight, "the optional date joins the same single row");
+        *restoredInfo.Option(6).choice = 2; restoredInfo.OnOptionChanged(6);
+        std::array<world_info_part_module, 4> parts{{{restoredInfo, 0}, {restoredInfo, 1}, {restoredInfo, 2}, {restoredInfo, 3}}};
+        for (auto& part : parts) Check(part.PreviewVisible() && part.PositionBoundsReady(), "independent elements receive their own editable anchors");
+        Check(!restoredInfo.HasEditableBounds() && !restoredInfo.PreviewVisible(), "independent elements replace the grouped edit handle");
+        parts[2].State().bounds.x = 460; parts[2].State().bounds.y = 180;
+        parts[0].State().bounds.x = 1000; parts[0].State().bounds.y = 700;
+        Check(parts[2].State().bounds.x == 460 && parts[2].State().bounds.y == 180 && restoredInfo.State().bounds.x == 30,
+            "moving the clock leaves weather and the grouped anchor in place");
+        *restoredInfo.Option(3).toggle = false;
+        Check(!parts[2].PreviewVisible() && parts[0].PreviewVisible(), "hidden weather removes only its own movement target");
+        restoredInfo.State().enabled = false;
+        for (auto& part : parts) Check(!part.PreviewVisible(), "the World Info master hides every independent preview");
+        restoredInfo.State().enabled = true; *restoredInfo.Option(3).toggle = true;
+        restoredInfo.Save(settings);
+        world_info_module independent; independent.ApplyTextDefaults(theme); independent.Load(settings);
+        world_info_part_module savedWeather{independent, 2}, savedTime{independent, 0};
+        Check(independent.Independent() && savedWeather.State().bounds.x == 460 && savedTime.State().bounds.y == 700,
+            "independent arrangement and separate positions survive settings/profile reloads");
+        *independent.Option(6).choice = 1; independent.OnOptionChanged(6);
+        Check(independent.HasEditableBounds() && !savedWeather.HasEditableBounds() && savedWeather.State().bounds.x == 460,
+            "returning to a grouped layout retains the independent positions");
         restored.State().enabled = true; restored.Render(snapshot, context);
         Check(restored.State().bounds.height < 180 * 0.6f, "native compass is flattened rather than circular");
         settings_store legacy{""};

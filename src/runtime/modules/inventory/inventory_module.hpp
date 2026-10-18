@@ -45,7 +45,7 @@ namespace xiui
         const inventory_source* source_{};
         const bool* module_enabled_{};
         module_state state_{true, {-1, -1, 170, 84}, 24, 16};
-        bool dots_{true}, count_{true}, label_{true}, split_{}, hide_menu_{}, text_tint_{}, background_{};
+        bool dots_{true}, count_{true}, label_{true}, split_{}, text_tint_{}, background_{};
         int count_mode_{}, threshold_mode_{}, text_position_{}, selected_text_{};
         float warning_percent_{75}, critical_percent_{95}, warning_slots_{}, critical_slots_{};
         float columns_{5}, rows_{6}, dot_size_{7}, dot_gap_{2}, group_gap_{8}, section_gap_{10};

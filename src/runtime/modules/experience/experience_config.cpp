@@ -243,27 +243,25 @@ namespace xiui
         static constexpr const char* goalTypes[]{"None", "Session EXP", "Target level", "Merits earned", "Stored merits", "EXP buffer"};
         switch (index)
         {
-        case 0: return module_option::Toggle("Enabled", "Show the EXP HUD.", &this->state_.enabled);
+        case 0: return module_option::Toggle("Enabled", "Show the EXP HUD.", &this->state_.enabled).Ordered(-50);
         case 1: return module_option::Toggle("Current / required", "Show on the bar. Enabling this moves it out of the readout list.", &this->settings_.show_current);
         case 2: return module_option::Toggle("Percent", "Show on the bar. Enabling this moves it out of the readout list.", &this->settings_.show_percent);
         case 3: return module_option::Toggle("Remaining", "Show on the bar. Enabling this moves it out of the readout list.", &this->settings_.show_remaining);
         case 4: return module_option::Element("Selected text", "Text element configured in Text.", &this->settings_.selected_text, textNames, 3);
-        case 5: return module_option::Color("Fill top", "Upper fill gradient.", &this->settings_.color_top, module_option_group::colors);
-        case 6: return module_option::Color("Fill bottom", "Lower fill gradient.", &this->settings_.color, module_option_group::colors);
+        case 5: return module_option::Color("Fill top", "Upper fill gradient.", &this->settings_.color_top, module_option_group::colors).Ordered(500, true);
+        case 6: return module_option::Color("Fill bottom", "Lower fill gradient.", &this->settings_.color, module_option_group::colors).Ordered(501);
         case 7: return module_option::Toggle("Mode label", "Show EXP, LIMIT, CAPACITY or EXEMPLAR on the bar's upper edge.", &this->settings_.show_label);
         case 8: return module_option::Choice("Info position", "Inset info at the upper or lower bar edge.", &this->settings_.info_position, infoPositions, 2);
         case mode_option: return module_option::Choice("Progression mode", "Auto, Experience, Limit, Capacity or Exemplar Points. This only controls the XIUI bar.", &this->settings_.mode, modes, 5);
         case points_option:
         {
             auto option = module_option::Toggle("Merit / JP totals", "Show accumulated merit points or job points independently of current/required points.", &this->settings_.show_points);
-            option.available = this->settings_.mode == 0 || this->settings_.mode == 2 || this->settings_.mode == 3;
-            return option;
+            return option.VisibleWhen(this->settings_.mode == 0 || this->settings_.mode == 2 || this->settings_.mode == 3);
         }
         case master_level_option:
         {
             auto option = module_option::Toggle("Master level", "Show the current master level with Exemplar Points.", &this->settings_.show_master_level);
-            option.available = this->settings_.mode == 0 || this->settings_.mode == 4;
-            return option;
+            return option.VisibleWhen(this->settings_.mode == 0 || this->settings_.mode == 4);
         }
         case summary_option:
         {
@@ -277,18 +275,17 @@ namespace xiui
         }
         case readout_option: return module_option::Choice("Selected readout", "Choose the reading to show, hide or reorder.", &this->settings_.selected_readout, readings.data(), readings.size());
         case readout_show_option: return module_option::Toggle("Show readout", "Unknown readings show --. Disabled readings leave no gap.", &this->settings_.readouts[this->settings_.selected_readout]);
-        case readout_order_option: return module_option::Slider("Position", "Position among all readings; hidden readings retain their place.", &this->settings_.readout_position, 1, static_cast<float>(experience_readout_count), 1);
-        case readout_rows_option: return module_option::Slider("Maximum rows", "Wrap the readout block up to this limit.", &this->settings_.readout_rows, 1, 8, 1);
+        case readout_order_option: return module_option::Slider("Position", "Position among all readings; hidden readings retain their place.", &this->settings_.readout_position, 1, static_cast<float>(experience_readout_count), 1).Ordered(200);
+        case readout_rows_option: return module_option::Slider("Maximum rows", "Wrap the readout block up to this limit.", &this->settings_.readout_rows, 1, 8, 1).Ordered(122);
         case bar_gap_option:
         {
-            auto option = module_option::Slider("Readout gap", "Space from the bar when readouts are Above or Below.", &this->settings_.bar_gap, 0, 48, 1);
-            option.available = this->settings_.readout_anchor != 2;
-            return option;
+            auto option = module_option::Slider("Readout gap", "Space from the bar when readouts are Above or Below.", &this->settings_.bar_gap, 0, 48, 1).Ordered(302);
+            return option.VisibleWhen(this->settings_.readout_anchor != 2);
         }
-        case readout_anchor_option: return module_option::Choice("Readout position", "Place the whole block above, below or over the bar.", &this->settings_.readout_anchor, readoutAnchors, 3);
-        case readout_x_option: return module_option::Slider("Readout X", "Move the entire readout block horizontally.", &this->settings_.readout_text.offset_x, -200, 200, 1);
-        case readout_y_option: return module_option::Slider("Readout Y", "Move the entire block vertically; negative values move it upward.", &this->settings_.readout_text.offset_y, -100, 100, 1);
-        case row_spacing_option: return module_option::Slider("Row spacing", "Gap between readout rows.", &this->settings_.row_spacing, 0, 24, 1);
+        case readout_anchor_option: return module_option::Choice("Readout position", "Place the whole block above, below or over the bar.", &this->settings_.readout_anchor, readoutAnchors, 3).Ordered(200);
+        case readout_x_option: return module_option::Slider("Readout X offset", "Move the entire readout block horizontally.", &this->settings_.readout_text.offset_x, -200, 200, 1).Ordered(210, true);
+        case readout_y_option: return module_option::Slider("Readout Y offset", "Move the entire block vertically; negative values move it upward.", &this->settings_.readout_text.offset_y, -100, 100, 1).Ordered(211);
+        case row_spacing_option: return module_option::Slider("Row spacing", "Gap between readout rows.", &this->settings_.row_spacing, 0, 24, 1).Ordered(301);
         case label_position_option: return module_option::Choice("Label position", "Show labels before or after values, or hide them to display values only.", &this->settings_.label_position, labels, std::size(labels));
         case divider_option: return module_option::Choice("Divider", "Separator between visible readings.", &this->settings_.divider, dividers, 4);
         case short_numbers_option: return module_option::Toggle("Short numbers", "Use k and m for large readout values.", &this->settings_.short_numbers);
@@ -298,16 +295,16 @@ namespace xiui
         case pause_option: return module_option::Toggle("Pause session", "Exclude gains and time while balances, chains and buff timers continue updating.", &this->settings_.paused);
         case reset_option: return module_option::Action("Reset session", "Save this session in History and clear its totals and rates. Active timers continue.", "Reset");
         case goal_type_option: return module_option::Choice("Goal", "Choose an EXP or merit target. This does not change gameplay mode.", &this->settings_.goal_type, goalTypes, 6);
-        case goal_target_option: return module_option::Slider("Target", "Target value; level goals use Phoenix's level-75 EXP requirements.", &this->settings_.goal_target, 1, this->settings_.goal_type == 2 ? 75.0f : this->settings_.goal_type == 3 || this->settings_.goal_type == 4 ? 1000.0f : 10000000.0f, 1);
+        case goal_target_option: return module_option::Slider("Target", "Target value; level goals use Phoenix's level-75 EXP requirements.", &this->settings_.goal_target, 1, this->settings_.goal_type == 2 ? 75.0f : this->settings_.goal_type == 3 || this->settings_.goal_type == 4 ? 1000.0f : 10000000.0f, 1).VisibleWhen(this->settings_.goal_type != 0);
         case sync_level_option: return module_option::Slider("Planned sync level", "Target level for the separate penalty calculator.", &this->settings_.sync_level, 10, 75, 1);
         case sync_population_option: return module_option::Slider("Planned population", "Server population for the calculator; does not claim an applied penalty.", &this->settings_.sync_population, 0, 5000, 1);
         case alert_food_option: return module_option::Toggle("Food ended", "Notify after a confirmed local food removal message.", &this->settings_.alert_food);
         case alert_dedication_option: return module_option::Toggle("Dedication ended", "Notify after a confirmed local Dedication removal message.", &this->settings_.alert_dedication);
         case alert_chain_option: return module_option::Toggle("Chain ending", "Warn once near the end of the chain countdown.", &this->settings_.alert_chain);
         case alert_merits_option: return module_option::Toggle("Merit storage full", "Notify when stored merits reach the client-reported capacity.", &this->settings_.alert_merits);
-        case alert_goal_option: return module_option::Toggle("Goal reached", "Notify once when the selected goal is reached.", &this->settings_.alert_goal);
+        case alert_goal_option: return module_option::Toggle("Goal reached", "Notify once when the selected goal is reached.", &this->settings_.alert_goal).VisibleWhen(this->settings_.goal_type != 0);
         case sound_option: return module_option::Toggle("Alert sound", "Play XIUI's local notification chime with enabled alerts.", &this->settings_.sound);
-        case volume_option: return module_option::Slider("Sound volume", "Local alert chime level.", &this->settings_.volume, 0, 150, 1);
+        case volume_option: return module_option::Slider("Sound volume", "Local alert chime level.", &this->settings_.volume, 0, 150, 1).VisibleWhen(this->settings_.sound);
         case mute_paused_option: return module_option::Toggle("Mute while paused", "Suppress optional notices and sounds during a manual pause.", &this->settings_.mute_paused);
         case chain_warning_option: return module_option::Slider("Chain warning", "Seconds remaining before the countdown uses its warning color.", &this->settings_.chain_warning, 1, 30, 1);
         case warning_color_option: return module_option::Color("Warning color", "Tint chain countdown warnings while retaining normal text effects.", &this->settings_.warning_color);
@@ -324,7 +321,7 @@ namespace xiui
                 }
                 else std::snprintf(label.data(), label.size(), "%zu. --", row + 1);
                 module_option option{}; option.label = label.data(); option.available = false;
-                option.description = "Completed sessions stay local and separate for each character. /xiuin exp history prints their details."; return option;
+                option.description = "Completed sessions stay local and separate for each character. /xiui exp history prints their details."; return option;
             }
             if (index < 9 + meter_style_option_count)
                 return MeterStyleOption(index - 9, this->settings_.style);

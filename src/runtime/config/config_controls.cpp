@@ -22,11 +22,27 @@ namespace xiui::ui
         }
     }
 
-    auto config_controls::NavigationButton(const rect& bounds, const char* id, const char* label, const bool selected, const bool hovered) const -> void
+    auto config_controls::Scrollbar(const config_scrollbar& scrollbar, const bool hovered, const bool dragging) const -> void
+    {
+        if (!scrollbar.Visible()) return;
+        const auto& track = scrollbar.track;
+        const auto thumb = scrollbar.Thumb();
+        const float center = track.x + track.width * 0.5f;
+        const auto& theme = this->design_.GetTheme();
+        this->design_.FillRoundedRect({center - 3, track.y, 6, track.height}, (theme.colors.border & 0xFFFFFF) | 0x80000000, 3);
+        this->design_.FillRoundedRect({center - 2, track.y + 1, 4, std::max(0.0f, track.height - 2)}, (theme.config_panel.background & 0xFFFFFF) | 0xC0000000, 2);
+        this->design_.FillRoundedRect({center - 4, thumb.y, 8, thumb.height}, (theme.colors.border & 0xFFFFFF) | 0xD0000000, 4);
+        const auto tint = theme.colors.control_selected & 0xFFFFFF;
+        const auto alpha = dragging ? 0xFF000000u : hovered ? 0xE0000000u : 0xB0000000u;
+        this->design_.FillRoundedRect({center - 3, thumb.y + 1, 6, std::max(0.0f, thumb.height - 2)}, tint | alpha, 3);
+    }
+
+    auto config_controls::NavigationButton(const rect& bounds, const char* id, const char* label, const bool selected, const bool hovered, const bool iconsOnly) const -> void
     {
         const auto& theme = this->design_.GetTheme();
         this->NavigationHighlight(bounds, selected, hovered);
-        this->Icon(config_layout::NavigationIcon(bounds), id, selected || hovered ? theme.colors.control_selected : theme.colors.text);
+        this->Icon(config_layout::NavigationIcon(bounds, iconsOnly), id, selected || hovered ? theme.colors.control_selected : theme.colors.text);
+        if (iconsOnly) return;
         auto style = selected ? theme.accent_text : theme.body_text;
         style.scale = 0.72f;
         style.alignment = text_alignment::left;
@@ -95,7 +111,8 @@ namespace xiui::ui
         if (this->text_settings_ != nullptr)
         {
             result.font = FontIndex(this->text_settings_->font);
-            result.letter_spacing = this->text_settings_->letter_spacing / TextPixelScale(style.scale);
+            result.scale *= this->text_settings_->size / config_text_settings::reference_size;
+            result.letter_spacing = this->text_settings_->letter_spacing / TextPixelScale(result.scale);
             result.shadow = this->text_settings_->shadow;
             result.stroke = {this->text_settings_->outline == 2 || (button && this->text_settings_->outline == 1), this->text_settings_->outline_color};
             result.glow = this->text_settings_->glow;
@@ -122,25 +139,42 @@ namespace xiui::ui
             icon, highlighted ? this->design_.GetTheme().colors.control_selected : this->design_.GetTheme().colors.text);
     }
 
-    auto config_controls::TextInput(const rect& bounds, const text_input& input, const bool invalid) const -> void
+    auto config_controls::TextInput(const rect& bounds, const text_input& input, const bool invalid, const char* placeholder, const char* shortcut) const -> void
     {
-        this->buttons_.Face(bounds, input.Focused());
-        this->design_.BorderRect(bounds, invalid ? 0xFFFF8080 : this->design_.GetTheme().colors.control_selected);
-        auto style = this->design_.GetTheme().body_text; style.scale = 0.82f; style.alignment = text_alignment::left;
+        const auto& theme = this->design_.GetTheme();
+        this->design_.FillRoundedRect(bounds, theme.colors.chrome, 3);
+        this->design_.FillRoundedRect(bounds, 0x38000000, 3);
+        if (input.Focused() || invalid)
+            this->design_.FillRoundedRect({bounds.x + theme.spacing.sm, bounds.y + bounds.height - 3,
+                bounds.width - theme.spacing.sm * 2, 1.5f}, invalid ? 0xCCFF8080 : (theme.colors.control_selected & 0xFFFFFF) | 0x90000000, 0.75f);
+        auto style = theme.body_text; style.scale = 0.76f; style.alignment = text_alignment::left;
         style = this->Style(style);
         const auto& editor = input.Editor();
         const auto& text = editor.Text();
-        const rect at{bounds.x + 6, bounds.y, bounds.width - 12, bounds.height};
+        const rect at{bounds.x + theme.spacing.sm, bounds.y, bounds.width - theme.spacing.sm * 2, bounds.height};
         size_t begin{};
-        while (begin < editor.Caret() && this->design_.MeasureText(text.substr(begin, editor.Caret() - begin).c_str(), style) > at.width - 2)
+        while (input.Focused() && begin < editor.Caret() && this->design_.MeasureText(text.substr(begin, editor.Caret() - begin).c_str(), style) > at.width - 2)
         { ++begin; while (begin < text.size() && (static_cast<unsigned char>(text[begin]) & 0xC0) == 0x80) ++begin; }
         size_t end = text.size();
         while (end > begin && this->design_.MeasureText(text.substr(begin, end - begin).c_str(), style) > at.width)
         { --end; while (end > begin && (static_cast<unsigned char>(text[end]) & 0xC0) == 0x80) --end; }
         const auto widthAt = [&](size_t position) { return this->design_.MeasureText(text.substr(begin, std::clamp(position, begin, end) - begin).c_str(), style); };
         const auto [selectionBegin, selectionEnd] = editor.Selection();
-        if (selectionBegin != selectionEnd) this->design_.FillRect({at.x + widthAt(selectionBegin), at.y + 4, std::min(at.width, widthAt(selectionEnd)) - widthAt(selectionBegin), at.height - 8}, 0x665080D0);
-        this->Text(text.substr(begin, end - begin).c_str(), at, style);
+        if (input.Focused() && selectionBegin != selectionEnd) this->design_.FillRect({at.x + widthAt(selectionBegin), at.y + 4, std::min(at.width, widthAt(selectionEnd)) - widthAt(selectionBegin), at.height - 8}, theme.colors.selected);
+        if (text.empty() && placeholder != nullptr)
+        {
+            auto hint = style; hint.top_color = hint.bottom_color = theme.colors.muted;
+            float shortcutWidth{};
+            if (shortcut != nullptr)
+            {
+                auto key = theme.caption_text; key.scale = 0.64f; key.alignment = text_alignment::right;
+                key.top_color = key.bottom_color = theme.colors.muted; key = this->Style(key);
+                shortcutWidth = this->design_.MeasureText(shortcut, key) + theme.spacing.md;
+                this->Label(shortcut, {at.x + at.width - shortcutWidth, at.y, shortcutWidth, at.height}, key);
+            }
+            this->Label(placeholder, {at.x + (input.Focused() ? 3.0f : 0.0f), at.y, at.width - shortcutWidth - 3, at.height}, hint);
+        }
+        else this->Label(text.substr(begin, end - begin).c_str(), at, style);
         if (input.Focused() && (::GetTickCount64() / 500) % 2 == 0) this->design_.FillRect({at.x + widthAt(editor.Caret()), at.y + 6, 1, at.height - 12}, style.top_color);
     }
 
@@ -162,6 +196,11 @@ namespace xiui::ui
     auto config_controls::IconId(const char* id) -> icon_glyph
     {
         if (id != nullptr && std::strcmp(id, "casting") == 0) return icon_glyph::castbar;
+        if (id != nullptr && std::strcmp(id, "minimap") == 0) return icon_glyph::minimap;
+        if (id != nullptr && std::strcmp(id, "satchel") == 0) return icon_glyph::inventory;
+        if (id != nullptr && (std::strncmp(id, "hotbar", 6) == 0 || std::strcmp(id, "crossbar") == 0)) return icon_glyph::commands;
+        if (id != nullptr && (std::strcmp(id, "pet") == 0 || std::strcmp(id, "pettarget") == 0)) return icon_glyph::pet;
+        if (id != nullptr && (std::strcmp(id, "statuses") == 0 || std::strcmp(id, "buffs") == 0 || std::strcmp(id, "debuffs") == 0)) return icon_glyph::statuses;
         constexpr const char* names[]{"player", "target", "enemylist", "experience", "notifications", "container", "gamehud", "chat", "chat2", "compass", "world", "commands", "reset", "general", "party", "inventory", "equipment", "extras", "gil", "readycheck", "castbar", "castcost"};
         if (id != nullptr)
             for (size_t i = 0; i < std::size(names); ++i)
@@ -181,14 +220,37 @@ namespace xiui::ui
         auto style = theme.body_text;
         style.scale = 0.78f;
         style = this->Style(style);
-        const auto bounds = config_layout::Tooltip(anchor, std::ceil(this->design_.MeasureText(text, style)) + 20, viewport);
-        this->design_.FillRect(bounds, this->design_.GetTheme().colors.chrome | 0xFF000000);
-        this->Panel(bounds);
-        this->Text(text, {bounds.x + 8.0f, bounds.y, bounds.width - 16.0f, bounds.height}, style);
+        const auto bounds = config_layout::Tooltip(anchor, std::ceil(this->design_.MeasureText(text, style)) + 26, viewport);
+        if (this->containers_ != nullptr) this->containers_->DrawTooltip(this->design_, bounds);
+        else this->design_.FillRect(bounds, 0xFF000000);
+        this->design_.DrawText(text, {bounds.x + 13.0f, bounds.y, std::max(0.0f, bounds.width - 26.0f), bounds.height}, style);
     }
 
     auto config_controls::Option(const rect& row, const module_option& option, const bool hovered, const bool activeColor, const slider_value_input* input, const text_input* textInput, const bool dropdownOpen) const -> void
     {
+        if (!option.visible) return;
+        if (option.card && option.kind == module_option_kind::action)
+        {
+            const auto& theme = this->design_.GetTheme();
+            const rect card{row.x + 2, row.y + 3, row.width - 4, row.height - 8};
+            this->design_.FillRect(card, hovered ? theme.colors.selected : theme.colors.chrome);
+            this->design_.BorderRect(card, hovered && option.available ? theme.colors.control_selected : theme.colors.border);
+            auto title = theme.body_text; title.scale = .92f;
+            this->ButtonText(option.label, {card.x + 14, card.y + 7, card.width - 92, 25}, title, hovered);
+            auto detail = theme.caption_text; detail.scale = .70f;
+            const std::string_view description = option.description != nullptr ? option.description : "";
+            const auto newline = description.find('\n');
+            const std::string first{description.substr(0, newline)};
+            this->Text(first.c_str(), {card.x + 14, card.y + 38, card.width - 28, 21}, detail);
+            if (newline != std::string_view::npos)
+            {
+                const std::string second{description.substr(newline + 1)};
+                this->Text(second.c_str(), {card.x + 14, card.y + 60, card.width - 28, 21}, detail);
+            }
+            auto action = theme.accent_text; action.scale = .70f; action.alignment = text_alignment::right;
+            this->ButtonText(option.action_text, {card.x + card.width - 72, card.y + 8, 58, 24}, action, hovered);
+            return;
+        }
         if (!option.available)
         {
             this->Row(row, option.label, option.description, row.width - 8.0f, hovered, this->design_.GetTheme().caption_text);
@@ -201,7 +263,7 @@ namespace xiui::ui
         else if (option.kind == module_option_kind::color && option.color != nullptr)
             this->ColorRow(row, option.label, option.description, *option.color, activeColor, hovered);
         else if (option.kind == module_option_kind::slider && option.slider != nullptr)
-            this->SliderRow(row, option, hovered, input);
+            this->Slider(row, option, hovered, input);
         else if ((option.kind == module_option_kind::choice || option.kind == module_option_kind::dropdown) && option.choice != nullptr)
             this->ChoiceRow(row, option, hovered, dropdownOpen);
         else if (option.kind == module_option_kind::color_override && option.color != nullptr && option.toggle != nullptr)
@@ -228,7 +290,9 @@ namespace xiui::ui
         else if (option.kind == module_option_kind::action)
         {
             const auto button = config_layout::ChoiceButton(row);
-            this->Row(row, option.label, option.description, button.x - row.x - 6, hovered, this->design_.GetTheme().body_text);
+            auto label = this->design_.GetTheme().body_text;
+            if (option.warning) label.top_color = label.bottom_color = button_renderer::FaceColor(this->design_.GetTheme(), true, button_tone::danger);
+            this->Row(row, option.label, option.description, button.x - row.x - 6, hovered, label);
             auto style = this->design_.GetTheme().body_text;
             style.scale = 0.76f;
             style.alignment = text_alignment::center;
@@ -240,7 +304,7 @@ namespace xiui::ui
                 style.top_color = style.bottom_color = color;
                 this->ButtonText(option.action_text, {button.x + 24, button.y, button.width - 27, button.height}, style, hovered && option.available);
             }
-            else this->Button(button, option.action_text != nullptr ? option.action_text : "Run", style, hovered);
+            else this->Button(button, option.action_text != nullptr ? option.action_text : "Run", style, hovered, option.warning ? button_tone::danger : button_tone::normal);
         }
     }
 
@@ -289,17 +353,47 @@ namespace xiui::ui
         this->design_.BorderRect(swatch, active ? theme.colors.accent : theme.colors.border);
     }
 
-    auto config_controls::SliderRow(const rect& row, const module_option& option, const bool hovered, const slider_value_input* input) const -> void
+    auto config_controls::ChoiceMenu(const choice_dropdown& input, const D3DVIEWPORT8& viewport, const float mouseX, const float mouseY) const -> void
+    {
+        if (!input.Opened()) return;
+        this->Panel(input.Bounds(viewport));
+        const auto hovered = input.IndexAt(mouseX, mouseY, viewport);
+        for (int index = input.First(); index < input.First() + input.VisibleCount(); ++index)
+        {
+            auto row = input.Row(index, viewport);
+            if (input.Option().choice_preview) row.width -= 30;
+            this->NavigationItem(row, input.Option().choices[index], index == input.Highlighted(), hovered && *hovered == index);
+            if (input.Option().choice_preview && static_cast<size_t>(index) >= input.Option().preview_first)
+            {
+                const auto button = input.PreviewButton(index, viewport);
+                this->IconButton(button, icon_glyph::play, mouseX >= button.x && mouseY >= button.y && mouseX < button.x + button.width && mouseY < button.y + button.height);
+            }
+        }
+        const auto scrollbar = input.Scrollbar(viewport);
+        const auto& track = scrollbar.track;
+        this->Scrollbar(scrollbar, mouseX >= track.x && mouseY >= track.y && mouseX < track.x + track.width && mouseY < track.y + track.height, input.Scrolling());
+        if (input.Option().choice_preview)
+        {
+            const auto bounds = input.Bounds(viewport);
+            auto style = this->design_.GetTheme().caption_text; style.scale = 0.62f; style.alignment = text_alignment::left;
+            this->Text("Scroll / Space: preview", {bounds.x + 10, bounds.y + bounds.height - 22, bounds.width - 20, 18}, style);
+        }
+    }
+
+    auto config_controls::Slider(const rect& row, const module_option& option, const bool hovered, const slider_value_input* input, const float labelWidth) const -> void
     {
         const auto& theme = this->design_.GetTheme();
-        const rect track = config_layout::SliderTrack(row);
+        const rect track = config_layout::SliderTrack(row, labelWidth);
         const float controlX = track.x;
-        this->Row(row, option.label, option.description, controlX - row.x - 5.0f, hovered, theme.body_text);
+        auto labelStyle = theme.body_text;
+        if (!option.available) labelStyle.top_color = labelStyle.bottom_color = theme.colors.muted;
+        this->Row(row, option.label, option.description, controlX - row.x - 5.0f, hovered && option.available, labelStyle);
 
         const auto field = config_layout::SliderValue(row);
         auto valueStyle = theme.caption_text;
         valueStyle.scale = 0.68f;
         valueStyle.alignment = text_alignment::center;
+        if (!option.available) valueStyle.top_color = valueStyle.bottom_color = theme.colors.muted;
         if (input == nullptr)
             this->Button(field, slider_value_input::Format(*option.slider * option.display_scale, option.step * option.display_scale).c_str(), valueStyle, hovered);
         else
@@ -327,8 +421,8 @@ namespace xiui::ui
         const float range = std::max(0.001f, option.maximum - option.minimum);
         const float ratio = std::clamp((*option.slider - option.minimum) / range, 0.0f, 1.0f);
         this->design_.FillRect(track, theme.colors.meter_track);
-        this->design_.FillRect({track.x, track.y, track.width * ratio, track.height}, theme.colors.accent_dim);
-        this->design_.FillRect({track.x + track.width * ratio - 2.0f, track.y - 4.0f, 4.0f, 12.0f}, theme.colors.accent);
+        this->design_.FillRect({track.x, track.y, track.width * ratio, track.height}, option.available ? theme.colors.accent_dim : theme.colors.meter_track);
+        this->design_.FillRect({track.x + track.width * ratio - 2.0f, track.y - 4.0f, 4.0f, 12.0f}, option.available ? theme.colors.accent : theme.colors.muted);
     }
 
     auto config_controls::ChoiceRow(const rect& row, const module_option& option, const bool hovered, const bool dropdownOpen) const -> void

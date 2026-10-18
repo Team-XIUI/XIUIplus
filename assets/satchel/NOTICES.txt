@@ -1,0 +1,12 @@
+XIUI Satchel storage-slip catalog
+
+The 28 storage-slip item rosters in storage_slips.hpp preserve the mapping used
+by XIUI Lua modules/satchel/slipslogic.lua. XIUI credits the Ashita Find addon
+by MalRD as the roster's source.
+
+Find authors: MalRD, zombie343, sippius (Ashita v4 port).
+Source: https://github.com/Sippius/Ashita-v4-addons/tree/main/find
+The upstream Find code is MIT licensed; its notice is in LICENSE.txt.
+
+The native decoder is a new bounded implementation. It reads the slip's first
+24 extra-data bytes and exposes stored item records for browsing only.

@@ -195,6 +195,49 @@ namespace xiui
 
     struct native_hud_target_test
     {
+        static auto __stdcall MacroCallback(void* context, uint8_t book, uint8_t set, uint8_t slot, BOOL alt) -> BOOL
+        {
+            auto* calls = static_cast<uint32_t*>(context);
+            if (book != 40 || set != 10 || slot != 9 || !alt) return FALSE;
+            ++*calls; return TRUE;
+        }
+
+        static auto Macros(void) -> bool
+        {
+            uint32_t calls{};
+            native_macros runtimeMacros{}; runtimeMacros.SetRunner(&MacroCallback, &calls); runtimeMacros.Initialize();
+            if (!check(runtimeMacros.Available() && runtimeMacros.Entry() == 0 && runtimeMacros.Run({40, 10, 9, true}) && calls == 1,
+                "runtime initialization retains the host macro callback without scanning hooked client code")) return false;
+            if (!check(!runtimeMacros.Run({0, 10, 9, true}) && !runtimeMacros.Run({40, 11, 9, true}) && calls == 1,
+                "host macro callbacks retain native book and set bounds")) return false;
+
+            auto* entry = static_cast<uint8_t*>(::VirtualAlloc(nullptr, 0x1000, MEM_RESERVE | MEM_COMMIT, PAGE_EXECUTE_READWRITE));
+            if (!check(entry != nullptr, "allocate a bounded native entry fixture")) return false;
+            std::memset(entry, 0x90, 0x1000);
+            constexpr uint8_t body[]{0xFF, 0x01, 0xC2, 0x08, 0x00}; // inc [ecx]; ret 8
+            constexpr uint8_t epilogue[]{0xC2, 0x08, 0x00};
+            std::memcpy(entry, body, sizeof(body));
+            std::memcpy(entry + 0x21, epilogue, sizeof(epilogue)); std::memcpy(entry + 0x40, epilogue, sizeof(epilogue));
+            ::FlushInstructionCache(::GetCurrentProcess(), entry, 0x43);
+            native_hud_controller host{};
+            host.module_ = reinterpret_cast<uintptr_t>(entry); host.module_size_ = 0x1000; host.macro_entry_ = host.module_;
+            host.native_macros_.SetRunEntry(host.macro_entry_);
+            const auto nativeRun = reinterpret_cast<native_hud_controller::macro_run_fn>(entry);
+            calls = 0; nativeRun(&calls, 1, 0);
+            host.Update(native_keyboard_macro_palette);
+            nativeRun(&calls, 1, 0); nativeRun(&calls, 2, 9);
+            bool passed = check(host.macro_hook_enabled_ && calls == 1 && host.Status().find("macro guard active") != std::string::npos,
+                "the requested macro guard blocks native starts even without HUD draw discovery or a logged-in fixture");
+            reinterpret_cast<native_hud_controller::macro_run_fn>(host.native_macros_.Entry())(&calls, 2, 9);
+            passed = check(calls == 2, "explicit XIUI macro references retain the original trampoline path") && passed;
+            host.Update(0); nativeRun(&calls, 1, 0);
+            passed = check(!host.macro_hook_enabled_ && calls == 3, "turning suppression off immediately restores native starts") && passed;
+            host.Update(native_keyboard_macro_palette); host.Shutdown(); nativeRun(&calls, 1, 0);
+            passed = check(calls == 4 && host.macro_entry_ == 0 && !host.macro_hook_created_, "shutdown removes the native guard and restores the original entry") && passed;
+            ::VirtualFree(entry, 0, MEM_RELEASE);
+            return passed;
+        }
+
         static auto Run(void) -> bool
         {
             native_hud_controller controller{};
@@ -262,8 +305,38 @@ namespace xiui
                 "input suppression follows replacement owners and ignores stale primitives")) return false;
             inputSlot = 0;
             if (!check(!controller.ShouldHide(input.window.m_pParentMCD), "an unavailable input owner is never suppressed")) return false;
+            std::array<target_fixture, 4> palettes{};
+            std::array<uintptr_t, 4> paletteSlots{};
+            for (size_t index = 0; index < palettes.size(); ++index)
+            {
+                paletteSlots[index] = reinterpret_cast<uintptr_t>(&palettes[index].window);
+                controller.macro_palette_slots_[index] = reinterpret_cast<uintptr_t>(&paletteSlots[index]);
+            }
+            controller.hidden_ = 0;
+            for (const auto& palette : palettes)
+                if (!check(!controller.ShouldHide(palette.window.m_pParentMCD), "native macro palettes draw without an owned XIUI chord")) return false;
+            controller.hidden_ = native_keyboard_macro_palette;
+            for (const auto& palette : palettes)
+            {
+                const auto originalWindow = palette.window;
+                const auto originalPrimitive = palette.primitive;
+                if (!check(controller.ShouldHide(palette.window.m_pParentMCD) &&
+                    std::memcmp(&originalWindow, &palette.window, sizeof(originalWindow)) == 0 && originalPrimitive == palette.primitive,
+                    "owned XIUI chord suppresses all four native palette variants without mutating native state")) return false;
+            }
+            if (!check(!controller.ShouldHide(chat.window.m_pParentMCD) && !controller.ShouldHide(unrelated.window.m_pParentMCD),
+                "transient palette suppression leaves chat and unrelated native menus visible")) return false;
+            paletteSlots[0] = reinterpret_cast<uintptr_t>(&unrelated.window);
+            if (!check(!controller.ShouldHide(palettes[0].window.m_pParentMCD) && controller.ShouldHide(unrelated.window.m_pParentMCD),
+                "palette suppression follows the current owner and ignores stale palette primitives")) return false;
+            paletteSlots[0] = 0;
+            if (!check(!controller.ShouldHide(unrelated.window.m_pParentMCD), "missing palette owners are never suppressed")) return false;
+            controller.Update(0);
+            for (const auto& palette : palettes)
+                if (!check(!controller.ShouldHide(palette.window.m_pParentMCD), "clearing chord ownership immediately restores native palette drawing")) return false;
             controller.Shutdown();
-            return check(controller.chat_input_slot_ == 0 && !controller.ShouldHide(chat.window.m_pParentMCD),
+            return check(controller.chat_input_slot_ == 0 && controller.macro_palette_slots_ == std::array<uintptr_t, 4>{} &&
+                !controller.ShouldHide(chat.window.m_pParentMCD),
                 "shutdown clears input ownership and restores native drawing");
         }
     };
@@ -277,7 +350,7 @@ int main(int argc, char** argv)
         std::puts("Native command-menu movement, top/bottom anchors, resizing and restoration passed.");
         return 0;
     }
-    if (!xiui::native_hud_target_test::Run() || !xiui::native_menu_test::Run() || !xiui::native_menu_test::Anchors()) return 1;
+    if (!xiui::native_hud_target_test::Run() || !xiui::native_hud_target_test::Macros() || !xiui::native_menu_test::Run() || !xiui::native_menu_test::Anchors()) return 1;
     std::puts("Native target preservation and chat log/input suppression checks passed.");
     return 0;
 }

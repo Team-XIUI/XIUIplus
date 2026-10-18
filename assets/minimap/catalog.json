@@ -1,0 +1,10 @@
+{
+  "schema": 2,
+  "remapsterCommit": "831bf3f2a27cc8581cb098af554f07bf70707420",
+  "format": "WebP",
+  "quality": 90,
+  "maximumSize": 512,
+  "regular": 431,
+  "enhanced": 231,
+  "source": "Phoenix wiki zone-maps.json; Remapster minimaps/ffxidb"
+}

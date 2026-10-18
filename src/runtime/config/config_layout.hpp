@@ -6,29 +6,44 @@
 
 namespace xiui::ui
 {
-    inline constexpr const char* profile_actions[]{"Duplicate profile", "Share profile", "Import profile", "Delete profile"};
+    inline constexpr const char* profile_actions[]{"Duplicate profile", "Share profile", "Import profile", "Rename profile", "Delete profile", "Reset to defaults"};
+    inline constexpr size_t profile_rename_action = 3, profile_delete_action = 4, profile_reset_action = 5;
 
     class config_layout
     {
     public:
         static constexpr float sidebar_width = 196.0f;
+        static constexpr float compact_sidebar_width = 52.0f;
         static constexpr float default_width = 1100.0f;
         static constexpr float default_height = 600.0f;
         static constexpr float minimum_width = 760.0f;
+        static constexpr float minimum_height = 350.0f;
+        static constexpr float minimum_column_width = 320.0f;
+        static constexpr float column_gap = 10.0f;
         static constexpr float submenu_width = 176.0f;
         static constexpr float content_inset = 8.0f;
         static constexpr float grid_y = 74.0f;
         static constexpr float row_height = 56.0f;
 
-        explicit config_layout(const rect& bounds, size_t moduleCount = 0, bool sections = false, bool submenu = false, float extraTop = 0, float selectorHeight = 0)
-            : bounds_(bounds), module_count_(moduleCount), sections_(sections), submenu_(submenu), extra_top_(extraTop), selector_height_(selectorHeight) {}
+        explicit config_layout(const rect& bounds, size_t moduleCount = 0, bool sections = false, bool submenu = false, float extraTop = 0, float selectorHeight = 0, bool scrollbar = false, int firstCardRow = -1, int firstRow = 0, bool compactSidebar = false)
+            : bounds_(bounds), module_count_(moduleCount), sections_(sections), submenu_(submenu), extra_top_(extraTop), selector_height_(selectorHeight), scrollbar_(scrollbar), first_card_row_(firstCardRow), first_row_(std::max(0, firstRow)), compact_sidebar_(compactSidebar) {}
+
+        auto SidebarCollapsed(void) const -> bool { return this->compact_sidebar_; }
+        auto SidebarWidth(void) const -> float { return this->compact_sidebar_ ? compact_sidebar_width : sidebar_width; }
+        auto SidebarToggle(void) const -> rect { return {this->bounds_.x + 8, this->bounds_.y + 3, 24, 22}; }
+        auto HeaderTitle(void) const -> rect { return {this->bounds_.x + 40, this->bounds_.y + 2, std::max(0.0f, this->bounds_.width - 416), 24}; }
+        auto SearchInput(const float expansion = 1) const -> rect
+        {
+            const float width = 24 + 224 * std::clamp(expansion, 0.0f, 1.0f);
+            return {this->bounds_.x + this->bounds_.width - 120 - width, this->bounds_.y + 3, width, 22};
+        }
 
         auto ModuleTab(size_t index) const -> rect
         {
             const float pitch = this->module_count_ > 0
-                ? std::min(30.0f, std::max(1.0f, this->bounds_.height - 124.0f) / static_cast<float>(this->module_count_)) : 30.0f;
+                ? std::min(30.0f, std::max(1.0f, this->bounds_.height - this->SidebarReserve()) / static_cast<float>(this->module_count_)) : 30.0f;
             return {this->bounds_.x + 8.0f, this->bounds_.y + 38.0f + static_cast<float>(index) * pitch,
-                sidebar_width - 16.0f, std::min(28.0f, std::max(1.0f, pitch - 2.0f))};
+                this->SidebarWidth() - 16.0f, std::min(28.0f, std::max(1.0f, pitch - 2.0f))};
         }
 
         auto CloseButton(void) const -> rect
@@ -41,6 +56,15 @@ namespace xiui::ui
             return {this->bounds_.x + this->bounds_.width - 56.0f - index * 28.0f, this->bounds_.y + 3.0f, 24.0f, 22.0f};
         }
 
+        auto InputMode(void) const -> rect
+        { return {this->bounds_.x + this->bounds_.width - 112, this->bounds_.y + 3, 24, 22}; }
+
+        auto InputModeMenu(void) const -> rect
+        { const auto at = this->InputMode(); return {at.x + at.width - 184, at.y + at.height + 4, 184, 86}; }
+
+        auto InputModeRow(size_t index) const -> rect
+        { const auto at = this->InputModeMenu(); return {at.x + 4, at.y + 4 + index * 26, at.width - 8, 26}; }
+
         auto HeaderBackground(void) const -> rect
         {
             return {this->bounds_.x + 5, this->bounds_.y + 5, std::max(0.0f, this->bounds_.width - 10), 23};
@@ -48,21 +72,21 @@ namespace xiui::ui
 
         auto SidebarBackground(void) const -> rect
         {
-            return {this->bounds_.x + 5, this->bounds_.y + 28, sidebar_width - 5, std::max(0.0f, this->bounds_.height - 33)};
+            return {this->bounds_.x + 5, this->bounds_.y + 28, this->SidebarWidth() - 5, std::max(0.0f, this->bounds_.height - 33)};
         }
 
         auto SubmenuBackground(void) const -> rect
         {
-            return {this->bounds_.x + sidebar_width, this->bounds_.y + 28 + this->SectionHeight(), this->submenu_ ? submenu_width : 0, std::max(0.0f, this->bounds_.height - 33 - this->SectionHeight())};
+            return {this->bounds_.x + this->SidebarWidth(), this->bounds_.y + 28 + this->SectionHeight(), this->submenu_ ? submenu_width : 0, std::max(0.0f, this->bounds_.height - 33 - this->SectionHeight())};
         }
 
         auto SectionBackground(void) const -> rect
-        { return {this->bounds_.x + sidebar_width, this->bounds_.y + 28, this->bounds_.width - sidebar_width - 5, this->SectionHeight()}; }
+        { return {this->bounds_.x + this->SidebarWidth(), this->bounds_.y + 28, this->bounds_.width - this->SidebarWidth() - 5, this->SectionHeight()}; }
 
         auto Submenu(size_t index, size_t count) const -> rect
         {
             const float pitch = count != 0 ? std::min(28.0f, std::max(1.0f, this->bounds_.height - 62 - this->SectionHeight()) / static_cast<float>(count)) : 28;
-            return {this->bounds_.x + sidebar_width + 8, this->bounds_.y + 35 + this->SectionHeight() + static_cast<float>(index) * pitch,
+            return {this->bounds_.x + this->SidebarWidth() + 8, this->bounds_.y + 35 + this->SectionHeight() + static_cast<float>(index) * pitch,
                 submenu_width - 16, std::max(1.0f, pitch - 2)};
         }
 
@@ -70,22 +94,48 @@ namespace xiui::ui
         auto ContentTabs(void) const -> rect { return {this->ContentX(), this->bounds_.y + this->ContentTop(), this->ContentWidth(), 28}; }
         auto ContentSubtabs(void) const -> rect { auto bounds = this->ContentTabs(); bounds.y += 34; return bounds; }
         auto ElementTabs(void) const -> rect { return {this->ContentX(), this->bounds_.y + this->ContentTop() + this->extra_top_, this->ContentWidth(), 28}; }
-        auto ContentArea(void) const -> rect { return {this->ContentX(), this->bounds_.y + this->OptionsTop(), this->ContentWidth(), std::max(1.0f, this->bounds_.height - this->OptionsTop() - 24)}; }
-        auto MinimumWidth(void) const -> float { return minimum_width + (this->submenu_ ? submenu_width : 0); }
+        auto ContentArea(void) const -> rect { return {this->ContentX(), this->bounds_.y + this->OptionsTop(), this->OptionsWidth(), std::max(1.0f, this->bounds_.height - this->OptionsTop() - 24)}; }
+        auto ScrollbarTrack(void) const -> rect { const auto area = this->ContentArea(); return {this->ContentX() + this->ContentWidth() - 14, area.y, 14, area.height}; }
+        auto HasScrollbar(void) const -> bool { return this->scrollbar_; }
+        auto MinimumWidth(void) const -> float { return minimum_width; }
+        auto MinimumHeight(void) const -> float { return std::max(minimum_height, this->SidebarReserve() + static_cast<float>(this->module_count_) * 20.0f); }
+        auto ResizeGrip(void) const -> rect
+        { return {this->bounds_.x + this->bounds_.width - 20, this->bounds_.y + this->bounds_.height - 20, 18, 18}; }
+        auto Columns(void) const -> int
+        { return this->ContentWidth() >= minimum_column_width * 2 + column_gap + 18 ? 2 : 1; }
+        auto RowForSlot(const int slot) const -> int
+        { const int columns = this->Columns(); return slot >= 0 ? slot / columns : -((-slot + columns - 1) / columns); }
+        auto FirstSlotForRow(const int row) const -> int { return row * this->Columns(); }
+        auto RowsForSlots(const int slots) const -> int { return (std::max(0, slots) + this->Columns() - 1) / this->Columns(); }
+        auto VisibleSlots(void) const -> int { return this->VisibleRows() * this->Columns(); }
+        auto MaximumScroll(const int totalSlots) const -> int
+        {
+            const int totalRows = this->RowsForSlots(totalSlots);
+            const float available = this->ContentArea().height;
+            int first = totalRows;
+            float height{};
+            while (first > 0)
+            {
+                const float rowHeight = this->RowHeight(first - 1);
+                if (height + rowHeight > available && first < totalRows) break;
+                height += rowHeight; --first;
+            }
+            return this->FirstSlotForRow(first);
+        }
+        auto AlignScroll(const int scroll, const int totalSlots) const -> int
+        { return this->FirstSlotForRow(this->RowForSlot(std::clamp(scroll, 0, this->MaximumScroll(totalSlots)))); }
 
         auto HeaderDragArea(void) const -> rect
         {
-            return {this->bounds_.x, this->bounds_.y, this->bounds_.width - 86.0f, 28.0f};
+            return {this->bounds_.x + 38, this->bounds_.y, std::max(0.0f, this->bounds_.width - 414.0f), 28.0f};
         }
 
-        auto ResetButton(void) const -> rect
-        {
-            return {this->bounds_.x + 8.0f, this->bounds_.y + this->bounds_.height - 78.0f, sidebar_width - 16.0f, 34.0f};
-        }
-
-        auto ProfileSelector(void) const -> rect { return {this->bounds_.x + 8, this->bounds_.y + this->bounds_.height - 36, sidebar_width - 76, 26}; }
-        auto ProfileAdd(void) const -> rect { const auto selector = this->ProfileSelector(); return {selector.x + selector.width + 4, selector.y, 26, 26}; }
-        auto ProfileActionsButton(void) const -> rect { const auto add = this->ProfileAdd(); return {add.x + add.width + 4, add.y, 26, 26}; }
+        auto ProfileSelector(void) const -> rect
+        { return this->compact_sidebar_ ? rect{this->bounds_.x + 13, this->bounds_.y + this->bounds_.height - 96, 26, 26} : rect{this->bounds_.x + 8, this->bounds_.y + this->bounds_.height - 36, sidebar_width - 76, 26}; }
+        auto ProfileAdd(void) const -> rect
+        { const auto selector = this->ProfileSelector(); return {this->compact_sidebar_ ? selector.x : selector.x + selector.width + 4, selector.y + (this->compact_sidebar_ ? 30 : 0), 26, 26}; }
+        auto ProfileActionsButton(void) const -> rect
+        { const auto add = this->ProfileAdd(); return {this->compact_sidebar_ ? add.x : add.x + add.width + 4, add.y + (this->compact_sidebar_ ? 30 : 0), 26, 26}; }
         auto ProfileActionsMenu(void) const -> rect
         {
             const auto button = this->ProfileActionsButton();
@@ -96,18 +146,19 @@ namespace xiui::ui
         auto ProfileMenu(size_t count) const -> rect { const auto selector = this->ProfileSelector(); const float height = std::min<size_t>(7, count) * 28.0f + 8; return {selector.x, selector.y - height - 4, sidebar_width - 16, height}; }
         auto ProfileRow(size_t index, size_t count) const -> rect { const auto menu = this->ProfileMenu(count); return {menu.x + 4, menu.y + 4 + index * 28, menu.width - 8, 26}; }
 
-        static auto NavigationIcon(const rect& row) -> rect { return {row.x + 5, row.y, 30, row.height}; }
+        static auto NavigationIcon(const rect& row, const bool compact = false) -> rect { return {row.x + (compact ? (row.width - 30) * 0.5f : 5), row.y, 30, row.height}; }
         static auto NavigationLabel(const rect& row) -> rect { return {row.x + 38, row.y, row.width - 46, row.height}; }
 
-        auto OptionRow(int visibleIndex) const -> rect
+        auto RowsHeight(const int rows) const -> float
+        { return this->RowTop(this->first_row_ + rows) - this->RowTop(this->first_row_); }
+        auto OptionRow(const int visibleIndex) const -> rect
         {
-            constexpr float columnGap = 10.0f;
-            const float width = std::max(1.0f, (this->ContentWidth() - columnGap) * 0.5f);
-            return {
-                this->ContentX() + static_cast<float>(visibleIndex % 2) * (width + columnGap),
-                this->bounds_.y + this->OptionsTop() + static_cast<float>(visibleIndex / 2) * row_height,
-                width,
-                row_height};
+            const int row = this->RowForSlot(visibleIndex);
+            const int column = visibleIndex - this->FirstSlotForRow(row);
+            const float width = std::max(1.0f, (this->OptionsWidth() - column_gap * (this->Columns() - 1)) / this->Columns());
+            return {this->ContentX() + column * (width + column_gap),
+                this->bounds_.y + this->OptionsTop() + this->RowsHeight(row), width,
+                this->RowHeight(this->first_row_ + row)};
         }
 
         auto Category(size_t index, size_t count) const -> rect
@@ -121,14 +172,17 @@ namespace xiui::ui
         auto Section(size_t index, size_t count = 2) const -> rect
         {
             if (count == 0 || index >= count) return {};
-            const float available = this->bounds_.width - sidebar_width - content_inset * 2;
+            const float available = this->bounds_.width - this->SidebarWidth() - content_inset * 2;
             const float width = (available - 6 * static_cast<float>(count - 1)) / static_cast<float>(count);
-            return {this->bounds_.x + sidebar_width + content_inset + static_cast<float>(index) * (width + 6), this->bounds_.y + 35, width, 26};
+            return {this->bounds_.x + this->SidebarWidth() + content_inset + static_cast<float>(index) * (width + 6), this->bounds_.y + 35, width, 26};
         }
 
         auto VisibleRows(void) const -> int
         {
-            return std::max(1, static_cast<int>((this->bounds_.height - this->OptionsTop() - 24.0f) / row_height));
+            const float height = this->ContentArea().height;
+            int rows{};
+            while (this->RowsHeight(rows + 1) <= height) ++rows;
+            return std::max(1, rows);
         }
 
         auto ColorEditor(const D3DVIEWPORT8& viewport) const -> rect
@@ -156,10 +210,10 @@ namespace xiui::ui
                 height};
         }
 
-        static auto SliderTrack(const rect& row) -> rect
+        static auto SliderTrack(const rect& row, const float labelWidth = -1) -> rect
         {
             const auto value = SliderValue(row);
-            const float x = row.x + row.width * 0.52f;
+            const float x = row.x + (labelWidth >= 0 ? labelWidth : row.width * 0.52f);
             return {x, row.y + 13.0f, std::max(1.0f, value.x - x - 6), 4.0f};
         }
 
@@ -214,11 +268,21 @@ namespace xiui::ui
         bool submenu_{};
         float extra_top_{};
         float selector_height_{};
+        bool scrollbar_{};
+        int first_card_row_{-1};
+        int first_row_{};
+        bool compact_sidebar_{};
+        auto SidebarReserve(void) const -> float { return this->compact_sidebar_ ? 144.0f : 84.0f; }
+        auto RowHeight(const int row) const -> float
+        { return this->first_card_row_ >= 0 && row >= this->first_card_row_ ? 104.0f : row_height; }
+        auto RowTop(const int row) const -> float
+        { return row * row_height + (this->first_card_row_ >= 0 ? std::max(0, row - this->first_card_row_) * 48.0f : 0); }
         auto SectionHeight(void) const -> float { return this->sections_ ? 34.0f : 0.0f; }
         auto ContentTop(void) const -> float { return (this->submenu_ ? 35.0f : grid_y) + this->SectionHeight(); }
         auto OptionsTop(void) const -> float { return this->ContentTop() + this->extra_top_ + this->selector_height_; }
 
-        auto ContentX(void) const -> float { return this->bounds_.x + sidebar_width + (this->submenu_ ? submenu_width : 0) + content_inset; }
-        auto ContentWidth(void) const -> float { return std::max(1.0f, this->bounds_.width - sidebar_width - (this->submenu_ ? submenu_width : 0) - content_inset * 2.0f); }
+        auto ContentX(void) const -> float { return this->bounds_.x + this->SidebarWidth() + (this->submenu_ ? submenu_width : 0) + content_inset; }
+        auto ContentWidth(void) const -> float { return std::max(1.0f, this->bounds_.width - this->SidebarWidth() - (this->submenu_ ? submenu_width : 0) - content_inset * 2.0f); }
+        auto OptionsWidth(void) const -> float { return std::max(1.0f, this->ContentWidth() - (this->scrollbar_ ? 18 : 0)); }
     };
 } // namespace xiui::ui

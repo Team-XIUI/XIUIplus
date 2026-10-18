@@ -14,6 +14,8 @@ namespace xiui
     public:
         explicit settings_store(std::string path);
         static auto FromIniText(std::string_view text) -> settings_store;
+        static auto CachedFile(std::string path) -> settings_store;
+        static auto AtomicFile(std::string path) -> settings_store;
         auto ReadString(const char* section, const char* key, const char* fallback = "") const -> std::string;
         auto WriteString(const char* section, const char* key, const std::string& value) const -> void;
         auto Preferences(std::string path) const -> settings_store;
@@ -43,9 +45,13 @@ namespace xiui
         };
 
         std::string path_{};
+        bool cache_sections_{};
+        bool atomic_file_{};
+        mutable std::map<std::string, std::map<std::string, std::string, key_less>, key_less> reads_{};
         mutable std::map<std::string, std::map<std::string, std::string, key_less>, key_less> writes_{};
 
         auto PendingValue(const char* section, const char* key) const -> const std::string*;
+        auto CachedValue(const char* section, const char* key) const -> const std::string*;
         auto ReadText(const char* section, const char* key, const char* fallback, char* value, DWORD size) const -> void;
         auto WriteText(const char* section, const char* key, const char* value) const -> void;
     };

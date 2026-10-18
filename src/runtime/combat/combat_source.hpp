@@ -14,6 +14,8 @@ namespace xiui
         uint16_t id{}, spell{};
         uint64_t observed{}, expires{};
         bool uncertain{};
+        bool estimated{};
+        uint64_t earliest{};
     };
 
     struct combat_cast
@@ -42,10 +44,11 @@ namespace xiui
     public:
         static constexpr size_t capacity = 128, status_capacity = 32;
         auto Clear(void) -> void;
+        auto SetRules(int rules) -> void { if (this->rules_ != rules) { this->Clear(); this->rules_ = rules; } }
         auto Update(IAshitaCore* core, uint64_t now) -> void;
         auto HandlePacket(IAshitaCore* core, uint16_t id, std::span<const uint8_t> data, uint64_t now) -> void;
         auto Observe(const combat_action& action, IResourceManager* resources, uint64_t now) -> void;
-        auto ApplyStatus(uint32_t target, uint32_t status, uint32_t spell, uint32_t message, uint64_t now, bool uncertain = false, uint32_t duration = 0) -> void;
+        auto ApplyStatus(uint32_t target, uint32_t status, uint32_t spell, uint32_t message, uint64_t now, uint32_t seconds = 0) -> void;
         auto Find(uint32_t id) const -> const combat_actor*;
         auto Prune(uint64_t now) -> void;
         auto Count(void) const -> size_t { return this->actors_.size(); }
@@ -54,6 +57,7 @@ namespace xiui
         std::unordered_map<uint32_t, combat_actor> actors_{};
         uint32_t player_{}, zone_{};
         uint64_t next_update_{};
+        int rules_{};
         auto Actor(uint32_t id, uint64_t now) -> combat_actor&;
     };
 }

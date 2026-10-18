@@ -18,8 +18,11 @@ namespace xiui
         auto ResetDefaults(const ui::theme&) -> void override;
         auto Load(const settings_store& store) -> void override;
         auto Save(const settings_store& store) const -> void override;
-        auto OptionCount(void) const -> size_t override { return native_hud_options.size() + 1; }
+        static constexpr size_t hide_all_option = native_hud_options.size() + 1;
+        static constexpr size_t show_all_option = hide_all_option + 1;
+        auto OptionCount(void) const -> size_t override { return show_all_option + 1; }
         auto Option(size_t index) -> module_option override;
+        auto OnOptionChanged(size_t index) -> void override;
         auto ConfigSections(void) const -> std::span<const module_config_section> override;
         auto ConfigSectionContains(size_t section, size_t option) -> bool override { return section == 0 && option < this->OptionCount(); }
         auto ShouldRender(const hud_snapshot&) const -> bool override { return false; }
@@ -27,6 +30,7 @@ namespace xiui
         auto SetAvailable(uint32_t mask) -> void { this->available_ = mask; }
         auto HiddenMask(void) const -> uint32_t { return this->preferences_.HiddenMask(); }
         auto SetShown(std::string_view key, bool shown) -> bool;
+        auto HideAll(void) -> void { this->preferences_.enabled = true; this->preferences_.shown.fill(false); }
         auto ShowAll(void) -> void { this->preferences_.shown.fill(true); }
 
     private:

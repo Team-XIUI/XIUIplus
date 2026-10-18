@@ -11,10 +11,10 @@ namespace xiui::ui
     {
         auto& right = window.patches[5];
         const auto& left = window.patches[3];
-        // Stock Type 7 assigns a different blend and intensity to its right edge.
+        // Match the stock Type 7 edge intensity without changing its artwork.
         if (type == 6 && right.additive && !left.additive &&
-            std::all_of(right.colors.begin(), right.colors.end(), [](const auto color) { return color == 0x7F7F7F7F; }) &&
-            std::all_of(left.colors.begin(), left.colors.end(), [](const auto color) { return color == 0x60606060; }))
+            std::all_of(right.colors.begin(), right.colors.end(), [](const auto color) { return color == 0xC0808080; }) &&
+            std::all_of(left.colors.begin(), left.colors.end(), [](const auto color) { return color == 0x91616161; }))
         {
             right.colors = left.colors;
             right.additive = left.additive;
@@ -155,6 +155,24 @@ namespace xiui::ui
         return {bounds.x + xInset, bounds.y + yInset, std::max(0.0f, bounds.width - xInset * 2.0f), std::max(0.0f, bounds.height - yInset * 2.0f)};
     }
 
+    auto container_renderer::DrawTooltip(const design_system& design, const rect& bounds) const -> rect
+    {
+        auto style = TooltipStyle();
+        const auto& window = this->windows_[this->selected_];
+        if (window.source)
+        {
+            const auto& skin = window.variants[0];
+            const float available = std::max(0.0f, std::min(bounds.width, bounds.height)) * 0.5f;
+            const float inset = style.edge_size + style.padding;
+            // Scale the entire frame together so short tooltips retain matching corners and edges.
+            style.edge_size = std::min(style.edge_size, available * skin.edge_size / std::max(1.0f, skin.corner_size));
+            style.padding = inset - style.edge_size;
+        }
+        design.FillRect(bounds, 0xFF000000);
+        const std::array fills{container_fill{bounds, 0xA0000000}};
+        return this->Draw(design, bounds, style, fills);
+    }
+
     auto container_renderer::Draw(const design_system& design, const rect& bounds, const container_style& style, const std::span<const container_fill> fills, const horizontal_fade* fade) const -> rect
     {
         const auto& window = this->windows_[this->selected_];
@@ -183,8 +201,17 @@ namespace xiui::ui
                     else design.FillRect({left, top, right - left, bottom - top}, color);
                 }
             }
-            DrawNineSlice(design, skin, bounds, scale, style.opacity, false, fade);
+            this->DrawFrame(design, bounds, style, fade);
         }
         return ContentBounds(bounds, style);
+    }
+
+    auto container_renderer::DrawFrame(const design_system& design, const rect& bounds, const container_style& style, const horizontal_fade* fade) const -> void
+    {
+        const auto& window = this->windows_[this->selected_];
+        if (!window.source || !style.border) return;
+        const auto& skin = window.variants[style.scan_lines ? 1 : 0];
+        const float scale = style.edge_size / window.source->patches[1].height;
+        DrawNineSlice(design, skin, bounds, scale, style.opacity, false, fade);
     }
 } // namespace xiui::ui

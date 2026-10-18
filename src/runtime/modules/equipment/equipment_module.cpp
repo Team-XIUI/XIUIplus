@@ -103,23 +103,24 @@ namespace xiui
         static constexpr const char* profiles[]{"Heading", "Slot labels", "Ammo count", "Item tooltip"};
         switch (index)
         {
-        case enabled: return module_option::Toggle("Enabled", "Show all sixteen equipment slots with their native item icons.", &this->state_.enabled);
+        case enabled: return module_option::Toggle("Enabled", "Show all sixteen equipment slots with their native item icons.", &this->state_.enabled).Ordered(-50);
         case heading: return module_option::Toggle("Heading", "Show Equipment above the grid.", &this->heading_);
         case ammo: return module_option::Toggle("Ammo count", "Show the actual stack count over the Ammo slot.", &this->ammo_);
-        case empty_labels: return module_option::Toggle("Empty-slot labels", "Show a slot name when no item is equipped.", &this->empty_labels_);
+        case empty_labels: return module_option::Toggle("Empty-slot labels", "Show a slot name when no item is equipped.", &this->empty_labels_).VisibleWhen(!this->slot_labels_);
         case slot_labels: return module_option::Toggle("Slot labels", "Show each slot's name below its icon.", &this->slot_labels_);
         case tooltips: return module_option::Toggle("Item tooltips", "Hover a slot to see its item name and source bag; does not capture input.", &this->tooltips_);
-        case icon_size: return module_option::Slider("Icon size", "Native item icon size in pixels.", &this->icon_size_, 16, 64, 1);
-        case layout: return module_option::Choice("Grid", "Keep the native equipment order while changing row length.", &this->layout_, layouts, 3);
-        case spacing: return module_option::Slider("Slot spacing", "Pixels between equipment slots.", &this->spacing_, 0, 24, 1);
-        case inset: return module_option::Slider("Icon padding", "Pixels between the native slot frame and item icon.", &this->inset_, 0, 12, 1);
-        case background: return module_option::Toggle("Container", "Use the shared container for the complete equipment window.", &this->background_, module_option_group::appearance);
-        case slot_frames: return module_option::Toggle("Slot frames", "Use the current native Window Type for individual slots.", &this->slot_frames_, module_option_group::appearance);
-        case opacity: return module_option::Slider("Container opacity", "Opacity of the outer container and slot frames.", &this->container_.opacity, 0, 1, 0.05f, module_option_group::appearance);
-        case padding: return module_option::Slider("Container padding", "Space inside the equipment window's native frame.", &this->container_.padding, 0, 24, 1, module_option_group::appearance);
-        case icon_opacity: return module_option::Slider("Icon opacity", "Opacity of the equipment icons.", &this->icon_opacity_, 0.1f, 1, 0.05f, module_option_group::appearance);
+        case icon_size: return module_option::Slider("Icon size", "Native item icon size in pixels.", &this->icon_size_, 16, 64, 1).Ordered(110);
+        case layout: return module_option::Choice("Grid", "Keep the native equipment order while changing row length.", &this->layout_, layouts, 3).Ordered(-30);
+        case spacing: return module_option::Slider("Slot spacing", "Pixels between equipment slots.", &this->spacing_, 0, 24, 1).Ordered(300, true);
+        case inset: return module_option::Slider("Icon padding", "Pixels between the native slot frame and item icon.", &this->inset_, 0, 12, 1).Ordered(402);
+        case background: return module_option::Toggle("Container", "Use the shared container for the complete equipment window.", &this->background_, module_option_group::appearance).Ordered(-10);
+        case slot_frames: return module_option::Toggle("Slot frames", "Decorative slot windows. Native item quality borders are part of each icon and remain visible with frames off.", &this->slot_frames_, module_option_group::appearance).Ordered(470);
+        case opacity: return module_option::Slider("Container opacity", "Opacity of the outer container and slot frames.", &this->container_.opacity, 0, 1, 0.05f, module_option_group::appearance).Ordered(450).VisibleWhen(this->background_ || this->slot_frames_);
+        case padding: return module_option::Slider("Container padding", "Space inside the equipment window's native frame.", &this->container_.padding, 0, 24, 1, module_option_group::appearance).Ordered(402).VisibleWhen(this->background_);
+        case icon_opacity: return module_option::Slider("Icon opacity", "Opacity of the equipment icons.", &this->icon_opacity_, 0.1f, 1, 0.05f, module_option_group::appearance).Ordered(450);
         case selected_text: return module_option::Element("Selected text", "Configure each text element independently.", &this->selected_text_, profiles, 4, module_option_group::text);
-        default: return TextProfileOption(index - base_options, this->text_[this->selected_text_]);
+        default: return TextProfileOption(index - base_options, this->text_[this->selected_text_]).VisibleWhen(
+            this->selected_text_ == 0 ? this->heading_ : this->selected_text_ == 2 ? this->ammo_ : this->selected_text_ == 3 ? this->tooltips_ : true);
         }
     }
 
@@ -194,7 +195,7 @@ namespace xiui
             const float height = inset * 2 + lineHeight + captionHeight;
             const float left = std::clamp(at.x + at.width + 8, viewport.x + 8, std::max(viewport.x + 8, viewport.x + viewport.width - width - 8));
             const float top = std::clamp(at.y, viewport.y + 8, std::max(viewport.y + 8, viewport.y + viewport.height - height - 8));
-            const auto content = context.DrawContainer({left, top, width, height}, {1, 5, 8, false});
+            const auto content = context.DrawTooltip({left, top, width, height});
             context.DrawText(name, {content.x, content.y, content.width, lineHeight}, content, this->text_[3]);
             auto caption = this->text_[1]; caption.style.alignment = ui::text_alignment::left;
             context.DrawText(details.c_str(), {content.x, content.y + lineHeight, content.width, captionHeight}, content, caption);

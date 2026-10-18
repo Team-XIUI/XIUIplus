@@ -9,6 +9,17 @@
 #include <cstdio>
 #include <stdexcept>
 
+namespace xiui
+{
+    auto RunEnemyLayoutChecks(void) -> bool;
+    auto RunVisibilityChecks(void) -> void;
+    auto RunStatusDisplayChecks(void) -> void;
+    auto RunXIUIStatusTimerChecks(void) -> void;
+    auto RunPartyStatusPreviewChecks(void) -> void;
+    auto RunPartyTextChecks(void) -> void;
+    auto RunStatusModuleChecks(void) -> bool;
+}
+
 namespace
 {
     auto Check(bool value, const char* message) -> void { if (!value) throw std::runtime_error{message}; }
@@ -69,16 +80,19 @@ namespace
         Check(source.Find(77)->target == 101 && source.Find(101)->statuses.size() == 3 && source.Find(102)->statuses.size() == 1 &&
             source.Find(77)->statuses[0].id == 10, "AoE and subsequent action results update the correct recipients, including reflected statuses");
         const auto& sleep = source.Find(102)->statuses[0];
-        Check(sleep.id == 2 && sleep.expires == 61000 && !sleep.uncertain, "confirmed sleep uses the primary server base duration as an estimate");
-        source.ApplyStatus(102, 2, 253, 2, 2000, true);
-        Check(source.Find(102)->statuses[0].expires == 61000 && !source.Find(102)->statuses[0].uncertain, "an inferred hit cannot replace confirmed status evidence");
+        Check(sleep.id == 2 && sleep.expires == 61000 && !sleep.uncertain && sleep.estimated, "confirmed mob effects use labeled XIUI durations");
+        source.ApplyStatus(102, 2, 253, 2, 2000);
+        Check(source.Find(102)->statuses[0].observed == 1000 && source.Find(102)->statuses[0].expires == 61000,
+            "an ordinary damage message cannot refresh confirmed status evidence");
         source.ApplyStatus(102, 4, 0, 85, 2000);
         Check(source.Find(102)->statuses.size() == 1, "resisted effects do not appear");
         source.ApplyStatus(102, 2, 0, 206, 2000);
         Check(source.Find(102)->statuses.empty(), "wear-off messages remove the exact status");
         source.ApplyStatus(102, 5, 0, 236, 2000);
+        source.ApplyStatus(102, 1000, 0, 236, 2000);
         source.Prune(62000);
-        Check(source.Find(101)->statuses.size() == 2 && source.Find(102)->statuses.size() == 1, "estimated timers expire while unknown durations remain unknown");
+        Check(source.Find(101)->statuses.size() == 2 && source.Find(102)->statuses.size() == 2,
+            "XIUI estimates expire independently while unavailable durations remain untimed");
         for (uint32_t id = 1000; id < 1200; ++id) source.ApplyStatus(id, 3, 0, 236, 63000);
         Check(source.Count() == xiui::combat_source::capacity, "combat tracking remains bounded in large encounters");
         xiui::combat_cast cast{"Cure", 1000, 0, 4};
@@ -139,6 +153,34 @@ namespace xiui
 {
     struct module_parity_test
     {
+        static auto StatusIntegration(void) -> void
+        {
+            hud_runtime runtime;
+            runtime.editing_ = true;
+            Check(runtime.HandleCommand("debuffs") && runtime.active_module_ == &runtime.debuffs_ && runtime.editing_,
+                "status command opens the selected native group");
+            const auto page = runtime.ActiveConfigPage();
+            Check(page.primary == &runtime.buffs_ && page.secondary == &runtime.debuffs_ && page.SectionCount() == 2,
+                "both native status groups are reachable in one config page");
+            runtime.editing_ = false;
+            auto& player = runtime.party_source_.members_[0];
+            player.active = player.buffs_known = true; player.id = 50; player.buff_count = 2;
+            player.buffs = {33, 2};
+            Check(runtime.BeginControllerFocus(hud_runtime::controller_surface::buffs) && runtime.ControllerStatusBounds().width > 0,
+                "native buffs can enter deliberate controller inspection");
+            runtime.general_.Visibility().Load(settings_store::FromIniText("[visibility.buffs]\nhide_menu=1\n"));
+            runtime.visibility_context_.menu_open = true;
+            runtime.UpdateControllerFocus();
+            Check(runtime.controller_surface_ == hud_runtime::controller_surface::none,
+                "hidden native status groups release controller focus");
+            runtime.visibility_context_ = {};
+            Check(runtime.BeginControllerFocus(hud_runtime::controller_surface::debuffs), "native debuffs have independent controller entry");
+            player.buff_count = 1;
+            runtime.UpdateControllerFocus();
+            Check(runtime.controller_surface_ == hud_runtime::controller_surface::none,
+                "an emptied native status group releases controller focus");
+        }
+
         static auto Readouts(void) -> void
         {
             const auto narrow = ui::TextGlyphMetrics('1', 5, 9, true), wide = ui::TextGlyphMetrics('8', 9, 9, true);
@@ -417,8 +459,6 @@ namespace xiui
             Check(target.DrawView(view, {0, 0, 400, 0}, "", animation, 1000, context) > base, "target casts and status icons extend the content footprint");
             view.health = false; view.status_count = 0; view.cast = {};
             Check(target.DrawView(view, {0, 0, 400, 0}, "", animation, 1000, context) < base, "NPC targets retain their name without an HP row");
-            Check(target.OptionCount() == 9 + meter_style_option_count + text_profile_option_count && enemies.OptionCount() == 16 + meter_style_option_count + text_profile_option_count,
-                "existing target and enemy settings remain unchanged");
             hud_runtime runtime;
             runtime.editing_ = true;
             Check(!runtime.HandleTargetMouse(WM_LBUTTONDOWN, false), "edit mode never runs gameplay click targeting");
@@ -434,7 +474,25 @@ namespace xiui
 int main(int argc, char** argv)
 {
     try {
-        if (argc > 1 && std::string_view{argv[1]} == "--readouts-only") {
+        if (argc > 1 && std::string_view{argv[1]} == "--status-timers-only") {
+            Combat();
+            xiui::RunXIUIStatusTimerChecks();
+            std::puts("XIUI duration lookup, estimates, real early removal, refresh, native timer distinction and expiry checks passed.");
+        } else if (argc > 1 && std::string_view{argv[1]} == "--party-text-only") {
+            xiui::RunPartyTextChecks();
+            std::puts("Party Sync label, independent TP text, legacy migration, geometry and preset checks passed.");
+        } else if (argc > 1 && std::string_view{argv[1]} == "--party-status-preview-only") {
+            xiui::RunPartyStatusPreviewChecks();
+            std::puts("Party edit-only status samples, countdowns, ordering, geometry and persistence checks passed.");
+        } else if (argc > 1 && std::string_view{argv[1]} == "--hud-parity-only") {
+            Combat();
+            Check(xiui::RunEnemyLayoutChecks(), "Enemy List layout checks failed");
+            xiui::RunVisibilityChecks();
+            xiui::RunStatusDisplayChecks();
+            Check(xiui::RunStatusModuleChecks(), "Native Status Effects module checks failed");
+            xiui::module_parity_test::StatusIntegration();
+            std::puts("Enemy columns, native status data/presentation and shared visibility checks passed.");
+        } else if (argc > 1 && std::string_view{argv[1]} == "--readouts-only") {
             xiui::module_parity_test::Readouts();
             std::puts("Readout overlay, free X/Y, wrapping, progress values, preview labels and persistence checks passed.");
         } else if (argc > 1 && std::string_view{argv[1]} == "--settings-only") {

@@ -1,0 +1,45 @@
+# Satchel
+
+Open or close the inventory browser with `/xiui satchel`. Use `/xiui satchel open`, `close`, `config` or `status` for explicit commands. Its settings are under **Inventory → Satchel**, alongside Dots, Equipment and Gil. Satchel retains its own position, text profiles and visibility rules.
+
+## Browsing
+
+Choose a bag or All bags from the left menu, which shows occupied-slot counts beside each bag and also holds the storage-slip picker. The profile icon at the top right opens a character dropdown beneath the button; it opens upward when needed to stay on-screen. Its tooltip identifies the current live or saved character. Search below the title bar by item name or ID; search can include every bag. Scroll over the grid or use Page Up/Down to change pages. The grid uses native item artwork, stack counts and equipped, bazaar and locked-state borders. Gil appears at the bottom right. Hover, click or focus the ? beside Close for the item-action hints. Item details show available descriptions, equipment slots, jobs/levels, Rare/Ex flags, enchantment charges and supported system-1 augments. Unsupported extended data is omitted.
+
+Drag the title bar to move the open window, or use the bottom-right grip to resize it freely, pixel by pixel. Item spacing tightens slightly before removing a row or column, keeping the artwork and frames at full size. Expanding adds rows/columns when their normal spacing fits. The grid reserves a scrollbar gutter only while overflowing. Small windows scroll the left bag/slip menu independently; the item grid shows a scrollbar when it has more pages. Both scrollbars support wheel input, track clicks and thumb dragging. Controller navigation keeps the focused bag or slip visible. Position and window dimensions save on release. Escape or input suspension cancels an unfinished move/resize. The character dropdown closes on an outside click or Cancel without changing characters. Mouse interactions hide navigation focus rings; keyboard/controller navigation reveals them.
+
+The **−** button immediately left of Close collapses Satchel to its draggable title bar. It becomes **+** to restore the previous grid size, bag, search and page. The collapsed state stays local to the session settings and survives runtime reloads. Ctrl+F also restores the window and focuses search. Hidden contents cannot receive clicks or controller focus.
+
+Display sorting in Satchel settings offers Custom order, Name, Item ID and Quantity. Drag between occupied grid cells to arrange the display; this does not move items on the server. Custom layouts stay local to the character and bag/slip view. Item fingerprints preserve order through slot compaction where possible; identical stacks use a deterministic occurrence order.
+
+## Item actions
+
+Right-click an item, or focus it and activate, to open actions. Choose a destination and quantity to move items, split stacks, use an eligible item on yourself, choose an equipment slot, set/remove a bazaar price, or drop a selected quantity. Drop opens a separate confirmation with Cancel selected. Items requiring another use target remain available through the game's native item menu.
+
+Drag an item onto a bag in the left menu to transfer it. Double-click targets Satchel for Inventory items and Inventory for other bags; an unavailable destination opens the destination picker. All paths use the same service and recheck the real item slot, character, loading state, locks, equipped/bazaar state, destination access, capacity and stack compatibility immediately before sending.
+
+Server Sort is separate from display sorting. Optional autosort runs once after an observed Satchel move/split; it does not react to its own sort updates. Item actions are disabled in cached/slip views and when Read only is enabled. Temporary items cannot transfer between bags. Home storage requires observed Mog House access. A runtime first loaded inside a Mog House may require leaving and reentering before home-storage transfers become available.
+
+Actions remain pending until an appropriate inventory/equipment change is observed, or report that no confirming change arrived before timeout. Zoning, character changes, hidden/suspended input and native menu ownership cancel observation. Cancellation cannot undo a packet already submitted.
+
+## Saved characters and storage slips
+
+The character picker lists locally observed characters. After inventory loading has completed and a snapshot has settled, XIUI saves bags, gil and full item extra data under `config/xiuinative-inventories/<server-or-world-character>.ini`. Each character has an independent asynchronous atomic writer, so different game clients cannot replace each other's character files. Up to 64 characters are retained. Existing valid snapshots survive incomplete loading; unsupported/corrupt files are skipped.
+
+Saved characters are read only and show a Last observed time. Their inventory is refreshed when that character is logged in with XIUI. Stable world/character identity is preferred. Private clients without native world identity can use the current process's observed login-server endpoint, requiring matching established data/auth connections on the standard 54230/54231 ports. Ambiguous local identity alone is never cached. Observation files and custom item layouts are excluded from portable HUD profiles and share keys.
+
+The slip picker lists owned Porter Moogle slips and decodes the stored-item bits for all 28 supported catalogs. Stored items share the search, paging and tooltip presentation, including saved characters' slips. Viewing a slip does not deposit or withdraw items. Truncated or unknown slip payloads produce no fabricated contents. Catalog attribution and the upstream MIT notice are embedded with the plugin.
+
+## Input
+
+Use `/xiui focus satchel` or choose Satchel in `/xiui focus` for controller browsing. Directions navigate items across pages, Next/Previous tab switches bags, and Cycle window moves through the grid, bags, character/slip pickers, search, help, minimize/restore, title bar, resize grip and Close. Up/Down moves through the focused bag menu. Confirm/Actions opens the focused control; Cancel backs out or closes. Confirm on the title bar or resize grip starts adjustment: directions move or resize, Confirm saves, and Cancel restores the starting layout. Minimized browsing cycles through visible title-bar controls only. Numeric dialogs support direction adjustments; search accepts keyboard typing. Focused items show the same details as pointer hover.
+
+Ctrl+F focuses search whenever Satchel is open and available for input, without requiring a prior click. It selects the current query for replacement. Escape leaves search and returns movement to the game while retaining the query; Enter explicitly enters keyboard grid browsing. Arrow keys, Enter, Escape, Tab/F6 and Page Up/Down share its operations while browsing.
+
+Mouse clicks use temporary input ownership for an active editor, popup or window gesture. Dismissing or selecting a mouse-opened popup returns movement immediately; clicking bags, items, Help, scrollbars or blank space does not enter keyboard browsing. Clicking away from search releases its text focus. Ending controller browsing closes its transient editors/dialogs, and lost mouse capture cancels an unfinished gesture. Native menus, chat typing, targeting, cutscenes, zoning and lost foreground focus suspend Satchel input. Owned button/key releases are still consumed after dismissal. Search and focus do not activate an item. Held confirmation cannot repeat an item action or accept a newly opened drop confirmation.
+
+The native `/satchel` and `/satch` aliases are intercepted only when **Override /satchel** is explicitly enabled in Satchel settings.
+
+## Recorded validation
+
+On October 16, the x86 host/runtime builds and focused Satchel action, source/cache/slip and UI checks passed. AgentLink confirmed runtime **20:12:10** hot-reloaded at **20:12:26**, GPU text, the existing open configuration state, settled live bags and the first server-scoped cached character. Installed into the active PhoenixXI development setup; no automated live item actions or visual/gameplay checks were performed. Source/cache checks include matching/ambiguous login endpoints and identical character IDs on different servers.

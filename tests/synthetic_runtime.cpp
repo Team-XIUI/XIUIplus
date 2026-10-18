@@ -91,6 +91,10 @@ namespace
         return FALSE;
     }
     auto __stdcall chat_focused(void* instance) -> BOOL { return as_state(instance)->chat_focused; }
+    auto __stdcall handle_controller(void*, const xiui::controller_event*) -> BOOL { return FALSE; }
+    auto __stdcall controller_input_state(void*) -> uint32_t { return 0; }
+    auto __stdcall update_controller_status(void*, const xiui::controller_status*) -> void {}
+    auto __stdcall crossbar_settings(void*, xiui::controller_crossbar_settings* settings) -> void { if (settings) *settings = {}; }
     auto __stdcall handle_command(void* instance, const char* command) -> BOOL
     {
         char count[40]{}; sprintf_s(count, "chatcount %u", as_state(instance)->chat_count);
@@ -159,6 +163,10 @@ extern "C" __declspec(dllexport) auto __stdcall XiuiGetRuntimeApi(const uint32_t
     result.handle_chat = &handle_chat;
     result.handle_key = &handle_key;
     result.chat_focused = &chat_focused;
+    result.handle_controller = &handle_controller;
+    result.controller_input_state = &controller_input_state;
+    result.update_controller_status = &update_controller_status;
+    result.crossbar_settings = &crossbar_settings;
     *api = result;
     return TRUE;
 }

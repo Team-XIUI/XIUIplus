@@ -141,52 +141,46 @@ namespace xiui
         static constexpr const char* colors[]{"Smooth transition", "Thresholds", "Fixed"};
         static constexpr const char* profiles[]{"Action name", "Countdown", "Heading"};
         if (index >= base_options + meter_style_option_count)
-            return TextProfileOption(index - base_options - meter_style_option_count, this->text_[this->selected_text_]);
+            return TextProfileOption(index - base_options - meter_style_option_count, this->text_[this->selected_text_]).VisibleWhen(
+                this->selected_text_ == 0 || (this->selected_text_ == 1 ? this->timer_ : this->heading_));
         if (index >= base_options)
         {
             const auto field = index - base_options;
             auto option = MeterStyleOption(field, this->meter_);
-            option.available &= this->display_ == 0;
-            if (this->display_ != 0) option.description = "Choose Bars + icons to use bar styling.";
-            if (field == 16 || field == 17)
-            {
-                option.available = false;
-                option.description = "Cooldown progress follows the native timer directly.";
-            }
-            return option;
+            return option.VisibleWhen(this->display_ == 0 && field != 16 && field != 17);
         }
-        const auto barOption = [&](module_option option) { option.available = this->display_ == 0; return option; };
+        const auto barOption = [&](module_option option) { return option.VisibleWhen(this->display_ == 0); };
         switch (index)
         {
-        case enabled: return module_option::Toggle("Enabled", "Show your active spell and ability cooldowns.", &this->state_.enabled);
-        case display: return module_option::Choice("Display", "Choose illustrated cooldown bars or a compact text-only list.", &this->display_, displays, 2);
+        case enabled: return module_option::Toggle("Enabled", "Show your active spell and ability cooldowns.", &this->state_.enabled).Ordered(-50);
+        case display: return module_option::Choice("Display", "Choose illustrated cooldown bars or a compact text-only list.", &this->display_, displays, 2).Ordered(-30);
         case abilities: return module_option::Toggle("Job abilities", "Include shared recast groups and charge abilities.", &this->abilities_);
         case spells: return module_option::Toggle("Spells", "Include spells currently on cooldown.", &this->spells_);
         case icons: return barOption(module_option::Toggle("Action icons", "Show spell and ability artwork beside the bars.", &this->icons_));
         case heading: return module_option::Toggle("Heading", "Show Recast above the list.", &this->heading_);
         case timer: return module_option::Toggle("Countdown", "Show remaining cooldown or Ready after completion.", &this->timer_);
-        case charges: return module_option::Toggle("Charge count", "Show available and maximum charges beside charge abilities.", &this->charges_);
-        case tenths: return module_option::Toggle("Tenths", "Show tenths of a second below one minute.", &this->tenths_);
+        case charges: return module_option::Toggle("Charge count", "Show available and maximum charges beside charge abilities.", &this->charges_).VisibleWhen(this->abilities_);
+        case tenths: return module_option::Toggle("Tenths", "Show tenths of a second below one minute.", &this->tenths_).VisibleWhen(this->timer_);
         case tint_text: return module_option::Toggle("Cooldown text colors", "Tint names and timers as readiness approaches, retaining text effects.", &this->tint_text_);
-        case background: return module_option::Toggle("Container background", "Draw a native game window behind the list.", &this->background_);
+        case background: return module_option::Toggle("Container background", "Draw a native game window behind the list.", &this->background_).Ordered(-10);
         case width: return ModuleWidthOption(this->state_);
-        case maximum_rows: return module_option::Slider("Maximum rows", "Maximum cooldowns visible at once, using the selected sort order.", &this->maximum_rows_, 1, 20, 1);
-        case row_height: return module_option::Slider("Row height", "Minimum height of each row; text and icons retain enough room.", &this->row_height_, 16, 80, 1);
-        case spacing: return module_option::Slider("Spacing", "Gap between cooldown rows.", &this->spacing_, 0, 32, 1);
-        case icon_size: return barOption(module_option::Slider("Icon size", "Spell and ability icon size in pixels.", &this->icon_size_, 12, 64, 1));
-        case anchor: return module_option::Choice("Anchor", "Fill from this edge, with icons and action names on the same side.", &this->anchor_, anchors, 2);
+        case maximum_rows: return module_option::Slider("Maximum rows", "Maximum cooldowns visible at once, using the selected sort order.", &this->maximum_rows_, 1, 20, 1).Ordered(122);
+        case row_height: return module_option::Slider("Row height", "Minimum height of each row; text and icons retain enough room.", &this->row_height_, 16, 80, 1).Ordered(112);
+        case spacing: return module_option::Slider("Spacing", "Gap between cooldown rows.", &this->spacing_, 0, 32, 1).Ordered(300, true);
+        case icon_size: return barOption(module_option::Slider("Icon size", "Spell and ability icon size in pixels.", &this->icon_size_, 12, 64, 1).Ordered(110)).VisibleWhen(this->icons_);
+        case anchor: return module_option::Choice("Anchor", "Fill from this edge, with icons and action names on the same side.", &this->anchor_, anchors, 2).Ordered(200);
         case sorting: return module_option::Choice("Sort order", "Choose which cooldowns appear first.", &this->sorting_, sorts, 3);
         case fill_direction: return barOption(module_option::Choice("Fill behavior", "Grow as readiness approaches, or drain the remaining cooldown.", &this->fill_direction_, fills, 2));
         case ready_hold: return module_option::Slider("Ready display", "Seconds to retain a completed cooldown. Zero hides it immediately.", &this->ready_hold_, 0, 10, 0.5f);
-        case color_mode: return module_option::Choice("Color changes", "Blend toward ready, switch at time thresholds, or keep the cooldown colors.", &this->color_mode_, colors, 3);
-        case soon_seconds: return module_option::Slider("Approaching ready", "Seconds remaining before the approaching colors apply; kept above Nearly ready.", &this->soon_seconds_, 1, 300, 1);
-        case near_seconds: return module_option::Slider("Nearly ready", "Seconds remaining for the final transition toward ready colors.", &this->near_seconds_, 0, 60, 1);
-        case cooldown_top: return module_option::Color("Cooldown top", "Top of the bar while readiness is far away.", &this->cooldown_[0]);
-        case cooldown_bottom: return module_option::Color("Cooldown bottom", "Bottom of the bar and text tint while readiness is far away.", &this->cooldown_[1]);
-        case soon_top: return module_option::Color("Approaching top", "Top of the bar as readiness approaches.", &this->soon_[0]);
-        case soon_bottom: return module_option::Color("Approaching bottom", "Bottom of the bar and text tint as readiness approaches.", &this->soon_[1]);
-        case ready_top: return module_option::Color("Ready top", "Top of the bar as the timer becomes ready.", &this->ready_[0]);
-        case ready_bottom: return module_option::Color("Ready bottom", "Bottom of the bar and text tint as the timer becomes ready.", &this->ready_[1]);
+        case color_mode: return module_option::Choice("Color changes", "Blend toward ready, switch at time thresholds, or keep the cooldown colors.", &this->color_mode_, colors, 3).VisibleWhen(this->display_ == 0 || this->tint_text_);
+        case soon_seconds: return module_option::Slider("Approaching ready", "Seconds remaining before the approaching colors apply; kept above Nearly ready.", &this->soon_seconds_, 1, 300, 1).VisibleWhen((this->display_ == 0 || this->tint_text_) && this->color_mode_ != 2);
+        case near_seconds: return module_option::Slider("Nearly ready", "Seconds remaining for the final transition toward ready colors.", &this->near_seconds_, 0, 60, 1).VisibleWhen((this->display_ == 0 || this->tint_text_) && this->color_mode_ != 2);
+        case cooldown_top: return module_option::Color("Cooldown top", "Top of the bar while readiness is far away.", &this->cooldown_[0]).Ordered(500, true).VisibleWhen(this->display_ == 0);
+        case cooldown_bottom: return module_option::Color("Cooldown bottom", "Bottom of the bar and text tint while readiness is far away.", &this->cooldown_[1]).Ordered(501).VisibleWhen(this->display_ == 0 || this->tint_text_);
+        case soon_top: return module_option::Color("Approaching top", "Top of the bar as readiness approaches.", &this->soon_[0]).Ordered(510, true).VisibleWhen(this->display_ == 0 && this->color_mode_ != 2);
+        case soon_bottom: return module_option::Color("Approaching bottom", "Bottom of the bar and text tint as readiness approaches.", &this->soon_[1]).Ordered(511).VisibleWhen((this->display_ == 0 || this->tint_text_) && this->color_mode_ != 2);
+        case ready_top: return module_option::Color("Ready top", "Top of the bar as the timer becomes ready.", &this->ready_[0]).Ordered(520, true).VisibleWhen(this->display_ == 0 && this->color_mode_ != 2);
+        case ready_bottom: return module_option::Color("Ready bottom", "Bottom of the bar and text tint as the timer becomes ready.", &this->ready_[1]).Ordered(521).VisibleWhen((this->display_ == 0 || this->tint_text_) && this->color_mode_ != 2);
         case selected_text: return module_option::Element("Selected text", "Independent styled name, countdown and heading profiles.", &this->selected_text_, profiles, 3);
         default: return {};
         }

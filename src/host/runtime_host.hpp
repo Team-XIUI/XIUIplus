@@ -1,7 +1,9 @@
 #pragma once
 
 #include "runtime_api.hpp"
+#include "controller_mailbox.hpp"
 
+#include <atomic>
 #include <cstdint>
 #include <mutex>
 #include <string>
@@ -15,17 +17,24 @@ namespace xiui
         runtime_host(void);
         ~runtime_host(void);
 
-        auto Initialize(IAshitaCore* core, const char* installPath) -> bool;
+        auto Initialize(IAshitaCore* core, const char* installPath, native_macro_runner macroRunner = nullptr, void* macroContext = nullptr) -> bool;
         auto Shutdown(void) -> void;
         auto PollReload(std::string& message) -> bool;
         auto SetDevice(IDirect3DDevice8* device) -> void;
         auto Render(const hud_snapshot& snapshot) -> bool;
+        auto RenderWorld(const hud_snapshot& snapshot) -> bool;
         auto HandleMouseMessage(uint32_t message, WPARAM wParam, LPARAM lParam, bool blocked) -> bool;
 
         auto HandlePacket(uint16_t id, const uint8_t* data, uint32_t size) -> void;
         auto HandleChat(chat_event event) -> void;
         auto HandleKey(WPARAM key, LPARAM flags, bool blocked) -> bool;
         auto ChatFocused(void) const -> bool;
+        auto CrossbarSettings(void) const -> controller_crossbar_settings;
+        auto ControllerRevision(void) const -> uint32_t { return this->controller_mailbox_.State() & controller_revision_mask; }
+        auto HandleController(const controller_event& event, bool nativeMenuOpen = false) -> bool;
+        auto ControllerCapture(bool nativeMenuOpen = false) const -> controller_capture_mode;
+        auto SuspendControllerInput(void) -> void;
+        auto UpdateControllerStatus(const controller_status& status) -> void;
         auto HandleCommand(const char* command) -> bool;
         auto ToggleEdit(void) -> bool;
         auto ExitEdit(void) -> void;
@@ -44,6 +53,7 @@ namespace xiui
         auto GetPublishedPath(void) const -> std::string;
 
     private:
+        friend struct controller_host_test;
         enum class load_result : uint8_t
         {
             loaded,
@@ -60,7 +70,11 @@ namespace xiui
         };
 
         mutable std::recursive_mutex mutex_{};
+        controller_mailbox controller_mailbox_{};
+        std::atomic_bool keyboard_focused_{};
         IAshitaCore* core_{};
+        native_macro_runner macro_runner_{};
+        void* macro_context_{};
         IDirect3DDevice8* device_{};
         HMODULE module_{};
         runtime_api api_{};
@@ -86,6 +100,8 @@ namespace xiui
         uint64_t last_native_serial_{};
 
         auto TryLoadPublished(bool initial, const file_stamp& stamp, std::string& message) -> load_result;
+        auto RefreshInputState(void) -> void;
+        auto DrainControllerInput(void) -> void;
         auto ReadPublishedStamp(file_stamp& stamp) const -> bool;
         auto MakeShadowPath(void) -> std::string;
         static auto ValidateApi(const runtime_api& api) -> bool;

@@ -1,0 +1,6 @@
+701 RCDATA "@CMAKE_SOURCE_DIR@/assets/mobs/phoenix_mobs.bin"
+702 RCDATA "@CMAKE_SOURCE_DIR@/assets/mobs/README.md"
+703 RCDATA "@CMAKE_SOURCE_DIR@/assets/mobs/LICENSE-GPL-3.0.txt"
+704 RCDATA "@CMAKE_SOURCE_DIR@/assets/mobs/icons/physical.bgra"
+705 RCDATA "@CMAKE_SOURCE_DIR@/assets/mobs/icons/LICENSE.txt"
+706 RCDATA "@CMAKE_SOURCE_DIR@/assets/mobs/icons/detection.bgra"

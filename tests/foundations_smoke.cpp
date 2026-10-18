@@ -4,6 +4,7 @@
 #include "resources/menu_window.hpp"
 #include "resources/skill_names.hpp"
 #include "ui/nine_slice.hpp"
+#include "ui/clipped_quad.hpp"
 #include "world_projection.hpp"
 #include "native_hud_options.hpp"
 
@@ -135,6 +136,24 @@ namespace
 
     auto geometry_cases(void) -> bool
     {
+        using xiui::ui::textured_vertex;
+        const std::array<textured_vertex, 4> quad{{{9.75f, 19.25f, 0, 1, 0x20406080, 0, 0}, {29.75f, 19.25f, 0, 1, 0x6080A0C0, 1, 0},
+            {9.75f, 39.25f, 0, 1, 0xA0C0E0FF, 0, 1}, {29.75f, 39.25f, 0, 1, 0xFFE0C0A0, 1, 1}}};
+        const xiui::ui::rect exactClip{10.25f, 19.75f, 20, 20};
+        std::vector<textured_vertex> triangles;
+        xiui::ui::AppendClippedQuad(triangles, quad, exactClip);
+        constexpr int fan[]{0, 1, 3, 0, 3, 2};
+        if (!check(triangles.size() == 6, "fully contained glyphs retain both triangles on fractional inclusive clip edges")) return false;
+        for (size_t index = 0; index < triangles.size(); ++index)
+            if (!check(std::memcmp(&triangles[index], &quad[fan[index]], sizeof(textured_vertex)) == 0,
+                "inside clipping preserves exact fan order, colors, UVs and positions")) return false;
+        triangles.clear(); xiui::ui::AppendClippedQuad(triangles, quad, xiui::ui::rect{30.26f, 19.75f, 20, 20});
+        if (!check(triangles.empty(), "fully rejected glyphs produce no triangles just beyond the fractional clip edge")) return false;
+        triangles.clear(); xiui::ui::AppendClippedQuad(triangles, quad, xiui::ui::rect{20.25f, 19.75f, 10, 20});
+        const auto edge = std::find_if(triangles.begin(), triangles.end(), [](const auto& vertex) { return vertex.x == 19.75f && vertex.y == 19.25f; });
+        if (!check(edge != triangles.end() && edge->u == 0.5f && edge->v == 0 && edge->color == 0x406080A0,
+            "partially clipped controls keep interpolated edge colors and UVs")) return false;
+
         const auto frame = xiui::ui::LayoutNineSliceFrame({10, 20, 320, 160}, 24, 5);
         if (!check(frame[0].bounds.width == 24 && frame[1].bounds.height == 5 && frame[1].bounds.x == 34 &&
             frame[5].bounds.x == 325 && frame[5].bounds.width == 5 && frame[7].bounds.y == 175 &&

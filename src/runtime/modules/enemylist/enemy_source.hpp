@@ -40,6 +40,10 @@ namespace xiui
     private:
 #if defined(XIUI_ENABLE_PARITY_TESTS)
         friend struct module_parity_test;
+        friend struct enemy_list_layout_test;
+#endif
+#if defined(XIUI_ENABLE_INPUT_TESTS)
+        friend struct controller_module_test;
 #endif
         std::vector<enemy_entry> entries_{};
         std::unordered_set<uint32_t> group_{};

@@ -1,4 +1,5 @@
 #include "hud_runtime.hpp"
+#include "input/controller_movement_layout.hpp"
 
 #include <cmath>
 #include <cstdio>
@@ -76,6 +77,24 @@ namespace xiui
 {
     struct layout_grid_test
     {
+        static auto PartyEdge(void) -> bool
+        {
+            hud_runtime runtime;
+            runtime.editing_ = true;
+            runtime.party_.Load(settings_store::FromIniText("[party]\nstatus_placement=0\n[timing.party.swing]\ndisplay=1\n[timing.party.resting]\ndisplay=1\n"));
+            const D3DVIEWPORT8 viewport{0, 0, 1920, 1080, 0, 1};
+            auto& bounds = runtime.party_.State().bounds;
+            bounds.x = 4000;
+            ClampMovementPosition(bounds, runtime.MovementBounds(runtime.party_), viewport);
+            const auto placed = runtime.MovementBounds(runtime.party_);
+            if (!Check(Near(placed.x + placed.width, 1920), "party placement reaches the right edge without reserving edit padding or external timers")) return false;
+            const auto visual = runtime.party_.VisualBounds(true);
+            if (!Check(visual.x + visual.width > placed.x + placed.width, "party edit bounds still include the outside artwork and countdowns")) return false;
+            runtime.ClampLayout(viewport);
+            const auto after = runtime.MovementBounds(runtime.party_);
+            return Check(Near(after.x + after.width, 1920), "normal layout clamping preserves an edge-aligned party position");
+        }
+
         static auto Toolbar(void) -> bool
         {
             hud_runtime runtime;
@@ -97,16 +116,22 @@ namespace xiui
                 return runtime.ProcessPointerMessage(WM_LBUTTONUP, 0, viewport);
             };
             const auto before = runtime.MovementBounds(runtime.player_);
-            if (!Check(click(0), "Center X owns the full press/release even when its toolbar moves")) return false;
+            const auto dock = runtime.MovementToolbar(viewport);
+            if (!Check(dock && Near(dock->bounds.y, 4) && Near(dock->bounds.x + dock->bounds.width * 0.5f, 960) && dock->bounds.height <= 28,
+                "the compact movement strip is anchored at the top center of the screen")) return false;
+            if (!Check(click(0), "Center X owns the full press/release from the docked strip")) return false;
             auto visual = runtime.MovementBounds(runtime.player_);
             if (!Check(Near(visual.x + visual.width * 0.5f, 960) && Near(visual.y, before.y), "Center X centers the visual bounds without changing Y")) return false;
             const auto x = visual.x;
-            if (!Check(click(1), "Center Y captures release after moving away from the pointer")) return false;
+            if (!Check(click(1), "Center Y captures its complete click from the docked strip")) return false;
             visual = runtime.MovementBounds(runtime.player_);
             if (!Check(std::abs(visual.y + visual.height * 0.5f - 540) <= 0.5f && Near(visual.x, x), "Center Y centers the visual bounds without changing X")) return false;
+            const auto after = runtime.MovementToolbar(viewport);
+            if (!Check(after && Near(after->bounds.x, dock->bounds.x) && Near(after->bounds.y, dock->bounds.y),
+                "centering or moving the module leaves its screen toolbar in place")) return false;
             runtime.active_module_ = &runtime.inventory_[1]; runtime.inventory_[1].State().enabled = false;
             if (!Check(!runtime.MovementToolbar(viewport), "disabled inventory trackers have no movement toolbar")) return false;
-            const auto edge = ui::movement_toolbar::Above({0, 0, 100, 30}, {0, 0, 1920, 1080});
+            const auto edge = ui::movement_toolbar::AtTop({0, 0, 1920, 1080});
             return Check(edge.bounds.x >= 0 && edge.bounds.y >= 0 && edge.bounds.x + edge.bounds.width <= 1920 && edge.bounds.y + edge.bounds.height <= 1080,
                 "toolbar stays visible when a module touches the screen edge");
         }
@@ -159,8 +184,20 @@ namespace xiui
     };
 }
 
-int main(void)
+int main(int argc, char** argv)
 {
+    if (argc == 2 && std::string_view{argv[1]} == "--toolbar-only")
+    {
+        if (!xiui::layout_grid_test::Toolbar()) return 1;
+        std::puts("Docked movement strip, centering actions and pointer capture checks passed.");
+        return 0;
+    }
+    if (argc == 2 && std::string_view{argv[1]} == "--party-edge-only")
+    {
+        if (!xiui::layout_grid_test::PartyEdge()) return 1;
+        std::puts("Party edge placement and layout clamping checks passed.");
+        return 0;
+    }
     if (!Snapping() || !Preferences() || !xiui::layout_grid_test::Dragging() || !xiui::layout_grid_test::Toolbar()) return 1;
     std::puts("Grid/element snapping, preview drags, hidden inventory, preferences and centering toolbar capture checks passed.");
     return 0;

@@ -6,6 +6,9 @@
 
 namespace xiui
 {
+    // Macro replacement policy; separate from native HUD visibility preferences.
+    inline constexpr uint32_t native_keyboard_macro_palette = uint32_t{1} << 31;
+
     enum class native_hud_element : uint8_t
     {
         player, party, alliance1, alliance2, target, castbar, status,

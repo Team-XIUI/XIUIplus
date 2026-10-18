@@ -2,6 +2,7 @@
 #include "modules/bar_config.hpp"
 #include "chat/chat_encoding.hpp"
 #include "ui/status_strip.hpp"
+#include "modules/mobinfo/mob_database.hpp"
 
 #include <algorithm>
 #include <cmath>
@@ -9,8 +10,14 @@
 
 namespace xiui
 {
+    target_module::target_module(void)
+    {
+        this->ResetChild(true);
+        this->settings_.display.fill_top.fill(this->settings_.hp_color_top);
+        this->settings_.display.fill_bottom.fill(this->settings_.hp_color);
+    }
     auto target_module::Id(void) const -> const char* { return "target"; }
-    auto target_module::DisplayName(void) const -> const char* { return "Target Bar"; }
+    auto target_module::DisplayName(void) const -> const char* { return "Target"; }
     auto target_module::State(void) -> module_state& { return this->state_; }
     auto target_module::State(void) const -> const module_state& { return this->state_; }
     auto target_module::Settings(void) -> settings& { return this->settings_; }
@@ -18,11 +25,14 @@ namespace xiui
     auto target_module::ApplyMeterDefaults(const ui::meter_style& style) -> void
     {
         this->settings_.hp_style = style;
+        this->settings_.world_bar.meter = style; this->settings_.world_bar.meter.height = 6;
+        this->settings_.subtarget.meter = style;
     }
 
     auto target_module::ApplyTextDefaults(const ui::theme& theme) -> void
     {
         this->timers_.text = {theme.caption_text};
+        this->settings_.status_text = {theme.caption_text};
         this->settings_.name_text = {theme.title_text};
         this->settings_.distance_text = {theme.caption_text};
         this->settings_.distance_text.style.alignment = ui::text_alignment::right;
@@ -31,22 +41,34 @@ namespace xiui
         this->settings_.value_text = {theme.meter_text};
         this->settings_.value_text.style.alignment = ui::text_alignment::right;
         this->settings_.recipient.text = {this->settings_.name_text, this->settings_.distance_text, this->settings_.label_text, this->settings_.value_text};
+        this->settings_.subtarget.text = this->settings_.recipient.text;
+        this->subtarget_status_text_ = {theme.caption_text};
+        this->settings_.display.cast_text = this->settings_.value_text;
+        this->settings_.mob_info.ApplyTextDefaults(theme);
+        this->settings_.world_bar.ApplyTextDefaults(theme);
     }
 
     auto target_module::ResetDefaults(const ui::theme& themeDefaults) -> void
     {
         const ui::rect bounds = this->state_.bounds;
         const auto* timing = this->timing_;
+        auto* healing = this->settings_.world_bar.healing;
+        const auto subtargetBounds = this->subtarget_state_.bounds, recipientBounds = this->recipient_state_.bounds;
         *this = target_module{};
         this->timing_ = timing;
+        this->settings_.world_bar.healing = healing;
         this->state_.bounds = bounds;
+        this->subtarget_state_.bounds = subtargetBounds; this->recipient_state_.bounds = recipientBounds;
         this->ApplyMeterDefaults(themeDefaults.meter);
         this->ApplyTextDefaults(themeDefaults);
+        shared_entity_name_palette = {};
     }
 
     auto target_module::SelectedTextProfile(void) -> module_text_profile&
     {
         if (this->settings_.selected_text == 4) return this->timers_.text;
+        if (this->settings_.selected_text == 5) return this->settings_.status_text;
+        if (this->settings_.selected_text == 6) return this->settings_.display.cast_text;
         if (this->settings_.selected_text == 1)
             return this->settings_.distance_text;
         if (this->settings_.selected_text == 2)
@@ -59,6 +81,8 @@ namespace xiui
     auto target_module::Load(const settings_store& store) -> void
     {
         this->timers_.Load(store, "timing.target");
+        this->settings_.statuses.Load(store, "status.target");
+        this->settings_.status_text = LoadTextProfile(store, "text.target.status", this->settings_.status_text);
         this->state_.enabled = store.ReadBool("target", "enabled", true);
         this->settings_.hide_when_empty = store.ReadBool("target", "hide_when_empty", false);
         this->settings_.show_distance = store.ReadBool("target", "show_distance", true);
@@ -77,20 +101,47 @@ namespace xiui
         this->settings_.recipient.fill_top = this->settings_.hp_color_top;
         this->settings_.recipient.fill_bottom = this->settings_.hp_color;
         this->settings_.recipient.Load(store, this->settings_.show_distance, this->settings_.show_percent, this->settings_.show_label);
-        this->settings_.selected_text = std::clamp(store.ReadInt("target", "selected_text", 0), 0, 4);
+        this->ResetChild(true);
+        this->settings_.subtarget.Load(store, this->settings_.show_distance, this->settings_.show_percent, this->settings_.show_label,
+            "target.subtarget", "target.subtarget");
+        this->settings_.subtarget.selected_text = std::clamp(store.ReadInt("target.subtarget", "selected_text", 0), 0, 4);
+        this->subtarget_placement_ = std::clamp(store.ReadInt("target.subtarget", "independent", 0), 0, 1);
+        this->subtarget_statuses_ = this->settings_.statuses;
+        this->subtarget_statuses_.Load(store, "status.subtarget");
+        this->subtarget_status_text_ = LoadTextProfile(store, "text.target.subtarget.status", this->settings_.status_text);
+        this->settings_.display.Load(store, this->settings_.hp_color_top, this->settings_.hp_color, this->settings_.hp_style, this->settings_.value_text);
+        this->settings_.mob_info.Load(store);
+        this->settings_.world_bar.Load(store);
+        this->settings_.rings.Load(store);
+        this->settings_.selected_text = std::clamp(store.ReadInt("target", "selected_text", 0), 0, 6);
         this->hp_animation_ = {};
         this->state_.bounds = store.ReadRect("layout.target", {24.0f, 128.0f, 440.0f, 82.0f});
+        this->cast_state_.bounds = store.ReadRect("layout.target.cast", this->AttachedCastBounds(this->state_.bounds));
+        this->cast_positioned_ = store.ReadBool("target.cast", "positioned", !store.ReadString("layout.target.cast", "x").empty());
+        this->BeginRenderFrame(); this->EndControllerStatus();
     }
 
     auto target_module::Save(const settings_store& store) const -> void
     {
         this->timers_.Save(store, "timing.target");
+        this->settings_.statuses.Save(store, "status.target");
+        SaveTextProfile(store, "text.target.status", this->settings_.status_text);
         store.WriteBool("target", "enabled", this->state_.enabled);
         store.WriteBool("target", "hide_when_empty", this->settings_.hide_when_empty);
         store.WriteBool("target", "show_distance", this->settings_.show_distance);
         store.WriteBool("target", "show_percent", this->settings_.show_percent);
         store.WriteBool("target", "show_label", this->settings_.show_label);
         this->settings_.recipient.Save(store);
+        this->settings_.display.Save(store);
+        store.WriteBool("target.cast", "positioned", this->cast_positioned_);
+        if (this->cast_positioned_) store.WriteRect("layout.target.cast", this->cast_state_.bounds);
+        this->settings_.mob_info.Save(store);
+        this->settings_.world_bar.Save(store);
+        this->settings_.rings.Save(store);
+        this->settings_.subtarget.Save(store, "target.subtarget", "target.subtarget");
+        store.WriteInt("target.subtarget", "independent", this->subtarget_placement_);
+        this->subtarget_statuses_.Save(store, "status.subtarget");
+        SaveTextProfile(store, "text.target.subtarget.status", this->subtarget_status_text_);
         store.WriteInt("target", "selected_text", this->settings_.selected_text);
         store.WriteArgb("target", "hp_color", this->settings_.hp_color);
         store.WriteArgb("meter.target.hp", "fill_top", this->settings_.hp_color_top);
@@ -103,17 +154,55 @@ namespace xiui
         store.WriteRect("layout.target", this->state_.bounds);
     }
 
-    auto target_module::OptionCount(void) const -> size_t { return recipient_options_start + target_of_target_settings::option_count; }
+    auto target_module::OptionCount(void) const -> size_t { return ring_options_start + target_ring_settings::option_count; }
+
+    auto target_module::OnOptionChanged(const size_t index) -> void
+    {
+        if (index == display_options_start + target_display_settings::layout_options && this->settings_.display.cast_placement == 1 && !this->cast_positioned_)
+        {
+            this->cast_state_.bounds = this->AttachedCastBounds(this->state_.bounds);
+            this->cast_positioned_ = true;
+        }
+        if (index >= ring_options_start) this->settings_.rings.Changed(index - ring_options_start);
+        if (index >= mob_info_options_start && index < world_options_start) this->settings_.mob_info.OnOptionChanged(index - mob_info_options_start, this->state_.bounds);
+    }
 
     auto target_module::ConfigSections(void) const -> std::span<const module_config_section>
     {
-        return this->config_view_ == 1 ? target_of_target_settings::ConfigSections() : ui::TimingSections();
+        static constexpr module_config_section sections[]{
+            {"General", "Visibility and information shown by this module."}, {"Layout", "Bar width and placement."},
+            {"Bar Style", "Window theme or Modern bars, shape and bookends."}, {"Animation", "Resource change animation."},
+            {"Effects", "Bar shadows and glow."}, {"Colors", "Resource fills and bar effects."},
+            {"Text", "Choose a text element and edit its style, effects and offsets."}, {"Attack Timing", "Observed attack timing."},
+            {"Status Effects", "Native icons, countdowns, placement and effect details."},
+            {"Cast Bar", "Independent main-target cast layout and effects."}, {"Entity Colors", "Shared name colors and optional HP gradients by entity type and claim."},
+            {"Mob Info", "Static monster data integrated into Target. Uses the pinned HeadsUp Phoenix snapshot; unavailable records stay hidden."}};
+        if (this->config_view_ == 4)
+        {
+            static constexpr module_config_section rings[]{
+                {"General", "Terrain-following target rings and optional HP fill."},
+                {"Layout", "Inner and outer radius in world units."},
+                {"Colors", "Ring tint and opacity."}};
+            return rings;
+        }
+        if (this->config_view_ == 3) return BarConfigSections();
+        if (this->config_view_ == 1) return target_of_target_settings::ConfigSections();
+        return this->config_view_ == 2 ? std::span<const module_config_section>{sections}.first(9) : std::span<const module_config_section>{sections};
     }
 
     auto target_module::ConfigSectionContains(const size_t section, const size_t index) -> bool
     {
         if (section >= this->ConfigSections().size() || index >= this->OptionCount()) return false;
-        if (this->config_view_ == 1) return index >= recipient_options_start && this->settings_.recipient.Contains(index - recipient_options_start, section);
+        if (this->config_view_ == 4) return index >= ring_options_start && section == target_ring_settings::Section(index - ring_options_start);
+        if (this->config_view_ == 3) return index >= world_options_start && index < ring_options_start && section == world_target_bar::Section(index - world_options_start);
+        if (index >= world_options_start) return false;
+        if (this->config_view_ == 2) return index >= subtarget_options_start && index < display_options_start && this->ChildContains(true, section, index - subtarget_options_start);
+        if (this->config_view_ == 1) return index >= recipient_options_start && index < status_options_start && this->settings_.recipient.Contains(index - recipient_options_start, section);
+        if (index >= mob_info_options_start) return section == 11 && this->settings_.mob_info.OptionVisible(index - mob_info_options_start);
+        if (index == display_options_start + 19) return section == 11 && this->settings_.mob_info.selected_group == 0;
+        if (index >= display_options_start) return section == target_display_settings::Section(index - display_options_start);
+        if (index >= subtarget_options_start) return false;
+        if (index >= status_options_start) return section == 8;
         if (index >= recipient_options_start) return false;
         if (index >= timing_options_start) return section == 7;
         const auto topic = static_cast<bar_config_section>(section);
@@ -126,20 +215,26 @@ namespace xiui
 
     auto target_module::Option(const size_t index) -> module_option
     {
-        if (index >= recipient_options_start) return this->settings_.recipient.Option(index - recipient_options_start);
+        if (index >= ring_options_start) return this->settings_.rings.Option(index - ring_options_start);
+        if (index >= world_options_start) return this->settings_.world_bar.Option(index - world_options_start);
+        if (index >= mob_info_options_start) return this->settings_.mob_info.Option(index - mob_info_options_start);
+        if (index >= display_options_start) return this->settings_.display.Option(index - display_options_start);
+        if (index >= subtarget_options_start) return this->ChildOption(true, index - subtarget_options_start);
+        if (index >= status_options_start) return this->settings_.statuses.Option(index - status_options_start);
+        if (index >= recipient_options_start) return this->ChildOption(false, index - recipient_options_start);
         if (index >= timing_options_start) return this->timers_.Option(index - timing_options_start);
         if (index == 8 + meter_style_option_count + text_profile_option_count)
             return ModuleWidthOption(this->state_);
-        static constexpr const char* textNames[] = {"Name", "Distance", "Bar label", "Bar value", "Attack timing"};
+        static constexpr const char* textNames[] = {"Name", "Distance", "Bar label", "Bar value", "Attack timing", "Status timers and details", "Cast"};
         switch (index)
         {
-        case 0: return module_option::Toggle("Enabled", "Show the target HUD.", &this->state_.enabled);
+        case 0: return module_option::Toggle("Enabled", "Show the target HUD.", &this->state_.enabled).Ordered(-50);
         case 1: return module_option::Toggle("Hide empty", "Hide when no target exists.", &this->settings_.hide_when_empty);
         case 2: return module_option::Toggle("Distance", "Show target distance.", &this->settings_.show_distance);
         case 3: return module_option::Toggle("HP percent", "Show target health percent.", &this->settings_.show_percent);
-        case 4: return module_option::Element("Selected text", "Text element configured in Text.", &this->settings_.selected_text, textNames, 5);
-        case 5: return module_option::Color("Fill top", "Upper fill gradient.", &this->settings_.hp_color_top, module_option_group::colors);
-        case 6: return module_option::Color("Fill bottom", "Lower fill gradient.", &this->settings_.hp_color, module_option_group::colors);
+        case 4: return module_option::Element("Selected text", "Text element configured in Text.", &this->settings_.selected_text, textNames, 7);
+        case 5: return module_option::Color("Fill top", "Upper fill gradient.", &this->settings_.hp_color_top, module_option_group::colors).Ordered(500, true);
+        case 6: return module_option::Color("Fill bottom", "Lower fill gradient.", &this->settings_.hp_color, module_option_group::colors).Ordered(501);
         case 7: return module_option::Toggle("HP label", "Show HP inset at the bar's lower edge.", &this->settings_.show_label);
         default:
             if (index < 8 + meter_style_option_count)
@@ -147,17 +242,15 @@ namespace xiui
             const auto textIndex = index - 8 - meter_style_option_count;
             auto option = TextProfileOption(textIndex, this->SelectedTextProfile());
             if (this->settings_.selected_text == 0 && (textIndex == 5 || textIndex == 6))
-            {
-                option.available = false;
-                option.description = "Name color follows the game state.";
-            }
+                return option.VisibleWhen(false);
             return option;
         }
     }
 
     auto target_module::ShouldRender(const hud_snapshot& snapshot) const -> bool
     {
-        return this->state_.enabled && (!this->settings_.hide_when_empty || (this->details_ready_ ? this->views_[0].id != 0 || this->views_[1].id != 0 : snapshot.target_valid));
+        return this->state_.enabled && (!this->settings_.hide_when_empty || (this->details_ready_ ? this->views_[0].id != 0 ||
+            (!this->ChildIndependent(true) && this->ChildVisible(true, false)) : snapshot.target_valid));
     }
 
     auto target_module::Update(IAshitaCore* core) -> void
@@ -192,7 +285,9 @@ namespace xiui
         view.name = name != nullptr ? FromGameText(name) : "Target";
         view.hp = std::min<uint32_t>(100, entities->GetHPPercent(index));
         view.distance = std::sqrt(std::max(0.0f, entities->GetDistance(index)));
-        view.color = ReadEntityNameColor(*group, *entities, index);
+        const auto entityState = ReadEntityNameState(*group, *entities, index);
+        view.color = entityState.color; view.kind = entityState.kind;
+        view.mob = MobForEntity(id, static_cast<uint16_t>(group->GetMemberZone(0)), IsMonster(view.kind));
         view.health = EntityHasHealth(entities->GetSpawnFlags(index));
         view.status_count = 0;
         const auto* actor = combat.Find(id);
@@ -205,15 +300,12 @@ namespace xiui
         else { view.cast.name.clear(); view.cast.started = view.cast.interrupted = 0; view.cast.seconds = 0; }
         for (const auto& member : party.Members())
         {
-            if (!member.active || !member.in_zone || member.id != id || member.slot >= 6) continue;
+            if (!member.active || !member.in_zone || member.id != id || member.slot >= 6 || !member.buffs_known) continue;
             // Native party status snapshots are authoritative, including an empty list.
             view.status_count = std::min(view.statuses.size(), member.buff_count);
             for (size_t i = 0; i < view.status_count; ++i)
             {
-                const auto effect = member.buffs[i];
-                const auto known = actor != nullptr ? std::find_if(actor->statuses.begin(), actor->statuses.end(), [effect](const auto& value) { return value.id == effect; }) : std::vector<combat_status>::const_iterator{};
-                view.statuses[i] = actor != nullptr && known != actor->statuses.end() ? *known : combat_status{effect};
-                view.statuses[i].uncertain = false;
+                view.statuses[i] = {member.buffs[i], 0, 0, member.buff_expires[i], false};
             }
             break;
         }
@@ -245,19 +337,29 @@ namespace xiui
     }
 
     auto target_module::DrawView(const target_view& view, const ui::rect& panel, const char* prefix, meter_animation_state& animation,
-        const uint64_t now, const module_render_context& context, const bool recipient) -> float
+        const uint64_t now, const module_render_context& context, const target_of_target_settings* presentation) -> float
     {
         const bool valid = view.id != 0;
-        const auto& options = this->settings_.recipient;
+        animation.Bind(view.id);
+        const bool recipient = presentation != nullptr;
+        const auto& options = recipient ? *presentation : this->settings_.recipient;
+        const bool subtarget = presentation == &this->settings_.subtarget;
+        const auto& statusSettings = subtarget ? this->subtarget_statuses_ : this->settings_.statuses;
+        const auto& statusText = subtarget ? this->subtarget_status_text_ : this->settings_.status_text;
         const bool showHealth = (!valid || view.health) && (!recipient || options.health);
         const bool showDistance = recipient ? options.distance : this->settings_.show_distance;
-        const bool showName = !recipient || options.name;
+        const bool showName = recipient ? options.name : this->settings_.display.name;
         const bool nameInside = recipient && options.name_placement == 1 && showHealth;
         const bool nameBelow = recipient && options.name_placement == 2;
         auto profiles = std::array{this->settings_.name_text, this->settings_.distance_text, this->settings_.label_text, this->settings_.value_text};
         if (recipient && !options.follow_text) profiles = options.text;
         auto nameText = valid && (!recipient || options.tint_name) ? TintTextProfile(profiles[0], view.color) : profiles[0];
-        const auto label = std::string{recipient && !options.prefix ? "" : prefix} + (valid ? view.name : "NO TARGET");
+        std::string level;
+        if (valid && (recipient ? options.mob_level : this->settings_.display.mob_level))
+            if (const auto* mob = view.mob; mob != nullptr && mob->minimum_level != 0 && mob->maximum_level != 0)
+                level = " " + MobLevel(*mob);
+        const auto label = std::string{recipient && !options.prefix ? "" : prefix} + (valid ? view.name : "NO TARGET") + level +
+            (!recipient && IsMonster(view.kind) ? TargetIdSuffix(view.id, this->settings_.display.id_format) : "");
         const float nameWidth = std::max(1.0f, showDistance && valid ? panel.width * 0.6f - 7 : panel.width - 14);
         auto name = label;
         while (name.size() > 3 && context.Design().MeasureText(name.c_str(), nameText.style) > nameWidth)
@@ -269,23 +371,29 @@ namespace xiui
         auto meterStyle = recipient && !options.follow_meter ? options.meter : this->settings_.hp_style;
         const float meterHeight = recipient ? options.BarHeight(this->settings_.hp_style.height + 2) : std::max(1.0f, meterStyle.height) + 2;
         if (recipient) meterStyle.height = std::max(1.0f, meterHeight - 2);
-        float bottom = panel.y + 29;
+        const float header = showName || showDistance ? 31.0f : 5.0f;
+        float bottom = panel.y + header - 2;
         char hpValue[24]{};
-        if ((recipient ? options.percent : this->settings_.show_percent) && valid) std::snprintf(hpValue, sizeof(hpValue), "%u%%", view.hp);
+        const bool percentType = IsMonster(view.kind) ? this->settings_.display.percent_mobs :
+            view.kind == entity_class::player || view.kind == entity_class::group_player ? this->settings_.display.percent_players : true;
+        if ((recipient ? options.percent : this->settings_.show_percent && percentType) && valid) std::snprintf(hpValue, sizeof(hpValue), "%u%%", view.hp);
+        const auto kind = static_cast<size_t>(view.kind);
+        const auto fillTop = this->settings_.display.entity_fills ? this->settings_.display.fill_top[kind] : this->settings_.hp_color_top;
+        const auto fillBottom = this->settings_.display.entity_fills ? this->settings_.display.fill_bottom[kind] : this->settings_.hp_color;
         if (showHealth)
         {
-            const ui::rect hp{panel.x + 7, panel.y + 31, panel.width - 14, meterHeight};
-            if (view.locked)
+            const ui::rect hp{panel.x + 7, panel.y + header, panel.width - 14, meterHeight};
+            if (view.locked && (recipient || this->settings_.display.lock))
             {
                 const auto color = context.Design().GetTheme().colors.accent;
                 context.DrawSelection({hp.x - 2, hp.y - 2, hp.width + 4, hp.height + 4}, false, {color, color, 0.06f, 0, 0, false});
             }
             const char* hpLabel = showName && nameInside ? name.c_str() : (recipient ? options.label : this->settings_.show_label) ? "HP" : "";
             context.DrawMeter(hp, hpLabel, hpValue, valid ? module_render_context::Ratio(view.hp, 100) : 0,
-                recipient && !options.follow_fill ? options.fill_top : this->settings_.hp_color_top,
-                recipient && !options.follow_fill ? options.fill_bottom : this->settings_.hp_color,
+                recipient && !options.follow_fill ? options.fill_top : fillTop,
+                recipient && !options.follow_fill ? options.fill_bottom : fillBottom,
                 meterStyle, animation, true, showName && nameInside ? &nameText : &profiles[2], &profiles[3],
-                nameInside ? ui::meter_text_anchor::center : ui::meter_text_anchor::bottom);
+                nameInside ? ui::meter_text_anchor::center : ui::meter_text_anchor::bottom, ui::meter_text_anchor::automatic, meter_fill_mode::health);
             bottom = hp.y + hp.height + std::max(16.0f, context.Design().TextHeight(profiles[3].style)) * 0.5f + 4;
         }
         if (showName && nameBelow)
@@ -294,14 +402,15 @@ namespace xiui
             context.DrawText(name.c_str(), at, at, nameText);
             bottom = at.y + at.height + 2;
         }
-        if ((!recipient || options.cast) && view.cast.Active(now))
+        if (recipient && options.cast && view.cast.Active(now))
         {
-            auto castStyle = meterStyle;
-            castStyle.height = recipient ? options.cast_height : 8;
-            const ui::rect cast{panel.x + 7, bottom + 3, panel.width - 14, castStyle.height + 2};
+            auto castStyle = !recipient && this->settings_.display.custom_cast_meter ? this->settings_.display.cast_meter : meterStyle;
+            castStyle.height = recipient ? options.cast_height : this->settings_.display.cast_height;
+            const ui::rect cast{panel.x + 7, bottom + (recipient ? 3 : this->settings_.display.cast_spacing), panel.width - 14, castStyle.height + 2};
             const auto color = context.Design().GetTheme().colors.accent;
-            context.DrawBar(cast, view.cast.Ratio(now), MeterGradientTop(color), color, 0, castStyle);
-            auto text = profiles[3]; text.style.alignment = ui::text_alignment::center;
+            context.DrawBar(cast, view.cast.Ratio(now), !recipient && this->settings_.display.custom_cast_fill ? this->settings_.display.cast_top : MeterGradientTop(color),
+                !recipient && this->settings_.display.custom_cast_fill ? this->settings_.display.cast_bottom : color, 0, castStyle);
+            auto text = recipient ? profiles[3] : this->settings_.display.cast_text; text.style.alignment = ui::text_alignment::center;
             const ui::rect line{cast.x, cast.y + cast.height + 2, cast.width, std::max(16.0f, context.Design().TextHeight(text.style))};
             context.DrawText(view.cast.interrupted ? "Interrupted" : view.cast.name.c_str(), line, line, text);
             bottom = line.y + line.height + 2;
@@ -315,8 +424,17 @@ namespace xiui
                 this->timers_.color, this->timers_.ready_color, 0.5f, context);
             if (timingHeight > 0) bottom += timingHeight + 3;
         }
+        if (!recipient)
+        {
+            const auto infoHeight = this->settings_.mob_info.Draw(view.mob, {panel.x + 7, bottom + 3, panel.width - 14, 0}, context);
+            if (infoHeight > 0) bottom += infoHeight + 3;
+        }
         const auto statuses = std::span<const combat_status>{view.statuses}.first(!recipient || options.statuses ? view.status_count : 0);
-        ui::DrawStatusStrip(statuses, {panel.x + 7, bottom + 2, panel.width - 14, 0}, now, profiles[1], context);
+        const ui::rect strip{panel.x + 7, bottom + 2, panel.width - 14, 0};
+        const auto layout = ui::LayoutStatusStrip(statuses.size(), strip, statusSettings);
+        ui::DrawStatusStrip(statuses, strip, now, statusText, context, statusSettings);
+        if (statusSettings.tooltips)
+            for (size_t i = 0; i < layout.count; ++i) this->status_hits_.push_back({statuses[i], layout.Icon(i), view.id});
         if (showName && !nameInside && !nameBelow)
             context.DrawText(name.c_str(), {panel.x + 7, panel.y + 5, nameWidth, 20}, panel, nameText);
         if (showDistance && valid)
@@ -325,8 +443,57 @@ namespace xiui
             std::snprintf(distance, sizeof(distance), "%.1f yalms", view.distance);
             context.DrawText(distance, {panel.x + panel.width * 0.6f, panel.y + 5, panel.width * 0.38f - 7, 20}, panel, profiles[1]);
         }
-        return bottom - panel.y + ui::StatusStripHeight(statuses.size(), panel.width - 14);
+        bottom += ui::StatusStripHeight(statuses.size(), panel.width - 14, statusSettings);
+        return bottom - panel.y;
     }
+
+    auto target_module::AttachedCastBounds(const ui::rect& panel) const -> ui::rect
+    {
+        const auto& cast = this->settings_.display;
+        const float header = cast.name || this->settings_.show_distance ? 31.0f : 5.0f;
+        return {panel.x + 7 + cast.cast_offset_x,
+            panel.y + header + this->settings_.hp_style.height + 2 + cast.cast_spacing + cast.cast_offset_y,
+            cast.cast_width > 0 ? cast.cast_width : std::max(1.0f, panel.width - 14), cast.cast_height + 2};
+    }
+
+    auto target_module::DrawCast(const combat_cast& cast, const ui::rect& bounds, const uint64_t now, const module_render_context& context) -> void
+    {
+        if (!this->settings_.display.casts || (!cast.Active(now) && !context.IsEditing())) return;
+        const auto& options = this->settings_.display;
+        auto style = options.custom_cast_meter ? options.cast_meter : this->settings_.hp_style;
+        style.height = options.cast_height;
+        const auto color = context.Design().GetTheme().colors.accent;
+        context.DrawBar(bounds, cast.Active(now) ? cast.Ratio(now) : 0.6f,
+            options.custom_cast_fill ? options.cast_top : MeterGradientTop(color), options.custom_cast_fill ? options.cast_bottom : color, 0, style);
+        auto text = options.cast_text;
+        text.style.alignment = ui::text_alignment::center;
+        const float height = std::max(bounds.height, context.Design().TextHeight(text.style));
+        const ui::rect line{bounds.x, bounds.y + (bounds.height - height) * 0.5f, bounds.width, height};
+        context.DrawText(cast.Active(now) ? (cast.interrupted ? "Interrupted" : cast.name.c_str()) : "Stone IV", line, line, text);
+    }
+    auto target_module::RenderWorldBar(const hud_snapshot& snapshot, const module_render_context& context) -> void
+    {
+        const auto& display = this->settings_.display;
+        auto world = snapshot;
+        auto kind = this->views_[0].kind;
+        auto nameColor = this->views_[0].color;
+        auto& bar = this->settings_.world_bar;
+        const auto* heal = bar.heal_preview.enabled && bar.healing != nullptr ? bar.healing->Primary(::GetTickCount64()) : nullptr;
+        if (heal != nullptr)
+        {
+            world.target_server_id = heal->id; world.target_valid = true; world.target_hp_percent = heal->percent;
+            std::snprintf(world.target_name, sizeof(world.target_name), "%s", heal->name.c_str());
+            world.target_screen_valid = false;
+            for (const auto& anchor : snapshot.party_anchors)
+                if (anchor.id == heal->id)
+                { world.target_screen_valid = anchor.valid; world.target_screen_x = anchor.x; world.target_screen_y = anchor.y; break; }
+            kind = entity_class::group_player; nameColor = EntityNameColor(1, 0, false, true);
+        }
+        const auto top = display.entity_fills ? display.fill_top[static_cast<size_t>(kind)] : this->settings_.hp_color_top;
+        const auto bottom = display.entity_fills ? display.fill_bottom[static_cast<size_t>(kind)] : this->settings_.hp_color;
+        bar.Draw(world, world.target_server_id, nameColor, top, bottom, context);
+    }
+
     auto target_module::Render(const hud_snapshot& snapshot, const module_render_context& context) -> void
     {
         target_view fallback{};
@@ -339,8 +506,10 @@ namespace xiui
         const auto now = ::GetTickCount64();
         const auto& main = this->details_ready_ ? this->views_[0] : fallback;
         float height = this->DrawView(main, this->state_.bounds, "", this->detail_animations_[0], now, context);
+        if (this->settings_.display.cast_placement == 0)
+            this->DrawCast(main.cast, this->AttachedCastBounds(this->state_.bounds), now, context);
         target_view preview{};
-        if (context.IsEditing() && this->views_[2].id == 0)
+        if (context.IsEditing())
         {
             preview.id = 0xFFFFFFFF;
             preview.name = "Party Member";
@@ -350,20 +519,86 @@ namespace xiui
         for (const size_t slot : {size_t{2}, size_t{1}})
         {
             const bool recipient = slot == 2;
-            if (recipient && !this->settings_.recipient.enabled) continue;
-            const auto& view = recipient && this->views_[slot].id == 0 ? preview : this->views_[slot];
+            if (this->ChildIndependent(!recipient) || !this->ChildVisible(!recipient, context.IsEditing())) continue;
+            const auto& view = this->views_[slot].id == 0 ? preview : this->views_[slot];
             if (view.id == 0) continue;
             const float mainBarHeight = this->settings_.hp_style.height + 2;
-            const ui::rect area = recipient ? this->settings_.recipient.Area(this->state_.bounds, height, mainBarHeight) :
-                ui::rect{this->state_.bounds.x, this->state_.bounds.y + height + 6, this->state_.bounds.width, 0};
+            const auto& options = recipient ? this->settings_.recipient : this->settings_.subtarget;
+            const ui::rect area = recipient ? options.Area(this->state_.bounds, height, mainBarHeight) :
+                ui::rect{this->state_.bounds.x + options.offset_x, this->state_.bounds.y + height + options.gap + options.offset_y,
+                    options.width > 0 ? options.width : this->state_.bounds.width, 0};
             if (recipient && this->settings_.recipient.ShowArrow())
             {
                 const auto& options = this->settings_.recipient;
                 context.Design().DrawIcon(options.Arrow(this->state_.bounds, mainBarHeight), ui::icon_glyph::target_arrow,
                     options.arrow_color, 0, options.placement == target_of_target_settings::inline_left);
             }
-            const auto drawn = this->DrawView(view, area, slot == 1 ? "Subtarget: " : "Target: ", this->detail_animations_[slot], now, context, recipient);
+            const auto drawn = this->DrawView(view, area, slot == 1 ? "Subtarget: " : "Target: ", this->detail_animations_[slot], now, context, &options);
             height = std::max(height, area.y - this->state_.bounds.y + drawn);
+        }
+    }
+
+    auto target_cast_module::HasEditableBounds(void) const -> bool
+    {
+        const auto& options = this->parent_.settings_.display;
+        return this->parent_.state_.enabled && options.casts && options.cast_placement == 1;
+    }
+
+    auto target_cast_module::ShouldRender(const hud_snapshot&) const -> bool
+    {
+        return this->HasEditableBounds() && this->parent_.mob_info_display_allowed_ && this->parent_.views_[0].id != 0 &&
+            this->parent_.views_[0].cast.Active(::GetTickCount64());
+    }
+
+    auto target_cast_module::Render(const hud_snapshot&, const module_render_context& context) -> void
+    {
+        auto& state = this->State();
+        const auto anchor = this->parent_.AttachedCastBounds(this->parent_.state_.bounds);
+        state.bounds.width = anchor.width; state.minimum_height = state.bounds.height = anchor.height;
+        this->parent_.DrawCast(this->parent_.views_[0].cast, state.bounds, ::GetTickCount64(), context);
+    }
+
+    auto target_module::BeginControllerStatus(void) -> bool
+    {
+        this->EndControllerStatus();
+        if (!this->HasStatusDetails()) return false;
+        this->controller_status_entity_ = this->status_hits_.front().entity;
+        this->controller_status_id_ = this->status_hits_.front().status.id;
+        return true;
+    }
+
+    auto target_module::MoveControllerStatus(const int direction) -> bool
+    {
+        if (direction == 0 || this->status_hits_.empty()) return false;
+        const auto current = ui::StatusHitIndex(this->status_hits_, this->controller_status_entity_, this->controller_status_id_, this->controller_status_occurrence_);
+        if (!current) return false;
+        const auto index = (*current + (direction > 0 ? 1 : this->status_hits_.size() - 1)) % this->status_hits_.size();
+        const auto& next = this->status_hits_[index];
+        this->controller_status_entity_ = next.entity; this->controller_status_id_ = next.status.id;
+        this->controller_status_occurrence_ = ui::StatusHitOccurrence(this->status_hits_, index);
+        return true;
+    }
+
+    auto target_module::ControllerStatusBounds(void) const -> ui::rect
+    {
+        const auto index = ui::StatusHitIndex(this->status_hits_, this->controller_status_entity_, this->controller_status_id_, this->controller_status_occurrence_);
+        return index ? this->status_hits_[*index].bounds : ui::rect{};
+    }
+
+    auto target_module::RenderStatusTooltip(const module_render_context& context, IResourceManager* resources,
+        const float x, const float y, const bool controller) const -> void
+    {
+        const auto focused = ui::StatusHitIndex(this->status_hits_, this->controller_status_entity_, this->controller_status_id_, this->controller_status_occurrence_);
+        for (const auto& hit : this->status_hits_)
+        {
+            const auto& at = hit.bounds;
+            if (controller ? focused && &hit == &this->status_hits_[*focused] :
+                x >= at.x && x < at.x + at.width && y >= at.y && y < at.y + at.height)
+            {
+                const auto& text = hit.entity == this->views_[1].id ? this->subtarget_status_text_ : this->settings_.status_text;
+                ui::DrawStatusTooltip(hit, resources, text, context);
+                return;
+            }
         }
     }
 } // namespace xiui

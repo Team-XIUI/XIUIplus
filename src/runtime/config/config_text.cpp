@@ -20,6 +20,7 @@ namespace xiui::ui
             return std::isfinite(value) ? std::clamp(value, minimum, maximum) : fallback;
         };
         this->font = FontIndex(store.ReadInt(section, "font", this->font));
+        this->size = number("size", this->size, 8, 18);
         this->letter_spacing = number("letter_spacing", this->letter_spacing, -1, 4);
         this->shadow.enabled = store.ReadBool(section, "shadow_enabled", this->shadow.enabled);
         this->shadow.color = store.ReadArgb(section, "shadow_color", this->shadow.color);
@@ -39,6 +40,7 @@ namespace xiui::ui
     auto config_text_settings::Save(const settings_store& store) const -> void
     {
         store.WriteInt(section, "font", this->font);
+        store.WriteFloat(section, "size", this->size);
         store.WriteFloat(section, "letter_spacing", this->letter_spacing);
         store.WriteBool(section, "shadow_enabled", this->shadow.enabled);
         store.WriteArgb(section, "shadow_color", this->shadow.color);
@@ -60,21 +62,22 @@ namespace xiui::ui
         static constexpr const char* outlines[]{"Off", "Buttons only", "All text"};
         switch (index)
         {
-        case 0: return module_option::Dropdown("Config font", "Font for configuration labels, buttons, menus and dialogs.", &this->font, font_names, font_count);
-        case 1: return module_option::Slider("Letter spacing", "Additional pixels between configuration letters.", &this->letter_spacing, -1, 4, 0.1f, module_option_group::text);
-        case 2: return module_option::Toggle("Drop shadow", "Shadow behind configuration text.", &this->shadow.enabled, module_option_group::effects);
-        case 3: return module_option::Color("Shadow color", "Shadow color and opacity.", &this->shadow.color);
-        case 4: return module_option::Slider("Shadow X", "Horizontal shadow offset in pixels.", &this->shadow.offset_x, -10, 10, 1, module_option_group::effects);
-        case 5: return module_option::Slider("Shadow Y", "Vertical shadow offset in pixels.", &this->shadow.offset_y, -10, 10, 1, module_option_group::effects);
-        case 6: return module_option::Toggle("Soft shadow", "Soften the shadow edge.", &this->shadow.soft, module_option_group::effects);
-        case 7: return module_option::Choice("Stroke outline", "Outline button labels, all configuration text, or neither.", &this->outline, outlines, std::size(outlines), module_option_group::effects);
-        case 8: return module_option::Color("Outline color", "Stroke color and opacity.", &this->outline_color);
-        case 9: return module_option::Toggle("Outer glow", "Glow around configuration text.", &this->glow.enabled, module_option_group::effects);
-        case 10: return module_option::Color("Glow color", "Glow color and opacity.", &this->glow.color);
-        case 11: return module_option::Toggle("Animated sheen", "Moving highlight across configuration text.", &this->sheen.enabled, module_option_group::effects);
-        case 12: return module_option::Color("Sheen color", "Highlight color and opacity.", &this->sheen.color);
-        case 13: return module_option::Slider("Sheen width", "Highlight width in pixels.", &this->sheen.width, 2, 120, 1, module_option_group::effects);
-        case 14: return module_option::Slider("Sheen speed", "Highlight cycles per second.", &this->sheen.speed, 0, 2, 0.05f, module_option_group::effects);
+        case 0: return module_option::Dropdown("Config font", "Font for configuration labels, buttons, menus and dialogs.", &this->font, font_names, font_count).Ordered(100, true);
+        case 1: return module_option::Slider("Letter spacing", "Additional pixels between configuration letters.", &this->letter_spacing, -1, 4, 0.1f, module_option_group::text).Ordered(201);
+        case 2: return module_option::Toggle("Drop shadow", "Shadow behind configuration text.", &this->shadow.enabled, module_option_group::effects).Ordered(600, true);
+        case 3: return module_option::Color("Shadow color", "Shadow color and opacity.", &this->shadow.color).Ordered(601).VisibleWhen(this->shadow.enabled);
+        case 4: return module_option::Slider("Shadow X offset", "Horizontal shadow offset in pixels.", &this->shadow.offset_x, -10, 10, 1, module_option_group::effects).Ordered(606, true).VisibleWhen(this->shadow.enabled);
+        case 5: return module_option::Slider("Shadow Y offset", "Vertical shadow offset in pixels.", &this->shadow.offset_y, -10, 10, 1, module_option_group::effects).Ordered(607).VisibleWhen(this->shadow.enabled);
+        case 6: return module_option::Toggle("Soft shadow", "Soften the shadow edge.", &this->shadow.soft, module_option_group::effects).Ordered(604).VisibleWhen(this->shadow.enabled);
+        case 7: return module_option::Choice("Stroke outline", "Outline button labels, all configuration text, or neither.", &this->outline, outlines, std::size(outlines), module_option_group::effects).Ordered(650, true);
+        case 8: return module_option::Color("Outline color", "Stroke color and opacity.", &this->outline_color).Ordered(651).VisibleWhen(this->outline != 0);
+        case 9: return module_option::Toggle("Outer glow", "Glow around configuration text.", &this->glow.enabled, module_option_group::effects).Ordered(700, true);
+        case 10: return module_option::Color("Glow color", "Glow color and opacity.", &this->glow.color).Ordered(701).VisibleWhen(this->glow.enabled);
+        case 11: return module_option::Toggle("Animated sheen", "Moving highlight across configuration text.", &this->sheen.enabled, module_option_group::effects).Ordered(750);
+        case 12: return module_option::Color("Sheen color", "Highlight color and opacity.", &this->sheen.color).Ordered(751).VisibleWhen(this->sheen.enabled);
+        case 13: return module_option::Slider("Sheen width", "Highlight width in pixels.", &this->sheen.width, 2, 120, 1, module_option_group::effects).Ordered(752, true).VisibleWhen(this->sheen.enabled);
+        case 14: return module_option::Slider("Sheen speed", "Highlight cycles per second.", &this->sheen.speed, 0, 2, 0.05f, module_option_group::effects).Ordered(753).VisibleWhen(this->sheen.enabled);
+        case 15: return module_option::Slider("Config text size (px)", "Base configuration text size. Headings and smaller help text retain their relative sizes.", &this->size, 8, 18, 1, module_option_group::text).Ordered(101);
         default: return {};
         }
     }

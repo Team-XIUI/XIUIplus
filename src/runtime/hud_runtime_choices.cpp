@@ -83,27 +83,6 @@ namespace xiui
 
     auto hud_runtime::DrawChoiceInput(const D3DVIEWPORT8& viewport) -> void
     {
-        if (!this->choice_input_.Opened()) return;
-        const auto& input = this->choice_input_;
-        this->config_controls_.Panel(input.Bounds(viewport));
-        const auto hovered = input.IndexAt(static_cast<float>(this->mouse_x_), static_cast<float>(this->mouse_y_), viewport);
-        for (int i = input.First(); i < input.First() + input.VisibleCount(); ++i)
-        {
-            auto label = input.Row(i, viewport);
-            if (input.Option().choice_preview) label.width -= 30;
-            this->config_controls_.NavigationItem(label, input.Option().choices[i],
-                i == input.Highlighted(), hovered && *hovered == i);
-            if (input.Option().choice_preview && static_cast<size_t>(i) >= input.Option().preview_first)
-            {
-                const auto button = input.PreviewButton(i, viewport);
-                this->config_controls_.IconButton(button, ui::icon_glyph::play, Contains(button, static_cast<float>(this->mouse_x_), static_cast<float>(this->mouse_y_)));
-            }
-        }
-        if (input.Option().choice_preview)
-        {
-            const auto bounds = input.Bounds(viewport);
-            auto style = this->design_system_.GetTheme().caption_text; style.scale = 0.62f; style.alignment = ui::text_alignment::left;
-            this->config_controls_.Text("Scroll / Space: preview", {bounds.x + 10, bounds.y + bounds.height - 22, bounds.width - 20, 18}, style);
-        }
+        this->config_controls_.ChoiceMenu(this->choice_input_, viewport, static_cast<float>(this->mouse_x_), static_cast<float>(this->mouse_y_));
     }
 }

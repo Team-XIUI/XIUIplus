@@ -73,6 +73,7 @@ namespace xiui
         auto HandleCommand(IAshitaCore* core, std::string_view command) -> bool;
         auto NeedsSave(uint64_t now) -> bool;
         auto Progression(void) const -> const progression_state& { return this->progression_; }
+        auto Utc(void) const -> uint32_t { return this->source_.Utc(); }
 
     private:
 #if defined(XIUI_ENABLE_PARITY_TESTS)

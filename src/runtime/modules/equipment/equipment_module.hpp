@@ -27,6 +27,7 @@ namespace xiui
         auto Render(const hud_snapshot&, const module_render_context& context) -> void override;
         auto RenderTooltip(const module_render_context& context, float x, float y) const -> void;
         auto SlotBounds(size_t gridIndex) const -> ui::rect;
+        auto SlotColumns(void) const -> size_t { return this->Columns(); }
 
     private:
 #if defined(XIUI_ENABLE_INVENTORY_TESTS)

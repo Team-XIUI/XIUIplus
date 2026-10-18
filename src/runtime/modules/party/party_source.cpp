@@ -36,8 +36,23 @@ namespace xiui
                 now - this->started < static_cast<uint64_t>((this->seconds + 1.5f) * 1000));
     }
 
+    auto LocalStatusSnapshotReady(const std::span<const int16_t> icons) -> bool
+    {
+        // Zero is KO; an entirely zero-filled buffer is not an initialized status list.
+        return std::any_of(icons.begin(), icons.end(), [](const auto id) { return id != 0; }) &&
+            std::all_of(icons.begin(), icons.end(), [](const auto id) { return id >= -1 && id <= 1023; });
+    }
+
+    auto PartyStatusSnapshotReady(const std::span<const uint8_t> icons, const uint64_t mask) -> bool
+    {
+        for (size_t i = 0; i < std::min<size_t>(32, icons.size()); ++i)
+            if (icons[i] != 0 || ((mask >> (i * 2)) & 3) != 0) return true;
+        return false;
+    }
+
     auto DecodePartyBuffs(const std::span<const uint8_t> icons, const uint64_t mask, const std::span<uint16_t> output) -> size_t
     {
+        if (!PartyStatusSnapshotReady(icons, mask)) return 0;
         size_t count{};
         for (size_t i = 0; i < std::min<size_t>(32, icons.size()) && count < output.size(); ++i)
         {
@@ -52,6 +67,17 @@ namespace xiui
     {
         if (percent == 0 || percent > 100) return 0;
         return static_cast<uint32_t>((static_cast<uint64_t>(value) * 100 + percent / 2) / percent);
+    }
+
+    auto LocalResourceMaximum(const uint32_t value, const uint32_t percent, const uint32_t reported, const uint32_t previous) -> uint32_t
+    {
+        if (percent == 100) return value;
+        const auto matches = [&](const uint32_t maximum) {
+            return maximum >= value && maximum != 0 &&
+                std::abs(static_cast<int>(value * 100ULL / maximum) - static_cast<int>(percent)) <= 1;
+        };
+        if (matches(reported)) return reported;
+        return matches(previous) ? previous : 0;
     }
 
     auto FormatPartyResource(const uint32_t value, const uint32_t percent, const uint32_t maximum, const bool exact, const int mode) -> std::string
@@ -118,12 +144,14 @@ namespace xiui
 
     auto party_source::Update(IAshitaCore* core, const uint64_t now) -> void
     {
+        this->resources_ = core != nullptr ? core->GetResourceManager() : nullptr;
         auto* memory = core != nullptr ? core->GetMemoryManager() : nullptr;
         auto* party = memory != nullptr ? memory->GetParty() : nullptr;
         auto* player = memory != nullptr ? memory->GetPlayer() : nullptr;
         auto* entity = memory != nullptr ? memory->GetEntity() : nullptr;
         auto* target = memory != nullptr ? memory->GetTarget() : nullptr;
         if (party == nullptr || player == nullptr || entity == nullptr ||
+            player->GetIsZoning() || player->GetMainJob() == 0 ||
             player->GetLoginStatus() != static_cast<uint8_t>(Ashita::FFXI::Enums::LoginStatus::LoggedIn))
         { this->Clear(); return; }
         const auto playerId = party->GetMemberServerId(0), playerIndex = party->GetMemberTargetIndex(0);
@@ -151,6 +179,10 @@ namespace xiui
             if (party->GetMemberIsActive(slot) == 0 || id == 0)
             { member = {}; continue; }
             if (id != member.id) member = {};
+            const bool sameJob = slot == 0 && member.main_job == player->GetMainJob() && member.main_level == player->GetMainJobLevel() &&
+                member.sub_job == player->GetSubJob() && member.sub_level == player->GetSubJobLevel();
+            const auto previousHP = sameJob && member.hp_max_exact ? member.hp_max : 0;
+            const auto previousMP = sameJob && member.mp_max_exact ? member.mp_max : 0;
             member.active = true; member.id = id; member.slot = slot;
             member.zone = party->GetMemberZone(slot);
             member.in_zone = member.zone != 0 && member.zone == zone;
@@ -162,6 +194,8 @@ namespace xiui
             member.alliance_leader = party->GetAllianceLeaderServerId() != 0 && party->GetAllianceLeaderServerId() == id;
             member.index = member.in_zone ? party->GetMemberTargetIndex(slot) : 0;
             member.entity_valid = member.index > 0 && member.index < mapSize && entity->GetServerId(member.index) == id;
+            member.status_known = member.entity_valid && (entity->GetRenderFlags0(member.index) & 0x200) != 0;
+            member.status = member.status_known ? entity->GetStatus(member.index) : 0;
             member.distance_known = false;
             if (member.entity_valid)
             {
@@ -170,6 +204,8 @@ namespace xiui
                 member.distance = member.distance_known ? std::sqrt(squared) : 0;
             }
             member.buff_count = 0;
+            member.buff_expires = {};
+            member.buffs_known = false;
             if (!member.in_zone)
             {
                 member.hp = member.mp = member.tp = member.hp_max = member.mp_max = 0;
@@ -193,19 +229,27 @@ namespace xiui
             member.sync = (party->GetMemberFlagMask(slot) & 0x100) != 0;
             if (slot == 0)
             {
-                const auto exactMaximum = [](uint32_t current, uint32_t percent, uint32_t maximum) {
-                    return maximum >= current && maximum != 0 && std::abs(static_cast<int>(current * 100ULL / maximum) - static_cast<int>(percent)) <= 1;
-                };
-                if (exactMaximum(member.hp, member.hp_percent, player->GetHPMax()))
-                { member.hp_max = player->GetHPMax(); member.hp_max_exact = true; }
-                if (exactMaximum(member.mp, member.mp_percent, player->GetMPMax()))
-                { member.mp_max = player->GetMPMax(); member.mp_max_exact = true; }
+                if (const auto maximum = LocalResourceMaximum(member.hp, member.hp_percent, player->GetHPMax(), previousHP))
+                { member.hp_max = maximum; member.hp_max_exact = true; }
+                if (const auto maximum = LocalResourceMaximum(member.mp, member.mp_percent, player->GetMPMax(), previousMP))
+                { member.mp_max = maximum; member.mp_max_exact = true; }
                 member.main_job = player->GetMainJob(); member.main_level = player->GetMainJobLevel();
                 member.sub_job = player->GetSubJob(); member.sub_level = player->GetSubJobLevel();
-                const auto* buffs = player->GetBuffs();
-                if (buffs != nullptr)
-                    for (size_t i = 0; i < 32; ++i)
-                        if (buffs[i] >= 0 && buffs[i] != 255 && buffs[i] <= 1023) member.buffs[member.buff_count++] = static_cast<uint16_t>(buffs[i]);
+                std::array<int16_t, 32> icons{};
+                std::array<uint32_t, 32> timers{};
+                bool timed = Read(reinterpret_cast<uintptr_t>(player->GetStatusIcons()), icons) && LocalStatusSnapshotReady(icons);
+                member.buffs_known = timed || (Read(reinterpret_cast<uintptr_t>(player->GetBuffs()), icons) && LocalStatusSnapshotReady(icons));
+                timed = timed && Read(reinterpret_cast<uintptr_t>(player->GetStatusTimers()), timers) && this->utc_ != 0 &&
+                    now >= this->utc_sampled_at_ && now - this->utc_sampled_at_ <= 2000;
+                for (size_t i = 0; member.buffs_known && i < icons.size(); ++i)
+                {
+                    if (icons[i] < 0 || icons[i] == 255 || icons[i] > 1023) continue;
+                    const auto output = member.buff_count++;
+                    member.buffs[output] = static_cast<uint16_t>(icons[i]);
+                    const auto* info = this->resources_ != nullptr ? this->resources_->GetStatusIconByIndex(member.buffs[output]) : nullptr;
+                    if (!timed || timers[i] == 0 || timers[i] == 0x7FFFFFFF || (info != nullptr && info->HideTimer != 0)) continue;
+                    member.buff_expires[output] = NativeStatusDeadline(timers[i], this->utc_, now);
+                }
             }
             else if (slot < 6)
             {
@@ -213,7 +257,11 @@ namespace xiui
                     if (party->GetStatusIconsServerId(entry) == id)
                     {
                         if (const auto* icons = party->GetStatusIcons(entry))
-                            member.buff_count = DecodePartyBuffs({icons, 32}, party->GetStatusIconsBitMask(entry), member.buffs);
+                        {
+                            const auto mask = party->GetStatusIconsBitMask(entry);
+                            member.buffs_known = PartyStatusSnapshotReady({icons, 32}, mask);
+                            if (member.buffs_known) member.buff_count = DecodePartyBuffs({icons, 32}, mask, member.buffs);
+                        }
                         break;
                     }
             }

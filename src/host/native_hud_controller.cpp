@@ -74,7 +74,22 @@ namespace
 
 namespace xiui
 {
+    std::atomic<native_hud_controller::macro_run_fn> native_hud_controller::macro_continuation_{};
+    std::atomic_bool native_hud_controller::macro_suppressed_{};
+
     native_hud_controller::~native_hud_controller(void) { this->Shutdown(); }
+
+    auto __fastcall native_hud_controller::MacroRunGuard(void* self, void*, const uint8_t mode, const uint8_t slot) -> void
+    {
+        if (macro_suppressed_.load(std::memory_order_acquire)) return;
+        if (const auto original = macro_continuation_.load(std::memory_order_acquire)) original(self, mode, slot);
+    }
+
+    auto __stdcall native_hud_controller::InvokeMacro(void* context, const uint8_t book, const uint8_t set, const uint8_t slot, const BOOL alt) -> BOOL
+    {
+        auto* host = static_cast<native_hud_controller*>(context);
+        return host != nullptr && host->native_macros_.Run({book, set, slot, alt != FALSE}) ? TRUE : FALSE;
+    }
 
     auto native_hud_controller::InModule(const uintptr_t address, const size_t size) const -> bool
     {
@@ -112,11 +127,16 @@ namespace xiui
         this->module_size_ = Ashita::Memory::GetModuleSize("FFXiMain.dll");
         if (core == nullptr || this->module_ == 0)
             return;
+        this->native_macros_.Initialize();
+        this->macro_entry_ = this->native_macros_.Entry();
 
         for (size_t index = 0; index < native_hud_options.size(); ++index)
             if (native_hud_options[index].resource != nullptr)
                 this->slots_[index] = this->FindMenu(native_hud_options[index].resource);
         this->chat_input_slot_ = this->FindMenu("inline");
+        constexpr const char* macroPalettes[]{"mcr1pall", "mcr2pall", "mcr1long", "mcr2long"};
+        for (size_t index = 0; index < this->macro_palette_slots_.size(); ++index)
+            this->macro_palette_slots_[index] = this->FindMenu(macroPalettes[index]);
         const auto alliance = this->Find("A1????????8B0D????????89442424A1????????33DB89");
         if (alliance != 0)
         {
@@ -137,6 +157,8 @@ namespace xiui
                 for (size_t index = 0; index < this->slots_.size(); ++index)
                     if (this->InModule(this->slots_[index], 4))
                         this->available_ |= uint32_t{1} << index;
+                for (const auto slot : this->macro_palette_slots_)
+                    this->macro_palette_available_ = this->macro_palette_available_ || this->InModule(slot, 4);
             }
         }
 
@@ -164,6 +186,42 @@ namespace xiui
         if (this->hook_site_ != 0) this->menus_.Initialize(this->module_, this->module_size_);
     }
 
+    auto native_hud_controller::InitializeHooks(void) -> bool
+    {
+        if (this->minhook_initialized_) return true;
+        const auto initialized = ::MH_Initialize();
+        if (initialized != MH_OK && initialized != MH_ERROR_ALREADY_INITIALIZED) return false;
+        this->minhook_owned_ = initialized == MH_OK;
+        this->minhook_initialized_ = true;
+        return true;
+    }
+
+    auto native_hud_controller::SetMacroHook(const bool enabled) -> bool
+    {
+        if (enabled == this->macro_hook_enabled_) return true;
+        if (enabled && !this->macro_hook_created_)
+        {
+            std::array<uint8_t, 3> firstReturn{}, lastReturn{};
+            constexpr std::array<uint8_t, 3> returnTwoArguments{0xC2, 0x08, 0x00};
+            if (!this->InModule(this->macro_entry_, 0x43) || !Read(this->macro_entry_ + 0x21, firstReturn) || !Read(this->macro_entry_ + 0x40, lastReturn) ||
+                firstReturn != returnTwoArguments || lastReturn != returnTwoArguments || !this->InitializeHooks()) return false;
+            void* trampoline{};
+            if (::MH_CreateHook(reinterpret_cast<void*>(this->macro_entry_), &MacroRunGuard, &trampoline) != MH_OK) return false;
+            macro_continuation_.store(reinterpret_cast<macro_run_fn>(trampoline), std::memory_order_release);
+            this->native_macros_.SetRunEntry(reinterpret_cast<uintptr_t>(trampoline));
+            this->macro_hook_created_ = true;
+        }
+        macro_suppressed_.store(enabled, std::memory_order_release);
+        const auto result = enabled ? ::MH_EnableHook(reinterpret_cast<void*>(this->macro_entry_)) : ::MH_DisableHook(reinterpret_cast<void*>(this->macro_entry_));
+        if (result != MH_OK)
+        {
+            macro_suppressed_.store(this->macro_hook_enabled_, std::memory_order_release);
+            return false;
+        }
+        this->macro_hook_enabled_ = enabled;
+        return true;
+    }
+
     auto native_hud_controller::SetHook(const bool enabled) -> bool
     {
         if (enabled == this->hook_enabled_)
@@ -172,10 +230,8 @@ namespace xiui
         {
             if (this->hook_site_ == 0)
                 return false;
-            const auto initialized = ::MH_Initialize();
-            if (initialized != MH_OK && initialized != MH_ERROR_ALREADY_INITIALIZED)
+            if (!this->InitializeHooks())
                 return false;
-            this->minhook_owned_ = initialized == MH_OK;
             draw_exit = reinterpret_cast<void*>(this->hook_exit_);
             if (::MH_CreateHook(reinterpret_cast<void*>(this->hook_site_), &PrimitiveDrawGuard, &draw_continuation) != MH_OK)
                 return false;
@@ -256,7 +312,9 @@ namespace xiui
 
     auto native_hud_controller::Update(uint32_t hiddenMask, const native_menu_layout& layout) -> void
     {
-        hiddenMask = this->LoggedIn() ? hiddenMask & this->available_ : 0;
+        this->SetMacroHook((hiddenMask & native_keyboard_macro_palette) != 0);
+        const auto transientMask = this->macro_palette_available_ ? native_keyboard_macro_palette : 0;
+        hiddenMask = this->LoggedIn() ? hiddenMask & (this->available_ | transientMask) : 0;
         auto menuLayout = layout;
         menuLayout.enabled = menuLayout.enabled && this->LoggedIn();
         this->menus_.Update(menuLayout);
@@ -272,6 +330,7 @@ namespace xiui
             this->RestoreTargetBox();
             this->menus_.DisableMovement();
             this->available_ &= NativeHudBit(native_hud_element::compass) | NativeHudBit(native_hud_element::clock);
+            this->macro_palette_available_ = false;
         }
         if (!this->ApplyPatch(this->compass_, (hiddenMask & NativeHudBit(native_hud_element::compass)) != 0))
             this->available_ &= ~NativeHudBit(native_hud_element::compass);
@@ -290,6 +349,16 @@ namespace xiui
         uintptr_t attached{};
         if (!Read(owner + 8, attached) || attached != primitive)
             return false;
+        if ((mask & native_keyboard_macro_palette) != 0)
+            for (const auto slot : this->macro_palette_slots_)
+            {
+                uintptr_t current{};
+                if (Read(slot, current) && current == owner)
+                {
+                    this->skipped_.fetch_add(1, std::memory_order_relaxed);
+                    return true;
+                }
+            }
         if ((mask & NativeHudBit(native_hud_element::chat1)) != 0)
         {
             uintptr_t inputOwner{};
@@ -367,21 +436,23 @@ namespace xiui
 
     auto native_hud_controller::Status(void) const -> std::string
     {
-        char text[192]{};
-        std::snprintf(text, sizeof(text), "[XIUI Native] Game HUD: %u/%u controls supported; %u hidden; draw guard %s; %llu draws suppressed.",
-            std::popcount(this->available_), static_cast<unsigned>(native_hud_options.size()), std::popcount(this->hidden_.load()),
-            this->hook_enabled_ ? "active" : "idle", static_cast<unsigned long long>(this->skipped_.load()));
+        char text[256]{};
+        std::snprintf(text, sizeof(text), "[XIUI] Game HUD: %u/%u controls supported; %u hidden; draw guard %s; macro guard %s; %llu draws suppressed.",
+            std::popcount(this->available_), static_cast<unsigned>(native_hud_options.size()), std::popcount(this->hidden_.load() & ~native_keyboard_macro_palette),
+            this->hook_enabled_ ? "active" : "idle", this->macro_hook_enabled_ ? "active" : this->macro_entry_ != 0 ? "available" : "unavailable", static_cast<unsigned long long>(this->skipped_.load()));
         return text;
     }
 
     auto native_hud_controller::Shutdown(void) -> void
     {
         this->hidden_.store(0, std::memory_order_release);
+        const bool macroDetached = this->SetMacroHook(false);
+        macro_suppressed_.store(false, std::memory_order_release);
         const bool detached = this->SetHook(false);
         controller.store(nullptr, std::memory_order_release);
         this->RestoreTargetBox();
         this->menus_.Shutdown();
-        if (!detached)
+        if (!detached || !macroDetached)
         {
             // Keep the pass-through guard valid if the hook cannot be detached.
             HMODULE pinned{};
@@ -390,7 +461,9 @@ namespace xiui
         }
         if (detached && this->hook_created_)
             ::MH_RemoveHook(reinterpret_cast<void*>(this->hook_site_));
-        if (detached && this->minhook_owned_)
+        if (macroDetached && this->macro_hook_created_)
+            ::MH_RemoveHook(reinterpret_cast<void*>(this->macro_entry_));
+        if (detached && macroDetached && this->minhook_owned_)
             ::MH_Uninitialize();
         this->ApplyPatch(this->compass_, false);
         this->ApplyPatch(this->connection_, false);
@@ -399,6 +472,10 @@ namespace xiui
         this->hook_site_ = this->hook_exit_ = 0;
         this->available_ = 0;
         this->slots_.fill(0);
+        this->macro_palette_slots_.fill(0);
+        this->macro_palette_available_ = false;
+        this->native_macros_ = {}; this->macro_entry_ = 0;
+        this->macro_hook_created_ = this->macro_hook_enabled_ = this->minhook_initialized_ = false;
         this->chat_input_slot_ = 0;
         this->compass_ = {};
         this->connection_ = {};

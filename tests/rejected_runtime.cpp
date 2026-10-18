@@ -25,6 +25,9 @@ namespace
     auto __stdcall handle_chat(void*, const xiui::chat_event*) -> void {}
     auto __stdcall handle_key(void*, WPARAM, LPARAM, BOOL) -> BOOL { return FALSE; }
     auto __stdcall chat_focused(void*) -> BOOL { return FALSE; }
+    auto __stdcall handle_controller(void*, const xiui::controller_event*) -> BOOL { return FALSE; }
+    auto __stdcall controller_input_state(void*) -> uint32_t { return 0; }
+    auto __stdcall update_controller_status(void*, const xiui::controller_status*) -> void {}
     auto __stdcall toggle_edit(void*) -> BOOL { return FALSE; }
     auto __stdcall exit_edit(void*) -> BOOL { return TRUE; }
     auto __stdcall set_visible(void*, BOOL) -> void {}
@@ -67,6 +70,9 @@ extern "C" __declspec(dllexport) auto __stdcall XiuiGetRuntimeApi(const uint32_t
     result.handle_chat = &handle_chat;
     result.handle_key = &handle_key;
     result.chat_focused = &chat_focused;
+    result.handle_controller = &handle_controller;
+    result.controller_input_state = &controller_input_state;
+    result.update_controller_status = &update_controller_status;
     *api = result;
     return TRUE;
 }

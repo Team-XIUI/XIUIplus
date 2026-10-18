@@ -30,6 +30,17 @@ namespace
         __except (EXCEPTION_EXECUTE_HANDLER) { return false; }
     }
 
+    auto ReadReplyTeller(const uintptr_t manager, const uintptr_t function, const uint32_t index, char* name, const size_t capacity) noexcept -> bool
+    {
+        using reply_teller_fn = const char*(__thiscall*)(void*, uint32_t);
+        __try
+        {
+            auto* object = *reinterpret_cast<void* const*>(manager);
+            return object != nullptr && ReadText(reinterpret_cast<reply_teller_fn>(function)(object, index), name, capacity);
+        }
+        __except (EXCEPTION_EXECUTE_HANDLER) { return false; }
+    }
+
     auto MatchesOffset(const uintptr_t address, const uint32_t offset) noexcept -> bool
     {
         __try { return *reinterpret_cast<const uint32_t*>(address) == offset; }
@@ -84,9 +95,22 @@ namespace xiui
         const auto size = Ashita::Memory::GetModuleSize("FFXiMain.dll");
         if (base != 0 && size != 0)
         {
-            constexpr char pattern[] = "8B0D????????85C9750333C0C36A00";
+            constexpr char pattern[] = "8B0D????????85C9750333C0C36A00E8????????C3";
             const auto match = Ashita::Memory::FindPattern(base, size, pattern, 0, 0);
-            if (match != 0 && Ashita::Memory::FindPattern(base, size, pattern, 0, 1) == 0) this->last_teller_ = match;
+            if (match != 0 && Ashita::Memory::FindPattern(base, size, pattern, 0, 1) == 0)
+            {
+                this->last_teller_ = match;
+                constexpr char replyPattern[] =
+                    "538A999E01000033D284DB740F8B442408560FBEF3F7F65E85D27C150FBEC33BD07D0E"
+                    "C1E2045B8D840A1E010000C2040033C05BC20400";
+                const auto reply = Ashita::Memory::FindPattern(base, size, replyPattern, 0, 0);
+                uintptr_t manager{}; int32_t relative{};
+                std::memcpy(&manager, reinterpret_cast<const void*>(match + 2), 4);
+                std::memcpy(&relative, reinterpret_cast<const void*>(match + 16), 4);
+                if (reply != 0 && match + 20 + relative == reply && manager >= base && manager - base < size &&
+                    Ashita::Memory::FindPattern(base, size, replyPattern, 0, 1) == 0)
+                { this->reply_teller_ = reply; this->reply_manager_ = manager; }
+            }
         }
         const auto* offsets = core != nullptr ? core->GetOffsetManager() : nullptr;
         if (offsets == nullptr) return;
@@ -131,6 +155,25 @@ namespace xiui
         return name.data();
     }
 
+    auto native_chat_input::ReplyTargets(void) const -> std::vector<std::string>
+    {
+        std::vector<std::string> targets;
+        if (this->reply_teller_ != 0 && this->reply_manager_ != 0)
+        {
+            // The native getter wraps within its eight-entry reply history.
+            for (uint32_t index = 0; index < 8; ++index)
+            {
+                std::array<char, 64> name{};
+                if (!ReadReplyTeller(this->reply_manager_, this->reply_teller_, index, name.data(), name.size()) ||
+                    !IsTellRecipient(name.data()) || std::find(targets.begin(), targets.end(), name.data()) != targets.end()) break;
+                targets.emplace_back(name.data());
+            }
+        }
+        if (targets.empty())
+            if (auto latest = this->LastTeller(); !latest.empty()) targets.push_back(std::move(latest));
+        return targets;
+    }
+
     auto native_chat_input::TakeTell(IChatManager* chat) const -> std::optional<chat_draft>
     {
         return this->TakeDraft(chat, true);
@@ -141,13 +184,18 @@ namespace xiui
         return this->TakeDraft(chat, false);
     }
 
-    auto native_chat_input::TakeDraft(IChatManager* chat, const bool tellOnly) const -> std::optional<chat_draft>
+    auto native_chat_input::TakeInput(IChatManager* chat) const -> std::optional<chat_draft>
+    {
+        return this->TakeDraft(chat, false, true);
+    }
+
+    auto native_chat_input::TakeDraft(IChatManager* chat, const bool tellOnly, const bool allowText) const -> std::optional<chat_draft>
     {
         if (!this->HandoffAvailable() || chat == nullptr || chat->IsInputOpen() != static_cast<uint8_t>(Ashita::ChatInputOpenStatus::OpenedChat)) return std::nullopt;
         const auto* raw = chat->GetInputTextRaw();
         const auto rawAddress = reinterpret_cast<uintptr_t>(raw);
         std::array<char, 512> buffer{};
-        if (rawAddress < this->raw_offset_ || !ReadText(raw, buffer.data(), buffer.size()) || buffer[0] != '/' ||
+        if (rawAddress < this->raw_offset_ || !ReadText(raw, buffer.data(), buffer.size()) || buffer[0] == '\0' || (!allowText && buffer[0] != '/') ||
             (tellOnly && !IsTellDraft(buffer.data()))) return std::nullopt;
         const auto length = std::strlen(buffer.data());
         const auto caret = std::min<size_t>(chat->GetInputTextRawCaretPosition(), length);

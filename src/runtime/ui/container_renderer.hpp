@@ -24,6 +24,7 @@ namespace xiui::ui
         float edge_size{5.0f};
         float padding{8.0f};
         bool scan_lines{true};
+        bool border{true};
     };
 
     class container_renderer
@@ -42,6 +43,9 @@ namespace xiui::ui
         auto BackgroundColor(void) const -> D3DCOLOR { return this->windows_[this->selected_].average; }
         auto MeterBackground(void) const -> meter_texture;
         auto Draw(const design_system& design, const rect& bounds, const container_style& style, std::span<const container_fill> fills = {}, const horizontal_fade* fade = nullptr) const -> rect;
+        auto DrawFrame(const design_system& design, const rect& bounds, const container_style& style, const horizontal_fade* fade = nullptr) const -> void;
+        auto DrawTooltip(const design_system& design, const rect& bounds) const -> rect;
+        static constexpr auto TooltipStyle(void) -> container_style { return {1.0f, 2.5f, 10.5f, false}; }
         static auto ContentBounds(const rect& bounds, const container_style& style) -> rect;
 
     private:

@@ -75,7 +75,7 @@ namespace xiui::resources
                         patch.width > 512 || patch.height > 512)
                         return std::nullopt;
                     for (size_t vertex = 0; vertex < 4; ++vertex)
-                        patch.colors[vertex] = MenuColorFromRgba(dword(at + 26 + vertex * 4));
+                        patch.colors[vertex] = MenuVertexColorFromRgba(dword(at + 26 + vertex * 4));
                 }
                 havePatches = true;
             }

@@ -6,9 +6,12 @@
 #include "resources/auto_translate.hpp"
 #include "modules/chat/chat_module.hpp"
 #include "hud_runtime.hpp"
+#include "ui/clipped_quad.hpp"
+#include "chat_stack_checks.hpp"
 
 #include <algorithm>
 #include <chrono>
+#include <cmath>
 #include <cstdio>
 #include <cstring>
 #include <stdexcept>
@@ -20,7 +23,8 @@ namespace
     class chat_manager final : public IChatManager
     {
     public:
-        std::string sent; int32_t mode{}; size_t count{};
+        std::string sent; int32_t mode{}; size_t count{}; uint32_t input_limit{255};
+        std::string translate_token, translation;
         mutable size_t input_updates{};
         mutable std::array<char, 512> native{};
         auto OpenNative(const char* text, const uint8_t state = 4) -> void
@@ -33,7 +37,12 @@ namespace
         void Write(int32_t, bool, const char*) override {}
         void Writef(int32_t, bool, const char*, ...) override {}
         void AddChatMessage(int32_t, bool, const char*) override {}
-        int32_t ParseAutoTranslate(const char* text, char* buffer, int32_t size, bool) const override { strncpy_s(buffer, size, text, _TRUNCATE); return static_cast<int32_t>(strlen(buffer)); }
+        int32_t ParseAutoTranslate(const char* text, char* buffer, int32_t size, bool) const override
+        {
+            const auto* expanded = text == this->translate_token ? this->translation.c_str() : text;
+            strncpy_s(buffer, size, expanded, _TRUNCATE);
+            return static_cast<int32_t>(strlen(buffer));
+        }
         void ExecuteScript(const char*, const char*, bool) override {}
         void ExecuteScriptString(const char*, const char*, bool) override {}
         const char* GetInputTextRaw() const override { return this->native.data() + 16; }
@@ -43,7 +52,7 @@ namespace
         const char* GetInputTextParsed() const override { return ""; }
         void SetInputTextParsed(const char*) const override {}
         uint32_t GetInputTextParsedLength() const override { return 0; }
-        uint32_t GetInputTextParsedLengthMax() const override { return 255; }
+        uint32_t GetInputTextParsedLengthMax() const override { return this->input_limit; }
         const char* GetInputTextDisplay() const override { return ""; }
         void SetInputTextDisplay(const char*) const override {}
         void SetInputText(const char* text) const override { ++this->input_updates; strncpy_s(this->native.data() + 16, this->native.size() - 16, text, _TRUNCATE); }
@@ -57,6 +66,316 @@ namespace xiui
 {
     struct chat_test
     {
+        static auto ReactiveWindows(void) -> void
+        {
+            native_filter_records = {}; native_filter_writes = 0;
+            const auto record = [](const uint32_t id, const int32_t value, const int32_t minimum, const int32_t maximum) {
+                auto& entry = native_filter_records[id]; entry[1] = id; entry[2] = static_cast<uint32_t>(value);
+                entry[3] = 4; entry[6] = static_cast<uint32_t>(minimum); entry[7] = static_cast<uint32_t>(maximum);
+            };
+            record(14, 0, 0, 1); record(15, 8, 4, 20); record(16, 2, 0, 20); record(17, 7, 3, 30);
+            record(182, 1, 0, 1); record(183, 12, 4, 20); record(184, 0, 0, 20); record(198, -1, -1, 30);
+            const std::array<uintptr_t, 2> manager{0, reinterpret_cast<uintptr_t>(native_filter_records.data())};
+            const auto address = reinterpret_cast<uintptr_t>(manager.data());
+            native_window_config native; native.config_slot_ = reinterpret_cast<uintptr_t>(&address); native.setter_ = 1;
+            const auto first = native.ChatWindow(), second = native.ChatWindow(true);
+            Check(first && first->reactive && first->minimum_lines == 2 && first->maximum_lines == 8 && first->resize_seconds == 7,
+                "native Window 1 reactive sizing reads its validated settings");
+            Check(second && !second->reactive && second->maximum_lines == 12 && second->resize_seconds == 7,
+                "Window 2 inherits Window 1 resize delay when its native value is -1");
+            native_filter_records[198][2] = 11;
+            Check(native.ChatWindow(true)->resize_seconds == 11 && native_filter_writes == 0, "separate native Window 2 delay is read without changing the game");
+            native_filter_records[184][7] = 99;
+            Check(!native.ChatWindow(true), "unrecognized native record ranges disable following safely");
+
+            ui::design_system design; chat_module chat;
+            chat.ApplyTextDefaults(ui::theme::CreateDefault()); chat.state_.bounds = {20, 400, 560, 260};
+            chat.collapse_mode_ = 2; chat.collapse_delay_ = 3; chat.collapse_max_lines_ = 8;
+            const auto append = [&](const uint64_t sequence, const char* text, const uint32_t windows = 1) {
+                chat_event event{}; event.sequence = sequence; event.timestamp = 1000; event.windows = windows; event.mode = 1;
+                strcpy_s(event.text, text); chat.Receive(nullptr, event, false); chat.TrackCollapse(event, 0, 1000); return event;
+            };
+            append(1, "First message\nWrapped row"); append(2, "Second message"); auto third = append(3, "Third message");
+            chat.UpdateCompactLayout(design, 1000);
+            const auto original = chat.CompactBounds(design); const auto line = design.TextHeight(chat.text_.style) + chat.line_spacing_;
+            Check(chat.collapse_visible_rows_ == 4 && original.height < 260 && original.y + original.height == 660,
+                "reactive sizing uses live wrapped rows and preserves the saved bottom anchor");
+            chat.UpdateCompactLayout(design, 3999);
+            Check(chat.collapse_fade_sequence_ == 0 && chat.CompactBounds(design).height == original.height, "resize waits for the complete idle delay");
+            chat.UpdateCompactLayout(design, 4110);
+            Check(chat.collapse_fade_sequence_ == 1 && std::abs(chat.collapse_opacity_ - 0.5f) < 0.001f &&
+                std::abs(chat.CompactBounds(design).height - (original.height - line)) < 0.01f,
+                "all wrapped rows of the oldest message fade together while the window smoothly collapses");
+            chat.UpdateCompactLayout(design, 4220);
+            Check(chat.collapsed_through_ == 1 && chat.collapse_visible_rows_ == 2, "one whole message expires rather than the entire burst");
+            const auto due = chat.collapse_due_; append(4, "Other native window", 2); chat.TrackCollapse(third, 1, 5000);
+            Check(chat.collapse_due_ == due, "unmatched routes and duplicate delivery cannot revive expired messages or restart the delay");
+            chat.UpdateCompactLayout(design, 7220);
+            Check(chat.collapsed_through_ == 2 && chat.collapse_visible_rows_ == 1, "later messages retire one at a time at the configured interval");
+            chat.Focus(true); chat.editor_.Set("Preserved draft"); chat.UpdateCompactLayout(design, 10000);
+            Check(chat.CompactBounds(design).height == 260 && chat.editor_.Text() == "Preserved draft", "composition holds the full window without touching the draft");
+            chat.Focus(false); chat.UpdateCompactLayout(design, 11000);
+            Check(chat.collapsed_through_ == 2 && chat.collapse_due_ == 13000, "leaving composition restarts the idle wait");
+            chat.history_view_.focused = true; chat.UpdateCompactLayout(design, 12000);
+            Check(chat.FrameBounds(design).height == 260, "controller and keyboard history focus keep the window expanded");
+            chat.history_view_ = {}; chat.tabs_[chat.active_tab_].scroll = 1; chat.UpdateCompactLayout(design, 13000);
+            Check(chat.FrameBounds(design).height == 260, "scrollback stays open");
+            chat.tabs_[chat.active_tab_].scroll = 0; chat.SetLayoutEditing(true); chat.UpdateCompactLayout(design, 14000);
+            Check(chat.FrameBounds(design).height == 260, "layout editing exposes the complete saved frame");
+            chat.SetLayoutEditing(false); chat.Clear(); chat.collapse_min_lines_ = 2; chat.UpdateCompactLayout(design, 15000);
+            Check(std::abs(chat.collapse_height_rows_ - 2) < 0.001f && chat.FrameBounds(design).height > 2 * line,
+                "minimum lines reserve space even with an empty history");
+            append(5, "One message\nSecond wrapped row\nThird wrapped row"); chat.UpdateCompactLayout(design, 20000);
+            Check(chat.collapse_visible_rows_ == 3 && chat.collapse_fade_sequence_ == 0,
+                "a message crossing the minimum line boundary remains intact");
+            chat.collapse_mode_ = 0; chat.SetNativeWindowConfig(first); chat.UpdateCompactLayout(design, 16000);
+            const auto nativeDue = chat.collapse_due_; chat.SetNativeWindowConfig(first);
+            Check(chat.collapse_due_ == nativeDue, "unchanged native polls cannot extend the idle deadline");
+            chat.SetNativeWindowConfig(second); chat.UpdateCompactLayout(design, 17000);
+            Check(chat.FrameBounds(design).height == 260, "native fixed sizing preserves the configured XIUI frame");
+            const auto store = settings_store::FromIniText(""); chat.collapse_mode_ = 2; chat.collapse_delay_ = 9; chat.Save(store);
+            chat_module restored; restored.Load(store);
+            Check(restored.collapse_mode_ == 2 && restored.collapse_delay_ == 9 && restored.collapsed_through_ == 0 &&
+                restored.ConfigSectionContains(2, restored.CollapseOptionStart()), "custom sizing persists without saving transient expiration state");
+            RunChatStackChecks();
+            chat_module lower, upper{true}; lower.AttachSecondWindow(upper);
+            lower.ApplyTextDefaults(ui::theme::CreateDefault()); upper.ApplyTextDefaults(ui::theme::CreateDefault());
+            lower.state_.bounds = {18, 400, 560, 260}; upper.state_.bounds = {18, 108, 560, 260};
+            upper.state_.enabled = true; upper.defaults_initialized_ = true;
+            lower.collapse_mode_ = 2; lower.collapse_min_lines_ = 1; lower.shared_windows_ = true;
+            lower.UpdateCompactLayout(design, 1000);
+            const auto lowerFrame = lower.FrameBounds(design), upperFrame = upper.FrameBounds(design);
+            Check(std::abs(lowerFrame.y - (upperFrame.y + upperFrame.height) - 32) < 0.01f &&
+                upperFrame.y > upper.state_.bounds.y && lower.state_.bounds.y == 400 && upper.state_.bounds.y == 108,
+                "shared windows follow compact geometry while retaining the gap and saved positions");
+            Check(upper.HitTest(design, upperFrame.x + 20, upperFrame.y + 20) &&
+                !upper.HitTest(design, upperFrame.x + 20, 110), "pointer ownership follows the displayed stack");
+            lower.SetLayoutEditing(true);
+            Check(upper.FrameBounds(design).y == 108, "moving or resizing either chat window suspends shared stacking");
+            lower.SetLayoutEditing(false); upper.SetStackPeerVisible(false);
+            Check(upper.FrameBounds(design).y == 108, "a contextually hidden lower window cannot displace its peer");
+            lower.Save(store); chat_module stackRestored; stackRestored.Load(store);
+            Check(stackRestored.shared_windows_ && stackRestored.ConfigSectionContains(2, stackRestored.CollapseOptionStart() + 4),
+                "shared stack preference persists in Layout without modifying chat positions");
+        }
+
+        static auto AnimationSpeed(void) -> void
+        {
+            chat_module primary, second{true};
+            primary.message_entrances_.push_back({1, 1000});
+            Check(std::abs(primary.MessageMotion(1, 1110).opacity - 0.5f) < 0.001f, "100% retains the original timing");
+            const auto speedIndex = primary.AnimationOptionStart() + 1;
+            auto option = primary.Option(speedIndex);
+            Check(option.kind == module_option_kind::slider && option.minimum == 25 && option.maximum == 300 &&
+                primary.ConfigSectionContains(8, speedIndex), "speed uses the shared slider in Animation");
+            *option.slider = 200;
+            Check(std::abs(primary.MessageMotion(1, 1055).opacity - 0.5f) < 0.001f && primary.MessageMotion(1, 1110).opacity == 1,
+                "200% doubles animation speed");
+            primary.message_animation_speed_ = 25;
+            chat_event event{}; event.sequence = 2; event.mode = 1; event.windows = 1;
+            primary.TrackMessageEntrance(event, 0, 1220);
+            Check(primary.message_entrances_.size() == 2 && primary.MessageMotion(1, 1220).opacity < 1,
+                "slower animations survive past the original expiration");
+            primary.message_animation_ = 2; primary.OnOptionChanged(speedIndex);
+            Check(primary.message_entrances_.empty() && primary.message_animation_ == 2, "speed edits preserve direction and clear active transitions");
+            primary.message_animation_speed_ = 200; second.message_animation_speed_ = 50;
+            const auto saved = settings_store::FromIniText(""); primary.Save(saved); second.Save(saved);
+            chat_module loaded, loadedSecond{true}; loaded.Load(saved); loadedSecond.Load(saved);
+            Check(loaded.message_animation_speed_ == 200 && loadedSecond.message_animation_speed_ == 50,
+                "each window persists its own speed");
+            loaded.ResetDefaults(ui::theme::CreateDefault());
+            Check(loaded.message_animation_speed_ == 100, "defaults restore the original speed");
+            loaded.Load(settings_store::FromIniText("[chat]\nmessage_animation_speed=nan\n"));
+            Check(loaded.message_animation_speed_ == 100, "invalid speeds fall back to the original timing");
+        }
+
+        static auto MessageAnimation(void) -> void
+        {
+            chat_module primary, second{true}; primary.AttachSecondWindow(second);
+            second.state_.enabled = true;
+            chat_event event{}; event.sequence = 1; event.windows = 1; event.mode = 1;
+            strcpy_s(event.text, "New message");
+            primary.TrackMessageEntrance(event, 0, 1000);
+            auto motion = primary.MessageMotion(1, 1000);
+            Check(motion.opacity == 0 && motion.x == 0, "new messages start faded while the stack scrolls");
+            motion = primary.MessageMotion(1, 1110);
+            Check(std::abs(motion.opacity - 0.5f) < 0.001f, "all wrapped rows and spans share one fade curve");
+            motion = primary.MessageMotion(1, 1220);
+            Check(motion.opacity == 1 && motion.x == 0, "entrance settles at the normal text position");
+            primary.message_animation_ = 2;
+            motion = primary.MessageMotion(1, 1000);
+            Check(motion.opacity == 0 && motion.x == -14, "slide right enters from the left");
+            primary.message_animation_ = 0;
+            Check(primary.MessageMotion(1, 1000).opacity == 1, "Off immediately restores normal presentation");
+            primary.message_animation_ = 1; primary.message_entrances_.clear();
+            primary.Receive(nullptr, event, false);
+            Check(primary.message_entrances_.empty(), "restoring captured history never starts an animation");
+            event.sequence = 2; primary.Receive(nullptr, event);
+            Check(primary.message_entrances_.size() == 1 && second.message_entrances_.empty(), "new messages animate only in their matching visible window");
+            const auto firstStart = primary.message_entrances_.front().started;
+            primary.Receive(nullptr, event);
+            Check(primary.message_entrances_.size() == 1 && primary.message_entrances_.front().started == firstStart, "duplicate delivery cannot restart an entrance");
+            event.windows = 2; primary.Receive(nullptr, event);
+            Check(primary.message_entrances_.size() == 1 && second.message_entrances_.size() == 1,
+                "a second native-window delivery animates that window independently");
+            primary.message_entrances_.clear(); primary.tabs_[primary.active_tab_].scroll = 1;
+            event.sequence = 3; event.windows = 1; primary.TrackMessageEntrance(event, 0, 1000);
+            Check(primary.message_entrances_.empty(), "scrolled history remains still while messages arrive");
+            primary.tabs_[primary.active_tab_].scroll = 0; primary.history_view_.focused = primary.history_view_.expanded = true;
+            primary.TrackMessageEntrance(event, 0, 1000);
+            Check(primary.message_entrances_.empty(), "expanded history does not animate incoming lines");
+            primary.history_view_ = {};
+            for (uint64_t sequence = 4; sequence < 204; ++sequence) { event.sequence = sequence; primary.TrackMessageEntrance(event, 0, 1000); }
+            Check(primary.message_entrances_.size() == 128, "chat bursts retain bounded animation state");
+            event.sequence = 204; primary.TrackMessageEntrance(event, 0, 1220);
+            Check(primary.message_entrances_.size() == 1, "expired animations leave the active set");
+            primary.message_animation_ = 2; second.message_animation_ = 0;
+            const auto saved = settings_store::FromIniText(""); primary.Save(saved); second.Save(saved);
+            chat_module loaded, loadedSecond{true}; loaded.AttachSecondWindow(loadedSecond); loaded.Load(saved); loadedSecond.Load(saved);
+            Check(loaded.message_animation_ == 2 && loadedSecond.message_animation_ == 0 && loaded.message_entrances_.empty(),
+                "both windows persist independent choices with no transient animation state");
+            loaded.ResetDefaults(ui::theme::CreateDefault());
+            Check(loaded.message_animation_ == 1 && loaded.ConfigSectionContains(8, loaded.AnimationOptionStart()) &&
+                loaded.Option(loaded.AnimationOptionStart()).choice_count == 3, "defaults and shared config expose all entrance choices");
+
+            chat_module stack; stack.ApplyTextDefaults(ui::theme::CreateDefault());
+            ui::design_system design;
+            strcpy_s(event.text, "Old"); event.windows = 1;
+            for (uint64_t sequence = 1; sequence <= 4; ++sequence) { event.sequence = sequence; stack.Receive(nullptr, event, false); }
+            stack.RebuildRows(design, 100);
+            const auto lineHeight = design.TextHeight(stack.text_.style) + stack.line_spacing_;
+            const auto oldRows = stack.rows_.size();
+            const auto oldTop = 200 - static_cast<float>(oldRows) * lineHeight;
+            event.sequence = 5; strcpy_s(event.text, "New");
+            stack.Receive(nullptr, event, false); stack.TrackMessageEntrance(event, 0, 1000); stack.RebuildRows(design, 100);
+            const auto startOffset = stack.MessageScrollOffset(1000, lineHeight);
+            Check(std::abs(startOffset - lineHeight) < 0.001f &&
+                std::abs(200 - static_cast<float>(stack.rows_.size()) * lineHeight + startOffset - oldTop) < 0.001f,
+                "a new message keeps existing rows at their previous positions when scrolling begins");
+            Check(std::abs(stack.MessageScrollOffset(1110, lineHeight) - lineHeight * 0.5f) < 0.001f &&
+                stack.MessageScrollOffset(1220, lineHeight) == 0, "the whole stack scrolls one row using the message fade timing");
+            const auto beforeRows = stack.rows_.size();
+            const auto beforeOffset = stack.MessageScrollOffset(1110, lineHeight);
+            event.sequence = 6; strcpy_s(event.text, "A long incoming message that wraps across several rows of the chat window.");
+            stack.Receive(nullptr, event, false); stack.TrackMessageEntrance(event, 0, 1110); stack.RebuildRows(design, 100);
+            const auto wrappedRows = stack.rows_.size() - beforeRows;
+            const auto burstOffset = stack.MessageScrollOffset(1110, lineHeight);
+            Check(wrappedRows > 1 && std::abs(burstOffset - beforeOffset - wrappedRows * lineHeight) < 0.001f &&
+                std::abs(-static_cast<float>(stack.rows_.size()) * lineHeight + burstOffset -
+                    (-static_cast<float>(beforeRows) * lineHeight + beforeOffset)) < 0.001f,
+                "wrapped arrivals preserve ongoing stack positions and scroll their full measured height");
+            stack.message_animation_ = 2;
+            Check(stack.MessageScrollOffset(1110, lineHeight) == burstOffset && stack.MessageMotion(6, 1110).x == -14,
+                "horizontal entrances retain smooth vertical movement of the existing stack");
+            stack.tabs_[stack.active_tab_].scroll = 1;
+            Check(stack.MessageScrollOffset(1110, lineHeight) == 0, "browsing older messages holds the stack still");
+            stack.tabs_[stack.active_tab_].scroll = 0; stack.history_view_.focused = stack.history_view_.expanded = true;
+            Check(stack.MessageScrollOffset(1110, lineHeight) == 0, "expanded history holds the stack still");
+            stack.history_view_ = {}; stack.message_animation_ = 0;
+            Check(stack.MessageScrollOffset(1110, lineHeight) == 0, "Off keeps immediate message placement");
+
+            const std::array<ui::textured_vertex, 4> quad{{{-10.5f, -10.5f, 0, 1, 0x00000000, 0, 0}, {9.5f, -10.5f, 0, 1, 0x00000000, 1, 0},
+                {-10.5f, 9.5f, 0, 1, 0xFFFFFFFF, 0, 1}, {9.5f, 9.5f, 0, 1, 0xFFFFFFFF, 1, 1}}};
+            std::vector<ui::textured_vertex> clipped;
+            ui::AppendClippedQuad(clipped, quad, ui::rect{0, 0, 10, 10});
+            Check(!clipped.empty() && clipped.size() % 3 == 0, "clipped glyphs and auto-translate art retain renderable geometry");
+            for (const auto& vertex : clipped)
+                Check(vertex.x >= -0.5f && vertex.y >= -0.5f && vertex.x <= 9.5f && vertex.y <= 9.5f && vertex.u >= 0.5f && vertex.v >= 0.5f,
+                    "sliding glyphs and icons clip to the fixed log with matching texture coordinates");
+            clipped.clear(); ui::AppendClippedQuad(clipped, quad, ui::rect{50, 50, 10, 10});
+            Check(clipped.empty(), "art outside the log contributes no triangles");
+        }
+
+        inline static std::array<std::array<uint32_t, 11>, 207> native_filter_records{};
+        inline static size_t native_filter_writes{};
+
+        static auto __cdecl SetNativeFilter(const uint32_t id, const int32_t value) -> int32_t
+        {
+            if (id >= native_filter_records.size()) return -1;
+            native_filter_records[id][2] = static_cast<uint32_t>(value);
+            ++native_filter_writes;
+            return 0;
+        }
+
+        static auto NativeFilters(void) -> void
+        {
+            native_filter_records = {}; native_filter_writes = 0;
+            for (const auto id : {50u, 51u, 52u, 53u, 71u, 185u, 186u, 187u, 188u})
+            {
+                auto& record = native_filter_records[id];
+                record[1] = id; record[3] = 4;
+                record[7] = id == 53 ? 3 : id == 71 ? 1 : UINT32_MAX;
+            }
+            const std::array<uintptr_t, 2> configObject{0, reinterpret_cast<uintptr_t>(native_filter_records.data())};
+            const auto configAddress = reinterpret_cast<uintptr_t>(configObject.data());
+            native_window_config config;
+            config.config_slot_ = reinterpret_cast<uintptr_t>(&configAddress);
+            config.setter_ = reinterpret_cast<uintptr_t>(&SetNativeFilter);
+            Check(config.ChatFilterValue(185) == 0 && !config.SetChatFilterValue(53, 4) && !config.SetChatFilterValue(71, 2) &&
+                !config.ChatFilterValue(18) && native_filter_writes == 0, "native filter access validates supported records and ranges before writes");
+
+            native_chat_filters filters;
+            filters.config_ = &config; filters.definitions_available_ = true;
+            for (auto& entry : filters.filters_) entry = {51, 0, 0};
+            filters.filters_[0] = {0, 0, 0}; filters.filters_[1] = {51, 2, 2}; filters.filters_[8] = {3, 5, 9};
+            filters.filters_[11] = {4, 11, 11}; filters.filters_[39] = {30, 11, 175};
+            filters.filters_[52] = {51, -1, 33}; filters.filters_[53] = {51, -2, 34}; filters.filters_[54] = {51, -3, 35};
+            filters.Refresh();
+            chat_module module; module.SetNativeFilters(filters);
+            const auto start = module.NativeFiltersStart();
+            *module.Option(start).choice = 1; module.OnOptionChanged(start);
+            Check(native_filter_writes == 0 && module.ConfigSectionContains(7, start + 66) && !module.ConfigSectionContains(7, start + 9),
+                "native group selection changes visible controls without copying or changing filters");
+            native_filter_records[185][2] = 1;
+            filters.Refresh();
+            native_filter_records[185][2] |= 1u << 4;
+            *module.Option(start + 66).toggle = true; module.OnOptionChanged(start + 66);
+            Check(native_filter_records[185][2] == (1u | 1u << 4 | 1u << 7) && native_filter_records[187][2] == 0,
+                "enabling Window 1 emotes preserves newly changed neighboring bits and Window 2");
+            native_filter_records[187][2] = 0x80000000;
+            const auto writes = native_filter_writes;
+            *module.Option(start).choice = 2; module.OnOptionChanged(start);
+            Check(native_filter_writes == writes && !*module.Option(start + 66).toggle,
+                "Window 2 selection reads its own native values without overwriting either window");
+
+            *module.Option(start).choice = 0; module.OnOptionChanged(start);
+            native_filter_records[50][2] = 1u << 29; native_filter_records[52][2] = 1u << 9;
+            *module.Option(start + 9).choice = 1; module.OnOptionChanged(start + 9);
+            Check(native_filter_records[50][2] == (1u << 29 | 1u << 3) && native_filter_records[52][2] == 1u << 9,
+                "Hide maps to native filtering without touching unrelated mask or Hold bits");
+            *module.Option(start + 9).choice = 2; module.OnOptionChanged(start + 9);
+            Check(native_filter_records[50][2] == 1u << 29 && native_filter_records[52][2] == (1u << 9 | 1u << 5),
+                "Hold clears the native hide bit and changes only that channel's Hold bit");
+            *module.Option(start + 9).choice = 0; module.OnOptionChanged(start + 9);
+            Check(native_filter_records[52][2] == 1u << 9, "Show clears the selected channel's Hide and Hold settings");
+            *module.Option(start + 2).choice = 3; module.OnOptionChanged(start + 2);
+            Check(native_filter_records[71][2] == 1 && (native_filter_records[52][2] & 4) != 0,
+                "Tell combines native notification and Hold without inventing a suppression mode");
+            *module.Option(start + 40).choice = 1; module.OnOptionChanged(start + 40);
+            Check(native_filter_records[51][2] == 1, "native global mask two begins at filter bit thirty");
+            *module.Option(start + 55).choice = 1; module.OnOptionChanged(start + 55);
+            Check(native_filter_records[53][2] == 3 && filters.values_[52] == 1 && filters.values_[53] == 1,
+                "system filter levels preserve the native cumulative behavior");
+            *module.Option(start + 54).choice = 0; module.OnOptionChanged(start + 54);
+            Check(native_filter_records[53][2] == 1 && filters.values_[54] == 0, "showing a system level also shows higher levels");
+            native_filter_records[50][1] = 0;
+            filters.Refresh();
+            Check(!module.Option(start + 9).available, "unavailable native settings disable edits");
+
+            ui::design_system design;
+            module.ApplyTextDefaults(ui::theme::CreateDefault());
+            for (const auto mode : {7u, 15u})
+            {
+                chat_event event{}; event.sequence = mode; event.windows = 1; event.mode = mode;
+                strcpy_s(event.text, "Example waves."); module.Receive(nullptr, event, false);
+                Check(ChatTypeIndex(mode) == 9 && ChatHistoryMatches(10, mode, 1) && !ChatHistoryMatches(10, mode, 0),
+                    "incoming and outgoing emotes use their own history category and retain native admission");
+            }
+            module.RebuildRows(design, 1500);
+            Check(module.Count() == 2 && module.rows_.size() == 2 && module.rows_[1].spans[0].text.starts_with("Example"),
+                "both admitted native emote modes reach the normal XIUI log");
+        }
+
         static auto ExpandedHistory(void) -> void
         {
             hud_runtime runtime; auto& chat = runtime.chat_;
@@ -67,16 +386,18 @@ namespace xiui
             const auto key = [&](const WPARAM value, const LPARAM flags = 0) { return runtime.HandleChatKey(value, flags, false, true, false, 0); };
             Check(!runtime.HandleChatKey('F', 0, true, true, false, 0) && !runtime.HandleChatKey('F', 0, false, false, false, 0) &&
                 !chat.HistoryFocused(), "F respects existing input owners and native chat when replacement is off");
-            Check(key('F') && chat.HistoryFocused() && !chat.HistoryExpanded() && !chat.Focused() && runtime.KeyboardFocused(),
-                "F focuses the log and captures game keys without opening a message editor");
+            Check(!key('F') && !chat.HistoryFocused() && !chat.HandleHistoryKey('F', 0, false, true, runtime.design_system_),
+                "an unfocused F stays native through both runtime and module input routes");
+            Check(chat.BeginHistory() && chat.HistoryFocused() && !chat.HistoryExpanded() && !chat.Focused() && runtime.ChatFocused(),
+                "explicit history focus selects the log without opening a message editor");
             Check(key(VK_RETURN) && chat.HistoryExpanded() && chat.editor_.Text() == "unsent draft", "Enter expands history without submitting or changing a draft");
             const auto layout = chat.HistoryLayout(runtime.design_system_);
-            Check(layout.frame.width > 1500 && layout.frame.height > 800 && layout.log.y < layout.footer.y && layout.tabs.size() == 10,
+            Check(layout.frame.width > 1500 && layout.frame.height > 800 && layout.log.y < layout.footer.y && layout.tabs.size() == 11,
                 "expanded history fills the viewport with all requested channel tabs above the frame");
             for (const auto& tab : layout.tabs)
                 Check(tab.x >= 0 && tab.x + tab.width <= 1600 && tab.y + tab.height < layout.frame.y,
                     "all channel tab hit areas fit above the expanded log");
-            constexpr uint32_t modes[]{20, 9, 12, 13, 14, 214, 222, 220, 212, 10};
+            constexpr uint32_t modes[]{20, 9, 12, 13, 14, 214, 222, 220, 212, 10, 15};
             for (size_t tab = 0; tab < std::size(chat_history_tabs); ++tab)
             {
                 Check(ChatHistoryMatches(tab, modes[tab], 1) && !ChatHistoryMatches(tab, modes[tab], 0), "each history tab matches its admitted native channel");
@@ -114,11 +435,24 @@ namespace xiui
             Check(chat.HandleMouse(WM_LBUTTONDOWN, MK_LBUTTON, say.x + 2, say.y + 2, false, runtime.design_system_, chat.history_view_.viewport, save) &&
                 chat.history_view_.tab == 1 && chat.HandleMouse(WM_LBUTTONUP, 0, say.x + 2, say.y + 2, false, runtime.design_system_, chat.history_view_.viewport, save),
                 "history tabs accept and retain a complete captured pointer click");
-            Check(key(VK_ESCAPE) && !runtime.KeyboardFocused() && !chat.HistoryExpanded() && chat.editor_.Text() == "unsent draft" &&
+            const auto retainedTab = chat.history_view_.tab, retainedScroll = chat.CurrentScroll();
+            Check(!key(VK_TAB, 0x20000000) && chat.HistoryExpanded(), "Alt+Tab leaves the expanded log visible and yields the shortcut");
+            runtime.controller_surface_ = hud_runtime::controller_surface::chat;
+            runtime.ReleaseControllerFocus(true); runtime.ReleaseChatInput(true);
+            Check(chat.HistoryExpanded() && chat.history_view_.tab == retainedTab && chat.CurrentScroll() == retainedScroll &&
+                chat.editor_.Text() == "unsent draft" && !runtime.KeyboardFocused() && !chat.Resizing() &&
+                runtime.controller_surface_ == hud_runtime::controller_surface::none && runtime.chat_pointer_ == nullptr,
+                "background cleanup releases input while retaining the expanded log, tab, scroll and draft");
+            Check(key(VK_ESCAPE) && chat.HistoryFocused() && runtime.ChatFocused() && !chat.HistoryExpanded() && chat.editor_.Text() == "unsent draft" &&
                 chat.State().bounds.x == initial.x && chat.State().bounds.y == initial.y && chat.State().bounds.width == initial.width && chat.State().bounds.height == initial.height,
-                "Escape restores gameplay and the original chat window without altering its draft or layout");
+                "Escape returns expanded history to the focused compact XIUI chat without altering its draft or layout");
+            Check(key(VK_ESCAPE, 0x40000000) && chat.HistoryFocused(), "holding Escape cannot also leave compact chat focus");
+            Check(key(VK_RETURN) && chat.HistoryExpanded() && key(VK_ESCAPE) && chat.HistoryFocused(),
+                "Enter after returning to compact chat reopens XIUI history without focusing native chat");
+            Check(key(VK_ESCAPE) && !runtime.ChatFocused(), "a second fresh Escape leaves compact chat focus");
             runtime.native_ui_.menu_visible = true;
-            Check(runtime.HandleChatKey('F', 0, false, true, true, 0) && chat.HistoryFocused(), "F can focus history during target selection");
+            Check(!runtime.HandleChatKey('F', 0, false, true, true, 0) && !chat.HistoryFocused(), "an unfocused F stays native during target selection");
+            Check(chat.BeginHistory(), "explicit history entry remains available");
             runtime.SyncNativeChatInput(nullptr, true, true);
             Check(chat.HistoryFocused() && runtime.HandleChatKey(VK_RETURN, 0, false, true, true, 0) && chat.HistoryExpanded(),
                 "native menu polling cannot steal focused history or its expand key");
@@ -126,9 +460,87 @@ namespace xiui
             Check(key(VK_OEM_2) && chat.Focused() && !chat.HandleHistoryKey('F', 0, false, true, runtime.design_system_),
                 "F remains ordinary text when the message editor is focused");
             chat.Focus(false);
+            auto& second = runtime.chat_second_;
+            const auto cyclingDraft = chat.editor_.Text();
+            second.State().enabled = true;
+            second.history_view_.tab = 3; second.history_view_.scroll[3] = 7;
+            Check(chat.BeginHistory() && chat.HistoryFocused() && !second.HistoryFocused(), "explicit entry selects the first visible chat window");
+            Check(key('F', 0x40000000) && chat.HistoryFocused() && !second.HistoryFocused(), "held F cannot cycle windows repeatedly");
+            Check(key('F') && second.HistoryFocused() && !chat.HistoryFocused() && runtime.ChatFocused() &&
+                second.history_view_.tab == 3 && second.history_view_.scroll[3] == 7,
+                "F moves compact focus to Window 2 without changing its tab or scroll");
+            Check(key(VK_RETURN) && second.HistoryExpanded() && !chat.HistoryExpanded(), "Enter expands the selected second window");
+            Check(key('F') && second.history_view_.tab == 4 && second.HistoryExpanded(), "F cycles tabs inside Window 2's expanded history");
+            Check(key(VK_ESCAPE) && second.HistoryFocused() && !second.HistoryExpanded() && !chat.HistoryFocused() && runtime.ChatFocused(),
+                "Escape from expanded Window 2 returns focus to compact Window 2");
+            Check(key(VK_ESCAPE, 0x40000000) && second.HistoryFocused() && second.history_view_.tab == 4 && chat.editor_.Text() == cyclingDraft,
+                "held Escape retains Window 2 focus, its history tab and the shared draft");
+            Check(key(VK_ESCAPE) && !runtime.ChatFocused(), "a second fresh Escape releases Window 2 focus");
+            auto& player = const_cast<party_member&>(runtime.party_source_.Members()[0]);
+            player.active = player.buffs_known = true; player.id = 50;
+            player.buffs = {33, 40, 2}; player.buff_count = 3;
+            Check(chat.BeginHistory() && key('F') && second.HistoryFocused() && key('F') && runtime.buffs_.ControllerFocused() &&
+                !runtime.ChatFocused() && second.history_view_.tab == 4 && chat.editor_.Text() == cyclingDraft,
+                "F after Window 2 selects XIUI Buffs directly and retains chat tabs and drafts");
+            const auto firstBuff = runtime.buffs_.ControllerBounds();
+            Check(key(VK_RIGHT) && runtime.buffs_.ControllerBounds().x > firstBuff.x,
+                "keyboard arrows move between the actual XIUI effect icons");
+            Check(key('F', 0x40000000) && runtime.buffs_.ControllerFocused(), "held F cannot skip a status group");
+            Check(key('F') && runtime.debuffs_.ControllerFocused() && !runtime.buffs_.ControllerFocused(),
+                "F continues from XIUI Buffs to XIUI Debuffs");
+            Check(key(VK_ESCAPE) && !runtime.ControllerCaptured() && !runtime.ChatFocused(), "Escape releases keyboard status inspection");
+            second.State().enabled = false;
+            Check(chat.BeginHistory() && chat.HistoryFocused() && key('F') && runtime.buffs_.ControllerFocused(),
+                "with Window 2 disabled, the second F selects XIUI Buffs");
+            runtime.buffs_.State().enabled = false;
+            Check(key('F') && runtime.debuffs_.ControllerFocused(), "disabled status modules are skipped without native focus");
+            player.buff_count = 0;
+            key(VK_ESCAPE);
+            Check(chat.BeginHistory() && key('F') && chat.HistoryFocused() && !runtime.buffs_.ControllerFocused() && !runtime.debuffs_.ControllerFocused(),
+                "empty status groups are skipped and focus wraps within XIUI");
+            key(VK_ESCAPE);
+            player.buff_count = 3; runtime.buffs_.State().enabled = true;
+            second.State().enabled = true;
+            const auto cycle = [&](const controller_action action, const bool repeated = false) {
+                return runtime.HandleController({action, controller_backend::xinput, 0, true, repeated, false, 100});
+            };
+            Check(cycle(controller_action::cycle_window) && chat.HistoryFocused(), "controller cycle starts with Window 1");
+            Check(cycle(controller_action::cycle_window, true) && chat.HistoryFocused(), "held controller cycle cannot change windows");
+            Check(cycle(controller_action::cycle_window) && second.HistoryFocused() && !chat.HistoryFocused(),
+                "controller cycle uses the same Window 2 focus handoff");
+            Check(cycle(controller_action::confirm) && second.HistoryExpanded(), "controller Confirm expands Window 2");
+            Check(cycle(controller_action::cycle_window) && second.HistoryExpanded() && second.history_view_.tab == 5,
+                "controller cycle retains tab navigation inside expanded Window 2");
+            cycle(controller_action::cancel);
+            Check(cycle(controller_action::cycle_window) && runtime.buffs_.ControllerFocused(), "controller cycle reaches XIUI Buffs after Chat 2");
+            Check(cycle(controller_action::cycle_window) && runtime.debuffs_.ControllerFocused(), "controller cycle continues to XIUI Debuffs");
+            Check(cycle(controller_action::cycle_window) && chat.HistoryFocused() && !second.HistoryFocused(),
+                "controller focus wraps from status effects to Chat 1");
+            cycle(controller_action::cancel);
+            Check(chat.BeginHistory() && key('F') && second.HistoryFocused() &&
+                !runtime.HandleChatKey('F', 0, false, true, false, 0x11) && !runtime.ChatFocused() &&
+                chat.editor_.Text() == cyclingDraft, "native text input releases both histories without changing the draft");
+            Check(chat.BeginHistory() && key('F') && key('F') && runtime.buffs_.ControllerFocused() &&
+                !runtime.HandleChatKey(VK_RIGHT, 0, false, true, false, 0x11) && !runtime.ControllerCaptured(),
+                "native text ownership releases status inspection before handling navigation");
             runtime.editing_ = true;
-            Check(!key('F') && !chat.HistoryFocused(), "config editing keeps F away from chat history");
+            Check(!key('F') && !chat.HistoryFocused() && !second.HistoryFocused(), "config editing keeps F away from both chat histories");
             runtime.editing_ = false;
+        }
+
+        static auto WrappingWhitespace(void) -> void
+        {
+            ui::design_system design; chat_module chat;
+            chat.ApplyTextDefaults(ui::theme::CreateDefault()); chat.timestamp_display_ = 1;
+            chat_event event{}; event.sequence = 1; event.windows = 1; event.mode = 1;
+            strcpy_s(event.text, "Filled\x1e\x50 \t  "); chat.Receive(nullptr, event, false);
+            chat.RebuildRows(design, MeasureChatText(design, "Filled", chat.text_.style));
+            Check(chat.rows_.size() == 1 && chat.rows_[0].spans[0].text == "Filled",
+                "trailing colored whitespace cannot wrap into a blank message row");
+            chat.Clear(); event.sequence = 2; strcpy_s(event.text, "First\n\n  Second"); chat.Receive(nullptr, event, false);
+            chat.RebuildRows(design, 500);
+            Check(chat.rows_.size() == 3 && chat.rows_[1].spans.empty() && chat.rows_[2].spans[0].text == "  Second",
+                "explicit blank lines and intentional indentation are retained");
         }
 
         static auto Timestamps(void) -> void
@@ -176,6 +588,43 @@ namespace xiui
             Check(restored.timestamp_display_ == 2, "existing enabled timestamp overrides retain HH:MM");
             event.sequence = 2; strcpy_s(event.text, "[12:34] literal message"); module.Clear(); module.Receive(nullptr, event, false);
             Check(rows() == "[12:34] literal message\n", "ordinary message text resembling a timestamp is preserved");
+            module.timestamp_display_ = 2;
+            event.sequence = 3; event.mode = 5; strcpy_s(event.text, "Party message"); module.Clear(); module.Receive(nullptr, event, false);
+            rows();
+            const auto& row = module.rows_.front();
+            Check(row.spans.size() == 2 && row.spans[0].timestamp && !row.spans[1].timestamp,
+                "generated timestamps stay distinct from message text in cached rows");
+            chat_palette palette; palette.modes[5] = 0xFF80E8FF;
+            Check(module.SpanColor(row, row.spans[0], palette) == 0xFFB0B0B0 && module.Option(module.TimestampColorOptionStart() + 1).available,
+                "timestamps use independent gray by default and the color picker is available");
+            *module.Option(module.TimestampColorOptionStart()).toggle = true;
+            *module.Option(module.TimestampColorOptionStart() + 1).color = 0xFFBBBBBB;
+            Check(module.SpanColor(row, row.spans[0], palette) == 0xFFBBBBBB && module.SpanColor(row, row.spans[1], palette) == 0xFF80E8FF &&
+                module.ConfigSectionContains(6, module.TimestampColorOptionStart()) && module.Option(module.TimestampColorOptionStart() + 1).available,
+                "independent timestamp color changes immediately while Party messages retain turquoise");
+            module.colors_.enabled[ChatTypeIndex(5)] = true; module.colors_.colors[ChatTypeIndex(5)] = 0xFF90E890;
+            Check(module.SpanColor(row, row.spans[0], palette) == 0xFFBBBBBB && module.SpanColor(row, row.spans[1], palette) == 0xFF90E890,
+                "custom message colors cannot override the separate timestamp color");
+            auto colored = settings_store::FromIniText(""); module.Save(colored); chat_module loaded; loaded.Load(colored);
+            Check(loaded.timestamp_color_enabled_ && loaded.timestamp_color_ == 0xFFBBBBBB,
+                "timestamp color preference persists with its chat window");
+            chat_module second{true}; module.AttachSecondWindow(second); second.EnsureWindowDefaults();
+            Check(second.timestamp_color_enabled_ && second.timestamp_color_ == 0xFFBBBBBB,
+                "new second windows inherit the timestamp presentation");
+            second.timestamp_color_ = 0xFFEEEEEE; second.Save(colored);
+            chat_module loadedSecond{true}; loadedSecond.Load(colored);
+            Check(loadedSecond.timestamp_color_ == 0xFFEEEEEE && module.timestamp_color_ == 0xFFBBBBBB,
+                "each window can retain a different timestamp color");
+            loaded.ResetDefaults(ui::theme::CreateDefault());
+            Check(loaded.timestamp_color_enabled_, "reset restores independent timestamp colors");
+            loaded.Load(settings_store::FromIniText("[chat]\ntimestamp_color_enabled=0\ntimestamp_color=FFABCDEF\n"));
+            Check(loaded.timestamp_color_enabled_ && loaded.timestamp_color_ == 0xFFABCDEF,
+                "legacy settings enable separate color without replacing the chosen timestamp color");
+            loaded.timestamp_color_enabled_ = false; loaded.Save(colored);
+            chat_module follow; follow.Load(colored);
+            Check(!follow.timestamp_color_enabled_, "a later choice to follow message color persists");
+            Check(follow.SpanColor(row, row.spans[0], palette) == 0xFF80E8FF,
+                "following the channel remains available explicitly");
         }
 
         inline static size_t confirm_sounds{};
@@ -496,26 +945,258 @@ namespace xiui
             }
         }
 
+        static auto FullKeyboardInputs(void) -> void
+        {
+            const keyboard_restore neutral;
+            hud_runtime runtime; chat_manager chat;
+            std::array<std::array<uint32_t, 11>, 67> table{};
+            std::array<uintptr_t, 2> manager{0, reinterpret_cast<uintptr_t>(table.data())};
+            const auto config = reinterpret_cast<uintptr_t>(manager.data());
+            runtime.window_config_.config_slot_ = reinterpret_cast<uintptr_t>(&config); runtime.window_config_.setter_ = 1;
+            auto& record = table[66]; record[1] = 66; record[3] = 4; record[7] = 2;
+            Check(runtime.window_config_.FullKeyboard() == true, "Full keyboard mode reads the native configuration");
+            Check(!runtime.HandleChatKey('F', 0, false, true, false, 0) && !runtime.ChatFocused(),
+                "a first f remains available to native Full-mode typing instead of opening history");
+            auto& input = runtime.chat_input_;
+            input.raw_offset_ = 16; input.state_offset_ = 0;
+            input.reset_chat_ = reinterpret_cast<uintptr_t>(&ResetNative);
+            input.close_menu_ = reinterpret_cast<uintptr_t>(&CloseMenu);
+            input.menu_manager_ = reinterpret_cast<uintptr_t>(&input);
+            chat.OpenNative("f");
+            runtime.SyncNativeChatInput(&chat, false);
+            Check(runtime.ChatFocused() && runtime.chat_.editor_.Text() == "f" && runtime.chat_.editor_.Caret() == 1 &&
+                runtime.chat_.Layout(runtime.design_system_).input.height > 0 && chat.IsInputOpen() == 0 && chat.count == 0,
+                "the first native character opens visible XIUI input and transfers once without sending");
+            runtime.SyncNativeChatInput(&chat, false);
+            Check(runtime.chat_.editor_.Text() == "f" && chat.input_updates == 0 && chat.count == 0,
+                "frame synchronization cannot duplicate or rewrite transferred input");
+            runtime.ReleaseChatInput();
+            chat.OpenNative("test"); runtime.chat_activation_enter_down_ = true;
+            runtime.SyncNativeChatInput(&chat, false);
+            Check(!runtime.ChatFocused() && chat.IsInputOpen() == 0x11, "native activation retains its Enter release before handoff");
+            runtime.chat_activation_enter_down_ = false; runtime.SyncNativeChatInput(&chat, false);
+            Check(runtime.ChatFocused() && runtime.chat_.editor_.Text() == "test" && runtime.chat_.editor_.Caret() == 4 && chat.count == 0,
+                "ordinary native text becomes visible with its full body and caret intact");
+            runtime.ReleaseChatInput(); chat.OpenNative("native search", 5);
+            runtime.SyncNativeChatInput(&chat, false);
+            Check(!runtime.ChatFocused() && chat.IsInputOpen() == 0x21 && std::strcmp(chat.GetInputTextRaw(), "native search") == 0,
+                "non-chat native editors retain their own text and ownership");
+            chat.OpenNative(""); runtime.SyncNativeChatInput(&chat, false);
+            Check(!runtime.ChatFocused() && chat.IsInputOpen() == 0x11, "an empty native editor does not overwrite a saved draft");
+            for (const uint32_t compact : {1u, 2u})
+            {
+                record[2] = compact;
+                Check(runtime.window_config_.FullKeyboard() == false &&
+                    runtime.HandleChatKey('F', 0, false, true, false, 0) && runtime.chat_.HistoryFocused(),
+                    "both Compact layouts retain F-to-focus without opening the message editor");
+                runtime.ReleaseChatInput();
+            }
+            record[2] = 3;
+            Check(!runtime.window_config_.FullKeyboard().has_value(), "unknown native keyboard layouts remain unavailable");
+            Check(!runtime.HandleChatKey('F', 0, false, true, false, 0) && !runtime.ChatFocused(),
+                "unavailable native keyboard settings cannot turn F into an implicit XIUI shortcut");
+
+            runtime.actionbars_.Load(settings_store::FromIniText(
+                "[actionbars.hotbar]\nenabled=1\nslots=8\n"
+                "[actionbars.hotbar.keys]\nslot1=81\nslot2=49\nslot3=186\nslot4=32\nslot5=112\nslot6=82\nslot7=69\nslot8=97\n"
+                "[actionbars.hotbar.modifiers]\nslot2=4\nslot6=1\nslot7=2\n"));
+            record[2] = 0;
+            for (const WPARAM key : {WPARAM{'Q'}, WPARAM{VK_OEM_1}, WPARAM{VK_SPACE}, WPARAM{VK_NUMPAD1}})
+                Check(!runtime.HandleActionBarsKey(key, 0, false) && !runtime.KeyboardFocused(),
+                    "Full mode leaves bound letters, punctuation, Space and numpad input available for native typing");
+            BYTE keys[256]{}; keys[VK_SHIFT] = keys[VK_LSHIFT] = 0x80;
+            Check(::SetKeyboardState(keys) != FALSE && !runtime.HandleActionBarsKey('1', 0, false),
+                "Shift-only hotbar bindings cannot steal Full-mode punctuation");
+            keys[VK_SHIFT] = keys[VK_LSHIFT] = 0; Check(::SetKeyboardState(keys) != FALSE, "clear Shift modifier");
+            Check(runtime.HandleActionBarsKey(VK_F1, 0, false) && runtime.HandleActionBarsKey(VK_F1, static_cast<LPARAM>(0x80000000u), false),
+                "Full mode retains explicit function-key bindings and drains their releases");
+            keys[VK_CONTROL] = keys[VK_LCONTROL] = 0x80;
+            Check(::SetKeyboardState(keys) != FALSE && runtime.HandleActionBarsKey('R', 0, false) &&
+                runtime.HandleActionBarsKey('R', static_cast<LPARAM>(0x80000000u), false), "Full mode retains Ctrl bindings");
+            keys[VK_CONTROL] = keys[VK_LCONTROL] = 0; keys[VK_MENU] = keys[VK_LMENU] = 0x80;
+            Check(::SetKeyboardState(keys) != FALSE && runtime.HandleActionBarsKey('E', 0x20000000u, false) &&
+                runtime.HandleActionBarsKey('E', static_cast<LPARAM>(0xA0000000u), false), "Full mode retains Alt bindings");
+            keys[VK_MENU] = keys[VK_LMENU] = 0; Check(::SetKeyboardState(keys) != FALSE, "clear command modifiers");
+            record[2] = 1;
+            Check(runtime.HandleActionBarsKey('Q', 0, false), "Compact mode retains ordinary hotbar bindings");
+            record[2] = 0;
+            Check(runtime.HandleActionBarsKey('Q', 0x40000000u, false) &&
+                runtime.HandleActionBarsKey('Q', static_cast<LPARAM>(0x80000000u), false) && !runtime.HandleActionBarsKey('Q', 0, false),
+                "changing to Full mode drains an owned key before yielding a fresh text press");
+            runtime.actionbars_.OpenEditor();
+            Check(runtime.HandleActionBarsKey('Q', 0, false) && runtime.HandleActionBarsKey('Q', static_cast<LPARAM>(0x80000000u), false),
+                "an explicitly opened action editor retains its text input in Full mode");
+            runtime.actionbars_.SuspendInput();
+        }
+
+        static auto __stdcall LatestReply(void) -> const char* { return "Alice"; }
+
+        static auto __fastcall ReplyAt(void* object, void*, const uint32_t index) -> const char*
+        {
+            const auto& targets = *static_cast<const std::vector<std::string>*>(object);
+            return targets.empty() ? nullptr : targets[index % targets.size()].c_str();
+        }
+
+        struct keyboard_restore
+        {
+            BYTE keys[256]{};
+            explicit keyboard_restore(const bool control = false)
+            {
+                Check(::GetKeyboardState(this->keys) != FALSE, "capture thread-local keyboard state");
+                BYTE neutral[256]{};
+                if (control) neutral[VK_CONTROL] = neutral[VK_LCONTROL] = 0x80;
+                Check(::SetKeyboardState(neutral) != FALSE, "set thread-local reply modifiers");
+            }
+            ~keyboard_restore(void) { ::SetKeyboardState(this->keys); }
+        };
+
+        static auto ReplyCycling(void) -> void
+        {
+            std::vector<std::string> targets{"Alice", "Bob", "Carol"};
+            void* manager = &targets;
+            native_chat_input input;
+            Check(input.ReplyTargets().empty(), "missing native reply history leaves the shortcut unclaimed");
+            input.last_teller_ = reinterpret_cast<uintptr_t>(&LatestReply);
+            Check(input.ReplyTargets() == std::vector<std::string>{"Alice"}, "latest-teller fallback remains available");
+            input.reply_teller_ = reinterpret_cast<uintptr_t>(&ReplyAt);
+            input.reply_manager_ = reinterpret_cast<uintptr_t>(&manager);
+            Check(input.ReplyTargets() == targets, "native reply history is read in order without duplicating wrapped entries");
+            chat_module module;
+            constexpr LPARAM alt = 0x20000000;
+            Check(module.HandleKey(nullptr, 'R', alt, false, true, targets) && module.editor_.Text() == "/t Alice ",
+                "first reply shortcut opens the latest native recipient");
+            module.editor_.Insert("unsent body");
+            for (const auto* name : {"Bob", "Carol", "Alice"})
+            {
+                Check(module.HandleKey(nullptr, 'R', alt, false, true, targets) &&
+                    module.editor_.Text() == std::string{"/t "} + name + " unsent body",
+                    "fresh Alt+R presses cycle all recipients and wrap while preserving the body");
+            }
+            module.HandleKey(nullptr, 'R', 0x60000000, false, true, targets);
+            module.HandleKey(nullptr, 'R', static_cast<LPARAM>(0xA0000000u), false, true, targets);
+            Check(module.editor_.Text() == "/t Alice unsent body", "held and released reply keys cannot advance the history");
+            module.Focus(false);
+            module.editor_.Set("/tell Carol retained body");
+            module.HandleKey(nullptr, 'R', alt, false, true, targets);
+            Check(module.editor_.Text() == "/t Alice retained body", "reply after leaving composition restarts at the latest recipient");
+            {
+                const keyboard_restore control{true};
+                Check(module.HandleKey(nullptr, 'R', 0, false, true, targets) && module.editor_.Text() == "/t Bob retained body",
+                    "Ctrl+R continues the same reply cycle as Alt+R");
+                module.HandleKey(nullptr, 'R', 0x40000000, false, true, targets);
+                Check(module.editor_.Text() == "/t Bob retained body", "held Ctrl+R cannot advance the recipient");
+            }
+            module.HandleKey(nullptr, 'R', alt, false, true, targets);
+            Check(module.editor_.Text() == "/t Carol retained body", "switching back to Alt+R continues the shared cycle");
+            chat_manager chat;
+            Check(chat.count == 0 && module.Submit(&chat) && chat.sent == "/t Carol retained body" && chat.count == 1,
+                "cycling never sends and explicit submission sends only the chosen recipient once");
+            targets = {"Alice", "Bob", "Carol", "Dave", "Erin", "Frank", "Grace", "Heidi"};
+            Check(input.ReplyTargets() == targets, "all eight native reply slots remain available");
+            targets.clear(); input.last_teller_ = 0;
+            Check(input.ReplyTargets().empty(), "an empty native history stays empty");
+        }
+
+        static auto IncomingReplyOrder(void) -> void
+        {
+            constexpr LPARAM alt = 0x20000000;
+            const std::array<std::string, 2> native{"Mai", "Phro"};
+            const auto tell = [](std::string_view name) {
+                std::array<uint8_t, 24> packet{};
+                packet[4] = 3;
+                std::copy(name.begin(), name.end(), packet.begin() + 8);
+                return packet;
+            };
+            chat_module module;
+            module.ObserveTellPacket(0x17, tell("Mai"));
+            module.ObserveTellPacket(0x17, tell("Phro"));
+            module.OpenTell("Mai");
+            module.editor_.Insert("unsent body");
+            Check(module.HandleKey(nullptr, 'R', alt, false, true, native) && module.editor_.Text() == "/t Phro unsent body",
+                "reply starts with the latest received teller despite stale native order and an already-open tell");
+            module.HandleKey(nullptr, 'R', alt, false, true, native);
+            Check(module.editor_.Text() == "/t Mai unsent body", "further reply presses cycle received tellers in arrival order");
+            {
+                const keyboard_restore control{true};
+                module.HandleKey(nullptr, 'R', 0, false, true, native);
+                Check(module.editor_.Text() == "/t Phro unsent body", "Ctrl+R shares the received-tell cycle and wraps");
+            }
+            module.ObserveTellPacket(0x17, tell("Mai"));
+            module.HandleKey(nullptr, 'R', alt, false, true, native);
+            Check(module.editor_.Text() == "/t Mai unsent body", "a new tell restarts an active reply cycle without replacing the body");
+            module.ObserveTellPacket(0x17, tell("Mai"));
+            module.HandleKey(nullptr, 'R', alt, false, true, native);
+            Check(module.editor_.Text() == "/t Mai unsent body", "another tell from the current recipient restarts at that recipient");
+
+            auto other = tell("Phro"); other[4] = 4;
+            module.ObserveTellPacket(0x17, other);
+            chat_event outgoing{1, 1000, 4, 0xFFFFFFFF, 1}; strcpy_s(outgoing.text, ">>Phro: outgoing");
+            module.Receive(nullptr, outgoing, false);
+            module.HandleKey(nullptr, 'R', alt, false, true, native);
+            Check(module.editor_.Text() == "/t Phro unsent body", "party packets and outgoing tells neither reorder nor restart reply history");
+            const auto expected = module.recent_tellers_;
+            module.ObserveTellPacket(0x18, tell("Other"));
+            module.ObserveTellPacket(0x17, std::span<const uint8_t>{other}.first(12));
+            module.ObserveTellPacket(0x17, tell("bad name"));
+            module.ObserveTellPacket(0x17, tell(""));
+            Check(module.recent_tellers_ == expected, "unrelated, truncated and invalid tell packets cannot change reply history");
+            module.ObserveTellPacket(0x17, tell("phro"));
+            module.HandleKey(nullptr, 'R', alt, false, true, native);
+            module.HandleKey(nullptr, 'R', alt, false, true, native);
+            module.HandleKey(nullptr, 'R', alt, false, true, native);
+            Check(module.recent_tellers_.size() == 2 && module.editor_.Text() == "/t phro unsent body",
+                "case variations share one reply slot across received and native history");
+            chat_manager chat;
+            Check(chat.count == 0 && module.Submit(&chat) && chat.count == 1 && chat.sent == "/t phro unsent body",
+                "tracking and cycling never send, and explicit submission sends the selected recipient once");
+            module.HandleKey(nullptr, 'R', alt, false, true, native);
+            Check(module.editor_.Text() == "/t phro ", "a fresh reply after sending starts with the latest incoming teller");
+
+            chat_module replay;
+            chat_event first{1, 1000, 12, 0xFFFFFFFF, 2}; strcpy_s(first.text, "[16:00] Mai>> earlier");
+            replay.Receive(nullptr, first, false);
+            chat_event latest{2, 1001, 12, 0xFFFFFFFF, 2}; latest.indent = true;
+            strcpy_s(latest.text, "\x1e\x51[16:01:02]\x1e\x01 \x1e\xc8Phro\x1e\x01>> latest");
+            replay.Receive(nullptr, latest, false);
+            replay.HandleKey(nullptr, 'R', alt, false, true, native);
+            Check(replay.editor_.Text() == "/t Phro ", "replayed window-two tells restore incoming recency across reload, colors, indentation and timestamps");
+            latest.windows = 1; replay.Receive(nullptr, latest, false);
+            replay.HandleKey(nullptr, 'R', alt, false, true, native);
+            Check(replay.editor_.Text() == "/t Mai ", "the same tell routed to both native windows cannot restart reply cycling");
+            replay.AdoptTell({"/tell Phro retained", 19});
+            replay.HandleKey(nullptr, 'R', alt, false, true, native);
+            Check(replay.editor_.Text() == "/t Phro retained", "native tell handoff starts a fresh reply cycle rather than skipping the newest sender");
+
+            for (const auto* name : {"A", "B", "C", "D", "E", "F", "G", "H", "I"})
+                module.ObserveTellPacket(0x17, tell(name));
+            Check(module.recent_tellers_ == std::vector<std::string>{"I", "H", "G", "F", "E", "D", "C", "B"},
+                "received reply history remains bounded to the eight most recent distinct senders");
+        }
+
         static auto TellInputs(void) -> void
         {
+            const keyboard_restore neutral;
+            ReplyCycling();
+            IncomingReplyOrder();
             constexpr LPARAM alt = 0x20000000, repeated = 0x60000000;
+            const std::array<std::string, 1> alice{"Alice"}, bob{"Bob"}, carol{"Carol"};
             chat_module module;
             chat_manager chat;
             Check(!module.HandleKey(nullptr, 'R', alt, false, true) && !module.Focused(), "reply with no previous teller keeps chat closed");
-            Check(module.HandleKey(nullptr, 'R', alt, false, true, "Alice") && module.Focused() && module.editor_.Text() == "/t Alice ",
+            Check(module.HandleKey(nullptr, 'R', alt, false, true, alice) && module.Focused() && module.editor_.Text() == "/t Alice ",
                 "Alt+R opens an explicitly addressed tell to the latest sender");
-            module.HandleKey(nullptr, 'R', repeated, false, true, "Bob");
+            module.HandleKey(nullptr, 'R', repeated, false, true, bob);
             Check(module.editor_.Text() == "/t Alice " && chat.count == 0, "holding Alt+R neither changes recipient nor sends");
             module.editor_.Set("/party hello");
-            module.HandleKey(nullptr, 'R', alt, false, true, "Bob");
+            module.HandleKey(nullptr, 'R', alt, false, true, bob);
             Check(module.editor_.Text() == "/t Bob hello", "reply switching preserves the message body");
-            module.HandleKey(nullptr, 'R', alt, false, true, "Carol");
+            module.HandleKey(nullptr, 'R', alt, false, true, carol);
             Check(module.editor_.Text() == "/t Carol hello" && module.Submit(&chat) && chat.sent == "/t Carol hello" && chat.count == 1,
                 "the recipient is bound when opening and the normal submit path sends once");
-            Check(!module.HandleKey(nullptr, 'R', alt, true, true, "Alice") && !module.Focused(), "other input owners retain Alt+R");
-            Check(!module.HandleKey(nullptr, 'R', alt, false, false, "Alice") && !module.Focused(), "native chat keeps its shortcut when replacement is inactive");
+            Check(!module.HandleKey(nullptr, 'R', alt, true, true, alice) && !module.Focused(), "other input owners retain Alt+R");
+            Check(!module.HandleKey(nullptr, 'R', alt, false, false, alice) && !module.Focused(), "native chat keeps its shortcut when replacement is inactive");
             module.State().enabled = false;
-            Check(!module.HandleKey(nullptr, 'R', alt, false, true, "Alice"), "disabled XIUI chat cannot claim reply");
+            Check(!module.HandleKey(nullptr, 'R', alt, false, true, alice), "disabled XIUI chat cannot claim reply");
             module.State().enabled = true;
             Check(!module.OpenTell("Alice /echo") && !module.OpenTell(""), "invalid recipients cannot enter the command prefix");
             for (const auto* draft : {"/tell Alice unsent message", "previous draft"})
@@ -631,6 +1312,89 @@ namespace xiui
             Check(palette.modes[2] == 0xFFFF7F66, "shout retains its separate configured color");
             native.colors[2].color = 0x80603070;
             Check(source.Read().modes[11] == ChatColor(0x80603070), "native color setting changes refresh without reusing the duplicate entry");
+        }
+
+        static auto InputLimits(void) -> void
+        {
+            chat_manager chat; chat.input_limit = 18;
+            chat_module module; module.SetInputContext(&chat);
+            module.editor_.Insert(std::string(100, 'a'));
+            Check(module.editor_.Text() == std::string(13, 'a') && module.InputUsage(module.editor_.Text()) == std::pair<size_t, size_t>{13, 13},
+                "typing and paste stop at the native budget after accounting for the selected channel");
+            module.editor_.Insert("b");
+            Check(module.editor_.Text().size() == 13 && module.Submit(&chat) && chat.sent.size() == 18,
+                "a full input rejects growth and the same limit permits sending");
+            module.editor_.Set("/t Test "); module.editor_.Insert(std::string(100, 'x'));
+            Check(module.editor_.Text().size() == 18 && module.InputUsage(module.editor_.Text()).first == 18,
+                "explicit commands and tell recipients use the native budget");
+            module.editor_.SelectAll(); module.editor_.Insert("ok");
+            Check(module.editor_.Text() == "ok", "replacement remains available when an input was full");
+            const auto token = ChatToken(0x0E06);
+            module.editor_.Set(std::string(8, 'a')); module.editor_.Insert(token);
+            Check(module.editor_.Text() == std::string(8, 'a'), "a token that cannot fit is not split");
+            module.editor_.Set(std::string(7, 'a')); module.editor_.Insert(token);
+            Check(module.editor_.Text() == std::string(7, 'a') + token, "whole auto-translate tokens fit at the boundary");
+            const std::string japanese = "\xE3\x81\x82";
+            module.editor_.Set({});
+            for (size_t i = 0; i < 10; ++i) module.editor_.Insert(japanese);
+            Check(module.editor_.Text().size() == 18 && module.InputUsage(module.editor_.Text()).first == 12,
+                "Japanese input is capped by encoded game length without splitting Unicode characters");
+            module.editor_.Set("abc"); module.editor_.Complete({"abcdefghijklmnop"}, false);
+            Check(module.editor_.Text() == "abc", "completion cannot insert an over-limit value");
+            module.editor_.ResetCompletion();
+            module.auto_translate_labels_[token] = "/wave";
+            module.editor_.Set({}); module.editor_.Insert(token + " " + std::string(30, 'x'));
+            Check(module.InputCommand(module.editor_.Text()).size() == 18 && module.InputUsage(module.editor_.Text()).first == 18,
+                "resolved auto-translate commands share the exact submission budget");
+            module.editor_.Set({}); module.Focus(true);
+            ui::design_system design;
+            const auto layout = module.Layout(design);
+            Check(module.input_counter_ && layout.counter.height > 0 && layout.counter.y + layout.counter.height <= layout.input.y &&
+                std::abs(layout.counter.x + layout.counter.width - layout.input.x - layout.input.width) < .01f,
+                "counter defaults on and sits above the input at its right edge");
+            *module.Option(module.AnimationOptionStart() + 2).toggle = false;
+            Check(module.ConfigSectionContains(0, module.AnimationOptionStart() + 2) && module.Layout(design).counter.height == 0,
+                "General exposes the counter toggle and hiding it removes the counter row");
+            module.editor_.Insert(std::string(30, 'x'));
+            Check(module.editor_.Text().size() == 13, "hiding the counter does not disable the input limit");
+            auto saved = settings_store::FromIniText(""); module.Save(saved); chat_module restored; restored.Load(saved);
+            Check(!restored.input_counter_, "counter visibility persists");
+            restored.ResetDefaults(ui::theme::CreateDefault());
+            Check(restored.input_counter_, "reset restores the default-on counter");
+        }
+
+        static auto AutoTranslateCommands(void) -> void
+        {
+            const auto wave = ChatToken(0x0701), south = ChatToken(0x0E06);
+            chat_module module;
+            chat_manager chat;
+            module.auto_translate_labels_[wave] = "/wave";
+            module.auto_translate_labels_[south] = "South";
+            module.Focus(true); module.editor_.Set("/wa");
+            module.editor_.CompleteCandidates({{"/wave", wave, chat_completion_kind::auto_translate}}, false);
+            module.HandleKey(nullptr, VK_RETURN, 0, false, true);
+            Check(chat.count == 0 && module.editor_.Text() == wave, "choosing an auto-translated command does not execute it");
+            Check(module.Submit(&chat) && chat.sent == "/wave" && chat.mode == -1 && chat.count == 1,
+                "auto-translated emotes execute as commands instead of Say messages");
+            module.channel_ = 1;
+            module.editor_.Set(wave + " <t> " + south);
+            Check(module.Submit(&chat) && chat.sent == "/wave <t> " + south,
+                "emote command routing preserves arguments and body tokens regardless of selected channel");
+            module.editor_.Set("hello " + wave);
+            Check(module.Submit(&chat) && chat.sent == "/party hello " + wave,
+                "an emote token in message text stays an auto-translate phrase");
+            module.editor_.Set(south);
+            Check(module.Submit(&chat) && chat.sent == "/party " + south, "ordinary leading phrases keep their selected chat channel");
+            module.editor_.Set("/em waves " + south);
+            Check(module.Submit(&chat) && chat.sent == "/em waves " + south, "typed emotes preserve their body tokens");
+            module.auto_translate_labels_.erase(wave);
+            chat.translate_token = wave; chat.translation = "/wave";
+            module.editor_.Set(wave);
+            Check(module.Submit(&chat) && chat.sent == "/wave", "pasted command tokens can resolve through the native parser");
+            const auto count = chat.count;
+            module.editor_.Set(wave + " " + std::string(250, 'x'));
+            Check(!module.Submit(&chat) && chat.count == count && module.editor_.Text().starts_with(wave),
+                "expanded commands obey the native input limit and preserve rejected drafts");
         }
 
         static auto AutoTranslate(const char* path) -> void
@@ -812,8 +1576,8 @@ namespace xiui
             Check(module.HandleMouse(WM_LBUTTONDOWN, MK_LBUTTON, lastTab.x + 1, lastTab.y + 1, false, design, viewport, save) &&
                 module.source_ == 1 && module.active_tab_ == static_cast<int>(chat_tab::window2) && module.Focused(), "optional window tab switches the message source");
             module.HandleMouse(WM_LBUTTONUP, 0, lastTab.x + 1, lastTab.y + 1, false, design, viewport, save);
-            module.HandleMouse(WM_LBUTTONDOWN, MK_LBUTTON, module.Grip().x + 9, module.Grip().y + 4, false, design, viewport, save);
-            module.HandleMouse(WM_LBUTTONUP, 0, module.Grip().x + 9, -500, false, design, viewport, save);
+            module.HandleMouse(WM_LBUTTONDOWN, MK_LBUTTON, module.Grip(design).x + 9, module.Grip(design).y + 4, false, design, viewport, save);
+            module.HandleMouse(WM_LBUTTONUP, 0, module.Grip(design).x + 9, -500, false, design, viewport, save);
             Check(module.VisualBounds(design).y >= viewport.y && module.State().bounds.y + module.State().bounds.height == 660,
                 "resize keeps optional tabs on screen and bottom edge anchored");
             module.state_.bounds = {20, 350, 660, 310};
@@ -899,7 +1663,7 @@ namespace xiui
             secondView.State().enabled = true; secondView.Focus(true);
             Check(!secondView.Focused() && secondView.Layout(design).input.height == 0 && secondView.HasEditableBounds(), "second window shares the main input and has independent bounds");
             primaryView.State().bounds = {25, 350, 600, 260}; secondView.State().bounds = {650, 350, 500, 180};
-            secondView.HandleMouse(WM_LBUTTONDOWN, MK_LBUTTON, secondView.Grip().x + 9, secondView.Grip().y + 4, false, design, viewport, save);
+            secondView.HandleMouse(WM_LBUTTONDOWN, MK_LBUTTON, secondView.Grip(design).x + 9, secondView.Grip(design).y + 4, false, design, viewport, save);
             secondView.State().enabled = false;
             Check(!secondView.HandleMouse(WM_MOUSEMOVE, 0, 800, 200, false, design, viewport, save) && !secondView.Resizing(), "hiding the second view cancels an active resize");
             secondView.State().enabled = true;
@@ -943,11 +1707,44 @@ int main(int argc, char** argv)
 {
     try
     {
+        if (argc == 2 && std::strcmp(argv[1], "--input-limit-only") == 0)
+        {
+            xiui::chat_test::InputLimits();
+            std::puts("Chat native limits, paste, token/Unicode boundaries, completion and counter settings passed.");
+            return 0;
+        }
+
         using namespace xiui;
+        if (argc == 2 && std::strcmp(argv[1], "--collapse-only") == 0)
+        {
+            chat_test::ReactiveWindows();
+            std::puts("Native chat sizing, idle collapse, wrapped messages, minimum lines, focused history, persistence and shared stacking passed.");
+            return 0;
+        }
+        if (argc == 2 && std::strcmp(argv[1], "--native-filters-only") == 0)
+        {
+            chat_test::NativeFilters();
+            chat_test::AutoTranslateCommands();
+            std::puts("Native filter masks, per-window routing, Hold/Notify, group selection and emote history/commands passed.");
+            return 0;
+        }
         if (argc == 2 && std::strcmp(argv[1], "--history-only") == 0)
         {
             chat_test::ExpandedHistory();
+            chat_test::WrappingWhitespace();
             std::puts("Chat history focus, expansion, channel tabs, wrapped-message/page/wheel scrolling and keyboard ownership passed.");
+            return 0;
+        }
+        if (argc == 2 && std::strcmp(argv[1], "--animation-speed-only") == 0)
+        {
+            chat_test::AnimationSpeed();
+            std::puts("Chat animation speed, duration/expiration, independent persistence and reset checks passed.");
+            return 0;
+        }
+        if (argc == 2 && std::strcmp(argv[1], "--message-animation-only") == 0)
+        {
+            chat_test::MessageAnimation();
+            std::puts("Chat message stack scrolling, wrapped/burst arrivals, entrance direction/fade, history suppression and clipped art checks passed.");
             return 0;
         }
         if (argc == 2 && std::strcmp(argv[1], "--timestamps-only") == 0)
@@ -961,6 +1758,12 @@ int main(int argc, char** argv)
             chat_test::ChatMonSounds();
             chat_test::Customization();
             std::puts("Embedded ChatMon clips, alert/preview routing, sound persistence and existing chat customization checks passed.");
+            return 0;
+        }
+        if (argc == 2 && std::strcmp(argv[1], "--auto-translate-commands-only") == 0)
+        {
+            chat_test::AutoTranslateCommands();
+            std::puts("Auto-translated emote command routing, body tokens, native fallback and input limit checks passed.");
             return 0;
         }
         if (argc == 2 && std::strcmp(argv[1], "--customization-only") == 0)
@@ -982,6 +1785,12 @@ int main(int argc, char** argv)
             chat_test::TargetInputs();
             chat_test::TellInputs();
             std::puts("Command-menu and target-selection slash ownership, hidden command recovery, native input priority and tell handoff checks passed.");
+            return 0;
+        }
+        if (argc == 2 && std::strcmp(argv[1], "--full-keyboard-only") == 0)
+        {
+            chat_test::FullKeyboardInputs();
+            std::puts("Full keyboard native draft visibility, first-character ownership, Compact shortcuts and editor isolation checks passed.");
             return 0;
         }
         if (argc == 2 && std::strcmp(argv[1], "--sounds-only") == 0)

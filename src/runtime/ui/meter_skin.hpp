@@ -38,6 +38,19 @@ namespace xiui::ui
         return {content.x + (fromRight ? content.width - width : 0), content.y, width, content.height};
     }
 
+    inline auto LayoutMeterRange(const rect& content, const meter_range& range, const float fillRatio, const bool fromRight = false) -> rect
+    {
+        const float end = std::clamp(range.end, 0.0f, (range.beyond_fill ? 1.0f : std::clamp(fillRatio, 0.0f, 1.0f)));
+        const float start = std::clamp(range.start, 0.0f, end);
+        return {content.x + content.width * (fromRight ? 1 - end : start), content.y, content.width * (end - start), content.height};
+    }
+
+    inline auto LayoutMeterStrip(const rect& content, const float height, const float inset) -> rect
+    {
+        const float top = std::clamp(inset, 0.0f, std::max(0.0f, content.height - 1));
+        return {content.x, content.y + top, content.width, std::min(std::max(1.0f, height), std::max(0.0f, content.height - top))};
+    }
+
     inline auto LayoutMeterSkin(const rect& bounds, const meter_skin& skin, bool bookends = true) -> meter_geometry
     {
         const float width = std::max(0.0f, bounds.width), height = std::max(0.0f, bounds.height);

@@ -3,6 +3,7 @@
 #include "config_controls.hpp"
 
 #include <array>
+#include <cmath>
 #include <string_view>
 #include <vector>
 
@@ -53,8 +54,10 @@ namespace xiui::ui
             style.alignment = text_alignment::left;
             style = controls.Style(style);
             const float spacing = style.letter_spacing * TextPixelScale(style.scale);
+            const float line_height = std::max(18.0f, std::ceil(design.TextHeight(style) + 4));
+            const int pixels = TextPixelSize(style.scale);
             const int visible = std::max(1, static_cast<int>(content.height / line_height));
-            if (this->width_ != content.width || this->visible_ != visible || this->font_ != style.font || this->spacing_ != spacing)
+            if (this->width_ != content.width || this->visible_ != visible || this->font_ != style.font || this->pixels_ != pixels || this->spacing_ != spacing)
             {
                 std::array<float, 128> advances{};
                 for (size_t i = 32; i < advances.size(); ++i)
@@ -62,7 +65,7 @@ namespace xiui::ui
                     const char glyph[]{static_cast<char>(i), '\0'};
                     advances[i] = std::max(1.0f, design.MeasureText(glyph, style));
                 }
-                this->font_ = style.font; this->spacing_ = spacing;
+                this->font_ = style.font; this->pixels_ = pixels; this->spacing_ = spacing;
                 this->Reflow(key, content.width, visible, advances, spacing);
             }
             if (key.empty())
@@ -83,10 +86,10 @@ namespace xiui::ui
         }
 
     private:
-        static constexpr float line_height = 18;
         std::vector<std::string> lines_{};
         float width_{-1};
         int font_{-1};
+        int pixels_{};
         float spacing_{};
         int first_{}, visible_{1};
         auto Maximum(void) const -> int { return std::max(0, static_cast<int>(this->lines_.size()) - this->visible_); }

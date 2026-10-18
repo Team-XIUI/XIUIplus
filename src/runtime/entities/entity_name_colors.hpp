@@ -10,6 +10,29 @@ namespace xiui
     inline constexpr D3DCOLOR unclaimed_name_color = 0xFFFFFFC2;
     inline constexpr D3DCOLOR group_claim_name_color = 0xFFFF8282;
     inline constexpr D3DCOLOR other_claim_name_color = 0xFFFF82FF;
+    enum class entity_class : size_t { group_player, player, npc, unclaimed_mob, group_mob, other_mob, other, count };
+    inline constexpr size_t entity_class_count = static_cast<size_t>(entity_class::count);
+    inline constexpr const char* entity_class_names[]{"Group player", "Other player", "NPC", "Unclaimed monster", "Group-claimed monster", "Other-claimed monster", "Other entity"};
+    inline constexpr const char* entity_class_keys[]{"group_player", "player", "npc", "unclaimed_mob", "group_mob", "other_mob", "other"};
+    struct entity_name_palette
+    {
+        bool enabled{};
+        std::array<D3DCOLOR, entity_class_count> colors{0xFFC2FFFF, 0xFFFFFFFF, 0xFFC2FFC2,
+            unclaimed_name_color, group_claim_name_color, other_claim_name_color, 0xFFFFFFFF};
+    };
+    inline entity_name_palette shared_entity_name_palette{};
+
+    inline auto ClassifyEntity(const uint32_t spawnFlags, const uint32_t claim, const bool groupClaim, const bool groupMember) -> entity_class
+    {
+        if ((spawnFlags & 0x01) != 0) return groupMember ? entity_class::group_player : entity_class::player;
+        if ((spawnFlags & 0x102) != 0) return entity_class::npc;
+        if ((spawnFlags & 0x10) == 0) return entity_class::other;
+        if ((claim & 0xFFFF) == 0) return entity_class::unclaimed_mob;
+        return groupClaim ? entity_class::group_mob : entity_class::other_mob;
+    }
+
+    inline auto IsMonster(const entity_class kind) -> bool
+    { return kind == entity_class::unclaimed_mob || kind == entity_class::group_mob || kind == entity_class::other_mob; }
 
     inline auto EntityHasHealth(uint32_t spawnFlags) -> bool
     {
@@ -28,6 +51,8 @@ namespace xiui
     inline auto EntityNameColor(uint32_t spawnFlags, uint32_t claim, bool groupClaim, bool groupMember,
         uint16_t nativeColor = 23) -> D3DCOLOR
     {
+        if (shared_entity_name_palette.enabled)
+            return shared_entity_name_palette.colors[static_cast<size_t>(ClassifyEntity(spawnFlags, claim, groupClaim, groupMember))];
         // Native entries use half-intensity RGB; entry 23 selects colors from entity state.
         constexpr std::array<uint32_t, 23> palette{
             0x808080, 0x618080, 0x616180, 0x416180, 0x618061, 0x808061, 0x804141, 0x804180,
@@ -50,10 +75,12 @@ namespace xiui
         return groupClaim ? group_claim_name_color : other_claim_name_color;
     }
 
-    inline auto ReadEntityNameColor(const IParty& party, const IEntity& entity, uint32_t index) -> D3DCOLOR
+    struct entity_name_state { entity_class kind{entity_class::other}; D3DCOLOR color{0xFFFFFFFF}; };
+
+    inline auto ReadEntityNameState(const IParty& party, const IEntity& entity, uint32_t index) -> entity_name_state
     {
         if (index == 0 || index >= entity.GetEntityMapSize())
-            return 0xFFFFFFFF;
+            return {};
         const auto claim = entity.GetClaimStatus(index);
         std::array<uint32_t, 18> group{};
         bool groupMember{};
@@ -64,6 +91,10 @@ namespace xiui
             group[member] = party.GetMemberServerId(member);
             groupMember = groupMember || (group[member] != 0 && party.GetMemberTargetIndex(member) == index);
         }
-        return EntityNameColor(entity.GetSpawnFlags(index), claim, IsGroupClaim(claim, group), groupMember, entity.GetNameColor(index));
+        const auto flags = entity.GetSpawnFlags(index);
+        const auto groupClaim = IsGroupClaim(claim, group);
+        return {ClassifyEntity(flags, claim, groupClaim, groupMember), EntityNameColor(flags, claim, groupClaim, groupMember, entity.GetNameColor(index))};
     }
+    inline auto ReadEntityNameColor(const IParty& party, const IEntity& entity, const uint32_t index) -> D3DCOLOR
+    { return ReadEntityNameState(party, entity, index).color; }
 } // namespace xiui

@@ -41,6 +41,11 @@ namespace xiui
         const auto number = [data](size_t at, size_t bytes) -> uint32_t {
             uint32_t value{}; if (at <= data.size() && bytes <= data.size() - at) std::memcpy(&value, data.data() + at, bytes); return value;
         };
+        if (const auto response = DecodeTradeResponse(id, data); response && response->kind != 0)
+        {
+            center.ResolveTrade(response->sender);
+            return;
+        }
         const auto invite = DecodeInvitation(id, data);
         if (invite && id == 0xDC)
         {

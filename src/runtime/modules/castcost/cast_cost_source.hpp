@@ -29,26 +29,45 @@ namespace xiui
     };
 
     auto ApplyChargeRecast(action_cost_state& state, uint32_t frames, uint32_t maximum, float poolSeconds) -> void;
+    struct ability_charge_pool { uint32_t maximum{}; float seconds{}; };
+    auto AbilityChargePool(IAshitaCore* core, uint32_t timer) -> ability_charge_pool;
     auto FormatCastTime(float seconds) -> std::string;
+
+    struct selected_spell_mp_cost
+    {
+        bool available{}, selected{};
+        uint32_t player_id{}, cost{};
+        uint64_t sampled_at{};
+        auto Fresh(uint64_t now) const -> bool
+        { return this->available && this->selected && this->player_id != 0 && now >= this->sampled_at && now - this->sampled_at <= 250; }
+    };
 
     class cast_cost_source
     {
     public:
         auto Initialize(void) -> void;
-        auto Clear(void) -> void { this->state_ = {}; this->next_update_ = 0; }
+        auto Clear(void) -> void { this->state_ = {}; this->mp_preview_ = {}; this->next_update_ = 0; }
         auto Update(IAshitaCore* core, uint64_t now) -> void;
         auto State(void) const -> const action_cost_state& { return this->state_; }
         auto AvailableMask(void) const -> uint32_t;
+        auto MPPreview(uint64_t now) const -> selected_spell_mp_cost
+        {
+            auto preview = this->mp_preview_;
+            if (!preview.Fresh(now)) preview.selected = false;
+            return preview;
+        }
 
     private:
 #if defined(XIUI_ENABLE_CAST_TESTS)
         friend struct casting_test;
 #endif
         action_cost_state state_{};
+        selected_spell_mp_cost mp_preview_{};
         uintptr_t menu_slot_{}, spell_slot_{}, ability_slot_{}, mount_slot_{};
         uintptr_t spell_item_{}, ability_item_{}, mount_item_{};
         uint64_t next_update_{};
         uint32_t player_{}, zone_{};
+        uint8_t main_job_{}, sub_job_{}, main_level_{}, sub_level_{};
         auto Selection(void) const -> std::pair<action_cost_kind, int32_t>;
         auto ReadResource(IAshitaCore* core, action_cost_kind kind, uint32_t id) -> void;
         auto ReadRecast(IAshitaCore* core) -> void;

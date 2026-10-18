@@ -22,7 +22,7 @@ namespace xiui
     struct player_cast_state
     {
         std::string name{};
-        uint32_t id{};
+        uint32_t id{}, target_id{};
         bool item{}, sampled{};
         float progress{};
         uint64_t started{}, changed{}, interrupted{};

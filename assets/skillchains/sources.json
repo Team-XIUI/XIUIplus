@@ -1,0 +1,8 @@
+{
+  "source": "Local XIUI modules/hotbar/database; Retail base and Horizon overlay; pinned Phoenix SQL/era inputs in assets/phoenix",
+  "phoenix_manifest": "../phoenix/sources.json",
+  "sha256": {
+    "skillchain_horizon.lua": "0fb2d91a06cbb631e4cf80d3d62547d78f63b398a063adbfec91a7684bc20f1d",
+    "skillchain_retail.lua": "59172fb77063b052d390973b08c929ced3de11a7b09aecf7e6ba086b5dbe6524"
+  }
+}

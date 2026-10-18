@@ -1,0 +1,15 @@
+Phoenix rules and spawn data
+
+Derived from phoenixffxi/Phoenix, commit 11c6ee57720a8c6fd79c0fd46ff38ea8e074bf5e.
+https://github.com/phoenixffxi/Phoenix
+Copyright Phoenix, LandSandBoat and prior project contributors, as credited in the retained source files.
+Licensed under GPL-3.0-or-later; the full license accompanies this notice.
+
+Published ToAU/75-cap settings are retained from Tanyrus/headsup,
+commit 161ad60f7d0ed10fd5b71a6889bd777a43d5dc7b, which pins the same Phoenix revision.
+https://github.com/Tanyrus/headsup
+
+XIUI derives ordered skillchain properties, era-specific base roll powers/effect labels,
+debuff duration estimates and spawn-slot relationships from these inputs.
+Source inputs, hashes, generated data and reproduction scripts are retained in the XIUI source repository.
+These snapshots do not establish hidden live-server values or exact effect/respawn deadlines.

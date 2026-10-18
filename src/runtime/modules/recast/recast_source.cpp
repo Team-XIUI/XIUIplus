@@ -18,7 +18,11 @@ namespace xiui
             "Unbridled Wisdom", "Cutting Cards", "Heady Artifice", "Grand Pas", "Caper Emissarius", "Widened Compass", "Odyllic Subterfuge"};
         if (timer == 0) return primary[this->job_ < std::size(primary) ? this->job_ : 0];
         if (timer == 254) return secondary[this->job_ < std::size(secondary) ? this->job_ : 0];
-        if (timer == 102) return "Ready";
+        if (timer == 102)
+        {
+            const auto* ready = resources->GetAbilityByName("Ready", 2);
+            return ready != nullptr && player->HasAbility(ready->Id) ? "Ready" : "Sic";
+        }
         if (timer == 195) return "Quick Draw";
         if (timer == 231) return "Stratagems";
         if (timer == 210) return "Maneuvers";
@@ -66,19 +70,11 @@ namespace xiui
             seen[timer] = true;
             recast_sample sample{recast_kind::ability, timer};
             sample.remaining = frames / 60.0f; sample.name = this->AbilityName(resources, player, timer);
-            uint32_t maximum{}; float pool{};
-            if (timer == 102) { maximum = 3; pool = 90; }
-            else if (timer == 195) { maximum = 2; pool = 120; }
-            else if (timer == 231)
-            {
-                const int level = this->job_ == 20 ? this->level_ : this->subjob_ == 20 ? this->sublevel_ : 0;
-                maximum = level >= 10 ? std::min(5, (level - 10) / 20 + 1) : 0;
-                pool = 240;
-            }
-            if (maximum != 0)
+            const auto pool = AbilityChargePool(core, timer);
+            if (pool.maximum != 0)
             {
                 action_cost_state charges{};
-                ApplyChargeRecast(charges, frames, maximum, pool + recast->GetAbilityCalc2(slot));
+                ApplyChargeRecast(charges, frames, pool.maximum, pool.seconds + static_cast<int16_t>(recast->GetAbilityCalc2(slot)));
                 if (charges.recast_known)
                 {
                     sample.charges = charges.charges; sample.maximum_charges = charges.max_charges;

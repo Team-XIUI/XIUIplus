@@ -1,0 +1,19 @@
+XIUI status and job icon themes
+
+Source: https://github.com/tirem/XIUI
+Captured revision: a9e8d0c93710e5838749f8afc36f0058451c9a7e
+Original PNGs and per-pack credits are retained in sources/*.zip.
+The upstream GPL-3.0 license is retained in LICENSE.txt.
+
+Status packs: HD, Tetsouou, XIView.
+Tetsouou/credits.txt: credit to Tesouou on FFXIAH
+
+Job packs: Classic, FFXI, FFXIV-1.
+Classic/credits.txt: Credit goes to SirZerick [https://www.twitch.tv/sirzerick]
+FFXIV-1/credits.txt: icons copyright Final Fantasy XIV (SquareEnix) and Tylas11 [https://github.com/Tylas11]
+
+Missing job icons fall back to the already bundled XIVParty artwork.
+The XIVParty redistribution notice remains in assets/jobs/LICENSE.txt and resource 202.
+
+Atlas conversion changes only packing. 32-pixel job icons use nearest-neighbor
+expansion into the shared 64-pixel cells. The original source PNGs are unchanged.

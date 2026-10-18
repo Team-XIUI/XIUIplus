@@ -10,11 +10,13 @@
 #include <cstddef>
 #include <cstdint>
 #include <span>
+#include <optional>
 #include <string>
 
 namespace xiui::ui
 {
     struct meter_skin;
+    struct focus_frame_style;
     struct rect
     {
         float x{};
@@ -24,8 +26,11 @@ namespace xiui::ui
     };
 
     struct point { float x{}, y{}; };
+    struct circle_fill { point center{}; float radius{}; D3DCOLOR color{}; };
     struct slot_dot { rect bounds{}; D3DCOLOR color{}; };
     struct meter_fill_layer { float ratio{}; D3DCOLOR top{}, bottom{}; };
+    struct meter_strip { float ratio{}, height{3}, inset{2}; D3DCOLOR top{}, bottom{}; };
+    struct meter_range { float start{}, end{}; D3DCOLOR top{}, bottom{}; bool beyond_fill{}, striped{}; };
 
     enum class text_alignment : uint8_t
     {
@@ -38,6 +43,13 @@ namespace xiui::ui
     {
         std::array<D3DCOLOR, 4> colors{0xFFFFFFFF, 0xFFFFFFFF, 0xFFFFFFFF, 0xFFFFFFFF};
         bool repeat_x{}, repeat_y{}, additive{}, double_modulation{};
+    };
+
+    struct texture_quad
+    {
+        std::array<point, 4> points{};
+        rect uv{};
+        texture_style style{};
     };
 
     struct shadow_effect
@@ -190,6 +202,7 @@ namespace xiui::ui
         auto EndFrame(void) -> void;
         auto BeginContentBounds(void) -> void;
         auto EndContentBounds(void) -> rect;
+        auto IncludeContentBounds(const rect& bounds) const -> void { this->TrackContentBounds(bounds); }
 
         auto GetTheme(void) const -> const theme&;
         auto IsReady(void) const -> bool;
@@ -200,21 +213,40 @@ namespace xiui::ui
         auto FillRect(const rect& bounds, D3DCOLOR color) const -> void;
         auto DrawLayoutGrid(const rect& viewport, float spacing, float opacity) const -> void;
         auto FillRoundedRect(const rect& bounds, D3DCOLOR color, float radius) const -> void { this->GradientRoundedRect(bounds, color, color, radius); }
+        auto FillCircles(std::span<const circle_fill> circles) const -> void;
         auto DrawTriangle(float x1, float y1, float x2, float y2, float x3, float y3, D3DCOLOR color) const -> void;
+        auto DrawTriangleFan(point center, std::span<const point> arc, D3DCOLOR centerColor, D3DCOLOR edgeColor) const -> void;
         auto DrawSlotDots(std::span<const slot_dot> dots) const -> void;
         auto DrawIcon(const rect& bounds, icon_glyph icon, D3DCOLOR color, int quarterTurns = 0, bool flipX = false) const -> void { this->icons_.Draw(*this, bounds, icon, color, quarterTurns, flipX); }
         auto DrawTexture(IDirect3DTexture8* texture, const rect& bounds, D3DCOLOR color = D3DCOLOR_ARGB(255, 255, 255, 255), const rect& uv = {0.0f, 0.0f, 1.0f, 1.0f}, bool repeatX = false, bool repeatY = false) const -> void;
         auto DrawTexture(IDirect3DTexture8* texture, const rect& bounds, const rect& uv, const texture_style& style) const -> void;
         auto DrawTextureQuad(IDirect3DTexture8* texture, const std::array<point, 4>& points, const rect& uv, const texture_style& style) const -> void;
+        auto DrawTextureQuads(IDirect3DTexture8* texture, std::span<const texture_quad> quads) const -> void;
+        auto DrawTextureDisc(IDirect3DTexture8* texture, const rect& bounds, const rect& uv, D3DCOLOR color) const -> void;
+        auto DrawTextureRoundedRect(IDirect3DTexture8* texture, const rect& bounds, const rect& uv, float radius, D3DCOLOR color) const -> void;
+        auto DrawRing(const rect& bounds, D3DCOLOR color, float thickness = 2) const -> void;
         auto GradientRect(const rect& bounds, D3DCOLOR left, D3DCOLOR right) const -> void;
         auto GradientRect(const rect& bounds, const std::array<D3DCOLOR, 4>& colors) const -> void;
         auto BorderRect(const rect& bounds, D3DCOLOR color, float thickness = 1.0f) const -> void;
+        auto DrawFocusFrame(const rect& bounds, const focus_frame_style& style) const -> void;
         auto DrawPanel(const rect& bounds, const panel_style& style) const -> void;
         auto DrawMeter(const rect& bounds, float ratio, D3DCOLOR color, float sheenPhase) const -> void;
-        auto DrawMeter(const rect& bounds, float ratio, D3DCOLOR fillTop, D3DCOLOR fillBottom, float sheenPhase, const meter_style& style, const meter_skin* skin = nullptr, std::span<const meter_fill_layer> layers = {}, bool fillFromRight = false) const -> void;
+        auto DrawMeter(const rect& bounds, float ratio, D3DCOLOR fillTop, D3DCOLOR fillBottom, float sheenPhase, const meter_style& style, const meter_skin* skin = nullptr, std::span<const meter_fill_layer> layers = {}, bool fillFromRight = false, std::span<const meter_strip> strips = {}, std::span<const meter_range> ranges = {}, std::span<const meter_range> feedback = {}) const -> void;
         auto DrawToggle(const rect& bounds, bool enabled) const -> void;
         auto DrawEditFrame(const rect& bounds, bool resizable = false) const -> void;
         auto DrawText(const char* text, const rect& bounds, const text_style& style) const -> void;
+        class clip_scope
+        {
+        public:
+            clip_scope(const design_system& design, const rect& bounds);
+            ~clip_scope(void);
+            clip_scope(const clip_scope&) = delete;
+            auto operator=(const clip_scope&) -> clip_scope& = delete;
+        private:
+            const design_system& design_;
+            std::optional<rect> previous_;
+        };
+        auto Clip(const rect& bounds) const -> clip_scope { return clip_scope{*this, bounds}; }
         auto MeasureText(const char* text, const text_style& style) const -> float;
         auto TextHeight(const text_style& style) const -> float { return this->glyphs_.Metrics(style.font, TextPixelSize(style.scale)).height; }
         auto DrawSheen(const rect& bounds, D3DCOLOR color, float phase, float width, float radius = 0.0f) const -> void;
@@ -243,6 +275,7 @@ namespace xiui::ui
         bool frame_active_{};
         mutable bool tracking_content_bounds_{};
         mutable rect content_bounds_{};
+        mutable std::optional<rect> clip_bounds_{};
         bool shader_attempted_{};
         bool gpu_shader_enabled_{true};
         icon_atlas icons_{};
@@ -265,12 +298,14 @@ namespace xiui::ui
         auto CreateDotTexture(void) -> void;
         auto CreatePixelShader(void) -> void;
         auto ReleaseResources(void) -> void;
+        auto ConfigureCommonPipeline(void) const -> void;
         auto ConfigureShapePipeline(void) const -> void;
         auto ConfigureImagePipeline(IDirect3DTexture8* texture) const -> void;
         auto ConfigureTextPipeline(IDirect3DTexture8* texture, bool additive) const -> void;
         auto DrawTextPass(const char* text, float x, float y, float maxWidth, const text_style& style, font_mask mask, float offsetX, float offsetY, bool additive, bool sheen) const -> void;
         auto TrackContentBounds(const rect& bounds) const -> void;
         auto GradientRoundedRect(const rect& bounds, D3DCOLOR top, D3DCOLOR bottom, float radius, uint8_t roundedCorners = 0xF) const -> void;
+        auto DrawMeterStripes(const rect& bounds, D3DCOLOR color, float radius, uint8_t roundedCorners) const -> void;
         auto DrawMeterCap(const rect& bounds, bool right, float opacity) const -> void;
 
         static auto LerpColor(D3DCOLOR start, D3DCOLOR end, float amount) -> D3DCOLOR;

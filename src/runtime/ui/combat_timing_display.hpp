@@ -10,11 +10,11 @@ namespace xiui::ui
         static constexpr size_t option_count = 31;
         bool attack{true}, resting{true}, rounds{true}, hits{}, tp_time{true}, gains{true}, recovery_time{true}, hide_full{true}, flash{true}, resource_times{};
         int tp_goal{}, sound{}, display{}, direction{};
-        int attack_layout{}, mini_text{};
-        int recovery_layout{}, recovery_mini_text{};
+        int attack_layout{2}, mini_text{};
+        int recovery_layout{2}, recovery_mini_text{};
         float goal{100}, height{6}, offset_x{}, offset_y{}, spacing{4}, ready_seconds{0.5f};
-        float mini_height{3}, mini_gap{3};
-        float recovery_mini_height{3}, recovery_mini_gap{3};
+        float mini_height{3}, mini_gap{2};
+        float recovery_mini_height{3}, recovery_mini_gap{2};
         D3DCOLOR attack_color{0xFF78C4EE}, rest_color{0xFFBFE07D}, ready_color{0xFFFFCA78};
         module_text_profile attack_text{theme::CreateDefault().caption_text}, rest_text{theme::CreateDefault().caption_text};
         auto Load(const settings_store& store) -> void;

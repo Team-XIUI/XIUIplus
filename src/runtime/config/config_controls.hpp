@@ -1,6 +1,8 @@
 #pragma once
 
 #include "config_layout.hpp"
+#include "config_scrollbar.hpp"
+#include "choice_dropdown.hpp"
 #include "slider_value_input.hpp"
 #include "text_input.hpp"
 #include "config_text.hpp"
@@ -19,14 +21,17 @@ namespace xiui::ui
 
         auto Button(const rect& bounds, const char* label, const text_style& style, bool highlighted, button_tone tone = button_tone::normal) const -> void;
         auto IconButton(const rect& bounds, icon_glyph icon, bool highlighted) const -> void;
-        auto NavigationButton(const rect& bounds, const char* id, const char* label, bool selected, bool hovered = false) const -> void;
+        auto NavigationButton(const rect& bounds, const char* id, const char* label, bool selected, bool hovered = false, bool iconsOnly = false) const -> void;
         auto NavigationItem(const rect& bounds, const char* label, bool selected, bool hovered = false, bool enabled = true) const -> void;
         auto Segmented(const rect& bounds, std::span<const char* const> labels, size_t selected, float mouseX, float mouseY) const -> void;
         auto ListItem(const rect& bounds, const char* label, const char* accessory, bool selected, bool hovered) const -> void;
         auto Dropdown(const rect& bounds, const char* label, bool open, bool hovered) const -> void;
-        auto TextInput(const rect& bounds, const text_input& input, bool invalid = false) const -> void;
+        auto ChoiceMenu(const choice_dropdown&, const D3DVIEWPORT8&, float mouseX, float mouseY) const -> void;
+        auto Slider(const rect& row, const module_option&, bool hovered, const slider_value_input* input = nullptr, float labelWidth = -1) const -> void;
+        auto TextInput(const rect& bounds, const text_input& input, bool invalid = false, const char* placeholder = nullptr, const char* shortcut = nullptr) const -> void;
         static auto Segment(const rect& bounds, size_t index, size_t count) -> rect;
         auto Panel(const rect& bounds, std::span<const container_fill> fills = {}) const -> void;
+        auto Scrollbar(const config_scrollbar& scrollbar, bool hovered, bool dragging) const -> void;
 
         auto Text(const char* text, const rect& bounds, const text_style& style) const -> void;
         auto ButtonText(const char* text, const rect& bounds, const text_style& style, bool highlighted = false) const -> void;
@@ -48,7 +53,6 @@ namespace xiui::ui
         auto ToggleRow(const rect& row, const char* label, const char* description, bool enabled, bool hovered) const -> void;
         auto ToggleGroupRow(const rect& row, const module_option& option, bool hovered) const -> void;
         auto ColorRow(const rect& row, const char* label, const char* description, D3DCOLOR color, bool active, bool hovered) const -> void;
-        auto SliderRow(const rect& row, const module_option& option, bool hovered, const slider_value_input* input) const -> void;
         auto ChoiceRow(const rect& row, const module_option& option, bool hovered, bool dropdownOpen = false) const -> void;
     };
 } // namespace xiui::ui

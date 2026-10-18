@@ -1,0 +1,9 @@
+Skillchain properties and elemental artwork are ported from XIUI (https://github.com/tirem/XIUI).
+The pinned original Retail/Horizon Lua tables and their hashes are retained here.
+Retail WS/BLU/pet properties originate from LandSandBoat SQL; SCH/Immanence/JA/PUP data and the Horizon overlay follow Chains-Horizon.
+Tracking/combination behavior follows XIUI's modules/hotbar/skillchain.lua, based on Thorny's tHotBar implementation.
+Sources: https://github.com/LandSandBoat/server and https://github.com/Ivaar/Skillchains.
+XIUI's GPL-3.0 license is embedded with the existing XIUI artwork notices. Final Fantasy XI artwork belongs to Square Enix.
+Countdown windows are client-side estimates, not server-authoritative deadlines.
+Phoenix ordered SQL properties and pre-SoA pet overrides are pinned to Phoenix commit 11c6ee57720a8c6fd79c0fd46ff38ea8e074bf5e.
+See assets/phoenix for retained inputs, hashes, GPL license and source-profile documentation.

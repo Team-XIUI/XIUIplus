@@ -1,6 +1,6 @@
 # XIUI controller support plan
 
-Research date: October 14, 2026, including a follow-up AgentLink investigation. Status: proposal; bounded live diagnostics were performed, but functional controller navigation has not been established or tested on hardware. This work changes documentation and agent guidance only. See [the follow-up evidence and limits](controller-agentlink-findings.md).
+Research date: October 14, 2026, including a follow-up AgentLink investigation. Implementation has started: the shared input/focus foundation and the initial Chat, Party and configuration paths are implemented. Physical-controller navigation and the native software-keyboard bridge remain unverified. See [implementation status and usage](controller-implementation.md) and [the research evidence and limits](controller-agentlink-findings.md). The remaining sections retain the proposed full rollout.
 
 ## Recommendation
 
@@ -55,11 +55,11 @@ Use the player's effective Confirm/Cancel bindings, with Xbox, PlayStation or ne
 
 ### Entry and exit
 
-Aim for the native **Select active window** action to reach XIUI chat when the client has actually focused its log window. That integration needs a reliable active-window signal: today's generic menu snapshot does not provide one. Passing every Y press into XIUI would break native menus.
+Implemented entry, as requested by Cody: the mapped **Select active window** button (normally Y / Triangle) focuses XIUI chat; Confirm selects/expands it, then Select active window cycles tabs. Existing XIUI focus and native text/action targeting retain ownership. The opening press and release are consumed with the chat gesture. Reliable native active-log identity remains a separate integration; today's generic menu snapshot does not provide it.
 
 Live menu-list presence and `GetIsMenuOpen()` are insufficient signals: the first lists attached panels, and the latter was also true during native text input. Establish active-log identity and distinguish `Closed`, `OpenedChat` (`0x11`) and `OpenedOther` (`0x21`) before implementing this bridge.
 
-Provide an explicit remappable **XIUI Focus** entry as the dependable alternative. It opens a small focus picker for available Chat, Party, Ready Check and Config surfaces. Choose its button/chord in setup with collision feedback; do not silently claim Start, Back or a macro trigger. Proposed command equivalents such as `/xiuin focus chat` are future implementation work, not currently available commands.
+The explicit **XIUI Focus** command remains an alternative for other surfaces. `/xiui focus` opens the implemented focus picker, and `/xiui focus chat` enters chat directly. A configurable picker button/chord with collision feedback remains future work; Start, Back and macro triggers are unchanged.
 
 Once XIUI owns a surface, Cancel backs out one layer and ultimately returns control to the game. Display a persistent small action legend while focused. Keep controller focus distinct from pointer hover: a parked mouse must not continually move it.
 
@@ -83,7 +83,7 @@ Proposed controls while XIUI chat history owns focus:
 - **Cancel:** collapse first, then leave chat focus.
 - **D-pad Up/Down:** move by one complete message, including wrapped lines.
 - **D-pad Left/Right:** page backward/forward.
-- **Previous/Next tab:** shoulder buttons where available; **Select active window** cycles forward while expanded, matching the existing F action. These are contextual assignments, not global steals.
+- **Previous/Next tab:** left/right macro triggers while chat is focused, preserving the bumpers for native auto-run; **Select active window** cycles forward while expanded, matching the existing F action. These are contextual assignments, not global steals.
 - **Compose/Reply actions:** explicit entries in the focused chat actions menu; reply uses a validated last-teller/recipient.
 
 Preserve each tab's scroll, support Window 2 when enabled, retain keyboard shortcuts and wheel scrolling, and replace hardcoded keyboard-only footer text with shared action prompts. Empty tabs still have a clear way back. New messages should not pull a reader away from older history.

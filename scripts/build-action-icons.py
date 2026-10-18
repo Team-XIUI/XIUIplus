@@ -1,0 +1,53 @@
+"""Pack the original XIUI action and controller artwork into an embedded atlas."""
+
+from pathlib import Path
+import argparse
+import json
+import struct
+import zipfile
+
+from PIL import Image
+
+
+ROOT = Path(__file__).resolve().parents[1]
+parser = argparse.ArgumentParser(description=__doc__)
+parser.add_argument("source", type=Path, help="Original XIUI assets/hotbar directory")
+args = parser.parse_args()
+paths = sorted(path for path in args.source.rglob("*.png") if path.relative_to(args.source).parts[0] != "frames")
+if not paths:
+    raise ValueError("No action icons found")
+width, cell, columns = 2048, 36, 56
+height = 1 << (((len(paths) + columns - 1) // columns * cell - 1).bit_length())
+atlas = Image.new("RGBA", (width, height))
+entries = {}
+for index, path in enumerate(paths):
+    relative = path.relative_to(args.source).with_suffix("").as_posix().lower()
+    x, y = (index % columns) * cell + 2, (index // columns) * cell + 2
+    icon = Image.open(path).convert("RGBA").resize((32, 32), Image.Resampling.LANCZOS)
+    atlas.paste(icon, (x, y))
+    atlas.paste(icon.crop((0, 0, 1, 32)).resize((2, 32)), (x - 2, y))
+    atlas.paste(icon.crop((31, 0, 32, 32)).resize((2, 32)), (x + 32, y))
+    atlas.paste(atlas.crop((x - 2, y, x + 34, y + 1)).resize((36, 2)), (x - 2, y - 2))
+    atlas.paste(atlas.crop((x - 2, y + 31, x + 34, y + 32)).resize((36, 2)), (x - 2, y + 32))
+    entries[relative] = index
+    if path.stem.isdigit():
+        folder = relative.split("/")[0]
+        kind = {"spells": "spell", "abilities": "ability", "weapons": "weapon"}.get(folder)
+        if kind:
+            entries[f"{kind}:{int(path.stem)}"] = index
+
+destination = ROOT / "assets/actionbars"
+destination.mkdir(parents=True, exist_ok=True)
+(destination / "actions.bgra").write_bytes(struct.pack("<II", width, height) + atlas.tobytes("raw", "BGRA"))
+with zipfile.ZipFile(destination / "sources.zip", "w", compression=zipfile.ZIP_DEFLATED) as archive:
+    for path in paths:
+        archive.write(path, path.relative_to(args.source).as_posix())
+rows = "\n".join(f"        {{{json.dumps(key)}, {index}}}," for key, index in sorted(entries.items()))
+(ROOT / "src/runtime/resources/action_icons.hpp").write_text(
+    "#pragma once\n\n#include <array>\n#include <cstdint>\n#include <string_view>\n\nnamespace xiui::resources\n{\n"
+    "    struct action_icon { std::string_view key; uint16_t index; };\n"
+    f"    inline constexpr uint32_t action_icon_width = {width}, action_icon_height = {height};\n"
+    f"    inline constexpr std::array<action_icon, {len(entries)}> action_icons{{{{\n{rows}\n    }}}};\n}}\n",
+    encoding="utf-8",
+)
+print(f"Packed {len(paths)} action icons into {width}x{height} ({len(entries)} lookup keys).")

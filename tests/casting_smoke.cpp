@@ -199,8 +199,8 @@ namespace xiui
                 *Find(restored, "Fill behavior").choice == 1 && *Find(restored, "Glow").toggle && *Find(restored, "X offset").slider == -7 &&
                 *Find(restored, "Ready bottom").color == 0xFFABCDEF && restored.State().bounds.x == 333,
                 "display, direction, colors, text effects and position survive saving and profile reloads");
-            Check(!Find(restored, "Action icons").available && !Find(restored, "Bar style").available,
-                "text-only mode disables unused icon and bar controls");
+            Check(!Find(restored, "Action icons").visible && !Find(restored, "Bar style").visible,
+                "text-only mode hides unused icon and bar controls");
             ui::design_system design;
             module_render_context context{design, nullptr, true};
             restored.Render({}, context);

@@ -36,6 +36,31 @@ if (NOT EXISTS "${ASHITA_D3D8_LIB_DIR}/d3d8.lib")
     message(FATAL_ERROR "The Ashita Direct3D8 import library was not found: ${ASHITA_D3D8_LIB_DIR}/d3d8.lib")
 endif()
 
+find_package(Python3 REQUIRED COMPONENTS Interpreter)
+set(BUILD_SHARED_LIBS OFF CACHE BOOL "Build shared dependencies" FORCE)
+foreach(option WEBP_BUILD_ANIM_UTILS WEBP_BUILD_CWEBP WEBP_BUILD_DWEBP WEBP_BUILD_GIF2WEBP
+    WEBP_BUILD_IMG2WEBP WEBP_BUILD_VWEBP WEBP_BUILD_WEBPINFO WEBP_BUILD_LIBWEBPMUX WEBP_BUILD_WEBPMUX WEBP_BUILD_EXTRAS WEBP_USE_THREAD)
+    set(${option} OFF CACHE BOOL "Unused WebP feature" FORCE)
+endforeach()
+add_subdirectory(third_party/libwebp EXCLUDE_FROM_ALL)
+set(XIUI_WEBP_DECODER_SOURCES)
+foreach(component webpdecode webpdspdecode webputilsdecode)
+    get_target_property(sources ${component} SOURCES)
+    list(APPEND XIUI_WEBP_DECODER_SOURCES ${sources})
+endforeach()
+list(REMOVE_DUPLICATES XIUI_WEBP_DECODER_SOURCES)
+foreach(source IN LISTS XIUI_WEBP_DECODER_SOURCES)
+    foreach(property COMPILE_OPTIONS COMPILE_FLAGS COMPILE_DEFINITIONS)
+        get_source_file_property(value "${source}" DIRECTORY "${CMAKE_SOURCE_DIR}/third_party/libwebp" ${property})
+        if(value)
+            set_property(SOURCE "${source}" APPEND PROPERTY ${property} "${value}")
+        endif()
+    endforeach()
+    set_property(SOURCE "${source}" APPEND PROPERTY COMPILE_DEFINITIONS HAVE_CONFIG_H)
+endforeach()
+set_property(SOURCE third_party/miniz/miniz_tinfl.c PROPERTY COMPILE_DEFINITIONS
+    MINIZ_NO_ARCHIVE_APIS MINIZ_NO_DEFLATE_APIS MINIZ_NO_ZLIB_APIS MINIZ_NO_TIME)
+
 function(configure_xiui_target target)
     target_include_directories(${target} PRIVATE
         "${CMAKE_SOURCE_DIR}/src"
@@ -43,6 +68,9 @@ function(configure_xiui_target target)
         "${CMAKE_SOURCE_DIR}/src/runtime"
         "${CMAKE_SOURCE_DIR}/src/shared"
         "${CMAKE_BINARY_DIR}/generated"
+        "${CMAKE_SOURCE_DIR}/third_party/libwebp"
+        "${CMAKE_BINARY_DIR}/third_party/libwebp"
+        "${CMAKE_SOURCE_DIR}/third_party/miniz"
         "${ASHITA4_SDK_PATH}"
         "${ASHITA4_SDK_PATH}/d3d8/includes"
     )
@@ -68,10 +96,15 @@ target_include_directories(xiui_minhook PUBLIC third_party/minhook/include)
 set(XIUI_HOST_SOURCES
     src/host/exports.def
     src/host/callback_gate.hpp
+    src/host/controller_input.cpp
+    src/host/controller_input.hpp
+    src/host/controller_normalizer.hpp
+    src/shared/controller_input.hpp
     src/host/plugin.cpp
     src/host/plugin.hpp
     src/host/native_hud_controller.cpp
     src/host/native_hud_controller.hpp
+    src/runtime/modules/actionbars/native_macros.cpp
     src/host/native_menu_controller.cpp
     src/host/native_chat_source.cpp
     src/host/native_chat_source.hpp
@@ -107,6 +140,14 @@ configure_file(
 set(XIUI_CURSOR_RESOURCE "${CMAKE_BINARY_DIR}/generated/xiui-cursors.rc")
 configure_file("${CMAKE_SOURCE_DIR}/assets/jobs/jobs.rc.in" "${CMAKE_BINARY_DIR}/generated/xiui-jobs.rc" @ONLY)
 set(XIUI_JOB_RESOURCE "${CMAKE_BINARY_DIR}/generated/xiui-jobs.rc")
+file(GLOB XIUI_ICON_THEME_PAYLOADS CONFIGURE_DEPENDS "${CMAKE_SOURCE_DIR}/assets/icon-themes/*.bgra" "${CMAKE_SOURCE_DIR}/assets/icon-themes/*.txt")
+set_property(SOURCE "${XIUI_JOB_RESOURCE}" PROPERTY OBJECT_DEPENDS "${XIUI_ICON_THEME_PAYLOADS}")
+set_property(SOURCE "${XIUI_JOB_RESOURCE}" APPEND PROPERTY OBJECT_DEPENDS
+    "${CMAKE_SOURCE_DIR}/assets/pets/portraits.bgra;${CMAKE_SOURCE_DIR}/assets/pets/NOTICES.txt")
+set_property(SOURCE "${XIUI_JOB_RESOURCE}" APPEND PROPERTY OBJECT_DEPENDS
+    "${CMAKE_SOURCE_DIR}/assets/minimap/maps.bin;${CMAKE_SOURCE_DIR}/assets/minimap/NOTICES.txt;${CMAKE_SOURCE_DIR}/assets/minimap/LICENSE.txt")
+set_property(SOURCE "${XIUI_JOB_RESOURCE}" APPEND PROPERTY OBJECT_DEPENDS
+    "${CMAKE_SOURCE_DIR}/assets/actionbars/actions.bgra;${CMAKE_SOURCE_DIR}/assets/actionbars/NOTICES.txt")
 configure_file("${CMAKE_SOURCE_DIR}/assets/notifications/notifications.rc.in" "${CMAKE_BINARY_DIR}/generated/xiui-notifications.rc" @ONLY)
 set(XIUI_NOTIFICATION_RESOURCE "${CMAKE_BINARY_DIR}/generated/xiui-notifications.rc")
 configure_file("${CMAKE_SOURCE_DIR}/assets/recast/recast.rc.in" "${CMAKE_BINARY_DIR}/generated/xiui-recast.rc" @ONLY)
@@ -115,12 +156,74 @@ configure_file("${CMAKE_SOURCE_DIR}/assets/fonts/fonts.rc.in" "${CMAKE_BINARY_DI
 set(XIUI_FONT_RESOURCE "${CMAKE_BINARY_DIR}/generated/xiui-fonts.rc")
 configure_file("${CMAKE_SOURCE_DIR}/assets/chatmon/chatmon.rc.in" "${CMAKE_BINARY_DIR}/generated/xiui-chatmon.rc" @ONLY)
 set(XIUI_CHATMON_RESOURCE "${CMAKE_BINARY_DIR}/generated/xiui-chatmon.rc")
+configure_file("${CMAKE_SOURCE_DIR}/assets/mobs/mobs.rc.in" "${CMAKE_BINARY_DIR}/generated/xiui-mobs.rc" @ONLY)
+set(XIUI_MOB_RESOURCE "${CMAKE_BINARY_DIR}/generated/xiui-mobs.rc")
+configure_file("${CMAKE_SOURCE_DIR}/assets/bluemagic/bluemagic.rc.in" "${CMAKE_BINARY_DIR}/generated/xiui-bluemagic.rc" @ONLY)
+set(XIUI_BLUE_MAGIC_RESOURCE "${CMAKE_BINARY_DIR}/generated/xiui-bluemagic.rc")
+set_property(SOURCE "${XIUI_BLUE_MAGIC_RESOURCE}" PROPERTY OBJECT_DEPENDS
+    "${CMAKE_SOURCE_DIR}/assets/bluemagic/blue_magic_learned.bgra;${CMAKE_SOURCE_DIR}/assets/bluemagic/blue_magic_learned.wav;${CMAKE_SOURCE_DIR}/assets/bluemagic/LICENSE.txt")
+set_property(SOURCE "${XIUI_MOB_RESOURCE}" PROPERTY OBJECT_DEPENDS
+    "${CMAKE_SOURCE_DIR}/assets/mobs/phoenix_mobs.bin;${CMAKE_SOURCE_DIR}/assets/mobs/README.md;${CMAKE_SOURCE_DIR}/assets/mobs/LICENSE-GPL-3.0.txt;${CMAKE_SOURCE_DIR}/assets/mobs/icons/physical.bgra;${CMAKE_SOURCE_DIR}/assets/mobs/icons/detection.bgra;${CMAKE_SOURCE_DIR}/assets/mobs/icons/LICENSE.txt")
 configure_file("${CMAKE_SOURCE_DIR}/config/defaults.rc.in" "${CMAKE_BINARY_DIR}/generated/xiui-defaults.rc" @ONLY)
 set(XIUI_DEFAULTS_RESOURCE "${CMAKE_BINARY_DIR}/generated/xiui-defaults.rc")
 set_property(SOURCE "${XIUI_DEFAULTS_RESOURCE}" PROPERTY OBJECT_DEPENDS
-    "${CMAKE_SOURCE_DIR}/config/xiuinative-defaults.ini;${CMAKE_SOURCE_DIR}/config/xiuinative-theme.ini;${CMAKE_SOURCE_DIR}/assets/cursors/LICENSE.txt;${CMAKE_SOURCE_DIR}/third_party/minhook/LICENSE.txt;${CMAKE_SOURCE_DIR}/assets/profiles/share-v2.ini")
+    "${CMAKE_SOURCE_DIR}/config/xiuinative-defaults.ini;${CMAKE_SOURCE_DIR}/config/xiuinative-theme.ini;${CMAKE_SOURCE_DIR}/assets/cursors/LICENSE.txt;${CMAKE_SOURCE_DIR}/third_party/minhook/LICENSE.txt;${CMAKE_SOURCE_DIR}/assets/profiles/share-v2.ini;${CMAKE_SOURCE_DIR}/config/party-classic.ini;${CMAKE_SOURCE_DIR}/config/party-xiv.ini;${CMAKE_SOURCE_DIR}/assets/status/NOTICE.txt;${CMAKE_SOURCE_DIR}/assets/status/LICENSE.txt")
+set_property(SOURCE "${XIUI_DEFAULTS_RESOURCE}" APPEND PROPERTY OBJECT_DEPENDS
+    "${CMAKE_SOURCE_DIR}/assets/satchel/NOTICES.txt;${CMAKE_SOURCE_DIR}/assets/satchel/LICENSE.txt")
+
+function(pack_xiui_resource variable)
+    set(source "${${variable}}")
+    get_filename_component(name "${source}" NAME)
+    set(output "${CMAKE_BINARY_DIR}/generated/packed/${name}")
+    get_source_file_property(dependencies "${source}" OBJECT_DEPENDS)
+    if(NOT dependencies)
+        set(dependencies)
+    endif()
+    set(byproducts)
+    file(STRINGS "${source}" rows REGEX "RCDATA")
+    foreach(row IN LISTS rows)
+        if(row MATCHES "^[ \t]*([0-9]+)[ \t]+RCDATA[ \t]+\"([^\"]+)\"")
+            set(id "${CMAKE_MATCH_1}")
+            set(payload "${CMAKE_MATCH_2}")
+            list(APPEND dependencies "${payload}")
+            if(payload MATCHES "\\.bgra$|/phoenix_mobs\\.bin$")
+                get_filename_component(filename "${payload}" NAME)
+                list(APPEND byproducts "${CMAKE_BINARY_DIR}/generated/packed/${id}-${filename}.zlib")
+            endif()
+        endif()
+    endforeach()
+    add_custom_command(OUTPUT "${output}"
+        BYPRODUCTS ${byproducts}
+        COMMAND "${Python3_EXECUTABLE}" "${CMAKE_SOURCE_DIR}/scripts/pack-resources.py" "${source}" "${output}"
+        DEPENDS "${source}" "${CMAKE_SOURCE_DIR}/scripts/pack-resources.py" ${dependencies}
+        VERBATIM)
+    set(${variable} "${output}" PARENT_SCOPE)
+endfunction()
+foreach(resource XIUI_CURSOR_RESOURCE XIUI_JOB_RESOURCE XIUI_NOTIFICATION_RESOURCE XIUI_RECAST_RESOURCE
+    XIUI_FONT_RESOURCE XIUI_CHATMON_RESOURCE XIUI_DEFAULTS_RESOURCE XIUI_MOB_RESOURCE XIUI_BLUE_MAGIC_RESOURCE)
+    pack_xiui_resource(${resource})
+endforeach()
 
 set(XIUI_HUD_SOURCES
+    src/runtime/modules/treasure/treasure_source.cpp
+    src/runtime/modules/treasure/treasure_source.hpp
+    src/runtime/modules/treasure/treasure_module.cpp
+    src/runtime/modules/treasure/treasure_module.hpp
+    src/runtime/combat/skillchain_source.cpp
+    src/runtime/combat/skillchain_source.hpp
+    src/runtime/modules/magicburst/magic_burst_module.cpp
+    src/runtime/modules/magicburst/magic_burst_module.hpp
+    ${XIUI_WEBP_DECODER_SOURCES}
+    third_party/miniz/miniz_tinfl.c
+    src/runtime/resources/embedded_resource.cpp
+    src/runtime/resources/embedded_resource.hpp
+    src/runtime/modules/healing/heal_prediction.cpp
+    src/runtime/config/module_visibility.cpp
+    src/runtime/config/module_visibility.hpp
+    src/runtime/hud_runtime_visibility.cpp
+    src/runtime/hud_runtime_status.cpp
+    src/runtime/modules/status/status_effects_module.cpp
+    src/runtime/modules/status/status_effects_module.hpp
     src/shared/native_chat_palette.cpp
     src/shared/native_chat_palette.hpp
     src/runtime/world/world_source.cpp
@@ -135,6 +238,8 @@ set(XIUI_HUD_SOURCES
     src/runtime/ui/native_window_config.cpp
     src/runtime/ui/native_window_config.hpp
     src/runtime/ui/button_renderer.hpp
+    src/runtime/ui/focus_frame.cpp
+    src/runtime/ui/focus_frame.hpp
     src/runtime/chat/chat_model.cpp
     src/runtime/chat/chat_alerts.cpp
     src/runtime/chat/chat_alerts.hpp
@@ -143,8 +248,13 @@ set(XIUI_HUD_SOURCES
     src/runtime/chat/chat_editor.cpp
     src/runtime/chat/native_chat_input.cpp
     src/runtime/chat/native_chat_input.hpp
+    src/runtime/chat/native_chat_filters.cpp
+    src/runtime/chat/native_chat_filters.hpp
     src/runtime/chat/chat_encoding.cpp
     src/runtime/modules/chat/chat_module.cpp
+    src/runtime/modules/minimap/minimap_maps.cpp
+    src/runtime/modules/minimap/minimap_module.cpp
+    src/runtime/modules/minimap/minimap_source.cpp
     src/runtime/ui/glyph_atlas.cpp
     src/runtime/ui/text_rasterizer.cpp
     src/runtime/ui/font_catalog.cpp
@@ -152,12 +262,20 @@ set(XIUI_HUD_SOURCES
     src/runtime/combat/action_packet.hpp
     src/runtime/combat/timing_model.cpp
     src/runtime/combat/combat_timing_source.cpp
+    src/runtime/combat/party_timing_source.cpp
+    src/runtime/combat/party_timing_source.hpp
+    src/runtime/modules/party/party_timing_settings.cpp
+    src/runtime/modules/party/party_timing_settings.hpp
+    src/runtime/modules/party/party_timing_display.cpp
     src/runtime/ui/combat_timing_display.cpp
     src/runtime/combat/combat_source.cpp
     src/runtime/config/config_controls.cpp
     src/runtime/config/config_text.cpp
     src/runtime/config/global_text.cpp
+    src/runtime/config/health_feedback.cpp
     src/runtime/config/global_text.hpp
+    src/runtime/config/controller_focus_settings.cpp
+    src/runtime/config/controller_focus_settings.hpp
     src/runtime/modules/chat/chat_history.cpp
     src/runtime/config/text_input.cpp
     src/runtime/config/text_input.hpp
@@ -174,8 +292,16 @@ set(XIUI_HUD_SOURCES
     src/runtime/design_system.cpp
     src/runtime/design_system.hpp
     src/runtime/hud_runtime.cpp
+    src/runtime/hud_runtime_satchel.cpp
+    src/runtime/hud_runtime_actionbars.cpp
+    src/runtime/hud_runtime_controller.cpp
+    src/runtime/hud_runtime_controller_config.cpp
+    src/runtime/hud_runtime_controller_movement.cpp
+    src/runtime/input/config_controller_focus.hpp
+    src/runtime/input/controller_movement_layout.hpp
     src/runtime/hud_runtime_layout.cpp
     src/runtime/hud_runtime_elements.cpp
+    src/runtime/hud_runtime_search.cpp
     src/runtime/hud_runtime_profiles.cpp
     src/runtime/hud_runtime_choices.cpp
     src/runtime/config/choice_dropdown.hpp
@@ -197,6 +323,30 @@ set(XIUI_HUD_SOURCES
     src/runtime/modules/recast/recast_source.cpp
     src/runtime/modules/recast/recast_module.cpp
     src/runtime/modules/target/target_module.cpp
+    src/runtime/modules/target/target_display_settings.cpp
+    src/runtime/modules/target/target_display_settings.hpp
+    src/runtime/modules/mobinfo/mob_database.cpp
+    src/runtime/modules/mobinfo/mob_database.hpp
+    src/runtime/modules/target/world_target_bar.cpp
+    src/runtime/modules/target/target_rings.cpp
+    src/runtime/world/zone_ground.cpp
+    src/runtime/modules/target/world_target_bar.hpp
+    src/runtime/modules/target/target_mob_info.cpp
+    src/runtime/modules/target/target_mob_info.hpp
+    src/runtime/modules/pet/pet_source.cpp
+    src/runtime/modules/pet/pet_source.hpp
+    src/runtime/modules/pet/pet_module.cpp
+    src/runtime/modules/pet/pet_module.hpp
+    src/runtime/modules/bluemagic/blue_magic_module.cpp
+    src/runtime/modules/bluemagic/blue_magic_module.hpp
+    src/runtime/modules/phantomroll/phantom_roll_module.cpp
+    src/runtime/modules/phantomroll/phantom_roll_module.hpp
+    src/runtime/modules/phantomroll/phantom_roll_tracker.cpp
+    src/runtime/modules/phantomroll/phantom_roll_tracker.hpp
+    src/runtime/modules/phantomroll/phantom_roll_data.cpp
+    src/runtime/modules/phantomroll/phantom_roll_data.hpp
+    src/runtime/modules/target/target_child_module.cpp
+    src/runtime/modules/target/target_child_module.hpp
     src/runtime/modules/target/target_of_target_settings.cpp
     src/runtime/modules/target/target_of_target_settings.hpp
     src/runtime/modules/target/target_module.hpp
@@ -208,6 +358,20 @@ set(XIUI_HUD_SOURCES
     src/runtime/modules/party/party_module.cpp
     src/runtime/modules/party/party_entry_layout.cpp
     src/runtime/modules/inventory/inventory_source.cpp
+    src/runtime/modules/satchel/satchel_source.cpp
+    src/runtime/modules/satchel/satchel_identity.cpp
+    src/runtime/modules/satchel/satchel_cache.cpp
+    src/runtime/modules/satchel/satchel_actions.cpp
+    src/runtime/modules/satchel/satchel_module.cpp
+    src/runtime/modules/actionbars/action_store.cpp
+    src/runtime/modules/actionbars/action_executor.cpp
+    src/runtime/modules/actionbars/action_import.cpp
+    src/runtime/modules/actionbars/actionbars_module.cpp
+    src/runtime/modules/actionbars/actionbars_setup.cpp
+    src/runtime/modules/actionbars/actionbars_display.cpp
+    src/runtime/modules/actionbars/actionbars_library.cpp
+    src/runtime/modules/actionbars/actionbars_window.cpp
+    src/runtime/modules/actionbars/native_macros.cpp
     src/runtime/modules/inventory/inventory_module.cpp
     src/runtime/modules/equipment/equipment_source.cpp
     src/runtime/modules/equipment/equipment_module.cpp
@@ -250,6 +414,8 @@ set(XIUI_HUD_SOURCES
     src/runtime/ui/layout_grid.hpp
     src/runtime/ui/tp_meter.hpp
     src/runtime/ui/text_metrics.hpp
+    src/runtime/ui/clipped_quad.hpp
+    src/runtime/ui/rounded_rect.hpp
     src/runtime/modules/game_hud/game_hud_module.cpp
     src/runtime/modules/game_hud/game_hud_module.hpp
     src/shared/native_hud_options.hpp
@@ -257,6 +423,7 @@ set(XIUI_HUD_SOURCES
     src/runtime/settings/text_style_settings.cpp
     src/runtime/settings/text_style_settings.hpp
     src/runtime/settings/settings_profiles.cpp
+    src/runtime/settings/profile_identity.cpp
     src/runtime/settings/profile_share.cpp
     src/runtime/settings/profile_share.hpp
     src/runtime/settings/profile_share_delta.cpp
@@ -274,6 +441,8 @@ set(XIUI_HUD_SOURCES
     ${XIUI_FONT_RESOURCE}
     ${XIUI_CHATMON_RESOURCE}
     ${XIUI_DEFAULTS_RESOURCE}
+    ${XIUI_MOB_RESOURCE}
+    ${XIUI_BLUE_MAGIC_RESOURCE}
 )
 
 add_library(xiuinative_runtime MODULE
@@ -308,6 +477,7 @@ set_target_properties(xiuinative_release PROPERTIES
     PREFIX ""
     LIBRARY_OUTPUT_DIRECTORY "${CMAKE_SOURCE_DIR}/bin/release"
     RUNTIME_OUTPUT_DIRECTORY "${CMAKE_SOURCE_DIR}/bin/release"
+    ARCHIVE_OUTPUT_DIRECTORY "${CMAKE_SOURCE_DIR}/bin/release"
 )
 if (MSVC)
     set_target_properties(xiuinative_release xiui_minhook_release PROPERTIES
@@ -318,6 +488,17 @@ endif()
 add_executable(xiui_single_dll_smoke tests/single_dll_smoke.cpp)
 configure_xiui_target(xiui_single_dll_smoke)
 set_target_properties(xiui_single_dll_smoke PROPERTIES RUNTIME_OUTPUT_DIRECTORY "${CMAKE_SOURCE_DIR}/bin/tests")
+
+add_executable(xiui_resource_smoke
+    tests/resource_smoke.cpp
+    src/runtime/resources/embedded_resource.cpp
+    src/runtime/modules/minimap/minimap_maps.cpp
+    third_party/miniz/miniz_tinfl.c
+    ${XIUI_WEBP_DECODER_SOURCES})
+configure_xiui_target(xiui_resource_smoke)
+set_target_properties(xiui_resource_smoke PROPERTIES RUNTIME_OUTPUT_DIRECTORY "${CMAKE_SOURCE_DIR}/bin/tests")
+add_dependencies(xiui_resource_smoke xiuinative_release)
+add_test(NAME xiui_resource_smoke COMMAND xiui_resource_smoke "$<TARGET_FILE:xiuinative_release>" "${CMAKE_SOURCE_DIR}")
 
 add_executable(xiui_renderer_smoke
     tests/renderer_smoke.cpp
@@ -348,10 +529,27 @@ set_target_properties(xiui_timing_smoke PROPERTIES RUNTIME_OUTPUT_DIRECTORY "${C
 
 add_executable(xiui_config_input_smoke
     tests/config_input_smoke.cpp
+    tests/config_responsive_checks.cpp
+    tests/mp_cost_preview_checks.cpp
+    tests/heal_prediction_checks.cpp
+    tests/target_ring_checks.cpp
+    tests/player_resource_checks.cpp
+    tests/target_display_checks.cpp
+    tests/ready_check_sound_checks.cpp
+    tests/blue_magic_checks.cpp
+    tests/phantom_roll_checks.cpp
+    tests/mob_info_checks.cpp
+    tests/icon_theme_checks.cpp
+    tests/pet_hud_checks.cpp
+    tests/notification_feedback_checks.cpp
+    tests/minimap_checks.cpp
+    tests/skillchain_checks.cpp
+    tests/phoenix_integration_checks.cpp
+    tests/target_child_checks.cpp
     ${XIUI_HUD_SOURCES}
 )
 configure_xiui_target(xiui_config_input_smoke)
-target_compile_definitions(xiui_config_input_smoke PRIVATE XIUI_ENABLE_INPUT_TESTS)
+target_compile_definitions(xiui_config_input_smoke PRIVATE XIUI_ENABLE_INPUT_TESTS XIUI_ENABLE_PARITY_TESTS)
 target_link_libraries(xiui_config_input_smoke PRIVATE "${ASHITA_D3D8_LIB_DIR}/d3d8.lib")
 set_target_properties(xiui_config_input_smoke PROPERTIES
     RUNTIME_OUTPUT_DIRECTORY "${CMAKE_SOURCE_DIR}/bin/tests"
@@ -431,6 +629,7 @@ add_xiui_synthetic_runtime(xiui_exit_failure_runtime "xiui-exit-failure-runtime"
 
 add_executable(xiui_hot_reload_smoke
     tests/hot_reload_smoke.cpp
+    tests/controller_host_checks.cpp
     src/host/runtime_host.cpp
     src/host/runtime_host.hpp
     src/shared/runtime_api.hpp
@@ -465,6 +664,72 @@ set_target_properties(xiui_inventory_notifications_smoke PROPERTIES
 )
 
 enable_testing()
+add_executable(xiui_satchel_actions_smoke tests/satchel_actions_smoke.cpp src/runtime/modules/satchel/satchel_actions.cpp)
+configure_xiui_target(xiui_satchel_actions_smoke)
+set_target_properties(xiui_satchel_actions_smoke PROPERTIES RUNTIME_OUTPUT_DIRECTORY "${CMAKE_SOURCE_DIR}/bin/tests")
+add_test(NAME xiui_satchel_actions_smoke COMMAND xiui_satchel_actions_smoke)
+add_executable(xiui_satchel_data_smoke
+    tests/satchel_data_smoke.cpp
+    src/runtime/modules/satchel/satchel_source.cpp
+    src/runtime/modules/satchel/satchel_identity.cpp
+    src/runtime/modules/satchel/satchel_cache.cpp
+    src/runtime/settings/settings_store.cpp
+    src/runtime/settings/settings_writer.cpp
+    src/runtime/chat/chat_encoding.cpp)
+configure_xiui_target(xiui_satchel_data_smoke)
+target_compile_definitions(xiui_satchel_data_smoke PRIVATE XIUI_ENABLE_SATCHEL_TESTS)
+set_target_properties(xiui_satchel_data_smoke PROPERTIES RUNTIME_OUTPUT_DIRECTORY "${CMAKE_SOURCE_DIR}/bin/tests")
+add_test(NAME xiui_satchel_data_smoke COMMAND xiui_satchel_data_smoke)
+add_executable(xiui_satchel_ui_smoke tests/satchel_ui_smoke.cpp ${XIUI_HUD_SOURCES})
+configure_xiui_target(xiui_satchel_ui_smoke)
+target_compile_definitions(xiui_satchel_ui_smoke PRIVATE XIUI_ENABLE_SATCHEL_TESTS)
+target_link_libraries(xiui_satchel_ui_smoke PRIVATE "${ASHITA_D3D8_LIB_DIR}/d3d8.lib")
+set_target_properties(xiui_satchel_ui_smoke PROPERTIES RUNTIME_OUTPUT_DIRECTORY "${CMAKE_SOURCE_DIR}/bin/tests")
+add_test(NAME xiui_satchel_ui_smoke COMMAND xiui_satchel_ui_smoke)
+add_executable(xiui_controller_input_smoke tests/controller_input_smoke.cpp)
+configure_xiui_target(xiui_controller_input_smoke)
+set_target_properties(xiui_controller_input_smoke PROPERTIES RUNTIME_OUTPUT_DIRECTORY "${CMAKE_SOURCE_DIR}/bin/tests")
+add_test(NAME xiui_controller_input_smoke COMMAND xiui_controller_input_smoke)
+
+add_executable(xiui_crossbar_input_smoke tests/crossbar_input_smoke.cpp)
+configure_xiui_target(xiui_crossbar_input_smoke)
+set_target_properties(xiui_crossbar_input_smoke PROPERTIES RUNTIME_OUTPUT_DIRECTORY "${CMAKE_SOURCE_DIR}/bin/tests")
+add_test(NAME xiui_crossbar_input_smoke COMMAND xiui_crossbar_input_smoke)
+
+add_executable(xiui_keyboard_suppression_smoke tests/keyboard_suppression_smoke.cpp)
+configure_xiui_target(xiui_keyboard_suppression_smoke)
+set_target_properties(xiui_keyboard_suppression_smoke PROPERTIES RUNTIME_OUTPUT_DIRECTORY "${CMAKE_SOURCE_DIR}/bin/tests")
+add_test(NAME xiui_keyboard_suppression_smoke COMMAND xiui_keyboard_suppression_smoke)
+
+add_executable(xiui_actionbars_data_smoke tests/actionbars_data_smoke.cpp
+    src/runtime/modules/actionbars/action_store.cpp src/runtime/modules/actionbars/action_executor.cpp
+    src/runtime/modules/actionbars/action_import.cpp src/runtime/settings/settings_store.cpp
+    src/runtime/chat/chat_encoding.cpp src/runtime/modules/castcost/cast_cost_source.cpp)
+configure_xiui_target(xiui_actionbars_data_smoke)
+set_target_properties(xiui_actionbars_data_smoke PROPERTIES RUNTIME_OUTPUT_DIRECTORY "${CMAKE_SOURCE_DIR}/bin/tests")
+add_test(NAME xiui_actionbars_data_smoke COMMAND xiui_actionbars_data_smoke)
+
+add_executable(xiui_actionbars_ui_smoke tests/actionbars_ui_smoke.cpp ${XIUI_HUD_SOURCES})
+configure_xiui_target(xiui_actionbars_ui_smoke)
+target_compile_definitions(xiui_actionbars_ui_smoke PRIVATE XIUI_ENABLE_ACTIONBAR_TESTS)
+target_link_libraries(xiui_actionbars_ui_smoke PRIVATE "${ASHITA_D3D8_LIB_DIR}/d3d8.lib")
+set_target_properties(xiui_actionbars_ui_smoke PROPERTIES RUNTIME_OUTPUT_DIRECTORY "${CMAKE_SOURCE_DIR}/bin/tests")
+add_test(NAME xiui_actionbars_ui_smoke COMMAND xiui_actionbars_ui_smoke)
+
+add_executable(xiui_controller_smoke
+    tests/controller_smoke.cpp
+    tests/controller_modules_checks.cpp
+    tests/controller_config_checks.cpp
+    tests/party_timing_checks.cpp
+    ${XIUI_HUD_SOURCES}
+)
+configure_xiui_target(xiui_controller_smoke)
+target_compile_definitions(xiui_controller_smoke PRIVATE XIUI_ENABLE_INPUT_TESTS XIUI_ENABLE_CHAT_TESTS)
+target_link_libraries(xiui_controller_smoke PRIVATE "${ASHITA_D3D8_LIB_DIR}/d3d8.lib")
+set_target_properties(xiui_controller_smoke PROPERTIES RUNTIME_OUTPUT_DIRECTORY "${CMAKE_SOURCE_DIR}/bin/tests")
+add_test(NAME xiui_controller_smoke COMMAND xiui_controller_smoke)
+add_test(NAME xiui_party_timing_smoke COMMAND xiui_controller_smoke --party-timing-only)
+
 add_executable(xiui_experience_smoke tests/experience_smoke.cpp src/runtime/modules/experience/experience_tracker.cpp)
 configure_xiui_target(xiui_experience_smoke)
 set_target_properties(xiui_experience_smoke PROPERTIES RUNTIME_OUTPUT_DIRECTORY "${CMAKE_SOURCE_DIR}/bin/tests")
@@ -479,7 +744,13 @@ add_executable(xiui_readycheck_smoke tests/readycheck_smoke.cpp)
 configure_xiui_target(xiui_readycheck_smoke)
 set_target_properties(xiui_readycheck_smoke PROPERTIES RUNTIME_OUTPUT_DIRECTORY "${CMAKE_SOURCE_DIR}/bin/tests")
 add_test(NAME xiui_readycheck_smoke COMMAND xiui_readycheck_smoke)
-add_executable(xiui_module_parity_smoke tests/module_parity_smoke.cpp ${XIUI_HUD_SOURCES})
+add_executable(xiui_module_parity_smoke
+    tests/module_parity_smoke.cpp
+    tests/enemy_layout_checks.cpp
+    tests/visibility_checks.cpp
+    tests/status_display_checks.cpp
+    tests/status_module_checks.cpp
+    ${XIUI_HUD_SOURCES})
 configure_xiui_target(xiui_module_parity_smoke)
 target_compile_definitions(xiui_module_parity_smoke PRIVATE XIUI_ENABLE_PARITY_TESTS)
 target_link_libraries(xiui_module_parity_smoke PRIVATE "${ASHITA_D3D8_LIB_DIR}/d3d8.lib")
@@ -506,6 +777,7 @@ add_test(NAME xiui_inventory_notifications_smoke COMMAND xiui_inventory_notifica
 add_executable(xiui_native_hud_target_smoke
     tests/native_hud_target_smoke.cpp
     src/host/native_hud_controller.cpp
+    src/runtime/modules/actionbars/native_macros.cpp
     src/host/native_menu_controller.cpp
 )
 configure_xiui_target(xiui_native_hud_target_smoke)
@@ -520,6 +792,8 @@ endif()
 add_test(NAME xiui_native_hud_target_smoke COMMAND xiui_native_hud_target_smoke)
 add_test(NAME xiui_timing_smoke COMMAND xiui_timing_smoke)
 add_test(NAME xiui_config_input_smoke COMMAND xiui_config_input_smoke)
+add_test(NAME xiui_settings_presentation_smoke COMMAND xiui_config_input_smoke --settings-presentation-only)
+add_test(NAME xiui_party_name_cast_smoke COMMAND xiui_config_input_smoke --party-name-cast-only)
 add_test(NAME xiui_layout_grid_smoke COMMAND xiui_layout_grid_smoke)
 add_test(NAME xiui_tp_meter_smoke COMMAND xiui_tp_meter_smoke)
 add_test(NAME xiui_foundations_smoke COMMAND xiui_foundations_smoke)

@@ -49,7 +49,6 @@ namespace xiui
         this->count_ = store.ReadBool(section, "count", true);
         this->label_ = store.ReadBool(section, "label", true);
         this->split_ = store.ReadBool(section, "separate_containers", false);
-        this->hide_menu_ = store.ReadBool(section, "hide_menu", false);
         this->text_tint_ = store.ReadBool(section, "text_threshold_color", false);
         this->background_ = store.ReadBool(section, "background", false);
         this->count_mode_ = std::clamp(store.ReadInt(section, "count_mode", 0), 0, 1);
@@ -85,7 +84,6 @@ namespace xiui
         store.WriteBool(section, "count", this->count_);
         store.WriteBool(section, "label", this->label_);
         store.WriteBool(section, "separate_containers", this->split_);
-        store.WriteBool(section, "hide_menu", this->hide_menu_);
         store.WriteBool(section, "text_threshold_color", this->text_tint_);
         store.WriteBool(section, "background", this->background_);
         store.WriteInt(section, "count_mode", this->count_mode_);
@@ -125,7 +123,7 @@ namespace xiui
 
     auto inventory_module::ConfigSectionContains(const size_t section, const size_t index) -> bool
     {
-        if (index >= this->OptionCount()) return false;
+        if (index >= this->OptionCount() || index == hide_menu) return false;
         if (index <= count_mode) return section == 0;
         if (index <= critical || (index >= normal_color && index <= critical_color)) return section == 2;
         if (index <= text_position) return section == 1;
@@ -140,35 +138,36 @@ namespace xiui
         static constexpr const char* positions[]{"Above dots", "Below dots"};
         static constexpr const char* texts[]{"Label", "Count"};
         const float slotLimit = this->Usage().capacity > 0 ? static_cast<float>(this->Usage().capacity) : static_cast<float>(inventory_groups[this->group_].count * 80);
+        const bool fullness = this->dots_ || (this->count_ && this->text_tint_);
         switch (index)
         {
-        case enabled: return module_option::Toggle("Enabled", "Independently movable storage tracker; locked bags are hidden.", &this->state_.enabled);
+        case enabled: return module_option::Toggle("Enabled", "Independently movable storage tracker; locked bags are hidden.", &this->state_.enabled).Ordered(-50);
         case dots: return module_option::Toggle("Slot dots", "One dot per inventory slot, including empty slots.", &this->dots_);
         case count: return module_option::Toggle("Count", "Show occupied slots and capacity, or remaining free slots.", &this->count_);
         case label: return module_option::Toggle("Label", "Show the storage name alongside the count.", &this->label_);
-        case split: { auto value = module_option::Toggle("Separate containers", "Give each unlocked Safe or Wardrobe its own grid within this tracker.", &this->split_); value.available = inventory_groups[this->group_].count > 1; return value; }
-        case hide_menu: return module_option::Toggle("Hide in menus", "Hide while the native command or main menu has focus.", &this->hide_menu_);
-        case text_tint: return module_option::Toggle("Fullness text color", "Tint the count with its fullness color, retaining its text effects.", &this->text_tint_);
-        case count_mode: return module_option::Choice("Count display", "Fullness always uses occupied slots, even when showing free slots.", &this->count_mode_, counts, 2);
-        case threshold_mode: return module_option::Choice("Threshold units", "Percent adapts to bag capacity; Used slots uses fixed counts.", &this->threshold_mode_, modes, 2, module_option_group::colors);
-        case warning: return module_option::Slider("Warning threshold", "Used amount at which occupied dots take the warning color.", this->threshold_mode_ == 0 ? &this->warning_percent_ : &this->warning_slots_, 0, this->threshold_mode_ == 0 ? 100.0f : slotLimit, 1, module_option_group::colors);
-        case critical: return module_option::Slider("Critical threshold", "Used amount at which occupied dots take the critical color; full bags are always critical.", this->threshold_mode_ == 0 ? &this->critical_percent_ : &this->critical_slots_, 0, this->threshold_mode_ == 0 ? 100.0f : slotLimit, 1, module_option_group::colors);
-        case columns: return module_option::Slider("Columns", "Dots across each group; narrows automatically to stay inside the viewport.", &this->columns_, 1, 80, 1);
-        case rows: return module_option::Slider("Rows per group", "Start another group after this many rows; every slot remains visible.", &this->rows_, 1, 80, 1);
-        case dot_size: return module_option::Slider("Dot size", "Actual dot diameter in pixels.", &this->dot_size_, 3, 24, 1);
-        case dot_gap: return module_option::Slider("Dot spacing", "Pixels between neighboring dots.", &this->dot_gap_, 0, 12, 1);
-        case group_gap: return module_option::Slider("Group spacing", "Pixels between groups of rows and columns.", &this->group_gap_, 0, 40, 1);
-        case section_gap: return module_option::Slider("Container spacing", "Vertical pixels between separately displayed Safes or Wardrobes.", &this->section_gap_, 0, 40, 1);
-        case text_position: return module_option::Choice("Text position", "Place the label and count above or below the dot grid.", &this->text_position_, positions, 2);
-        case background: return module_option::Toggle("Container", "Draw a shared native DAT container behind each storage grid.", &this->background_, module_option_group::appearance);
-        case opacity: return module_option::Slider("Container opacity", "Opacity of the optional container, including its border.", &this->container_.opacity, 0, 1, 0.05f, module_option_group::appearance);
-        case padding: return module_option::Slider("Container padding", "Space between the native frame and the dot grid.", &this->container_.padding, 0, 24, 1, module_option_group::appearance);
-        case normal_color: return module_option::Color("Occupied", "Normal occupied-slot tint.", &this->normal_);
-        case empty_color: return module_option::Color("Empty", "Unoccupied slots retain this muted tint at every fullness level.", &this->empty_);
-        case warning_color: return module_option::Color("Warning", "Occupied-slot tint at the warning threshold.", &this->warning_);
-        case critical_color: return module_option::Color("Critical / full", "Occupied-slot tint at the critical threshold or full capacity.", &this->critical_);
+        case split: return module_option::Toggle("Separate containers", "Give each unlocked Safe or Wardrobe its own grid within this tracker.", &this->split_).VisibleWhen(inventory_groups[this->group_].count > 1);
+        case hide_menu: return {};
+        case text_tint: return module_option::Toggle("Fullness text color", "Tint the count with its fullness color, retaining its text effects.", &this->text_tint_).VisibleWhen(this->count_);
+        case count_mode: return module_option::Choice("Count display", "Fullness always uses occupied slots, even when showing free slots.", &this->count_mode_, counts, 2).VisibleWhen(this->count_);
+        case threshold_mode: return module_option::Choice("Threshold units", "Percent adapts to bag capacity; Used slots uses fixed counts.", &this->threshold_mode_, modes, 2, module_option_group::colors).VisibleWhen(fullness);
+        case warning: return module_option::Slider("Warning threshold", "Used amount at which occupied dots take the warning color.", this->threshold_mode_ == 0 ? &this->warning_percent_ : &this->warning_slots_, 0, this->threshold_mode_ == 0 ? 100.0f : slotLimit, 1, module_option_group::colors).VisibleWhen(fullness);
+        case critical: return module_option::Slider("Critical threshold", "Used amount at which occupied dots take the critical color; full bags are always critical.", this->threshold_mode_ == 0 ? &this->critical_percent_ : &this->critical_slots_, 0, this->threshold_mode_ == 0 ? 100.0f : slotLimit, 1, module_option_group::colors).VisibleWhen(fullness);
+        case columns: return module_option::Slider("Columns", "Dots across each group; narrows automatically to stay inside the viewport.", &this->columns_, 1, 80, 1).Ordered(120, true).VisibleWhen(this->dots_);
+        case rows: return module_option::Slider("Rows per group", "Start another group after this many rows; every slot remains visible.", &this->rows_, 1, 80, 1).Ordered(121).VisibleWhen(this->dots_);
+        case dot_size: return module_option::Slider("Dot size", "Actual dot diameter in pixels.", &this->dot_size_, 3, 24, 1).Ordered(110).VisibleWhen(this->dots_);
+        case dot_gap: return module_option::Slider("Dot spacing", "Pixels between neighboring dots.", &this->dot_gap_, 0, 12, 1).Ordered(300, true).VisibleWhen(this->dots_);
+        case group_gap: return module_option::Slider("Group spacing", "Pixels between groups of rows and columns.", &this->group_gap_, 0, 40, 1).Ordered(302).VisibleWhen(this->dots_);
+        case section_gap: return module_option::Slider("Container spacing", "Vertical pixels between separately displayed Safes or Wardrobes.", &this->section_gap_, 0, 40, 1).Ordered(303).VisibleWhen(this->split_ && inventory_groups[this->group_].count > 1);
+        case text_position: return module_option::Choice("Text position", "Place the label and count above or below the dot grid.", &this->text_position_, positions, 2).Ordered(200).VisibleWhen(this->dots_ && (this->label_ || this->count_));
+        case background: return module_option::Toggle("Container", "Draw a shared native DAT container behind each storage grid.", &this->background_, module_option_group::appearance).Ordered(-10);
+        case opacity: return module_option::Slider("Container opacity", "Opacity of the optional container, including its border.", &this->container_.opacity, 0, 1, 0.05f, module_option_group::appearance).Ordered(450).VisibleWhen(this->background_);
+        case padding: return module_option::Slider("Container padding", "Space between the native frame and the dot grid.", &this->container_.padding, 0, 24, 1, module_option_group::appearance).Ordered(402).VisibleWhen(this->background_);
+        case normal_color: return module_option::Color("Occupied", "Normal occupied-slot tint.", &this->normal_).VisibleWhen(fullness);
+        case empty_color: return module_option::Color("Empty", "Unoccupied slots retain this muted tint at every fullness level.", &this->empty_).VisibleWhen(this->dots_);
+        case warning_color: return module_option::Color("Warning", "Occupied-slot tint at the warning threshold.", &this->warning_).VisibleWhen(fullness);
+        case critical_color: return module_option::Color("Critical / full", "Occupied-slot tint at the critical threshold or full capacity.", &this->critical_).VisibleWhen(fullness);
         case selected_text: return module_option::Element("Selected text", "Configure the label and count independently.", &this->selected_text_, texts, 2, module_option_group::text);
-        default: return TextProfileOption(index - base_options, this->text_[this->selected_text_]);
+        default: return TextProfileOption(index - base_options, this->text_[this->selected_text_]).VisibleWhen(this->selected_text_ == 0 ? this->label_ || (!this->dots_ && !this->count_) : this->count_);
         }
     }
 
@@ -193,8 +192,7 @@ namespace xiui
 
     auto inventory_module::ShouldRender(const hud_snapshot&) const -> bool
     {
-        return this->PreviewVisible() && this->state_.enabled && (this->dots_ || this->count_ || this->label_) && this->Usage().ready &&
-            (!this->hide_menu_ || !this->source_->State().menu_open);
+        return this->PreviewVisible() && this->state_.enabled && (this->dots_ || this->count_ || this->label_) && this->Usage().ready;
     }
 
     auto inventory_module::Fullness(const inventory_usage& usage, const int mode, const float warning, const float critical) -> int

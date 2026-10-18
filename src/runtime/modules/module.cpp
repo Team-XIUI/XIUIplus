@@ -2,6 +2,7 @@
 #include "settings/text_style_settings.hpp"
 #include "ui/button_renderer.hpp"
 #include "ui/tp_meter.hpp"
+#include "ui/health_colors.hpp"
 
 #include <algorithm>
 #include <cmath>
@@ -28,6 +29,20 @@ namespace
 
 namespace xiui
 {
+    auto meter_animation_state::Update(float ratio, uint64_t now, bool enabled, float speed) -> float
+    {
+        const float target=std::clamp(ratio,0.0f,1.0f);
+        if (!this->initialized || !enabled) this->displayed_ratio=target;
+        else {
+            const float elapsed=std::clamp(static_cast<float>(now-this->last_tick)*0.001f,0.0f,0.1f);
+            this->displayed_ratio+=(target-this->displayed_ratio)*(1.0f-std::exp(-std::max(0.1f,speed)*elapsed));
+            if (std::abs(target-this->displayed_ratio)<0.0005f) this->displayed_ratio=target;
+        }
+        this->last_tick=now;
+        this->initialized=true;
+        return this->displayed_ratio;
+    }
+
     auto module_option::Element(const char* label, const char* description, int* value, const char* const* choices, const size_t count, const module_option_group group) -> module_option
     {
         auto option = Choice(label, description, value, choices, count, group);
@@ -149,7 +164,7 @@ namespace xiui
 
     auto ModuleWidthOption(module_state& state) -> module_option
     {
-        return module_option::Slider("Width", "HUD width in pixels.", &state.bounds.width, state.minimum_width, state.maximum_width, 1.0f, module_option_group::appearance);
+        return module_option::Slider("Width", "HUD width in pixels.", &state.bounds.width, state.minimum_width, state.maximum_width, 1.0f, module_option_group::appearance).Ordered(100, true);
     }
 
     auto TextProfileOption(const size_t index, module_text_profile& profile) -> module_option
@@ -157,23 +172,23 @@ namespace xiui
         static constexpr const char* placements[] = {"Default", "Left", "Center", "Right"};
         switch (index)
         {
-        case 0: return module_option::Choice("Placement", "Horizontal text anchor.", &profile.placement, placements, 4, module_option_group::text);
-        case 1: return TextSizeOption("Size (px)", "Font size in pixels, rendered at its native resolution.", &profile.style.scale);
-        case 2: return module_option::Slider("X offset", "Horizontal adjustment.", &profile.offset_x, -200.0f, 200.0f, 1.0f, module_option_group::text);
-        case 3: return module_option::Slider("Y offset", "Vertical adjustment.", &profile.offset_y, -100.0f, 100.0f, 1.0f, module_option_group::text);
-        case 4: return module_option::Slider("Letter spacing", "Space between glyphs.", &profile.style.letter_spacing, -1.0f, 6.0f, 0.25f, module_option_group::text);
-        case 5: return module_option::Color("Top color", "Upper text gradient.", &profile.style.top_color, module_option_group::text);
-        case 6: return module_option::Color("Bottom color", "Lower text gradient.", &profile.style.bottom_color, module_option_group::text);
-        case 7: return module_option::Toggle("Shadow", "Text drop shadow.", &profile.style.shadow.enabled, module_option_group::text);
-        case 8: return module_option::Color("Shadow color", "Text shadow tint.", &profile.style.shadow.color, module_option_group::text);
-        case 9: return module_option::Toggle("Soft shadow", "Blur the text shadow.", &profile.style.shadow.soft, module_option_group::text);
-        case 10: return module_option::Toggle("Stroke", "Outline text glyphs.", &profile.style.stroke.enabled, module_option_group::text);
-        case 11: return module_option::Color("Stroke color", "Text outline tint.", &profile.style.stroke.color, module_option_group::text);
-        case 12: return module_option::Toggle("Glow", "Glow around text.", &profile.style.glow.enabled, module_option_group::text);
-        case 13: return module_option::Color("Glow color", "Text glow tint.", &profile.style.glow.color, module_option_group::text);
+        case 0: return module_option::Choice("Alignment", "Horizontal text alignment within its anchor, before X/Y offsets.", &profile.placement, placements, 4, module_option_group::text).Ordered(200);
+        case 1: return TextSizeOption("Size (px)", "Font size in pixels, rendered at its native resolution.", &profile.style.scale).Ordered(101);
+        case 2: return module_option::Slider("X offset", "Horizontal adjustment.", &profile.offset_x, -200.0f, 200.0f, 1.0f, module_option_group::text).Ordered(210, true);
+        case 3: return module_option::Slider("Y offset", "Vertical adjustment.", &profile.offset_y, -100.0f, 100.0f, 1.0f, module_option_group::text).Ordered(211);
+        case 4: return module_option::Slider("Letter spacing", "Space between glyphs.", &profile.style.letter_spacing, -1.0f, 6.0f, 0.25f, module_option_group::text).Ordered(201);
+        case 5: return module_option::Color("Top color", "Upper text gradient.", &profile.style.top_color, module_option_group::text).Ordered(500, true);
+        case 6: return module_option::Color("Bottom color", "Lower text gradient.", &profile.style.bottom_color, module_option_group::text).Ordered(501);
+        case 7: return module_option::Toggle("Shadow", "Text drop shadow.", &profile.style.shadow.enabled, module_option_group::text).Ordered(600, true);
+        case 8: return module_option::Color("Shadow color", "Text shadow tint.", &profile.style.shadow.color, module_option_group::text).Ordered(601).VisibleWhen(profile.style.shadow.enabled);
+        case 9: return module_option::Toggle("Soft shadow", "Blur the text shadow.", &profile.style.shadow.soft, module_option_group::text).Ordered(604).VisibleWhen(profile.style.shadow.enabled);
+        case 10: return module_option::Toggle("Stroke", "Outline text glyphs.", &profile.style.stroke.enabled, module_option_group::text).Ordered(650, true);
+        case 11: return module_option::Color("Stroke color", "Text outline tint.", &profile.style.stroke.color, module_option_group::text).Ordered(651).VisibleWhen(profile.style.stroke.enabled);
+        case 12: return module_option::Toggle("Glow", "Glow around text.", &profile.style.glow.enabled, module_option_group::text).Ordered(700, true);
+        case 13: return module_option::Color("Glow color", "Text glow tint.", &profile.style.glow.color, module_option_group::text).Ordered(701).VisibleWhen(profile.style.glow.enabled);
         case 14:
         {
-            auto option = module_option::Dropdown("Font", "Font face for this text element.", &profile.style.font, ui::font_names, ui::font_count);
+            auto option = module_option::Dropdown("Font", "Font face for this text element.", &profile.style.font, ui::font_names, ui::font_count).Ordered(100, true);
             option.group = module_option_group::text;
             return option;
         }
@@ -226,48 +241,57 @@ namespace xiui
         return D3DCOLOR_ARGB((color >> 24) & 0xFF, red, green, blue);
     }
 
+    auto CopyMeterStyleOption(const size_t index, ui::meter_style& source, ui::meter_style& destination) -> void
+    {
+        const auto from = MeterStyleOption(index, source), to = MeterStyleOption(index, destination);
+        if (from.toggle != nullptr && to.toggle != nullptr) *to.toggle = *from.toggle;
+        else if (from.slider != nullptr && to.slider != nullptr) *to.slider = *from.slider;
+        else if (from.choice != nullptr && to.choice != nullptr) *to.choice = *from.choice;
+        else if (from.color != nullptr && to.color != nullptr) *to.color = *from.color;
+    }
+
     auto MeterStyleOption(const size_t index, ui::meter_style& style) -> module_option
     {
         constexpr static const char* appearances[]{"Window theme", "Modern"};
         if (index == 0)
-            return module_option::Choice("Bar style", "Follow the game's Window Type or use modern bars.", &style.appearance, appearances, std::size(appearances), module_option_group::appearance);
+            return module_option::Choice("Bar style", "Follow the game's Window Type or use modern bars.", &style.appearance, appearances, std::size(appearances), module_option_group::appearance).Ordered(50);
         if (index == 1)
-            return module_option::Slider("Bar height", "Bar track thickness in pixels; text keeps its own size.", &style.height, 1.0f, 80.0f, 1.0f, module_option_group::appearance);
+            return module_option::Slider("Bar height", "Bar track thickness in pixels; text keeps its own size.", &style.height, 1.0f, 80.0f, 1.0f, module_option_group::appearance).Ordered(101);
         const auto modern = [&style](module_option option) {
-            option.available = style.appearance == ui::meter_style::modern;
+            option.visible = option.visible && style.appearance == ui::meter_style::modern;
             return option;
         };
         switch (index - 2)
         {
         case 0: return module_option::Toggle("Bookends", "Show end caps for the selected bar style.",
-            style.appearance == ui::meter_style::window_theme ? &style.themed_bookends : &style.bookends, module_option_group::appearance);
-        case 1: return modern(module_option::Slider("Corner radius", "Modern bars: rounding without caps.", &style.corner_radius, 0.0f, 50.0f, 0.5f, module_option_group::appearance));
-        case 2: return modern(module_option::Slider("Border width", "Modern bars: outer outline thickness.", &style.border_width, 0.0f, 8.0f, 0.5f, module_option_group::appearance));
-        case 3: return modern(module_option::Slider("Bookend width", "Modern bars: width of each end cap.", &style.bookend_width, 0.0f, 50.0f, 1.0f, module_option_group::appearance));
-        case 4: return module_option::Toggle("Drop shadow", "Offset shadow behind bar.", &style.shadow_enabled, module_option_group::effects);
-        case 5: return module_option::Slider("Shadow strength", "Shadow opacity.", &style.shadow_strength, 0.0f, 1.0f, 0.05f, module_option_group::effects);
-        case 6: return module_option::Slider("Shadow X", "Horizontal shadow offset.", &style.shadow_offset_x, -10.0f, 10.0f, 1.0f, module_option_group::effects);
-        case 7: return module_option::Slider("Shadow Y", "Vertical shadow offset.", &style.shadow_offset_y, -10.0f, 10.0f, 1.0f, module_option_group::effects);
-        case 8: return module_option::Slider("Shadow radius", "Shadow blur radius.", &style.shadow_blur, 0.0f, 24.0f, 1.0f, module_option_group::effects);
-        case 9: return module_option::Toggle("Outer glow", "Glow around meter edge.", &style.glow_enabled, module_option_group::appearance);
-        case 10: return module_option::Slider("Glow size", "Outer glow spread.", &style.glow_size, 0.0f, 12.0f, 1.0f, module_option_group::appearance);
-        case 11: return module_option::Toggle("Animated sheen", "Moving highlight sweep.", &style.sheen_enabled, module_option_group::effects);
-        case 12: return module_option::Slider("Sheen width", "Highlight sweep width.", &style.sheen_width, 2.0f, 120.0f, 1.0f, module_option_group::effects);
-        case 13: return module_option::Slider("Sheen speed", "Highlight cycles per second.", &style.sheen_speed, 0.0f, 2.0f, 0.05f, module_option_group::effects);
-        case 14: return module_option::Toggle("Smooth fill", "Animate value changes.", &style.animation_enabled, module_option_group::appearance);
-        case 15: return module_option::Slider("Fill response", "Fill animation speed.", &style.animation_speed, 1.0f, 30.0f, 0.5f, module_option_group::appearance);
-        case 16: return modern(module_option::Color("Background top", "Modern bars: upper background gradient.", &style.track_top, module_option_group::colors));
-        case 17: return modern(module_option::Color("Background bottom", "Modern bars: lower background gradient.", &style.track_bottom, module_option_group::colors));
-        case 18: return modern(module_option::Color("Border color", "Modern bars: outer meter outline.", &style.border, module_option_group::colors));
-        case 19: return modern(module_option::Color("Bookend top", "Modern bars: upper cap gradient.", &style.bookend_top, module_option_group::colors));
-        case 20: return modern(module_option::Color("Bookend bottom", "Modern bars: lower cap gradient.", &style.bookend_bottom, module_option_group::colors));
-        case 21: return module_option::Color("Shadow color", "Drop shadow tint.", &style.shadow, module_option_group::colors);
-        case 22: return module_option::Color("Glow color", "Outer glow tint.", &style.glow, module_option_group::colors);
-        case 23: return module_option::Color("Sheen color", "Animated highlight tint.", &style.sheen, module_option_group::colors);
-        case 24: return module_option::Slider("Background opacity", "Background transparency.", &style.track_opacity, 0.0f, 1.0f, 0.05f, module_option_group::colors);
-        case 25: return module_option::Toggle("Fill glow", "Glow follows the filled amount.", &style.fill_glow_enabled, module_option_group::effects);
-        case 26: return module_option::Slider("Fill glow strength", "Fill glow opacity.", &style.fill_glow_strength, 0.0f, 1.0f, 0.05f, module_option_group::effects);
-        case 27: return module_option::Slider("Fill glow radius", "Fill glow spread.", &style.fill_glow_radius, 0.0f, 20.0f, 1.0f, module_option_group::effects);
+            style.appearance == ui::meter_style::window_theme ? &style.themed_bookends : &style.bookends, module_option_group::appearance).Ordered(470);
+        case 1: return modern(module_option::Slider("Corner radius", "Modern bars: rounding without caps.", &style.corner_radius, 0.0f, 50.0f, 0.5f, module_option_group::appearance).Ordered(460)).VisibleWhen(!style.bookends);
+        case 2: return modern(module_option::Slider("Border width", "Modern bars: outer outline thickness.", &style.border_width, 0.0f, 8.0f, 0.5f, module_option_group::appearance).Ordered(461));
+        case 3: return modern(module_option::Slider("Bookend width", "Modern bars: width of each end cap.", &style.bookend_width, 0.0f, 50.0f, 1.0f, module_option_group::appearance).Ordered(462)).VisibleWhen(style.bookends);
+        case 4: return module_option::Toggle("Drop shadow", "Offset shadow behind bar.", &style.shadow_enabled, module_option_group::effects).Ordered(600, true);
+        case 5: return module_option::Slider("Shadow strength", "Shadow opacity.", &style.shadow_strength, 0.0f, 1.0f, 0.05f, module_option_group::effects).Ordered(602).VisibleWhen(style.shadow_enabled);
+        case 6: return module_option::Slider("Shadow X offset", "Horizontal shadow offset.", &style.shadow_offset_x, -10.0f, 10.0f, 1.0f, module_option_group::effects).Ordered(606, true).VisibleWhen(style.shadow_enabled);
+        case 7: return module_option::Slider("Shadow Y offset", "Vertical shadow offset.", &style.shadow_offset_y, -10.0f, 10.0f, 1.0f, module_option_group::effects).Ordered(607).VisibleWhen(style.shadow_enabled);
+        case 8: return module_option::Slider("Shadow radius", "Shadow blur radius.", &style.shadow_blur, 0.0f, 24.0f, 1.0f, module_option_group::effects).Ordered(603).VisibleWhen(style.shadow_enabled);
+        case 9: return module_option::Toggle("Outer glow", "Glow around meter edge.", &style.glow_enabled, module_option_group::appearance).Ordered(700, true);
+        case 10: return module_option::Slider("Glow size", "Outer glow spread.", &style.glow_size, 0.0f, 12.0f, 1.0f, module_option_group::appearance).Ordered(702).VisibleWhen(style.glow_enabled);
+        case 11: return module_option::Toggle("Animated sheen", "Moving highlight sweep.", &style.sheen_enabled, module_option_group::effects).Ordered(750);
+        case 12: return module_option::Slider("Sheen width", "Highlight sweep width.", &style.sheen_width, 2.0f, 120.0f, 1.0f, module_option_group::effects).Ordered(752, true).VisibleWhen(style.sheen_enabled);
+        case 13: return module_option::Slider("Sheen speed", "Highlight cycles per second.", &style.sheen_speed, 0.0f, 2.0f, 0.05f, module_option_group::effects).Ordered(753).VisibleWhen(style.sheen_enabled);
+        case 14: return module_option::Toggle("Smooth fill", "Animate value changes.", &style.animation_enabled, module_option_group::appearance).Ordered(800);
+        case 15: return module_option::Slider("Fill response", "Fill animation speed.", &style.animation_speed, 1.0f, 30.0f, 0.5f, module_option_group::appearance).Ordered(801).VisibleWhen(style.animation_enabled);
+        case 16: return modern(module_option::Color("Background top", "Modern bars: upper background gradient.", &style.track_top, module_option_group::colors).Ordered(510, true));
+        case 17: return modern(module_option::Color("Background bottom", "Modern bars: lower background gradient.", &style.track_bottom, module_option_group::colors).Ordered(511));
+        case 18: return modern(module_option::Color("Border color", "Modern bars: outer meter outline.", &style.border, module_option_group::colors).Ordered(530)).VisibleWhen(style.border_width > 0);
+        case 19: return modern(module_option::Color("Bookend top", "Modern bars: upper cap gradient.", &style.bookend_top, module_option_group::colors).Ordered(520, true)).VisibleWhen(style.bookends);
+        case 20: return modern(module_option::Color("Bookend bottom", "Modern bars: lower cap gradient.", &style.bookend_bottom, module_option_group::colors).Ordered(521)).VisibleWhen(style.bookends);
+        case 21: return module_option::Color("Shadow color", "Drop shadow tint.", &style.shadow, module_option_group::colors).Ordered(601).VisibleWhen(style.shadow_enabled);
+        case 22: return module_option::Color("Glow color", "Outer glow tint.", &style.glow, module_option_group::colors).Ordered(701).VisibleWhen(style.glow_enabled);
+        case 23: return module_option::Color("Sheen color", "Animated highlight tint.", &style.sheen, module_option_group::colors).Ordered(751).VisibleWhen(style.sheen_enabled);
+        case 24: return module_option::Slider("Background opacity", "Background transparency.", &style.track_opacity, 0.0f, 1.0f, 0.05f, module_option_group::colors).Ordered(450);
+        case 25: return module_option::Toggle("Fill glow", "Glow follows the filled amount.", &style.fill_glow_enabled, module_option_group::effects).Ordered(710);
+        case 26: return module_option::Slider("Fill glow strength", "Fill glow opacity.", &style.fill_glow_strength, 0.0f, 1.0f, 0.05f, module_option_group::effects).Ordered(711).VisibleWhen(style.fill_glow_enabled);
+        case 27: return module_option::Slider("Fill glow radius", "Fill glow spread.", &style.fill_glow_radius, 0.0f, 20.0f, 1.0f, module_option_group::effects).Ordered(712).VisibleWhen(style.fill_glow_enabled);
         default: return {};
         }
     }
@@ -372,8 +396,8 @@ namespace xiui
         settings.WriteBool(section, "animation_enabled", style.animation_enabled);
     }
 
-    module_render_context::module_render_context(ui::design_system& design, ui::container_renderer* containers, const bool editing, ui::game_icon_cache* icons, const ui::rect& viewport, ui::native_ui_assets* nativeAssets)
-        : design_(design), containers_(containers), icons_(icons), native_assets_(nativeAssets), editing_(editing), viewport_(viewport) {}
+    module_render_context::module_render_context(ui::design_system& design, ui::container_renderer* containers, const bool editing, ui::game_icon_cache* icons, const ui::rect& viewport, ui::native_ui_assets* nativeAssets, const ui::health_feedback_style* feedback)
+        : design_(design), containers_(containers), icons_(icons), native_assets_(nativeAssets), feedback_(feedback), editing_(editing), viewport_(viewport) {}
 
     auto module_render_context::DrawButton(const ui::rect& bounds, const char* label, const bool highlighted, const module_text_profile& profile) const -> void
     {
@@ -384,9 +408,20 @@ namespace xiui
         this->DrawText(label, content, content, text);
     }
 
-    auto module_render_context::DrawContainer(const ui::rect& bounds, const ui::container_style& style) const -> ui::rect
+    auto module_render_context::DrawContainer(const ui::rect& bounds, const ui::container_style& style, const std::span<const ui::container_fill> fills) const -> ui::rect
     {
-        return this->containers_ != nullptr ? this->containers_->Draw(this->design_, bounds, style) : ui::container_renderer::ContentBounds(bounds, style);
+        return this->containers_ != nullptr ? this->containers_->Draw(this->design_, bounds, style, fills) : ui::container_renderer::ContentBounds(bounds, style);
+    }
+
+    auto module_render_context::DrawContainerFrame(const ui::rect& bounds, const ui::container_style& style) const -> void
+    {
+        if (this->containers_ != nullptr) this->containers_->DrawFrame(this->design_, bounds, style);
+    }
+
+    auto module_render_context::DrawTooltip(const ui::rect& bounds) const -> ui::rect
+    {
+        return this->containers_ != nullptr ? this->containers_->DrawTooltip(this->design_, bounds)
+            : ui::container_renderer::ContentBounds(bounds, ui::container_renderer::TooltipStyle());
     }
 
     auto module_render_context::DrawSelection(const ui::rect& bounds, const bool subtarget, const ui::selection_style& style) const -> void
@@ -457,7 +492,11 @@ namespace xiui
         const module_text_profile* valueProfile,
         const ui::meter_text_anchor textAnchor,
         const ui::meter_text_anchor valueAnchor,
-        const meter_fill_mode fillMode) const -> void
+        const meter_fill_mode fillMode,
+        const std::span<const ui::meter_strip> strips,
+        const std::span<const ui::meter_range> ranges,
+        const ui::tp_meter_colors* tpColors,
+        const bool healthWarnings) const -> void
     {
         const auto& theme = this->design_.GetTheme();
         const bool hasLabel = label != nullptr && label[0] != '\0';
@@ -473,32 +512,34 @@ namespace xiui
 
         const uint64_t now = ::GetTickCount64();
         const float target = std::clamp(ratio, 0.0f, 1.0f);
-        if (!animation.initialized || !style.animation_enabled)
-        {
-            animation.displayed_ratio = target;
-            animation.last_tick = now;
-            animation.initialized = true;
-        }
-        else
-        {
-            const float elapsed = std::clamp(static_cast<float>(now - animation.last_tick) * 0.001f, 0.0f, 0.1f);
-            const float response = 1.0f - std::exp(-std::max(0.1f, style.animation_speed) * elapsed);
-            animation.displayed_ratio += (target - animation.displayed_ratio) * response;
-            if (std::abs(target - animation.displayed_ratio) < 0.0005f)
-                animation.displayed_ratio = target;
-            animation.last_tick = now;
-        }
+        animation.Update(target,now,style.animation_enabled,style.animation_speed);
 
         const auto track = ui::LayoutMeterTrack({bounds.x + labelWidth, bounds.y, bounds.width - labelWidth, bounds.height}, style);
         const float phase = std::fmod(static_cast<float>(now) * 0.001f * style.sheen_speed, 1.0f);
         const auto skin = this->MeterSkin(style);
-        if (fillMode == meter_fill_mode::single)
-            this->design_.DrawMeter(track, animation.displayed_ratio, fillTop, fillBottom, phase, style, skin ? &*skin : nullptr);
+        std::array<ui::meter_range, 2> feedbackRanges{};
+        auto healthTop = fillTop, healthBottom = fillBottom;
+        if (fillMode == meter_fill_mode::health && this->feedback_ != nullptr)
+        {
+            const auto feedback = animation.health.Update(target, now, *this->feedback_);
+            const auto color = feedback.healing ? this->feedback_->heal_color : this->feedback_->damage_color;
+            const auto fade = [](D3DCOLOR value, float opacity) { return (value & 0xFFFFFFu) | (static_cast<uint32_t>((value >> 24) * opacity) << 24); };
+            const auto flashColor = feedback.healing ? color : (color & 0xFF000000) |
+                ((target >= 0.75f ? 0xFFFFCA78 : ui::HPValueColor(static_cast<uint32_t>(target * 100))) & 0xFFFFFF);
+            feedbackRanges[0] = {feedback.start, feedback.end, fade(color, feedback.opacity), fade(color, feedback.opacity), true};
+            feedbackRanges[1] = {0, target, fade(flashColor, feedback.flash), fade(flashColor, feedback.flash), true};
+            if (healthWarnings && this->feedback_->enabled && this->feedback_->warning_colors)
+            {
+                healthTop = ui::HPWarningFill(fillTop, target); healthBottom = ui::HPWarningFill(fillBottom, target);
+            }
+        }
+        if (fillMode == meter_fill_mode::single || fillMode == meter_fill_mode::health)
+            this->design_.DrawMeter(track, animation.displayed_ratio, healthTop, healthBottom, phase, style, skin ? &*skin : nullptr, {}, false, strips, ranges, feedbackRanges);
         else
         {
             const auto layers = ui::TPMeterLayers(animation.displayed_ratio, fillTop, fillBottom, now * 0.001,
-                fillMode == meter_fill_mode::tp_blink && target >= 1.0f / 3.0f);
-            this->design_.DrawMeter(track, animation.displayed_ratio, fillTop, fillBottom, phase, style, skin ? &*skin : nullptr, layers);
+                fillMode == meter_fill_mode::tp_blink && target >= 1.0f / 3.0f, tpColors);
+            this->design_.DrawMeter(track, animation.displayed_ratio, fillTop, fillBottom, phase, style, skin ? &*skin : nullptr, layers, false, strips, ranges);
         }
         const auto& labelTextStyle = labelProfile != nullptr ? labelProfile->style : theme.meter_text;
         const auto& valueTextStyle = valueProfile != nullptr ? valueProfile->style : theme.meter_text;

@@ -65,25 +65,31 @@ namespace xiui
 
     auto chat_editor::Insert(const std::string_view text) -> void
     {
-        this->EraseSelection();
         std::string clean;
         for (size_t i = 0; i < text.size();)
         {
             if (const auto token = ChatTokenSize(text, i); token != 0) { clean.append(text.substr(i, token)); i += token; }
             else { const auto c = text[i++]; if (static_cast<uint8_t>(c) >= 0x20 && c != 0x7F) clean += c; }
         }
-        const auto capacity = chat_draft_capacity - 1 - this->text_.size();
-        if (clean.size() > capacity)
+        const auto [begin, end] = this->Selection();
+        auto candidate = this->text_;
+        candidate.erase(begin, end - begin);
+        size_t accepted{};
+        while (accepted < clean.size())
         {
-            size_t length = capacity;
-            while (length > 0 && length < clean.size() && (static_cast<uint8_t>(clean[length]) & 0xC0) == 0x80) --length;
-            for (size_t at = length > 5 ? length - 5 : 0; at < length; ++at)
-                if (ChatTokenSize(clean, at) > length - at) { length = at; break; }
-            clean.resize(length);
+            size_t next = accepted + ChatTokenSize(clean, accepted);
+            if (next == accepted)
+            {
+                next = accepted + 1;
+                while (next < clean.size() && (static_cast<uint8_t>(clean[next]) & 0xC0) == 0x80) ++next;
+            }
+            candidate.insert(begin + accepted, clean.substr(accepted, next - accepted));
+            if (!this->Fits(candidate)) { candidate.erase(begin + accepted, next - accepted); break; }
+            accepted = next;
         }
-        this->text_.insert(this->caret_, clean);
-        this->caret_ += clean.size();
-        this->anchor_ = this->caret_;
+        if (accepted == 0) return;
+        this->text_ = std::move(candidate);
+        this->caret_ = this->anchor_ = begin + accepted;
         this->history_index_ = this->history_.size();
         this->ResetCompletion();
     }
@@ -225,8 +231,10 @@ namespace xiui
         if (this->completion_quote_) replacement += '"';
         if (!this->completion_quote_ && match.kind != chat_completion_kind::auto_translate && replacement.find(' ') != std::string::npos) replacement = '"' + replacement + '"';
         if (this->completion_origin_.size() - (this->completion_end_ - this->completion_start_) + replacement.size() >= chat_draft_capacity) return;
-        this->text_ = this->completion_origin_;
-        this->text_.replace(this->completion_start_, this->completion_end_ - this->completion_start_, replacement);
+        auto candidate = this->completion_origin_;
+        candidate.replace(this->completion_start_, this->completion_end_ - this->completion_start_, replacement);
+        if (!this->Fits(candidate)) return;
+        this->text_ = std::move(candidate);
         this->caret_ = this->anchor_ = this->completion_start_ + replacement.size();
     }
 

@@ -1,0 +1,13 @@
+XIUI pet portraits
+
+Source: https://github.com/tirem/XIUI
+Captured revision: a9e8d0c93710e5838749f8afc36f0058451c9a7e
+Source directory: XIUI/assets/pets
+Original PNGs are retained unchanged in sources.zip.
+The upstream GPL-3.0 license is retained in LICENSE.txt and embedded as resource 806.
+No separate pet-pack attribution file was supplied in that source directory.
+
+Included art: fourteen avatars, eight elemental spirits, drg_wyvern.png and jug.png.
+Packing resizes art to fit square cells without cropping or changing its aspect ratio.
+No automaton or charmed-pet portrait was present; those categories use the existing
+job artwork fallback. XIVParty's redistribution notice remains in resource 202.

@@ -1,4 +1,5 @@
 #include "hud_runtime.hpp"
+#include "config/contributor_list.hpp"
 
 namespace xiui
 {
@@ -30,7 +31,7 @@ namespace xiui
         auto style = this->design_system_.GetTheme().body_text; style.scale = 0.72f;
         style = this->config_controls_.Style(style);
         for (size_t i = 0; i < selector.count; ++i)
-            widths[i] = std::clamp(this->design_system_.MeasureText(selector.labels[i], style) + 24, 64.0f, 184.0f);
+            widths[i] = std::clamp(this->design_system_.MeasureText(selector.labels[i], style) + 24 + (selector.Status(i).has_value() ? 12 : 0), 64.0f, 184.0f);
         return {layout.ElementTabs(), std::span{widths}.first(selector.count)};
     }
 
@@ -39,10 +40,19 @@ namespace xiui
         const auto pageCount = this->VisibleConfigPages().size();
         const bool sections = this->HasConfigSections(), submenu = this->HasConfigSubmenu();
         float extra = this->IsGeneralAppearance() || this->IsExperienceDisplay() || this->IsAttribution() || this->IsInventorySettings() ? 40.0f : 0;
-        if (this->IsGeneralAppearance() && this->general_.AppearanceTab() == 1) extra += 56;
-        const ui::config_layout base{this->config_bounds_, pageCount, sections, submenu, extra};
+        if (this->IsGeneralAppearance() && (this->general_.AppearanceTab() == 1 || this->general_.AppearanceTab() == 3)) extra += 56;
+        const ui::config_layout base{this->config_bounds_, pageCount, sections, submenu, extra, 0, false, -1, 0, this->config_sidebar_collapsed_};
         const auto height = this->ElementSelectorLayout(this->ElementSelector(), base).height;
-        return ui::config_layout{this->config_bounds_, pageCount, sections, submenu, extra, height};
+        int firstCardRow = -1;
+        const auto slots = this->GroupOptionSlots();
+        for (size_t slot = 0; this->active_module_ != nullptr && slot < slots.size(); ++slot)
+            if (slots[slot] < this->active_module_->OptionCount() && this->active_module_->Option(slots[slot]).card)
+            { firstCardRow = base.RowForSlot(static_cast<int>(slot)); break; }
+        const ui::config_layout layout{this->config_bounds_, pageCount, sections, submenu, extra, height, false, firstCardRow, base.RowForSlot(this->option_scroll_), this->config_sidebar_collapsed_};
+        const bool customLists = this->IsExperienceDisplay() && this->experience_display_.View() == experience_display_view::readouts;
+        const bool scrollbar = this->IsXIUIContributors() ? ui::contributor_list_layout{layout}.MaximumScroll() > 0 :
+            !customLists && slots.size() > static_cast<size_t>(layout.VisibleSlots());
+        return ui::config_layout{this->config_bounds_, pageCount, sections, submenu, extra, height, scrollbar, firstCardRow, base.RowForSlot(this->option_scroll_), this->config_sidebar_collapsed_};
     }
 
     auto hud_runtime::ElementSelectorTarget(void) const -> uint64_t
@@ -88,10 +98,21 @@ namespace xiui
         auto style = this->design_system_.GetTheme().body_text;
         style.scale = 0.72f; style.alignment = ui::text_alignment::center;
         if (!selector.Enabled()) style.top_color = style.bottom_color = 0x80FFFFFF;
+        std::array<ui::slot_dot, ui::element_selector::capacity> dots{};
+        size_t dotCount{};
         for (size_t i = 0; i < layout.count; ++i)
         {
-            const bool hovered = Contains(layout.tabs[i], static_cast<float>(this->mouse_x_), static_cast<float>(this->mouse_y_));
-            this->config_controls_.Button(layout.tabs[i], selector.labels[i], style, selector.Enabled() && (selector.selected == i || hovered));
+            const auto& bounds = layout.tabs[i];
+            const bool hovered = Contains(bounds, static_cast<float>(this->mouse_x_), static_cast<float>(this->mouse_y_));
+            const bool highlighted = selector.Enabled() && (selector.selected == i || hovered);
+            if (const auto status = selector.Status(i); status.has_value())
+            {
+                this->config_controls_.Button(bounds, "", style, highlighted);
+                this->config_controls_.ButtonText(selector.labels[i], {bounds.x + 12, bounds.y, bounds.width - 12, bounds.height}, style, highlighted);
+                dots[dotCount++] = {{bounds.x + 8, bounds.y + (bounds.height - 7) / 2, 7, 7}, *status ? 0xFF8FD16A : 0xFF161616};
+            }
+            else this->config_controls_.Button(bounds, selector.labels[i], style, highlighted);
         }
+        this->design_system_.DrawSlotDots(std::span{dots}.first(dotCount));
     }
 }

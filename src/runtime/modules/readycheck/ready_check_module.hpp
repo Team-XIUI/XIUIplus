@@ -17,13 +17,14 @@ namespace xiui
         auto State(void) const -> const module_state& override { return this->state_; }
         auto SetSource(party_source* source) -> void { this->source_ = source; }
         auto SetSounds(ui::native_ui_sounds* sounds) -> void { this->ui_sounds_ = sounds; }
+        auto SetSoundDirectory(std::string directory) -> void { this->sound_directory_ = std::move(directory); this->ConfigureSound(); }
         auto VisitTextSettings(const text_settings_visitor& visit) -> void override
         { VisitTextProfiles(visit, this->settings_.text); }
         auto ApplyTextDefaults(const ui::theme& theme) -> void override;
         auto ResetDefaults(const ui::theme& theme) -> void override;
         auto Load(const settings_store& store) -> void override;
         auto Save(const settings_store& store) const -> void override;
-        auto OptionCount(void) const -> size_t override { return base_options + text_profile_option_count; }
+        auto OptionCount(void) const -> size_t override { return sound_options_start + 3; }
         auto Option(size_t index) -> module_option override;
         auto OnOptionChanged(size_t index) -> void override;
         auto ConfigSections(void) const -> std::span<const module_config_section> override;
@@ -39,6 +40,9 @@ namespace xiui
         auto CancelPointer(void) -> void { this->pointer_down_ = false; this->pressed_ = -1; }
         auto SetHover(float x, float y) -> void { this->mouse_x_ = x; this->mouse_y_ = y; }
         auto HandleMouse(uint32_t message, float x, float y, uint64_t now) -> bool;
+        auto ControllerButtonCount(void) const -> size_t;
+        auto ControllerButtonBounds(size_t index) const -> ui::rect { return index < this->buttons_.size() ? this->buttons_[index] : ui::rect{}; }
+        auto ActivateControllerButton(size_t index, uint64_t now) -> bool;
         auto Stop(void) -> void { this->check_.Clear(); this->CancelPointer(); this->sound_.Stop(); }
 
     private:
@@ -48,6 +52,7 @@ namespace xiui
         enum option : size_t { enabled, start, announce, sound_checker, sound_prompt, volume, test_sound,
             column_width, row_spacing, job_icons, icon_size, opacity, padding, ready_color, no_color, pending_color,
             selected_text, base_options };
+        static constexpr size_t sound_options_start = base_options + text_profile_option_count;
         struct preferences
         {
             bool announce{true}, sound_checker{true}, sound_prompt{true}, job_icons{true};
@@ -55,6 +60,8 @@ namespace xiui
             ui::container_style container{0.95f, 5, 10, false};
             D3DCOLOR ready{0xFF95D89E}, no{0xFFFF8C8C}, pending{0xFFE1C98C};
             int selected_text{};
+            int sound_choice{};
+            std::string sound_file{};
             std::array<module_text_profile, 5> text{};
         } settings_{};
         module_state state_{true, {-1, -1, 310, 280}, 240, 100};
@@ -62,6 +69,7 @@ namespace xiui
         IAshitaCore* core_{};
         ready_check_state check_{};
         ready_check_sound sound_{};
+        std::string sound_directory_{};
         ui::native_ui_sounds* ui_sounds_{};
         std::array<ui::rect, 2> buttons_{};
         float mouse_x_{-1}, mouse_y_{-1};
@@ -74,5 +82,6 @@ namespace xiui
         auto Answer(bool yes, uint64_t now) -> void;
         auto Send(std::string_view body) -> void;
         auto Report(const char* message) const -> void;
+        auto ConfigureSound(void) -> void { this->sound_.Configure(this->sound_directory_, this->settings_.sound_file, this->settings_.sound_choice == 1); }
     };
 }

@@ -1,0 +1,101 @@
+#pragma once
+
+#include "design_system.hpp"
+#include "entities/entity_name_colors.hpp"
+
+#include <cmath>
+#include <cstdint>
+#include <optional>
+#include <span>
+#include <string>
+#include <vector>
+
+namespace xiui
+{
+#pragma pack(push, 1)
+    struct native_map_record
+    {
+        int16_t zone{};
+        int8_t floor{};
+        uint8_t number{}, flags{};
+        int8_t scale{}, texture{}, unknown{};
+        uint16_t resource{};
+        int16_t offset_x{}, offset_y{};
+    };
+#pragma pack(pop)
+    static_assert(sizeof(native_map_record) == 14);
+
+    inline auto FindMinimapRecord(const std::span<const native_map_record> records, const uint16_t zone,
+        const std::optional<int> floor) -> const native_map_record*
+    {
+        const native_map_record* only{};
+        size_t count{};
+        for (const auto& record : records)
+        {
+            if (record.zone != zone || record.scale == 0 || record.texture <= 0) continue;
+            if (floor && record.floor == *floor) return &record;
+            only = &record; ++count;
+        }
+        // A single map needs no terrain lookup. Never guess a floor in a multimap zone.
+        return count == 1 ? only : nullptr;
+    }
+
+    inline auto MinimapUV(const native_map_record& map, const float x, const float y) -> ui::point
+    {
+        const float scale = std::abs(static_cast<float>(map.scale)) / 5.0f;
+        return {(x * scale - map.offset_x) / 512.0f, (-y * scale - map.offset_y) / 512.0f};
+    }
+
+    inline auto MinimapHeight(const float width, const int shape) -> float { return shape == 2 ? width * 9 / 16 : width; }
+
+    inline auto MinimapCornerRadius(const ui::rect& view, const int shape, const float radius) -> float
+    {
+        const float limit = std::max(0.0f, std::min(view.width, view.height) / 2);
+        return shape == 1 ? limit : std::clamp(radius, 0.0f, limit);
+    }
+
+    inline auto MinimapContains(const ui::rect& view, const int shape, const ui::point point, const float margin = 0, const float cornerRadius = 0) -> bool
+    {
+        if (point.x < view.x + margin || point.y < view.y + margin ||
+            point.x > view.x + view.width - margin || point.y > view.y + view.height - margin) return false;
+        const float radius = std::max(0.0f, MinimapCornerRadius(view, shape, cornerRadius) - margin);
+        if (radius == 0) return true;
+        const float x = std::clamp(point.x, view.x + margin + radius, view.x + view.width - margin - radius);
+        const float y = std::clamp(point.y, view.y + margin + radius, view.y + view.height - margin - radius);
+        return std::hypot(point.x - x, point.y - y) <= radius + 0.0001f;
+    }
+
+    inline auto MinimapVisionArc(const ui::rect& view, const float heading, const float size, const float angle) -> std::array<ui::point, 25>
+    {
+        std::array<ui::point, 25> arc{};
+        const float radius = std::max(0.0f, std::min(view.width, view.height) / 2 - 6) * size;
+        const float spread = angle * 0.01745329252f;
+        for (size_t i = 0; i < arc.size(); ++i)
+        {
+            const float direction = heading - spread / 2 + spread * static_cast<float>(i) / (arc.size() - 1);
+            arc[i] = {view.x + view.width / 2 + std::cos(direction) * radius, view.y + view.height / 2 + std::sin(direction) * radius};
+        }
+        return arc;
+    }
+
+    inline auto IsMinimapNpc(const uint32_t spawnFlags, const uint32_t renderFlags) -> bool
+    {
+        return ClassifyEntity(spawnFlags, 0, false, false) == entity_class::npc && (spawnFlags & 0x1800) == 0 &&
+            (renderFlags & 0x200) != 0 && (renderFlags & 0x4000) == 0;
+    }
+
+    inline constexpr uint32_t minimap_npc_color = 0xFF55DD77;
+    enum class minimap_marker_kind : uint8_t { party, alliance, pet, target, npc };
+    struct minimap_marker { ui::point uv{}; uint32_t color{0xFFFFFFFF}; minimap_marker_kind kind{}; };
+    struct minimap_state
+    {
+        bool available{};
+        uint16_t zone{};
+        int floor{};
+        int map_number{1};
+        ui::point player{};
+        float heading{};
+        std::string name{};
+        std::vector<minimap_marker> markers{};
+    };
+}

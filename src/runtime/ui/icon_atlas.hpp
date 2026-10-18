@@ -12,7 +12,7 @@ namespace xiui::ui
         player, target, enemies, experience, notifications, container, gamehud, chat, chat2,
         compass, world, commands, reset, general, party, inventory, equipment, extras, gil, readycheck, castbar, castcost,
         chevron_down, chevron_up, add, close, more, play, attribution, github, target_arrow, eye, eye_closed,
-        arrow_left, arrow_right,
+        arrow_left, arrow_right, statuses, keyboard, controller, pet, minimap, search, center_x, center_y,
         unknown
     };
 
