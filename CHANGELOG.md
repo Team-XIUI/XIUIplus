@@ -2,6 +2,8 @@
 
 ## Unreleased
 
+## 1.0.3 — 2026-10-17
+
 - Move Keybinds into the sidebar below Hotbars → Actions and Crossbar → Controller Setup. Selecting it opens the slot list directly; retain saved bindings, workspace bounds and existing topic selections.
 
 - Add a Keybinds list for all ten hotbars and Crossbar, with per-slot key capture/clear, shared controller mapping dropdowns, bank previews, keyboard/controller navigation and an independent workspace. Retain existing bindings and local-only device mappings.
