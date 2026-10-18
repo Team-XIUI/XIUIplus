@@ -113,11 +113,11 @@ namespace xiui
     auto inventory_module::ConfigSections(void) const -> std::span<const module_config_section>
     {
         static constexpr module_config_section sections[]{
-            {"General", "Choose what this storage tracker displays."},
-            {"Layout", "Arrange slot dots into groups; extra groups wrap to fit the screen."},
-            {"Fullness", "Used-slot warning and critical thresholds, with independent colors."},
-            {"Appearance", "Optional container using the game's current Window Type."},
-            {"Text", "Label and count profiles retain the shared HUD text effects."}};
+            {"General", "Choose what this storage tracker displays.", "general"},
+            {"Layout", "Arrange slot dots into groups; extra groups wrap to fit the screen.", "layout"},
+            {"Fullness", "Used-slot warning and critical thresholds, with independent colors.", "fullness"},
+            {"Appearance", "Optional container using the game's current Window Type.", "appearance"},
+            {"Text", "Label and count profiles retain the shared HUD text effects.", "text"}};
         return sections;
     }
 

@@ -61,6 +61,19 @@ int main(void)
             return fail("closed gate admitted callback target", 3);
     }
     gate.Wait();
+    for (int iteration = 0; iteration < 250; ++iteration)
+    {
+        gate.Set(&value);
+        std::atomic<bool> started{};
+        std::thread exiting{[&] {
+            auto lease = gate.Enter();
+            started.store(true, std::memory_order_release);
+        }};
+        while (!started.load(std::memory_order_acquire)) std::this_thread::yield();
+        gate.Close();
+        gate.Wait();
+        exiting.join();
+    }
     std::puts("callback gate smoke passed");
     return 0;
 }

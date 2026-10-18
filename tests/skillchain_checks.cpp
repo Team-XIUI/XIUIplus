@@ -28,6 +28,18 @@ namespace
         bytes.resize((position + 7) / 8); return bytes;
     }
 
+    auto CheckSharedPacket(void) -> void
+    {
+        auto bytes = ObservedPacket();
+        const xiui::combat_action_packet packet{bytes};
+        const auto* action = &packet.Action();
+        Check(action->has_value() && action->value().actor == 1, "the shared packet decodes a valid action");
+        std::fill(bytes.begin(), bytes.end(), 0);
+        Check(&packet.Action() == action && packet.Action()->actor == 1, "later consumers reuse the immutable decoded action");
+        const xiui::combat_action_packet invalid{bytes};
+        Check(!invalid.Action() && !invalid.Action(), "invalid packets remain invalid for every consumer");
+    }
+
     auto CheckCombatSettings(void) -> void
     {
         using namespace xiui;
@@ -107,6 +119,7 @@ auto RunSkillchainChecks(void) -> bool
     using namespace xiui;
     try
     {
+        CheckSharedPacket();
         CheckCombatSettings();
         skillchain_source source;
         source.Observe(Action(2), 1000);

@@ -7,12 +7,114 @@
 #include <cstdlib>
 #include <cstring>
 #include <utility>
+#include <type_traits>
 #include <vector>
 
 namespace xiui
 {
     namespace
     {
+        constexpr size_t maximum_ini_size = 16 * 1024 * 1024;
+
+        template<typename Char> auto IniText(const std::string_view value) -> std::basic_string<Char>
+        {
+            if constexpr (std::is_same_v<Char, char>) return std::string{value};
+            else
+            {
+                std::wstring result(::MultiByteToWideChar(CP_ACP, 0, value.data(), static_cast<int>(value.size()), nullptr, 0), L'\0');
+                if (!result.empty()) ::MultiByteToWideChar(CP_ACP, 0, value.data(), static_cast<int>(value.size()), result.data(), static_cast<int>(result.size()));
+                return result;
+            }
+        }
+
+        template<typename Char> auto IniKey(std::basic_string_view<Char> value) -> std::string
+        {
+            if constexpr (std::is_same_v<Char, char>) return std::string{value};
+            else
+            {
+                std::string result(::WideCharToMultiByte(CP_ACP, 0, value.data(), static_cast<int>(value.size()), nullptr, 0, nullptr, nullptr), '\0');
+                if (!result.empty()) ::WideCharToMultiByte(CP_ACP, 0, value.data(), static_cast<int>(value.size()), result.data(), static_cast<int>(result.size()), nullptr, nullptr);
+                return result;
+            }
+        }
+
+        template<typename Char, typename Changes>
+        auto MergeIni(const std::basic_string_view<Char> text, const Changes& changes) -> std::basic_string<Char>
+        {
+            auto pending = changes;
+            std::basic_string<Char> result;
+            std::string section;
+            const auto trim = [](std::basic_string_view<Char> value) {
+                while (!value.empty() && (value.front() == ' ' || value.front() == '\t' || value.front() == '\r')) value.remove_prefix(1);
+                while (!value.empty() && (value.back() == ' ' || value.back() == '\t' || value.back() == '\r')) value.remove_suffix(1);
+                return value;
+            };
+            const auto append = [&](const auto& fields) {
+                if (!result.empty() && result.back() != '\n') result += IniText<Char>("\r\n");
+                for (const auto& [key, value] : fields) result += IniText<Char>(key + "=" + value + "\r\n");
+            };
+            const auto finish = [&] {
+                const auto found = pending.find(section);
+                if (found != pending.end()) { append(found->second); pending.erase(found); }
+            };
+            for (size_t start = 0; start < text.size();)
+            {
+                const auto newline = text.find('\n', start);
+                const auto end = newline == text.npos ? text.size() : newline + 1;
+                const auto raw = text.substr(start, end - start);
+                auto line = trim(raw.substr(0, raw.size() - (raw.back() == '\n' ? 1 : 0)));
+                start = end;
+                if (!line.empty() && line.front() == '[')
+                {
+                    finish();
+                    const auto closing = line.find(']');
+                    section = closing == line.npos ? "" : IniKey(trim(line.substr(1, closing - 1)));
+                }
+                else if (!line.empty() && line.front() != ';' && line.front() != '#')
+                {
+                    const auto equals = line.find('=');
+                    const auto found = changes.find(section);
+                    if (equals != line.npos && found != changes.end())
+                    {
+                        const auto key = IniKey(trim(line.substr(0, equals)));
+                        if (const auto field = found->second.find(key); field != found->second.end())
+                        {
+                            result += IniText<Char>(field->first + "=" + field->second + "\r\n");
+                            if (const auto remaining = pending.find(section); remaining != pending.end()) remaining->second.erase(key);
+                            continue;
+                        }
+                    }
+                }
+                result.append(raw);
+            }
+            finish();
+            for (const auto& [name, fields] : pending)
+            {
+                if (fields.empty()) continue;
+                if (!result.empty() && result.back() != '\n') result += IniText<Char>("\r\n");
+                result += IniText<Char>("[" + name + "]\r\n");
+                append(fields);
+            }
+            return result;
+        }
+
+        auto ReadIniFile(const std::string& path, std::string& text) -> bool
+        {
+            const auto file = ::CreateFileA(path.c_str(), GENERIC_READ, FILE_SHARE_READ | FILE_SHARE_WRITE | FILE_SHARE_DELETE,
+                nullptr, OPEN_EXISTING, FILE_ATTRIBUTE_NORMAL, nullptr);
+            if (file == INVALID_HANDLE_VALUE) return ::GetLastError() == ERROR_FILE_NOT_FOUND;
+            LARGE_INTEGER size{};
+            bool complete = ::GetFileSizeEx(file, &size) && size.QuadPart >= 0 && size.QuadPart <= maximum_ini_size;
+            if (complete)
+            {
+                text.resize(static_cast<size_t>(size.QuadPart));
+                DWORD read{};
+                complete = ::ReadFile(file, text.data(), static_cast<DWORD>(text.size()), &read, nullptr) && read == text.size();
+            }
+            ::CloseHandle(file);
+            return complete;
+        }
+
         auto ProfileSection(const std::string& section) -> bool
         {
             return ::_strnicmp(section.c_str(), "session.", 8) != 0 && ::_stricmp(section.c_str(), "profile") != 0 &&
@@ -192,7 +294,7 @@ namespace xiui
         this->ReadText(section, key, fallbackText, value, static_cast<DWORD>(sizeof(value)));
         char* end{};
         const float parsed = std::strtof(value, &end);
-        return end != value && *end == '\0' ? parsed : fallback;
+        return end != value && *end == '\0' && std::isfinite(parsed) ? parsed : fallback;
     }
 
     auto settings_store::ReadColor(const char* section, const char* key, const D3DCOLOR fallback) const -> D3DCOLOR
@@ -275,45 +377,57 @@ namespace xiui
 
     auto settings_store::Flush(void) const -> bool
     {
-        if (this->atomic_file_)
+        if (this->path_.empty()) return false;
+        std::string original;
+        if (!ReadIniFile(this->path_, original)) return false;
+        std::string text;
+        if (this->atomic_file_) text = this->ToIniText();
+        else
         {
-            const auto text = this->ToIniText();
-            if (this->path_.empty() || text.size() > 16 * 1024 * 1024) return false;
-            static std::atomic<uint32_t> serial{};
-            const auto temporary = this->path_ + "." + std::to_string(::GetCurrentProcessId()) + "." + std::to_string(++serial) + ".tmp";
-            const auto file = ::CreateFileA(temporary.c_str(), GENERIC_WRITE, 0, nullptr, CREATE_NEW, FILE_ATTRIBUTE_NORMAL, nullptr);
-            if (file == INVALID_HANDLE_VALUE) return false;
-            DWORD written{};
-            const bool complete = ::WriteFile(file, text.data(), static_cast<DWORD>(text.size()), &written, nullptr) != FALSE &&
-                written == text.size() && ::FlushFileBuffers(file) != FALSE;
-            ::CloseHandle(file);
-            if (!complete || !::MoveFileExA(temporary.c_str(), this->path_.c_str(), MOVEFILE_REPLACE_EXISTING | MOVEFILE_WRITE_THROUGH))
-            { ::DeleteFileA(temporary.c_str()); return false; }
-            this->reads_.clear();
-            this->writes_.clear();
-            return true;
-        }
-        bool saved = true;
-        bool changed = false;
-        const auto current = settings_store::CachedFile(this->path_);
-        for (const auto& [section, values] : this->writes_)
-        {
-            for (const auto& [key, value] : values)
+            auto changes = this->writes_;
+            const auto current = settings_store::CachedFile(this->path_);
+            for (auto section = changes.begin(); section != changes.end();)
             {
-                const auto* existing = current.CachedValue(section.c_str(), key.c_str());
-                if (existing != nullptr ? value == *existing : value.empty()) continue;
-                changed = true;
-                if (::WritePrivateProfileStringA(section.c_str(), key.c_str(), value.c_str(), this->path_.c_str()) == FALSE)
-                    saved = false;
+                for (auto field = section->second.begin(); field != section->second.end();)
+                {
+                    const auto* value = current.CachedValue(section->first.c_str(), field->first.c_str());
+                    if (value != nullptr ? field->second == *value : field->second.empty()) field = section->second.erase(field);
+                    else ++field;
+                }
+                if (section->second.empty()) section = changes.erase(section); else ++section;
+            }
+            if (changes.empty()) { this->writes_.clear(); return true; }
+            if (original.starts_with("\xFF\xFE"))
+            {
+                if (original.size() % 2 != 0) return false;
+                std::wstring wide((original.size() - 2) / 2, L'\0');
+                std::memcpy(wide.data(), original.data() + 2, original.size() - 2);
+                const auto merged = MergeIni(std::wstring_view{wide}, changes);
+                text = "\xFF\xFE";
+                text.append(reinterpret_cast<const char*>(merged.data()), merged.size() * sizeof(wchar_t));
+            }
+            else
+            {
+                const bool bom = original.starts_with("\xEF\xBB\xBF");
+                text = bom ? "\xEF\xBB\xBF" : "";
+                text += MergeIni(std::string_view{original}.substr(bom ? 3 : 0), changes);
             }
         }
-        if (changed)
-        {
-            // A successful profile-cache flush also returns zero.
-            ::WritePrivateProfileStringA(nullptr, nullptr, nullptr, this->path_.c_str());
-        }
-        if (changed) this->reads_.clear();
-        if (saved) this->writes_.clear();
-        return saved;
+        if (text.size() > maximum_ini_size) return false;
+        if (text == original) { this->writes_.clear(); return true; }
+        static std::atomic<uint32_t> serial{};
+        const auto temporary = this->path_ + "." + std::to_string(::GetCurrentProcessId()) + "." + std::to_string(++serial) + ".tmp";
+        const auto file = ::CreateFileA(temporary.c_str(), GENERIC_WRITE, 0, nullptr, CREATE_NEW, FILE_ATTRIBUTE_NORMAL, nullptr);
+        if (file == INVALID_HANDLE_VALUE) return false;
+        DWORD written{};
+        const bool complete = ::WriteFile(file, text.data(), static_cast<DWORD>(text.size()), &written, nullptr) != FALSE &&
+            written == text.size() && ::FlushFileBuffers(file) != FALSE;
+        ::CloseHandle(file);
+        if (!complete || !::MoveFileExA(temporary.c_str(), this->path_.c_str(), MOVEFILE_REPLACE_EXISTING | MOVEFILE_WRITE_THROUGH))
+        { ::DeleteFileA(temporary.c_str()); return false; }
+        ::WritePrivateProfileStringA(nullptr, nullptr, nullptr, this->path_.c_str());
+        this->reads_.clear();
+        this->writes_.clear();
+        return true;
     }
 } // namespace xiui

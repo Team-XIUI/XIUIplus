@@ -41,7 +41,7 @@ namespace xiui
         auto State(void) const -> const player_cast_state& { return this->state_; }
         auto Available(void) const -> bool { return this->available_; }
         auto Update(IAshitaCore* core, uint64_t now) -> void;
-        auto HandlePacket(IAshitaCore* core, uint16_t id, std::span<const uint8_t> data, uint64_t now) -> void;
+        auto HandlePacket(IAshitaCore* core, uint16_t id, std::span<const uint8_t> data, uint64_t now, const combat_action_packet* decoded = nullptr) -> void;
         auto Observe(const combat_action& action, uint32_t player, IResourceManager* resources, uint64_t now) -> void;
 
     private:

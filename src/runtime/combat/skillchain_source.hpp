@@ -47,7 +47,7 @@ namespace xiui
         auto Rules(void) const -> server_rules { return this->rules_; }
         auto SetLocalBuffs(uint32_t actor, uint8_t buffs) -> void { this->local_actor_ = actor; this->local_buffs_ = buffs; }
         auto Observe(const combat_action& action, uint64_t now, uint8_t spellElement = 255) -> void;
-        auto HandlePacket(IAshitaCore* core, uint16_t id, std::span<const uint8_t> data, uint64_t now) -> void;
+        auto HandlePacket(IAshitaCore* core, uint16_t id, std::span<const uint8_t> data, uint64_t now, const combat_action_packet* decoded = nullptr) -> void;
         auto Update(IAshitaCore* core, uint64_t now) -> void;
         auto Prune(uint64_t now) -> void;
         auto Remove(uint32_t target) -> void { this->targets_.erase(target); }

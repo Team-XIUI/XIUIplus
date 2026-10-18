@@ -1,3 +1,4 @@
+#include "ui/text_fit.hpp"
 #include "hud_runtime.hpp"
 #include "config/contributor_list.hpp"
 #include "modules/bar_config.hpp"
@@ -470,6 +471,38 @@ namespace xiui
 {
     struct config_input_test
     {
+        static auto StartupWiring(void) -> bool
+        {
+            const auto root = std::filesystem::temp_directory_path() / ("xiui-startup-wiring-" + std::to_string(::GetCurrentProcessId()));
+            std::filesystem::create_directories(root);
+            struct cleanup { std::filesystem::path root; ~cleanup() { std::error_code ignored; std::filesystem::remove_all(root, ignored); } } files{root};
+            auto runtime = std::make_unique<hud_runtime>();
+            runtime->Initialize(nullptr, root.string().c_str());
+            if (!check(runtime->player_.timing_ == &runtime->timing_source_ && runtime->player_.sounds_ == &runtime->ui_sounds_ &&
+                runtime->target_.Settings().world_bar.healing == &runtime->heal_prediction_source_ && runtime->target_.timing_ == &runtime->timing_source_ && runtime->enemy_list_.timing_ == &runtime->timing_source_,
+                "real startup retains timing, healing and sound dependencies")) return false;
+            for (auto* module : runtime->modules_.All())
+            {
+                const auto original = module->ConfigView();
+                for (size_t view = 0; view < std::max(size_t{1}, module->ConfigViews().size()); ++view)
+                {
+                    module->SelectConfigView(view);
+                    std::set<std::string> ids;
+                    for (const auto& topic : module->ConfigSections())
+                        if (!check(!topic.Id().empty() && ids.insert(std::string{topic.Id()}).second, "every settings view has unique stable topic identities")) return false;
+                }
+                module->SelectConfigView(original);
+            }
+            ui::design_system design;
+            const auto style = ui::theme::CreateDefault().body_text;
+            const std::string letter = "\xC3\xA9";
+            const auto fitted = ui::FitText(design, letter + letter + letter + letter, design.MeasureText((letter + "...").c_str(), style), style);
+            if (!check(fitted == letter + "...", "shared text fitting keeps whole UTF-8 characters")) return false;
+            runtime->FlushSettings();
+            runtime->Shutdown();
+            return true;
+        }
+
         static auto TreasureInput(void) -> bool
         {
             hud_runtime runtime;
@@ -4621,6 +4654,8 @@ namespace xiui
             runtime.settings_path_ = path.string();
             runtime.editing_ = true;
             runtime.player_.Settings().show_identity = false;
+            *runtime.general_.Option(runtime.general_.GridStart() + 1).toggle = false;
+            *runtime.general_.Option(runtime.general_.GridStart() + 2).toggle = false;
             runtime.config_bounds_ = {40, 40, 680, 430};
             const D3DVIEWPORT8 viewport{0, 0, 1920, 1080, 0, 1};
             const auto send = [&](uint32_t message, uint32_t buttons, float x, float y) {
@@ -4632,23 +4667,30 @@ namespace xiui
                 return runtime.interaction_ == hud_runtime::interaction::none && runtime.interaction_module_ == nullptr &&
                     runtime.active_slider_ == nullptr && !runtime.mouse_down_ && runtime.mouse_buttons_ == 0;
             };
-            for (auto* module : runtime.modules_.All())
+            const auto moduleOrder = runtime.modules_.All();
+            for (auto* module : moduleOrder)
             {
-                if (!module->HasEditableBounds()) continue;
+                if (!module->HasEditableBounds() || !module->PreviewVisible()) continue;
                 const auto original = module->State().bounds;
                 module->State().bounds.x = 900;
                 module->State().bounds.y = 650;
-                send(WM_LBUTTONDOWN, MK_LBUTTON, 920, 670);
-                if (!check(runtime.interaction_module_ == module, "module presses begin their own drag")) return false;
-                send(WM_LBUTTONUP, 0, 970, 700);
+                auto& layers = runtime.modules_.All();
+                const auto layer = std::find(layers.begin(), layers.end(), module);
+                std::rotate(layer, layer + 1, layers.end());
+                const auto area = module->State().EditBounds();
+                const auto x = area.x + std::min(20.0f, area.width / 2), y = area.y + std::min(20.0f, area.height / 2);
+                send(WM_LBUTTONDOWN, MK_LBUTTON, x, y);
+                if (!check(runtime.interaction_module_ == module, (std::string{"module presses begin their own drag: "} + module->Id() + "; actual=" + (runtime.interaction_module_ ? runtime.interaction_module_->Id() : "none")).c_str())) return false;
+                send(WM_LBUTTONUP, 0, x + 50, y + 30);
                 if (!check(runtime.settings_writer_.Flush(), "module layout writes finish successfully")) return false;
                 const std::string section = module == &runtime.experience_ ? "layout.exp" : std::string{"layout."} + module->Id();
                 const auto saved = store.ReadRect(section.c_str(), {});
-                if (!check(idle() && saved.x == 950 && saved.y == 680 &&
-                    saved.width == module->State().bounds.width && saved.height == module->State().bounds.height,
-                    "dropping each module saves the release position and ends its drag")) return false;
+                if (!check(idle() && saved.x == module->State().bounds.x && saved.y == module->State().bounds.y &&
+                    (saved.x != 900 || saved.y != 650) && saved.width == module->State().bounds.width && saved.height == module->State().bounds.height,
+                    (std::string{"dropping each module saves its final layout: "} + module->Id()).c_str())) return false;
                 module->State().bounds = original;
             }
+            runtime.modules_.All() = moduleOrder;
             send(WM_LBUTTONDOWN, MK_LBUTTON, 100, 50);
             send(WM_LBUTTONUP, 0, 120, 65);
             if (!check(runtime.settings_writer_.Flush(), "config layout writes finish successfully")) return false;
@@ -4772,6 +4814,12 @@ namespace xiui
 
 int main(int argc, char** argv)
 {
+    if (argc == 2 && std::strcmp(argv[1], "--startup-wiring-only") == 0)
+    {
+        if (!xiui::config_input_test::StartupWiring()) return 1;
+        std::puts("Runtime startup dependencies and shared UTF-8 text fitting passed.");
+        return 0;
+    }
     if (argc == 2 && std::strcmp(argv[1], "--cursor-ownership-only") == 0)
     {
         if (!cursor_ownership_cases()) return 1;
@@ -5128,6 +5176,11 @@ int main(int argc, char** argv)
         if (!xiui::config_input_test::DragPersistence()) return 1;
         std::printf("Module drop and config layout persistence checks passed.\n");
         return 0;
+    }
+    if (argc != 1)
+    {
+        std::fprintf(stderr, "Unknown check or arguments: %s\n", argv[1]);
+        return 2;
     }
     if (!xiui::config_input_test::DragPersistence()) return 1;
     if (!xiui::config_input_test::Run() || !enemy_cases() || !meter_text_cases()) return 1;

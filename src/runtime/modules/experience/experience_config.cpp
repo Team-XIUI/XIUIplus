@@ -189,14 +189,14 @@ namespace xiui
     auto experience_module::ConfigSections(void) const -> std::span<const module_config_section>
     {
         static constexpr module_config_section sections[]{
-            {"General", "Choose the progression mode, pause tracking or save and reset the session."},
-            {"Display", "Current progress on the bar; session stats, job details and timers below it."},
-            {"Appearance", "Bar style, bookends, fill and track colors."},
-            {"Effects", "Fill animation, highlights, shadows and glow."},
-            {"Text", "Independent label, bar-info and readout text styles."},
-            {"Tracking", "Rate calculation, recent rewards, EXP or merit goals and Level Sync planning."},
-            {"Alerts", "Optional local notices and chimes. All alerts start disabled."},
-            {"History", "The last ten completed sessions for this character."}};
+            {"General", "Choose the progression mode, pause tracking or save and reset the session.", "general"},
+            {"Display", "Current progress on the bar; session stats, job details and timers below it.", "display"},
+            {"Appearance", "Bar style, bookends, fill and track colors.", "appearance"},
+            {"Effects", "Fill animation, highlights, shadows and glow.", "effects"},
+            {"Text", "Independent label, bar-info and readout text styles.", "text"},
+            {"Tracking", "Rate calculation, recent rewards, EXP or merit goals and Level Sync planning.", "tracking"},
+            {"Alerts", "Optional local notices and chimes. All alerts start disabled.", "alerts"},
+            {"History", "The last ten completed sessions for this character.", "history"}};
         return sections;
     }
 

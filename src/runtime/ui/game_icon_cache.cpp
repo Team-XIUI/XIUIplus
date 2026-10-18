@@ -22,27 +22,12 @@ namespace xiui::ui
                 item.texture->Release();
         }
         this->items_.clear();
-        if (this->jobs_ != nullptr) this->jobs_->Release();
-        this->jobs_ = nullptr;
-        if (this->notifications_ != nullptr) this->notifications_->Release();
-        this->notifications_ = nullptr;
-        if (this->recasts_ != nullptr) this->recasts_->Release();
-        this->recasts_ = nullptr;
-        if (this->actions_ != nullptr) this->actions_->Release();
-        this->actions_ = nullptr;
-        if (this->magic_burst_ != nullptr) this->magic_burst_->Release();
-        this->magic_burst_ = nullptr;
-        if (this->blue_magic_ != nullptr) this->blue_magic_->Release();
-        this->blue_magic_ = nullptr;
-        if (this->pet_portraits_ != nullptr) this->pet_portraits_->Release();
-        this->pet_portraits_ = nullptr;
-        if (this->physical_damage_ != nullptr) this->physical_damage_->Release();
-        this->physical_damage_ = nullptr;
-        if (this->mob_detection_ != nullptr) this->mob_detection_->Release();
-        this->mob_detection_ = nullptr;
-        for (auto* themes : {&this->status_themes_, &this->job_themes_})
-            for (auto*& texture : *themes) { if (texture != nullptr) texture->Release(); texture = nullptr; }
-        this->atlases_loaded_ = false;
+        for (const auto& [id, texture] : this->atlases_)
+        {
+            (void)id;
+            if (texture != nullptr) texture->Release();
+        }
+        this->atlases_.clear();
         this->access_ = 0;
     }
 
@@ -58,24 +43,6 @@ namespace xiui::ui
         if (this->device_ != device)
             this->Clear();
         this->device_ = device;
-        if (device != nullptr && !this->atlases_loaded_)
-        {
-            this->atlases_loaded_ = true;
-            if (this->jobs_ == nullptr) this->jobs_ = this->LoadEmbeddedAtlas(201, 512, 256);
-            if (this->notifications_ == nullptr) this->notifications_ = this->LoadEmbeddedAtlas(203, 256, 64);
-            if (this->recasts_ == nullptr) this->recasts_ = this->LoadEmbeddedAtlas(205, resources::recast_icon_width, resources::recast_icon_height);
-            this->actions_ = this->LoadEmbeddedAtlas(1100, resources::action_icon_width, resources::action_icon_height);
-            this->magic_burst_ = this->LoadEmbeddedAtlas(1200, 1024, 512);
-            this->blue_magic_ = this->LoadEmbeddedAtlas(600, 900, 450);
-            this->pet_portraits_ = this->LoadEmbeddedAtlas(900, 1024, 512);
-            this->physical_damage_ = this->LoadEmbeddedAtlas(704, 256, 64);
-            this->mob_detection_ = this->LoadEmbeddedAtlas(706, 256, 256);
-            for (size_t index = 0; index < this->status_themes_.size(); ++index)
-            {
-                this->status_themes_[index] = this->LoadEmbeddedAtlas(static_cast<uint16_t>(800 + index), 1024, 1024);
-                this->job_themes_[index] = this->LoadEmbeddedAtlas(static_cast<uint16_t>(803 + index), 512, 256);
-            }
-        }
     }
 
     auto game_icon_cache::Shutdown(void) -> void
@@ -92,7 +59,7 @@ namespace xiui::ui
 
     auto game_icon_cache::ActionIcon(const std::string_view key) const -> game_icon_view
     {
-        if (this->actions_ == nullptr || key.empty()) return {};
+        if (key.empty()) return {};
         std::string normalized{key};
         std::transform(normalized.begin(), normalized.end(), normalized.begin(), [](unsigned char c) { return c == '\\' ? '/' : static_cast<char>(std::tolower(c)); });
         if (normalized.ends_with(".png")) normalized.resize(normalized.size() - 4);
@@ -100,7 +67,7 @@ namespace xiui::ui
         const auto& icons = resources::action_icons;
         const auto found = std::lower_bound(icons.begin(), icons.end(), std::string_view{normalized}, [](const auto& icon, std::string_view value) { return icon.key < value; });
         if (found == icons.end() || found->key != normalized) return {};
-        return {this->actions_, {static_cast<float>((found->index % 56) * 36 + 2) / resources::action_icon_width,
+        return {this->Atlas(1100, resources::action_icon_width, resources::action_icon_height), {static_cast<float>((found->index % 56) * 36 + 2) / resources::action_icon_width,
             static_cast<float>((found->index / 56) * 36 + 2) / resources::action_icon_height,
             32.0f / resources::action_icon_width, 32.0f / resources::action_icon_height}};
     }
@@ -113,22 +80,22 @@ namespace xiui::ui
     auto game_icon_cache::StatusIcon(const uint32_t id, const int preference) -> game_icon_view
     {
         const auto theme = StatusArtTheme(id, preference, this->status_theme_);
-        if (theme > 0 && this->status_themes_[theme - 1] != nullptr)
-            return {this->status_themes_[theme - 1], {(static_cast<float>(id % 32) * 32 + 0.5f) / 1024,
+        if (const auto texture = theme > 0 ? this->Atlas(static_cast<uint16_t>(799 + theme), 1024, 1024) : nullptr; texture != nullptr)
+            return {texture, {(static_cast<float>(id % 32) * 32 + 0.5f) / 1024,
                 (static_cast<float>(id / 32) * 32 + 0.5f) / 1024, 31.0f / 1024, 31.0f / 1024}};
         return {this->Status(id)};
     }
 
     auto game_icon_cache::PhysicalDamageIcon(const size_t index) const -> game_icon_view
     {
-        return index < 4 ? game_icon_view{this->physical_damage_,
+        return index < 4 ? game_icon_view{this->Atlas(704, 256, 64),
             {(static_cast<float>(index) * 64 + 16.5f) / 256, 16.5f / 64, 31.0f / 256, 31.0f / 64}} : game_icon_view{};
     }
 
     auto game_icon_cache::MobDetectionIcon(const mob_detection_icon icon) const -> game_icon_view
     {
         const auto index = static_cast<size_t>(icon);
-        return index < static_cast<size_t>(mob_detection_icon::count) ? game_icon_view{this->mob_detection_,
+        return index < static_cast<size_t>(mob_detection_icon::count) ? game_icon_view{this->Atlas(706, 256, 256),
             {(static_cast<float>(index % 4) * 64 + 16.5f) / 256, (static_cast<float>(index / 4) * 64 + 16.5f) / 256,
                 31.0f / 256, 31.0f / 256}} : game_icon_view{};
     }
@@ -136,14 +103,32 @@ namespace xiui::ui
     auto game_icon_cache::PetPortrait(const std::string_view name, const int kind, const bool jobFallback) const -> game_icon_view
     {
         const auto index = PetPortraitIndex(name, kind);
-        if (index >= 0 && this->pet_portraits_ != nullptr)
-            return {this->pet_portraits_, {(static_cast<float>(index % 8) * 128 + .5f) / 1024,
+        if (const auto texture = index >= 0 ? this->Atlas(900, 1024, 512) : nullptr; texture != nullptr)
+            return {texture, {(static_cast<float>(index % 8) * 128 + .5f) / 1024,
                 (static_cast<float>(index / 8) * 128 + .5f) / 512, 127.0f / 1024, 127.0f / 512}};
         const auto job = jobFallback ? PetPortraitFallbackJob(kind) : 0;
         if (job == 0) return {};
         const auto cell = job - 1;
         return {this->JobAtlas(), {(static_cast<float>(cell % 8) * 64 + .5f) / 512,
             (static_cast<float>(cell / 8) * 64 + .5f) / 256, 63.0f / 512, 63.0f / 256}};
+    }
+
+    auto game_icon_cache::JobAtlas(void) const -> IDirect3DTexture8*
+    {
+        if (this->job_theme_ > 0)
+            if (const auto texture = this->Atlas(static_cast<uint16_t>(802 + this->job_theme_), 512, 256)) return texture;
+        return this->Atlas(201, 512, 256);
+    }
+
+    auto game_icon_cache::RecastAtlas(void) const -> IDirect3DTexture8*
+    { return this->Atlas(205, resources::recast_icon_width, resources::recast_icon_height); }
+
+    auto game_icon_cache::Atlas(const uint16_t id, const uint32_t width, const uint32_t height) const -> IDirect3DTexture8*
+    {
+        if (this->device_ == nullptr) return nullptr;
+        auto [found, inserted] = this->atlases_.try_emplace(id, nullptr);
+        if (inserted) found->second = this->LoadEmbeddedAtlas(id, width, height);
+        return found->second;
     }
 
     auto game_icon_cache::LoadEmbeddedAtlas(const uint16_t id, const uint32_t expectedWidth, const uint32_t expectedHeight) const -> IDirect3DTexture8*

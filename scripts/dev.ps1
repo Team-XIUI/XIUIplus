@@ -1,6 +1,7 @@
 param(
     [int]$PollMilliseconds = 350,
-    [string]$SdkPath
+    [string]$SdkPath,
+    [Parameter(Mandatory)][string]$InstallPath
 )
 
 $ErrorActionPreference = 'Stop'
@@ -10,7 +11,7 @@ $Root = Split-Path -Parent $PSScriptRoot
 $BuildScript = Join-Path $PSScriptRoot 'build_all.ps1'
 $ThemeSource = Join-Path $Root 'config\xiuinative-theme.ini'
 $Sdk = Resolve-XiuiSdk -PreferredPath $SdkPath
-$AshitaRoot = Split-Path -Parent (Split-Path -Parent $Sdk)
+$AshitaRoot = Resolve-XiuiInstallPath -PreferredPath $InstallPath
 $InstalledTheme = Join-Path $AshitaRoot 'config\xiuinative-theme.ini'
 
 function Get-Fingerprint {
@@ -60,7 +61,7 @@ Write-Host '  Runtime changes: rebuild and atomically publish xiuinative-runtime
 Write-Host '  Theme changes: publish immediately; no compilation'
 Write-Host 'Press Ctrl+C to stop.'
 
-& $BuildScript -RuntimeOnly -SdkPath $Sdk
+& $BuildScript -Development -RuntimeOnly -SdkPath $Sdk -InstallPath $AshitaRoot
 Publish-Theme
 
 $RuntimeFingerprint = Get-Fingerprint $RuntimeFiles
@@ -81,7 +82,7 @@ while ($true) {
 
     if ($CurrentStable -ne $StableFingerprint) {
         $StableFingerprint = $CurrentStable
-        Write-Warning 'Stable-host source changed. Run /unload xiuinative, then .\scripts\build_all.ps1 once.'
+        Write-Warning 'Development host source changed. Unload XIUI in the selected development install, then rebuild with -Development and its -InstallPath.'
     }
     if ($CurrentRuntime -ne $RuntimeFingerprint) {
         $RuntimeDirty = $true
@@ -105,7 +106,7 @@ while ($true) {
     if ($RuntimeDirty -and [DateTime]::UtcNow -ge $NextRuntimeAttempt) {
         try {
             Write-Host "[$(Get-Date -Format T)] Runtime source changed; rebuilding..."
-            & $BuildScript -RuntimeOnly -SdkPath $Sdk
+            & $BuildScript -Development -RuntimeOnly -SdkPath $Sdk -InstallPath $AshitaRoot
             $RuntimeFingerprint = $CurrentRuntime
             $RuntimeDirty = $false
         }

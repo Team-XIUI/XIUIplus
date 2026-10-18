@@ -136,11 +136,13 @@ namespace xiui
         });
     }
 
-    auto enemy_source::HandlePacket(IAshitaCore* core, const uint16_t id, const std::span<const uint8_t> data, const uint64_t now) -> void
+    auto enemy_source::HandlePacket(IAshitaCore* core, const uint16_t id, const std::span<const uint8_t> data, const uint64_t now, const combat_action_packet* decoded) -> void
     {
+        const combat_action_packet local{data};
+
         if (id == 0xA || id == 0xB) { this->Clear(); return; }
         if (id != 0x28 || core == nullptr) return;
-        const auto action = DecodeCombatAction(data);
+        const auto& action = (decoded != nullptr ? *decoded : local).Action();
         if (!action) return;
         auto* memory = core->GetMemoryManager();
         auto* entity = memory != nullptr ? memory->GetEntity() : nullptr;

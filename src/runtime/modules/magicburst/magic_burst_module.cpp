@@ -49,9 +49,9 @@ namespace xiui
     auto magic_burst_module::ConfigSections(void) const -> std::span<const module_config_section>
     {
         static constexpr module_config_section sections[]{
-            {"General", "Show the selected enemy's observed burst window. Prediction controls and server rules are in Action Bars / Skillchains."},
-            {"Appearance", "Elemental burst artwork, size, opacity and urgency animation."},
-            {"Text", "Independent countdown, chain-name and element-list text profiles."}};
+            {"General", "Show the selected enemy's observed burst window. Prediction controls and server rules are in Action Bars / Skillchains.", "general"},
+            {"Appearance", "Elemental burst artwork, size, opacity and urgency animation.", "appearance"},
+            {"Text", "Independent countdown, chain-name and element-list text profiles.", "text"}};
         return sections;
     }
     auto magic_burst_module::ConfigSectionContains(const size_t section, const size_t index) -> bool

@@ -9,13 +9,13 @@ namespace xiui
     inline auto BarConfigSections(void) -> std::span<const module_config_section>
     {
         static constexpr module_config_section sections[]{
-            {"General", "Visibility and information shown by this module."},
-            {"Layout", "Bar width and height, placement and container layout."},
-            {"Bar Style", "Window theme or Modern bars, shape and bookends."},
-            {"Animation", "Smooth resource changes and animated highlights."},
-            {"Effects", "Bar shadows, outer glow and fill glow."},
-            {"Colors", "Resource fills, track colors and bar effects."},
-            {"Text", "Choose a text element and edit its style, effects and offsets."}};
+            {"General", "Visibility and information shown by this module.", "general"},
+            {"Layout", "Bar width and height, placement and container layout.", "layout"},
+            {"Bar Style", "Window theme or Modern bars, shape and bookends.", "bar-style"},
+            {"Animation", "Smooth resource changes and animated highlights.", "animation"},
+            {"Effects", "Bar shadows, outer glow and fill glow.", "effects"},
+            {"Colors", "Resource fills, track colors and bar effects.", "colors"},
+            {"Text", "Choose a text element and edit its style, effects and offsets.", "text"}};
         return sections;
     }
 

@@ -64,8 +64,10 @@ namespace xiui
         this->tracker_.Reconcile({statuses.data(), count}, now);
     }
 
-    auto phantom_roll_module::HandlePacket(IAshitaCore* core, const uint16_t id, const std::span<const uint8_t> data, const uint64_t now) -> void
+    auto phantom_roll_module::HandlePacket(IAshitaCore* core, const uint16_t id, const std::span<const uint8_t> data, const uint64_t now, const combat_action_packet* decoded) -> void
     {
+        const combat_action_packet local{data};
+
         if (id == 0xA || id == 0xB) { this->Clear(); return; }
         if (id != 0x28 || this->player_id_ == 0) return;
         auto* memory = core != nullptr ? core->GetMemoryManager() : nullptr;
@@ -75,7 +77,7 @@ namespace xiui
             player->GetLoginStatus() != static_cast<uint8_t>(Ashita::FFXI::Enums::LoginStatus::LoggedIn) ||
             party->GetMemberServerId(0) != this->player_id_ || party->GetMemberZone(0) != this->zone_ ||
             player->GetMainJob() != this->job_ || player->GetSubJob() != this->subjob_) return;
-        if (const auto action = DecodeCombatAction(data)) this->tracker_.Observe(*action, this->player_id_, now);
+        if (const auto& action = (decoded != nullptr ? *decoded : local).Action()) this->tracker_.Observe(*action, this->player_id_, now);
     }
 
     auto phantom_roll_module::Load(const settings_store& settings) -> void

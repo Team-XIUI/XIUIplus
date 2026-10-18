@@ -78,11 +78,13 @@ namespace xiui
         this->state_.target_id = action.targets[0].id;
     }
 
-    auto player_cast_source::HandlePacket(IAshitaCore* core, uint16_t id, std::span<const uint8_t> data, uint64_t now) -> void
+    auto player_cast_source::HandlePacket(IAshitaCore* core, uint16_t id, std::span<const uint8_t> data, uint64_t now, const combat_action_packet* decoded) -> void
     {
+        const combat_action_packet local{data};
+
         if (id == 0xA || id == 0xB) { this->Clear(); return; }
         if (id != 0x28) return;
-        const auto action = DecodeCombatAction(data);
+        const auto& action = (decoded != nullptr ? *decoded : local).Action();
         if (!action) return;
         this->Update(core, now);
         this->Observe(*action, this->player_, core != nullptr ? core->GetResourceManager() : nullptr, now);

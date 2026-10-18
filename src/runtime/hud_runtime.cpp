@@ -225,7 +225,7 @@ namespace xiui
         this->world_info_.Update(this->world_source_.State());
         auto* input = core != nullptr ? core->GetInputManager() : nullptr;
         this->mouse_ = input != nullptr ? input->GetMouse() : nullptr;
-        this->player_ = player_module{};
+        this->player_.ResetDefaults(this->design_system_.GetTheme());
         this->player_.SetMPPreview(&this->cast_cost_source_);
         this->player_.SetHealPrediction(&this->heal_prediction_source_);
         this->target_.SetHealPrediction(&this->heal_prediction_source_);
@@ -236,8 +236,8 @@ namespace xiui
         this->cast_bar_.ResetDefaults(this->design_system_.GetTheme());
         this->cast_cost_.ResetDefaults(this->design_system_.GetTheme());
         this->recast_.ResetDefaults(this->design_system_.GetTheme());
-        this->target_ = target_module{};
-        this->enemy_list_ = enemy_list_module{};
+        this->target_.ResetDefaults(this->design_system_.GetTheme());
+        this->enemy_list_.ResetDefaults(this->design_system_.GetTheme());
         this->pet_source_.Clear();
         this->pet_.ResetDefaults(this->design_system_.GetTheme());
         this->pet_target_.ResetDefaults(this->design_system_.GetTheme());
@@ -967,40 +967,41 @@ namespace xiui
 
     auto hud_runtime::HandlePacket(const uint16_t id, const uint8_t* data, const uint32_t size) -> void
     {
+        const auto now = ::GetTickCount64();
         if (id == 0x000B && this->profile_tracking_) this->ObserveProfileCharacter("");
         if (id == 0x000A || id == 0x000B) this->ReleaseControllerFocus();
         if (id == 0x000A || id == 0x000B) this->minimap_source_.Clear();
         if (id == 0x000A || id == 0x000B) this->party_timing_source_.Clear();
         if (data != nullptr)
         {
-            if (id == 0xA0) this->minimap_source_.HandlePartyPosition({data, size}, ::GetTickCount64());
-            this->treasure_source_.HandlePacket(id, {data, size}, ::GetTickCount64());
+            const combat_action_packet actionPacket{{data, size}};
+            if (id == 0xA0) this->minimap_source_.HandlePartyPosition({data, size}, now);
+            this->treasure_source_.HandlePacket(id, {data, size}, now);
             this->chat_.ObserveTellPacket(id, {data, size});
-            this->notification_source_.HandlePacket(this->core_, this->notifications_.Center(), id, {data, size}, ::GetTickCount64());
-            this->experience_.HandlePacket(this->core_, id, {data, size}, ::GetTickCount64());
-            this->enemy_list_.HandlePacket(this->core_, id, {data, size}, ::GetTickCount64());
-            this->party_source_.HandlePacket(this->core_, id, {data, size}, ::GetTickCount64());
-            this->blue_magic_.HandlePacket(this->core_, id, {data, size}, ::GetTickCount64());
-            this->phantom_roll_.HandlePacket(this->core_, id, {data, size}, ::GetTickCount64());
+            this->notification_source_.HandlePacket(this->core_, this->notifications_.Center(), id, {data, size}, now);
+            this->experience_.HandlePacket(this->core_, id, {data, size}, now, &actionPacket);
+            this->enemy_list_.HandlePacket(this->core_, id, {data, size}, now, &actionPacket);
+            this->party_source_.HandlePacket(this->core_, id, {data, size}, now, &actionPacket);
+            this->blue_magic_.HandlePacket(this->core_, id, {data, size}, now);
+            this->phantom_roll_.HandlePacket(this->core_, id, {data, size}, now, &actionPacket);
             this->combat_source_.SetRules(this->combat_settings_.Rules());
-            this->combat_source_.HandlePacket(this->core_, id, {data, size}, ::GetTickCount64());
+            this->combat_source_.HandlePacket(this->core_, id, {data, size}, now, &actionPacket);
             this->skillchain_source_.SetRules(this->combat_settings_.Rules());
-            if (this->magic_burst_.State().enabled || this->actionbars_.SkillchainPredictionsEnabled()) this->skillchain_source_.HandlePacket(this->core_, id, {data, size}, ::GetTickCount64());
+            if (this->magic_burst_.State().enabled || this->actionbars_.SkillchainPredictionsEnabled()) this->skillchain_source_.HandlePacket(this->core_, id, {data, size}, now, &actionPacket);
             else this->skillchain_source_.Clear();
-            if (this->timing_ready_) this->timing_source_.HandlePacket(this->core_, this->combat_source_, id, {data, size}, ::GetTickCount64());
+            if (this->timing_ready_) this->timing_source_.HandlePacket(this->core_, this->combat_source_, id, {data, size}, now, &actionPacket);
             if (this->timing_ready_ && id == 0x0028)
             {
-                const auto now = ::GetTickCount64();
                 this->party_timing_source_.Update(this->party_source_.Members(), this->party_source_.Members()[0].id, &this->timing_source_, now);
-                if (const auto action = DecodeCombatAction({data, size})) this->party_timing_source_.Observe(*action, now);
+                if (const auto& action = actionPacket.Action()) this->party_timing_source_.Observe(*action, now);
             }
-            this->player_cast_source_.HandlePacket(this->core_, id, {data, size}, ::GetTickCount64());
+            this->player_cast_source_.HandlePacket(this->core_, id, {data, size}, now, &actionPacket);
             if (id == 0x000A || id == 0x000B) { this->cast_cost_source_.Clear(); this->heal_prediction_source_.Clear(); }
             if (id == 0x000A || id == 0x000B) this->recast_source_.Clear();
             this->inventory_source_.HandlePacket(id, {data, size});
             this->satchel_source_.HandlePacket(id, {data, size});
             this->gil_source_.HandlePacket(id, {data, size});
-            this->ready_check_.HandlePacket(this->core_, id, {data, size}, ::GetTickCount64());
+            this->ready_check_.HandlePacket(this->core_, id, {data, size}, now);
             if (id == 0x000A || id == 0x000B) this->equipment_source_.Reset();
         }
     }
@@ -2925,6 +2926,8 @@ namespace xiui
         store.WriteString("session.config", "module", this->active_module_ != nullptr ? this->active_module_->Id() : "general");
         store.WriteInt("session.config", "view", this->active_module_ != nullptr ? static_cast<int>(this->active_module_->ConfigView()) : 0);
         store.WriteInt("session.config", "section", static_cast<int>(this->active_config_section_));
+        const auto sections = this->active_module_ != nullptr ? this->active_module_->ConfigSections() : std::span<const module_config_section>{};
+        store.WriteString("session.config", "topic_id", this->active_config_section_ < sections.size() ? std::string{sections[this->active_config_section_].Id()} : "");
         store.WriteInt("session.config", "party_presets_general", 1);
         store.WriteInt("session.config", "party_presets_location", 2);
         store.WriteInt("session.config", "actionbar_keybinds_topic", 1);
@@ -2941,20 +2944,29 @@ namespace xiui
         const auto view = static_cast<size_t>(std::max(0, store.ReadInt("session.config", "view", 0)));
         this->active_module_->SelectConfigView(views.empty() ? 0 : std::min(view, views.size() - 1));
         auto section = static_cast<size_t>(std::max(0, store.ReadInt("session.config", "section", 0)));
-        if (store.ReadInt("session.config", "party_presets_general", 0) == 0 &&
-            (this->active_module_ == &this->party_ || this->active_module_ == &this->alliance_first_ || this->active_module_ == &this->alliance_second_))
+        const auto topic = store.ReadString("session.config", "topic_id");
+        if (topic.empty())
         {
-            if (section == 12) { this->active_module_ = &this->party_; section = 0; }
-            else if (section == 13) section = 12;
-        }
-        if (this->active_module_ == &this->general_ && section == 6 && store.ReadInt("session.config", "party_presets_location", 0) < 2)
-        { this->active_module_ = &this->party_; section = 0; }
-        if (this->active_module_ == &this->actionbars_ && store.ReadInt("session.config", "actionbar_keybinds_topic", 0) == 0)
-        {
-            const size_t firstMoved = this->actionbars_.ConfigView() == action_bar_count ? 2 : 1;
-            if (section >= firstMoved) ++section;
+            if (store.ReadInt("session.config", "party_presets_general", 0) == 0 &&
+                (this->active_module_ == &this->party_ || this->active_module_ == &this->alliance_first_ || this->active_module_ == &this->alliance_second_))
+            {
+                if (section == 12) { this->active_module_ = &this->party_; section = 0; }
+                else if (section == 13) section = 12;
+            }
+            if (this->active_module_ == &this->general_ && section == 6 && store.ReadInt("session.config", "party_presets_location", 0) < 2)
+            { this->active_module_ = &this->party_; section = 0; }
+            if (this->active_module_ == &this->actionbars_ && store.ReadInt("session.config", "actionbar_keybinds_topic", 0) == 0)
+            {
+                const size_t firstMoved = this->actionbars_.ConfigView() == action_bar_count ? 2 : 1;
+                if (section >= firstMoved) ++section;
+            }
         }
         const auto sections = this->active_module_->ConfigSections();
+        if (!topic.empty())
+        {
+            const auto found = std::find_if(sections.begin(), sections.end(), [&](const auto& item) { return item.Id() == topic; });
+            section = found != sections.end() ? static_cast<size_t>(found - sections.begin()) : 0;
+        }
         this->active_config_section_ = section < sections.size() ? section : 0;
         this->general_.SelectAppearanceTab(static_cast<size_t>(std::max(0, store.ReadInt("session.config", "appearance_tab", 0))));
         this->NormalizeConfigSelection();
@@ -2972,13 +2984,13 @@ namespace xiui
     auto hud_runtime::SelectConfigModule(hud_module* module, const std::optional<size_t> view) -> void
     {
         const auto previousTopics = this->active_module_ != nullptr ? this->active_module_->ConfigSections() : std::span<const module_config_section>{};
-        const char* previousTopic = this->active_config_section_ < previousTopics.size() ? previousTopics[this->active_config_section_].name : nullptr;
+        const auto previousTopic = this->active_config_section_ < previousTopics.size() ? std::string{previousTopics[this->active_config_section_].Id()} : std::string{};
         if (view && !module->ConfigViews().empty()) module->SelectConfigView(*view);
         this->active_module_ = module;
         const auto nextTopics = module->ConfigSections();
         this->active_config_section_ = 0;
-        for (size_t topic = 0; previousTopic != nullptr && topic < nextTopics.size(); ++topic)
-            if (std::strcmp(previousTopic, nextTopics[topic].name) == 0) { this->active_config_section_ = topic; break; }
+        for (size_t topic = 0; !previousTopic.empty() && topic < nextTopics.size(); ++topic)
+            if (previousTopic == nextTopics[topic].Id()) { this->active_config_section_ = topic; break; }
         this->active_color_ = nullptr; this->active_slider_ = nullptr;
         this->active_option_group_ = module_option_group::general;
         this->option_scroll_ = 0;

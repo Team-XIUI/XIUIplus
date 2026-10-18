@@ -1,3 +1,4 @@
+#include "ui/text_fit.hpp"
 #include "enemy_list_module.hpp"
 #include "modules/bar_config.hpp"
 #include "ui/status_strip.hpp"
@@ -10,17 +11,6 @@
 namespace
 {
     constexpr std::array text_sections{"text.enemylist.name", "text.enemylist.details", "text.enemylist.target", "text.enemylist.cast"};
-
-    auto FitText(const xiui::ui::design_system& design, std::string text, float width, const xiui::ui::text_style& style) -> std::string
-    {
-        if (design.MeasureText(text.c_str(), style) <= width) return text;
-        while (!text.empty())
-        {
-            text.pop_back();
-            if (design.MeasureText((text + "...").c_str(), style) <= width) return text + "...";
-        }
-        return {};
-    }
 
     auto LineHeight(const xiui::module_text_profile& profile) -> float { return std::max(14.0f, 18.0f * profile.style.scale); }
 
@@ -186,9 +176,9 @@ namespace xiui
         static const auto sections = [] {
             std::array<module_config_section, 11> result{};
             std::copy(ui::TimingSections().begin(), ui::TimingSections().end(), result.begin());
-            result[8] = {"Statuses", "Native status icons, timers, placement and details."};
-            result[9] = {"Target Panel", "Separate target panel visibility, width, offsets and container."};
-            result[10] = {"Appearance", "Enemy card container, spacing inside the frame and borders."};
+            result[8] = {"Statuses", "Native status icons, timers, placement and details.", "statuses"};
+            result[9] = {"Target Panel", "Separate target panel visibility, width, offsets and container.", "target-panel"};
+            result[10] = {"Appearance", "Enemy card container, spacing inside the frame and borders.", "appearance"};
             return result;
         }();
         return sections;
@@ -282,9 +272,9 @@ namespace xiui
         if (this->controller_status_browsing_ && this->ControllerStatusBounds().width == 0) this->EndControllerStatus();
     }
 
-    auto enemy_list_module::HandlePacket(IAshitaCore* core, const uint16_t id, const std::span<const uint8_t> data, const uint64_t now) -> void
+    auto enemy_list_module::HandlePacket(IAshitaCore* core, const uint16_t id, const std::span<const uint8_t> data, const uint64_t now, const combat_action_packet* decoded) -> void
     {
-        if (this->state_.enabled) this->source_.HandlePacket(core, id, data, now);
+        if (this->state_.enabled) this->source_.HandlePacket(core, id, data, now, decoded);
     }
 
     auto enemy_list_module::HeaderHeight(const enemy_entry& entry) const -> float
@@ -616,7 +606,7 @@ namespace xiui
         const auto& design = context.Design();
         const auto text = [&](std::string value, const ui::rect& line, size_t profile, std::optional<D3DCOLOR> tint = std::nullopt) {
             const auto style = tint ? TintTextProfile(this->text_[profile], *tint) : this->text_[profile];
-            value = FitText(design, std::move(value), line.width, style.style);
+            value = xiui::ui::FitText(design, std::move(value), line.width, style.style);
             context.DrawText(value.c_str(), line, line, style);
         };
         float y = content.y;

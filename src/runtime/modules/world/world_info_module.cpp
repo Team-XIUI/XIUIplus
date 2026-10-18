@@ -77,9 +77,9 @@ namespace xiui
     auto world_info_module::ConfigSections(void) const -> std::span<const module_config_section>
     {
         static constexpr module_config_section sections[]{
-            {"General", "Show the Vana'diel weekday, weather and date."},
-            {"Layout", "Stack the information, keep it on one row or move each element independently."},
-            {"Text", "Choose Time, Day / date or Weather and edit its text profile."}};
+            {"General", "Show the Vana'diel weekday, weather and date.", "general"},
+            {"Layout", "Stack the information, keep it on one row or move each element independently.", "layout"},
+            {"Text", "Choose Time, Day / date or Weather and edit its text profile.", "text"}};
         return sections;
     }
 

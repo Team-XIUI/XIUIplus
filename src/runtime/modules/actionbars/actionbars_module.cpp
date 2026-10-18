@@ -1,3 +1,4 @@
+#include "ui/text_fit.hpp"
 #include "actionbars_module.hpp"
 #include "combat/server_rules.hpp"
 
@@ -59,18 +60,6 @@ namespace xiui
         { uint32_t parsed{}; const auto result = std::from_chars(value.data(), value.data() + value.size(), parsed); return result.ec == std::errc{} && result.ptr == value.data() + value.size() ? parsed : fallback; }
         auto BankIndex(crossbar_bank bank) -> size_t
         { return bank == crossbar_bank::none ? 0 : static_cast<size_t>(bank) - 1; }
-        auto Fit(const ui::design_system& design, std::string text, const float width, const ui::text_style& style) -> std::string
-        {
-            if (design.MeasureText(text.c_str(), style) <= width) return text;
-            while (!text.empty())
-            {
-                size_t last = text.size() - 1;
-                while (last > 0 && (static_cast<unsigned char>(text[last]) & 0xC0) == 0x80) --last;
-                text.resize(last);
-                if (design.MeasureText((text + "...").c_str(), style) <= width) return text + "...";
-            }
-            return {};
-        }
     }
 
     actionbars_module::actionbars_module()
@@ -322,11 +311,11 @@ namespace xiui
     }
     auto actionbars_module::ConfigSections(void) const -> std::span<const module_config_section>
     {
-        static constexpr module_config_section sections[]{ {"Actions", "Assignments and action storage."}, {"Layout", "Bar shape, slot size and spacing."}, {"Display", "Labels, empty slots and container."},
-            {"Slots", "Frame, corners, artwork and colors."}, {"Effects", "Unavailable actions, highlights and cooldowns."}, {"Overlays", "Key bindings, counts, MP costs and recast text."},
-            {"Controller", "Trigger controls and device setup."}, {"Text", "Fonts, colors and effects for each text element."},
-            {"Skillchains", "Shared skillchain and Magic Burst predictions for all hotbars and the crossbar. Timings are estimates."},
-            {"Keybinds", "Rebind hotbar slots and crossbar controller buttons."} };
+        static constexpr module_config_section sections[]{ {"Actions", "Assignments and action storage.", "actions"}, {"Layout", "Bar shape, slot size and spacing.", "layout"}, {"Display", "Labels, empty slots and container.", "display"},
+            {"Slots", "Frame, corners, artwork and colors.", "slots"}, {"Effects", "Unavailable actions, highlights and cooldowns.", "effects"}, {"Overlays", "Key bindings, counts, MP costs and recast text.", "overlays"},
+            {"Controller", "Trigger controls and device setup.", "controller"}, {"Text", "Fonts, colors and effects for each text element.", "text"},
+            {"Skillchains", "Shared skillchain and Magic Burst predictions for all hotbars and the crossbar. Timings are estimates.", "skillchains"},
+            {"Keybinds", "Rebind hotbar slots and crossbar controller buttons.", "keybinds"} };
         static const auto crossbarSections = [] {
             std::array<module_config_section, crossbar_sections.size()> result{};
             for (size_t index = 0; index < result.size(); ++index) result[index] = sections[crossbar_sections[index]];
@@ -350,25 +339,25 @@ namespace xiui
     auto actionbars_module::ConfigSectionContains(size_t section, const size_t index) -> bool
     {
         if (section >= this->ConfigSections().size() || index >= this->OptionCount()) return false;
-        section = this->view_ == action_bar_count ? crossbar_sections[section] : hotbar_sections[section];
-        if (index == keybinds) return section == 9;
+        const auto topic = this->ConfigSections()[section].Id();
+        if (index == keybinds) return topic == "keybinds";
         if (index == edit || index == palettes || index == import) return false;
         if (index == bar_selector) return this->view_ < action_bar_count;
-        if (index == bank) return this->view_ == action_bar_count && section == 1;
-        if (index == crossbar_animations) return section == 6;
-        if (index >= skillchain_predictions && index <= magic_burst_settings) return section == 8;
-        if (index >= base_options || index == selected_text) return section == 7;
-        if (index >= setup && index <= double_window) return section == 6;
+        if (index == bank) return this->view_ == action_bar_count && topic == "layout";
+        if (index == crossbar_animations) return topic == "controller";
+        if (index >= skillchain_predictions && index <= magic_burst_settings) return topic == "skillchains";
+        if (index >= base_options || index == selected_text) return topic == "text";
+        if (index >= setup && index <= double_window) return topic == "controller";
         if (index >= slot_frame && index < base_options)
         {
-            if (index >= slot_binding_anchor && index <= slot_cost_y || index == slot_cooldown_text) return section == 5;
-            if (index >= slot_unavailable_tint && index <= slot_cooldown_color) return section == 4;
-            return section == 3;
+            if (index >= slot_binding_anchor && index <= slot_cost_y || index == slot_cooldown_text) return topic == "overlays";
+            if (index >= slot_unavailable_tint && index <= slot_cooldown_color) return topic == "effects";
+            return topic == "slots";
         }
-        if (index == bindings || index == resources || index == cooldowns) return section == 5;
-        if (index >= columns && index <= gap || index == bank || index == shape) return section == 1;
-        if (index >= heading && index <= padding) return section == 2;
-        return section == 0;
+        if (index == bindings || index == resources || index == cooldowns) return topic == "overlays";
+        if (index >= columns && index <= gap || index == bank || index == shape) return topic == "layout";
+        if (index >= heading && index <= padding) return topic == "display";
+        return topic == "actions";
     }
     auto actionbars_module::Option(const size_t index) -> module_option
     {
@@ -1663,7 +1652,7 @@ namespace xiui
                     const ui::rect tooltip{std::clamp(hit->bounds.x, viewport.x + 8, std::max(viewport.x + 8, viewport.x + viewport.width - width - 8)), std::max(viewport.y + 8, hit->bounds.y - 68), width, 60};
                     context.DrawTooltip(tooltip);
                     context.DrawText("Bar options", {tooltip.x + 12, tooltip.y + 6, width - 24, 22}, tooltip, this->text_[0]);
-                    const auto help = Fit(design, "Actions & Macros, Action Sets and settings", width - 24, this->text_[4].style);
+                    const auto help = xiui::ui::FitText(design, "Actions & Macros, Action Sets and settings", width - 24, this->text_[4].style);
                     context.DrawText(help.c_str(), {tooltip.x + 12, tooltip.y + 30, width - 24, 22}, tooltip, this->text_[4]);
                 }
             }

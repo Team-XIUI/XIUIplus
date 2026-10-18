@@ -1,5 +1,7 @@
 #pragma once
 
+#include "combat/action_packet.hpp"
+
 #include "combat_source.hpp"
 #include "timing_model.hpp"
 
@@ -12,7 +14,7 @@ namespace xiui
     public:
         auto Clear(void) -> void;
         auto Update(IAshitaCore* core, const combat_source& combat, uint64_t now) -> void;
-        auto HandlePacket(IAshitaCore* core, const combat_source& combat, uint16_t id, std::span<const uint8_t> data, uint64_t now) -> void;
+        auto HandlePacket(IAshitaCore* core, const combat_source& combat, uint16_t id, std::span<const uint8_t> data, uint64_t now, const combat_action_packet* decoded = nullptr) -> void;
         auto Player(double now) const -> attack_prediction { return this->attack_.Predict(now); }
         auto Enemy(uint32_t id, double now) const -> attack_prediction;
         auto TP(uint32_t goal, double now) const -> tp_prediction;

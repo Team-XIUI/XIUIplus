@@ -6,7 +6,6 @@ namespace xiui
 {
     namespace
     {
-        constexpr int mapping_backend = 606, slot_mapping_first = 623, done = 500;
         constexpr const char* slot_names[]{"D-pad Up", "D-pad Right", "D-pad Down", "D-pad Left", "Face Top", "Face Right", "Face Bottom", "Face Left"};
         constexpr const char* banks[]{"Left trigger", "Right trigger", "Left then right", "Right then left", "Double left", "Double right"};
     }
@@ -85,7 +84,7 @@ namespace xiui
             const bool bound = crossbar ? this->Mapping().slots[slot] != -1 : this->bars_[this->selected_.bar].keys[slot].key != 0;
             controls.push_back({keybind_clear_first + static_cast<int>(slot), {right - 64, y, 64, 28}, "Clear", {}, control_kind::button, bound});
         }
-        controls.push_back({done, {right - 96, bounds.y + bounds.height - 44, 96, 28}, "Done", {}, control_kind::button});
+        controls.push_back({close_setup, {right - 96, bounds.y + bounds.height - 44, 96, 28}, "Done", {}, control_kind::button});
         return controls;
     }
 

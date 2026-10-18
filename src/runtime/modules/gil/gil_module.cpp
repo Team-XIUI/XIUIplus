@@ -78,10 +78,10 @@ namespace xiui
     auto gil_module::ConfigSections(void) const -> std::span<const module_config_section>
     {
         static constexpr module_config_section sections[]{
-            {"General", "Current gil and optional session earnings, including gil spent."},
-            {"Layout", "Native gil icon, alignment and line spacing."},
-            {"Appearance", "Optional native DAT container and earnings colors."},
-            {"Text", "Independent balance and tracking styles, effects and offsets."}};
+            {"General", "Current gil and optional session earnings, including gil spent.", "general"},
+            {"Layout", "Native gil icon, alignment and line spacing.", "layout"},
+            {"Appearance", "Optional native DAT container and earnings colors.", "appearance"},
+            {"Text", "Independent balance and tracking styles, effects and offsets.", "text"}};
         return sections;
     }
 

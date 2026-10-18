@@ -81,10 +81,10 @@ namespace xiui
     auto equipment_module::ConfigSections(void) const -> std::span<const module_config_section>
     {
         static constexpr module_config_section sections[]{
-            {"General", "Your actual equipped items, including items equipped from Wardrobes."},
-            {"Layout", "The native equipment order, arranged into a compact movable grid."},
-            {"Appearance", "Native DAT containers and cached game item icons."},
-            {"Text", "Heading, slot labels, ammo counts and item-name tooltips."}};
+            {"General", "Your actual equipped items, including items equipped from Wardrobes.", "general"},
+            {"Layout", "The native equipment order, arranged into a compact movable grid.", "layout"},
+            {"Appearance", "Native DAT containers and cached game item icons.", "appearance"},
+            {"Text", "Heading, slot labels, ammo counts and item-name tooltips.", "text"}};
         return sections;
     }
 

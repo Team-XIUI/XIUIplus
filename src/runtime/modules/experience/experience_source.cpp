@@ -164,8 +164,10 @@ namespace xiui
         }
     }
 
-    auto experience_source::HandlePacket(IAshitaCore* core, const uint16_t id, const std::span<const uint8_t> data, const uint64_t now) -> void
+    auto experience_source::HandlePacket(IAshitaCore* core, const uint16_t id, const std::span<const uint8_t> data, const uint64_t now, const combat_action_packet* decoded) -> void
     {
+        const combat_action_packet local{data};
+
         if (id == 0xA || id == 0xB)
         {
             this->tracker.Discontinuity(); this->ready = false; this->next_scan_ = 0; this->report_.reset();
@@ -189,7 +191,7 @@ namespace xiui
         }
         else if (id == 0x28 && data.size() >= 24 && ExperiencePacketValue<uint32_t>(data, 5) == sample.player && ((data[10] >> 2) & 0xF) == 5)
         {
-            const auto action = DecodeCombatAction(data);
+            const auto& action = (decoded != nullptr ? *decoded : local).Action();
             if (action && action->actor == sample.player && action->category == 5)
                 for (size_t target = 0; target < action->target_count; ++target)
                     if (action->targets[target].id == sample.player)

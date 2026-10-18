@@ -87,58 +87,42 @@ See [the foundation guide](docs/foundations.md) for container and notification A
 
 `ASHITA4_SDK_PATH` must point to the SDK directory containing `Ashita.h`.
 
-## Development build and installation
+## Build and install in Phoenix
 
-Run this once while XIUI is unloaded:
+XIUI installs as one **`plugins/xiuinative.dll`** in the Phoenix game folder.
+The DLL embeds its assets, decoder and defaults. Settings, profiles, caches and
+license notices are saved under `config`; players need no build tools or SDK.
+
+While XIUI is unloaded, run:
 
 ```powershell
 .\scripts\build_all.ps1
 ```
 
-The script:
+This builds/checks the standalone plugin and installs it into
+`C:/Games/PhoenixXI-dev/PhoenixXI/plugins`. Pass `-InstallPath` or set
+`XIUI_INSTALL_PATH` for another Phoenix installation. SDK discovery is only
+for compilation and never chooses the installation destination. Use
+`-SkipInstall` to produce `dist/xiuinative.dll` without installing it.
 
-1. Configures and builds the x86 stable host and runtime.
-2. Runs the native safety smoke tests.
-3. Installs or updates the stable host.
-4. Atomically publishes `xiuinative-runtime.dll`.
-5. Installs the default theme when one does not already exist.
-6. Verifies SHA-256 hashes.
+Load it with `/load xiuinative`. Existing settings and positions are preserved.
+`/xiui startup` reports initialization and first-frame timing.
 
-Load the stable host:
+## Optional isolated development host
 
-```text
-/load xiuinative
-```
-
-## Development hot reload
-
-After the stable host is installed, start the watcher in a separate PowerShell window:
+The two-DLL host/runtime setup is an explicit developer option for an isolated
+installation. Launcher distribution and normal Phoenix installs use the
+standalone DLL above. After unloading XIUI in the isolated install:
 
 ```powershell
-.\scripts\dev.ps1
+.\scripts\build_all.ps1 -Development -InstallPath C:\Games\PhoenixXI-sandbox\PhoenixXI
+.\scripts\dev.ps1 -InstallPath C:\Games\PhoenixXI-sandbox\PhoenixXI
 ```
 
-The watcher performs an initial runtime publish and then remains active:
-
-- Changes under `src/runtime/` rebuild and atomically publish only the runtime. The game swaps it automatically.
-- Changes to `config/xiuinative-theme.ini` publish immediately with no compilation. The runtime applies them automatically.
-- Changes under `src/host/` or `src/shared/` produce a warning because those uncommon changes require one manual unload and full build.
-
-A successful runtime update prints `Runtime hot-reloaded` in the Ashita chat log. Build failures and invalid runtime DLLs leave the previous generation running.
-
-`/xiui startup` reports the current runtime's initialization phases, device setup, settings reload and first HUD frame in milliseconds. Initialization totals include the individual startup phases; they do not measure the entire host swap.
-
-To publish one runtime generation without starting the watcher:
-
-```powershell
-.\scripts\build_all.ps1 -RuntimeOnly
-```
-
-To build and test without installing or publishing:
-
-```powershell
-.\scripts\build_all.ps1 -SkipInstall
-```
+The watcher publishes compatible runtime changes and repository theme edits.
+It rejects an install without the matching development host. Host/shared ABI
+changes require unloading and rebuilding that explicit development install.
+For one runtime publish, use `-Development -RuntimeOnly` with its `-InstallPath`.
 
 ## Theme editing
 
@@ -281,7 +265,7 @@ creates the config files and notices; existing settings and themes remain
 authoritative. The default HUD font is **XIUI (Bahnschrift)**. The three-dot
 menu's **Reset to defaults** confirmation restores the complete captured
 configuration, including every module's text, appearance and position. `/xiui save` queues a complete settings save. The host/runtime
-DLL pair below is the development hot-reload setup, separate from releases.
+DLL pair is an optional isolated development setup, separate from Phoenix installs.
 
 See [native game HUD controls](docs/game-hud.md) for the individual elements and implementation notes. Visibility toggles in **Game HUD** are on to show and off to hide; unavailable controls identify unsupported client signatures.
 

@@ -45,7 +45,7 @@ namespace xiui
     }
     auto treasure_module::ConfigSections(void) const -> std::span<const module_config_section>
     {
-        static constexpr module_config_section sections[]{{"General", "Native treasure items and explicit lot/pass decisions."}, {"Appearance", "Size and native window styling."}, {"Text", "Independent title, item, details and button profiles."}};
+        static constexpr module_config_section sections[]{{"General", "Native treasure items and explicit lot/pass decisions.", "general"}, {"Appearance", "Size and native window styling.", "appearance"}, {"Text", "Independent title, item, details and button profiles.", "text"}};
         return sections;
     }
     auto treasure_module::ConfigSectionContains(size_t section, size_t index) -> bool

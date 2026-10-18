@@ -1,5 +1,7 @@
 #pragma once
 
+#include "combat/action_packet.hpp"
+
 #include "Ashita.h"
 #include "experience_packets.hpp"
 #include "settings/settings_store.hpp"
@@ -34,7 +36,7 @@ namespace xiui
         std::string no_exp_reason{};
         bool food_ended{}, dedication_ended{};
         auto Update(IAshitaCore* core, uint64_t now) -> void;
-        auto HandlePacket(IAshitaCore* core, uint16_t id, std::span<const uint8_t> data, uint64_t now) -> void;
+        auto HandlePacket(IAshitaCore* core, uint16_t id, std::span<const uint8_t> data, uint64_t now, const combat_action_packet* decoded = nullptr) -> void;
         auto Load(const settings_store& store) -> void;
         auto Save(const settings_store& store) const -> void;
         auto Utc(void) const -> uint32_t { return this->utc_; }

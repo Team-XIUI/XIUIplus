@@ -1,5 +1,16 @@
 Set-StrictMode -Version Latest
 
+function Resolve-XiuiInstallPath {
+    param([string]$PreferredPath)
+    $Candidate = if (-not [string]::IsNullOrWhiteSpace($PreferredPath)) { $PreferredPath }
+        elseif (-not [string]::IsNullOrWhiteSpace($env:XIUI_INSTALL_PATH)) { $env:XIUI_INSTALL_PATH }
+        else { 'C:/Games/PhoenixXI-dev/PhoenixXI' }
+    if (-not (Test-Path -LiteralPath (Join-Path $Candidate 'plugins') -PathType Container)) {
+        throw 'Phoenix install not found. Pass -InstallPath pointing to the Phoenix folder containing plugins.'
+    }
+    return (Resolve-Path -LiteralPath $Candidate).Path
+}
+
 function Resolve-XiuiSdk {
     param([string]$PreferredPath)
 

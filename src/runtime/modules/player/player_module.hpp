@@ -98,6 +98,9 @@ namespace xiui
         auto Render(const hud_snapshot& snapshot, const module_render_context& context) -> void override;
 
     private:
+#if defined(XIUI_ENABLE_INPUT_TESTS)
+        friend struct config_input_test;
+#endif
         static constexpr size_t width_option = 9 + meter_style_option_count + text_profile_option_count;
         static constexpr size_t auto_mp_option = width_option + 1;
         static constexpr size_t timing_options_start = auto_mp_option + 1;

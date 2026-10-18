@@ -158,8 +158,8 @@ namespace xiui::ui
         static const auto sections = [] {
             std::array<module_config_section, 9> result{};
             std::copy(BarConfigSections().begin(), BarConfigSections().end(), result.begin());
-            result[7] = {"Attack Timing", "Cadence-style observed attack timing and TP estimates. Predictions are marked ~."};
-            result[8] = {"Recovery", "Resting ticks, HP / MP gains, recovery goals and optional completion sounds."};
+            result[7] = {"Attack Timing", "Cadence-style observed attack timing and TP estimates. Predictions are marked ~.", "attack-timing"};
+            result[8] = {"Recovery", "Resting ticks, HP / MP gains, recovery goals and optional completion sounds.", "recovery"};
             return result;
         }();
         return std::span{sections}.first(recovery ? 9 : 8);

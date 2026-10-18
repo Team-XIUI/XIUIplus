@@ -225,14 +225,16 @@ namespace xiui
             { this->recovery_.Contaminate(now); if (!own) this->tp_.Contaminate(now); }
     }
 
-    auto combat_timing_source::HandlePacket(IAshitaCore* core, const combat_source& combat, const uint16_t id, const std::span<const uint8_t> data, const uint64_t now) -> void
+    auto combat_timing_source::HandlePacket(IAshitaCore* core, const combat_source& combat, const uint16_t id, const std::span<const uint8_t> data, const uint64_t now, const combat_action_packet* decoded) -> void
     {
+        const combat_action_packet local{data};
+
         if (id == 0xA || id == 0xB) { this->Clear(); return; }
         if (core == nullptr) return;
         this->Update(core, combat, now);
         if (!this->player_) return;
         const auto clock = now / 1000.0;
-        if (id == 0x28) { if (const auto action = DecodeCombatAction(data)) this->Observe(*core, *action, clock); }
+        if (id == 0x28) { if (const auto& action = (decoded != nullptr ? *decoded : local).Action()) this->Observe(*core, *action, clock); }
         else if (id == 0x29 && data.size() >= 26)
         {
             uint32_t actor{}; uint16_t message{};

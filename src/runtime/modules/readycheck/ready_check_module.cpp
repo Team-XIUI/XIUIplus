@@ -86,10 +86,10 @@ namespace xiui
     auto ready_check_module::ConfigSections(void) const -> std::span<const module_config_section>
     {
         static constexpr module_config_section sections[]{
-            {"General", "Party-chat ready checks, optional summaries and notification sound."},
-            {"Layout", "Party columns, entry spacing and shared job icons."},
-            {"Appearance", "Native Window Type container and response colors."},
-            {"Text", "Independent heading, names, responses, details and button styles."}};
+            {"General", "Party-chat ready checks, optional summaries and notification sound.", "general"},
+            {"Layout", "Party columns, entry spacing and shared job icons.", "layout"},
+            {"Appearance", "Native Window Type container and response colors.", "appearance"},
+            {"Text", "Independent heading, names, responses, details and button styles.", "text"}};
         return sections;
     }
 

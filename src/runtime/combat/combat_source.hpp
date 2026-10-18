@@ -52,7 +52,7 @@ namespace xiui
             this->rules_ = rules;
         }
         auto Update(IAshitaCore* core, uint64_t now) -> void;
-        auto HandlePacket(IAshitaCore* core, uint16_t id, std::span<const uint8_t> data, uint64_t now) -> void;
+        auto HandlePacket(IAshitaCore* core, uint16_t id, std::span<const uint8_t> data, uint64_t now, const combat_action_packet* decoded = nullptr) -> void;
         auto Observe(const combat_action& action, IResourceManager* resources, uint64_t now) -> void;
         auto ApplyStatus(uint32_t target, uint32_t status, uint32_t spell, uint32_t message, uint64_t now, uint32_t seconds = 0) -> void;
         auto Find(uint32_t id) const -> const combat_actor*;

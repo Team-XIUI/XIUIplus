@@ -67,4 +67,23 @@ namespace xiui
         }
         return valid ? std::optional{result} : std::nullopt;
     }
+    class combat_action_packet
+    {
+    public:
+        explicit combat_action_packet(std::span<const uint8_t> bytes) : bytes_(bytes) {}
+        auto Action(void) const -> const std::optional<combat_action>&
+        {
+            if (!this->decoded_)
+            {
+                this->action_ = DecodeCombatAction(this->bytes_);
+                this->decoded_ = true;
+            }
+            return this->action_;
+        }
+
+    private:
+        std::span<const uint8_t> bytes_;
+        mutable std::optional<combat_action> action_{};
+        mutable bool decoded_{};
+    };
 } // namespace xiui

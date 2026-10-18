@@ -34,7 +34,7 @@ namespace xiui
         static constexpr size_t capacity = 32;
         auto Clear(void) -> void;
         auto Update(IAshitaCore* core, uint64_t now, bool includeSelected) -> void;
-        auto HandlePacket(IAshitaCore* core, uint16_t id, std::span<const uint8_t> data, uint64_t now) -> void;
+        auto HandlePacket(IAshitaCore* core, uint16_t id, std::span<const uint8_t> data, uint64_t now, const combat_action_packet* decoded = nullptr) -> void;
         auto Entries(void) const -> const std::vector<enemy_entry>& { return this->entries_; }
 
     private:

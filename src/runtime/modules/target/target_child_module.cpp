@@ -44,8 +44,8 @@ namespace xiui
         static const auto sections = [] {
             std::array<module_config_section, 9> result{};
             std::copy(BarConfigSections().begin(), BarConfigSections().end(), result.begin());
-            result[7] = {"Attack Timing", "Uses the main Target attack-timing preference."};
-            result[8] = {"Status Effects", "Independent subtarget icon layout and countdown presentation."};
+            result[7] = {"Attack Timing", "Uses the main Target attack-timing preference.", "attack-timing"};
+            result[8] = {"Status Effects", "Independent subtarget icon layout and countdown presentation.", "status-effects"};
             return result;
         }();
         return this->subtarget_ ? std::span<const module_config_section>{sections} : target_of_target_settings::ConfigSections();

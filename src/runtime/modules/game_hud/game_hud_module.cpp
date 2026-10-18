@@ -60,7 +60,7 @@ namespace xiui
     auto game_hud_module::ConfigSections(void) const -> std::span<const module_config_section>
     {
         static constexpr module_config_section sections[]{
-            {"General", "Choose which native game windows are visible."}};
+            {"General", "Choose which native game windows are visible.", "general"}};
         return sections;
     }
 

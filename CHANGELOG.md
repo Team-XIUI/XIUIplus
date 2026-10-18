@@ -2,6 +2,11 @@
 
 ## Unreleased
 
+- Preserve live timing/healing/sound dependencies during startup and prevent missed callback shutdown wake-ups.
+- Atomically merge settings snapshots, retain unknown fields/comments/Unicode files and reject non-finite numeric preferences.
+- Share combat packet decoding, stable settings topic identities, controller setup IDs and UTF-8 label fitting. Acquire optional artwork only when used.
+- Default build/install to the standalone Phoenix plugin, separate SDK discovery from the game destination, and require explicit isolated development mode for the two-DLL watcher.
+
 ## 1.0.3 — 2026-10-17
 
 - Move Keybinds into the sidebar below Hotbars → Actions and Crossbar → Controller Setup. Selecting it opens the slot list directly; retain saved bindings, workspace bounds and existing topic selections.

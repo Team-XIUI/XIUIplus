@@ -1,3 +1,4 @@
+#include "ui/text_fit.hpp"
 #include "actionbars_module.hpp"
 #include "config/config_controls.hpp"
 #include "ui/recast_icons.hpp"
@@ -46,19 +47,6 @@ namespace xiui
             frame.padding = 0; frame.glow = frame.shadow = false;
             design.DrawFocusFrame(bounds, frame);
         }
-        auto Fit(const ui::design_system& design, std::string text, const float width, const ui::text_style& style) -> std::string
-        {
-            if (width <= 0) return {};
-            if (design.MeasureText(text.c_str(), style) <= width) return text;
-            while (!text.empty())
-            {
-                size_t end = text.size() - 1;
-                while (end > 0 && (static_cast<unsigned char>(text[end]) & 0xC0) == 0x80) --end;
-                text.resize(end);
-                if (design.MeasureText((text + "...").c_str(), style) <= width) return text + "...";
-            }
-            return {};
-        }
         auto CompactBinding(std::string text) -> std::string
         {
             for (const auto& [from, to] : {std::pair{"Ctrl+", "C-"}, {"Alt+", "A-"}, {"Shift+", "S-"}, {"Num ", "N"}})
@@ -76,7 +64,7 @@ namespace xiui
             if (opacity < 1) profile = TintTextProfile(profile, Alpha(0xFFFFFFFF, opacity));
             const float height = design.TextHeight(profile.style);
             const ui::rect at{bounds.x + 2, bounds.y + static_cast<float>(row) * (bounds.height - height) / 2, std::max(1.0f, bounds.width - 4), height};
-            const auto label = Fit(design, text, at.width, profile.style);
+            const auto label = xiui::ui::FitText(design, text, at.width, profile.style);
             context.DrawText(label.c_str(), at, bounds, profile);
         }
         auto CooldownSweep(const ui::design_system& design, const ui::rect& bounds, const float ratio, const float radius, const D3DCOLOR color) -> void
@@ -385,7 +373,7 @@ namespace xiui
         {
             const auto name = slot.label.empty() ? availability.name.empty() ? slot.name : availability.name : slot.label;
             const auto profile = intensity < 1 ? TintTextProfile(this->text_[1], Alpha(0xFFFFFFFF, intensity)) : this->text_[1];
-            const auto label = Fit(design, name, bounds.width + bar.gap - 2, profile.style);
+            const auto label = xiui::ui::FitText(design, name, bounds.width + bar.gap - 2, profile.style);
             context.DrawText(label.c_str(), {contentBounds.x - bar.gap / 2, contentBounds.y + contentBounds.height + 1, contentBounds.width + bar.gap, design.TextHeight(profile.style)}, contentBounds, profile);
         }
     }
@@ -421,7 +409,7 @@ namespace xiui
             const auto* palette = this->store_ ? this->store_->ActivePalette(surface, bank) : nullptr;
             auto profile = TintTextProfile(this->text_[1], Contains(paletteBounds, this->hover_x_, this->hover_y_) ? colors.text : Alpha(colors.muted, 0.8f));
             profile.style.alignment = crossbar ? ui::text_alignment::center : ui::text_alignment::left;
-            const auto label = Fit(design, palette ? palette->name : "Default", paletteBounds.width - 12, profile.style);
+            const auto label = xiui::ui::FitText(design, palette ? palette->name : "Default", paletteBounds.width - 12, profile.style);
             context.DrawText(label.c_str(), paletteBounds, paletteBounds, profile);
             const float textWidth = design.MeasureText(label.c_str(), profile.style);
             const float arrowX = crossbar ? paletteBounds.x + (paletteBounds.width + textWidth) / 2 + 4 : paletteBounds.x + textWidth + 4;
@@ -446,7 +434,7 @@ namespace xiui
             {
                 auto profile = TintTextProfile(this->text_[2], Alpha(0xFFFFFFFF, opacity));
                 profile.style.alignment = ui::text_alignment::center;
-                const auto label = Fit(design, prompt.label, at.width + 4, profile.style);
+                const auto label = xiui::ui::FitText(design, prompt.label, at.width + 4, profile.style);
                 context.DrawText(label.c_str(), {at.x - 2, at.y, at.width + 4, at.height}, at, profile);
             }
         };
@@ -568,7 +556,7 @@ namespace xiui
         for (size_t index = 0; index < lines.size(); ++index)
         {
             const auto profile = index == 0 ? TintTextProfile(this->text_[4], design.GetTheme().colors.gold) : this->text_[4];
-            const auto line = Fit(design, lines[index], width - 24, profile.style);
+            const auto line = xiui::ui::FitText(design, lines[index], width - 24, profile.style);
             context.DrawText(line.c_str(), {bounds.x + 12, bounds.y + 9 + static_cast<float>(index) * pitch, width - 24, pitch}, bounds, profile);
         }
     }

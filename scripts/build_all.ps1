@@ -1,14 +1,27 @@
 param(
     [switch]$SkipInstall,
     [switch]$RuntimeOnly,
+    [switch]$Development,
     [switch]$SkipTests,
-    [string]$SdkPath
+    [string]$SdkPath,
+    [string]$InstallPath
 )
 
 $ErrorActionPreference = 'Stop'
 . (Join-Path $PSScriptRoot 'common.ps1')
 
 $Root = Split-Path -Parent $PSScriptRoot
+if ($RuntimeOnly -and -not $Development) { throw '-RuntimeOnly requires the optional -Development host. Normal Phoenix installs use one standalone DLL.' }
+if (-not $Development) {
+    & (Join-Path $PSScriptRoot 'package.ps1') -SdkPath $SdkPath
+    if ($SkipInstall) { return }
+    $PhoenixInstall = Resolve-XiuiInstallPath -PreferredPath $InstallPath
+    try { Publish-XiuiAtomic -Source (Join-Path $Root 'dist/xiuinative.dll') -Destination (Join-Path $PhoenixInstall 'plugins/xiuinative.dll') }
+    catch { throw "Could not install the standalone DLL. Unload XIUI with '/unload xiuinative', then retry. $($_.Exception.Message)" }
+    Write-Output "Installed standalone XIUI into $PhoenixInstall/plugins/xiuinative.dll"
+    return
+}
+if (-not $SkipInstall -and [string]::IsNullOrWhiteSpace($InstallPath)) { throw '-Development requires an explicit -InstallPath for its isolated install.' }
 $Sdk = Resolve-XiuiSdk -PreferredPath $SdkPath
 $VisualStudio = Resolve-XiuiVisualStudio
 $CMake = Resolve-XiuiCMake -VisualStudioPath $VisualStudio
@@ -101,10 +114,13 @@ if ($SkipInstall) {
     return
 }
 
-$AshitaRoot = Split-Path -Parent (Split-Path -Parent $Sdk)
+$AshitaRoot = Resolve-XiuiInstallPath -PreferredPath $InstallPath
 $PluginDir = Join-Path $AshitaRoot 'plugins'
 $ConfigDir = Join-Path $AshitaRoot 'config'
 $InstalledHost = Join-Path $PluginDir 'xiuinative.dll'
+if ($RuntimeOnly -and ((-not (Test-Path -LiteralPath $InstalledHost)) -or (Get-Sha256 $InstalledHost) -ne $HostHash)) {
+    throw 'The selected install does not contain the matching development host. Use the standalone build, or set up an explicit development install first.'
+}
 $PublishedRuntime = Join-Path $PluginDir 'xiuinative-runtime.dll'
 $InstalledTheme = Join-Path $ConfigDir 'xiuinative-theme.ini'
 $PartyNotices = Join-Path $PluginDir 'xiuinative-licenses'

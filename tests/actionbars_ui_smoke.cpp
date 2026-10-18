@@ -1352,7 +1352,9 @@ namespace xiui
             Check(runtime->active_config_section_ == 3 && std::string{module.ConfigSections()[3].name} == "Layout", "old crossbar topic selections retain their destination");
             runtime->active_config_section_ = 2;
             runtime->SaveConfigSelection(legacy);
+            legacy.WriteInt("session.config", "section", 8);
             runtime->LoadConfigSelection(legacy);
+            Check(legacy.ReadString("session.config", "topic_id") == "keybinds", "topic identity persists independently of its ordinal");
             Check(runtime->active_config_section_ == 2 && !module.DialogOpen(), "new Keybinds topic selections round trip without reopening transient workspaces");
         }
         static auto Run(void) -> void { ControllerVisuals(); Ownership(); DirectInteraction(); LibraryPlacement(); BarControlsAndCrossbarGeometry(); EmptyBarEditBounds(); Editing(); KeyboardAndCrossbar(); Persistence(); SlotStylePersistence(); SlotStyleCompatibility(); SlotFrameProfileOverlay(); SlotTextDefaults(); SlotStyleActions(); SlotStyleGeometry(); Keybinds(); ControllerSetup(); RuntimeOwnership(); NativeMacroKeyboardOwnership(); EditModeManagement(); DependentSettings(); WorkspaceCursors(); FloatingWorkspaces(); LibraryCategories(); LibraryLayoutAndSearch(); LibraryGridNavigation(); Configuration(); }

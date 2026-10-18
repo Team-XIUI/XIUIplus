@@ -33,7 +33,7 @@ namespace xiui
     auto command_menu_module::ConfigSections(void) const -> std::span<const module_config_section>
     {
         static constexpr module_config_section sections[]{
-            {"General", "Move command menus and align each connected window to the selected top or bottom edge."}};
+            {"General", "Move command menus and align each connected window to the selected top or bottom edge.", "general"}};
         return sections;
     }
 

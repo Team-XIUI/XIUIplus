@@ -53,10 +53,10 @@ namespace xiui
     auto compass_module::ConfigSections(void) const -> std::span<const module_config_section>
     {
         static constexpr module_config_section sections[]{
-            {"General", "Compass visibility, direction labels and heading."},
-            {"Markers", "Party, alliance and target markers with their display range."},
-            {"Appearance", "Native compass size and opacity."},
-            {"Heading Text", "Heading text size, colors, effects and offsets."}};
+            {"General", "Compass visibility, direction labels and heading.", "general"},
+            {"Markers", "Party, alliance and target markers with their display range.", "markers"},
+            {"Appearance", "Native compass size and opacity.", "appearance"},
+            {"Heading Text", "Heading text size, colors, effects and offsets.", "heading-text"}};
         return sections;
     }
 

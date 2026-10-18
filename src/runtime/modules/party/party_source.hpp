@@ -59,7 +59,7 @@ namespace xiui
         auto Update(IAshitaCore* core, uint64_t now) -> void;
         auto SetUtc(uint32_t utc, uint64_t sampledAt) -> void { this->utc_ = utc; this->utc_sampled_at_ = sampledAt; }
         auto Resources(void) const -> IResourceManager* { return this->resources_; }
-        auto HandlePacket(IAshitaCore* core, uint16_t id, std::span<const uint8_t> data, uint64_t now) -> void;
+        auto HandlePacket(IAshitaCore* core, uint16_t id, std::span<const uint8_t> data, uint64_t now, const combat_action_packet* decoded = nullptr) -> void;
         auto Members(void) const -> const std::array<party_member, 18>& { return this->members_; }
         auto Count(size_t group) const -> size_t;
         auto InAlliance(void) const -> bool { return this->Count(1) != 0 || this->Count(2) != 0; }

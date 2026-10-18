@@ -282,14 +282,16 @@ namespace xiui
             return window.index == 0 || window.index >= entity->GetEntityMapSize() || entity->GetServerId(window.index) != window.target || entity->GetHPPercent(window.index) == 0;
         });
     }
-    auto skillchain_source::HandlePacket(IAshitaCore* core, const uint16_t id, const std::span<const uint8_t> data, const uint64_t now) -> void
+    auto skillchain_source::HandlePacket(IAshitaCore* core, const uint16_t id, const std::span<const uint8_t> data, const uint64_t now, const combat_action_packet* decoded) -> void
     {
+        const combat_action_packet local{data};
+
         if (id == 0xA || id == 0xB) { this->Clear(); return; }
         this->Update(core, now);
         if (this->player_ == 0) return;
         if (id == 0x28)
         {
-            if (const auto action = DecodeCombatAction(data))
+            if (const auto& action = (decoded != nullptr ? *decoded : local).Action())
             {
                 uint8_t element{255};
                 if (action->category == 4 && core->GetResourceManager() != nullptr)

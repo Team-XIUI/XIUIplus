@@ -8,10 +8,6 @@ namespace xiui
 {
     namespace
     {
-        constexpr int close_setup = 500, use_triggers = 600, ordered_banks = 602, double_banks = 603;
-        constexpr int setup_palette_cycle = 604, palette_shoulder = 605, mapping_backend = 606, mapping_preset = 607;
-        constexpr int mapping_first = 620, trigger_press = 640, trigger_release = 641, setup_double_window = 642, minimum_hold = 643;
-        constexpr int tab_first = 650, label_first = 8000;
         constexpr const char* tab_names[]{"General", "Mappings", "Timing"};
         constexpr const char* preset_names[]{"FFXI bindings", "Xbox", "PlayStation", "Nintendo", "Custom"};
         auto Contains(const ui::rect& bounds, const float x, const float y) -> bool

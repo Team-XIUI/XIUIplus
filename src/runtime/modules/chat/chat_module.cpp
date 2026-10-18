@@ -286,15 +286,15 @@ namespace xiui
     auto chat_module::ConfigSections(void) const -> std::span<const module_config_section>
     {
         static constexpr module_config_section sections[]{
-            {"General", "Window visibility, default send channel and the optional second window."},
-            {"Messages", "Native message filters, timestamps and optional window tabs."},
-            {"Layout", "Window dimensions, inner padding and message spacing."},
-            {"Appearance", "Chat container opacity using the game's Window Type."},
-            {"Text", "Message text size, colors, effects and offsets."},
-            {"Sounds", "Choose a sound for each chat type and keyword alerts. Shared by both windows."},
-            {"Colors", "XIUI colors override your game settings colors. Choose Game to restore native colors."},
-            {"Native Filters", "The game's Chat Filters and per-window Log routing. Changes apply to the native game and XIUI."},
-            {"Animation", "How newly arriving messages enter this chat window."}};
+            {"General", "Window visibility, default send channel and the optional second window.", "general"},
+            {"Messages", "Native message filters, timestamps and optional window tabs.", "messages"},
+            {"Layout", "Window dimensions, inner padding and message spacing.", "layout"},
+            {"Appearance", "Chat container opacity using the game's Window Type.", "appearance"},
+            {"Text", "Message text size, colors, effects and offsets.", "text"},
+            {"Sounds", "Choose a sound for each chat type and keyword alerts. Shared by both windows.", "sounds"},
+            {"Colors", "XIUI colors override your game settings colors. Choose Game to restore native colors.", "colors"},
+            {"Native Filters", "The game's Chat Filters and per-window Log routing. Changes apply to the native game and XIUI.", "native-filters"},
+            {"Animation", "How newly arriving messages enter this chat window.", "animation"}};
         return sections;
     }
 

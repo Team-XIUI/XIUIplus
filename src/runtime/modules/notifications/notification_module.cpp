@@ -247,12 +247,12 @@ namespace xiui
     auto notification_module::ConfigSections(void) const -> std::span<const module_config_section>
     {
         static constexpr module_config_section sections[]{
-            {"General", "Enable notifications and choose how many independent groups to use."},
-            {"Events", "Global event switches and exactly one destination group per notification type."},
-            {"Layout", "Select a group, then customize its position, direction, width, rows and spacing."},
-            {"Appearance", "Independent group backgrounds and event colors."},
-            {"Animation", "Per-group lifetime, movement and compact pinned invitations."},
-            {"Text", "Shared text styling for the selected notification group."}};
+            {"General", "Enable notifications and choose how many independent groups to use.", "general"},
+            {"Events", "Global event switches and exactly one destination group per notification type.", "events"},
+            {"Layout", "Select a group, then customize its position, direction, width, rows and spacing.", "layout"},
+            {"Appearance", "Independent group backgrounds and event colors.", "appearance"},
+            {"Animation", "Per-group lifetime, movement and compact pinned invitations.", "animation"},
+            {"Text", "Shared text styling for the selected notification group.", "text"}};
         return sections;
     }
 

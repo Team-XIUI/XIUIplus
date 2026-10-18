@@ -145,6 +145,14 @@ namespace xiui
         enum class control_kind : uint8_t { button, field, choice, list, toggle, label, slider, dropdown };
         enum class window_gesture : uint8_t { none, move, resize };
         enum class slot_pass : uint8_t { all, background, content, foreground };
+        enum setup_control : int
+        {
+            close_setup = 500, use_triggers = 600, ordered_banks = 602, double_banks = 603,
+            setup_palette_cycle = 604, palette_shoulder = 605, mapping_backend = 606, mapping_preset = 607,
+            mapping_first = 620, slot_mapping_first = mapping_first + 3,
+            trigger_press = 640, trigger_release = 641, setup_double_window = 642, minimum_hold = 643,
+            tab_first = 650, label_first = 8000
+        };
         enum keybind_control : int { keybind_bar = 1100, keybind_bank, keybind_key_first = 1200, keybind_clear_first = 1300 };
         struct address
         {

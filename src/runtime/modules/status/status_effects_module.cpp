@@ -85,10 +85,10 @@ namespace xiui
     auto status_effects_module::ConfigSections(void) const -> std::span<const module_config_section>
     {
         static constexpr module_config_section sections[]{
-            {"General", "Your current native status effects and available countdowns."},
-            {"Layout", "Independent group position, wrapping, icon size and spacing."},
-            {"Appearance", "Native status artwork and optional window background."},
-            {"Text", "Heading, countdown and game effect details."}};
+            {"General", "Your current native status effects and available countdowns.", "general"},
+            {"Layout", "Independent group position, wrapping, icon size and spacing.", "layout"},
+            {"Appearance", "Native status artwork and optional window background.", "appearance"},
+            {"Text", "Heading, countdown and game effect details.", "text"}};
         return sections;
     }
 

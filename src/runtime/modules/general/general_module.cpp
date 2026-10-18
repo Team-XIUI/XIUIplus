@@ -229,12 +229,12 @@ namespace xiui
     auto general_module::ConfigSections(void) const -> std::span<const module_config_section>
     {
         static constexpr module_config_section sections[]{
-            {"Appearance", "Window appearance and global HUD text defaults. Individual text settings can override global changes."},
-            {"Enabled Modules", "Disabled modules leave the sidebar. Shared pages remain while any member is enabled."},
-            {"Attribution", "Project credits, Ashita and the original XIUI contributors."},
-            {"Grid", "Edit-mode grid and shared edge/center snapping for every movable HUD element. Existing positions stay in place until dragged."},
-            {"Input", "Controller presentation, input readiness and navigation help. Device and gamepad configuration remain unchanged."},
-            {"Visibility", "Shared and per-module event/menu hiding. Temporary hiding preserves enabled modules and saved layouts; edit mode shows their previews."}};
+            {"Appearance", "Window appearance and global HUD text defaults. Individual text settings can override global changes.", "appearance"},
+            {"Enabled Modules", "Disabled modules leave the sidebar. Shared pages remain while any member is enabled.", "enabled-modules"},
+            {"Attribution", "Project credits, Ashita and the original XIUI contributors.", "attribution"},
+            {"Grid", "Edit-mode grid and shared edge/center snapping for every movable HUD element. Existing positions stay in place until dragged.", "grid"},
+            {"Input", "Controller presentation, input readiness and navigation help. Device and gamepad configuration remain unchanged.", "input"},
+            {"Visibility", "Shared and per-module event/menu hiding. Temporary hiding preserves enabled modules and saved layouts; edit mode shows their previews.", "visibility"}};
         return sections;
     }
 

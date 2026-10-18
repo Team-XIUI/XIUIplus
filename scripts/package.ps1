@@ -1,6 +1,7 @@
 param(
     [switch]$SkipBuild,
-    [string]$OutputDirectory
+    [string]$OutputDirectory,
+    [string]$SdkPath
 )
 
 $ErrorActionPreference = 'Stop'
@@ -12,7 +13,7 @@ if (-not $SkipBuild) {
     $VisualStudio = Resolve-XiuiVisualStudio
     $CMake = Resolve-XiuiCMake -VisualStudioPath $VisualStudio
     $VcVars = Join-Path $VisualStudio 'VC/Auxiliary/Build/vcvarsall.bat'
-    $Sdk = Resolve-XiuiSdk
+    $Sdk = Resolve-XiuiSdk -PreferredPath $SdkPath
     $BuildCommand = 'call "' + $VcVars + '" x86 && set "ASHITA4_SDK_PATH=' + $Sdk + '" && "' + $CMake + '" --preset msvc-x86-release && "' + $CMake + '" --build --preset release --target xiuinative_release xiui_single_dll_smoke xiui_resource_smoke'
     Push-Location $Root
     try {

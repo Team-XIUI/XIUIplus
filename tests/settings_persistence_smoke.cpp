@@ -92,6 +92,33 @@ int main(void)
     if (!check(store.Flush() && contents(path).find("; keep this comment") != std::string::npos &&
         disk.ReadInt("custom", "unknown", 0) == 42, "saves preserve unrelated keys and comments")) return 1;
 
+    for (const auto* value : {"nan", "inf", "-inf", "1e999"})
+    {
+        store.WriteString("invalid", "number", value);
+        if (!check(store.ReadFloat("invalid", "number", 7) == 7 && store.Flush() &&
+            disk.ReadFloat("invalid", "number", 7) == 7 && xiui::settings_store::CachedFile(path.string()).ReadFloat("invalid", "number", 7) == 7,
+            "non-finite numbers use the same fallback in staged, cached and disk settings")) return 1;
+    }
+    const auto beforeFailure = contents(path);
+    const auto heldFile = ::CreateFileA(path.string().c_str(), GENERIC_READ, FILE_SHARE_READ, nullptr, OPEN_EXISTING, FILE_ATTRIBUTE_NORMAL, nullptr);
+    if (!check(heldFile != INVALID_HANDLE_VALUE, "lock the original file for an interrupted publication")) return 1;
+    store.WriteInt("general", "count", 123);
+    const bool failedAtomically = !store.Flush() && contents(path) == beforeFailure;
+    ::CloseHandle(heldFile);
+    if (!check(failedAtomically && store.Flush() && disk.ReadInt("general", "count", 0) == 123,
+        "failed replacement retains the whole original and can retry the pending snapshot")) return 1;
+    const auto widePath = root / "unicode.ini";
+    {
+        const std::wstring text = L"\xFEFF[values]\r\n; Unicode comment \x03A9\r\ncount=1\r\nunknown=keep\r\n";
+        std::ofstream file{widePath, std::ios::binary};
+        file.write(reinterpret_cast<const char*>(text.data()), static_cast<std::streamsize>(text.size() * sizeof(wchar_t)));
+    }
+    xiui::settings_store wide{widePath.string()};
+    wide.WriteInt("values", "count", 2);
+    if (!check(wide.Flush() && xiui::settings_store{widePath.string()}.ReadInt("values", "count", 0) == 2 &&
+        xiui::settings_store{widePath.string()}.ReadString("values", "unknown") == "keep" && contents(widePath).starts_with("\xFF\xFE"),
+        "atomic updates preserve UTF-16 INI encoding and unrelated fields")) return 1;
+
     xiui::settings_writer writer;
     const auto start = std::chrono::steady_clock::now();
     for (int revision = 0; revision < 100; ++revision)
@@ -137,7 +164,7 @@ int main(void)
     retry.Stop();
     if (!check(!retry.Flush(), "repeated shutdown after a failed write cannot wait on a stopped worker")) return 1;
 
-    std::printf("Settings staging, delta writes, coalescing, shutdown, and failure recovery passed.\n");
+    std::printf("Settings staging, atomic merging, numeric fallbacks, coalescing, shutdown and failure recovery passed.\n");
     std::printf("100 snapshots queued in %.2f ms; persistence settled in %.2f ms.\n",
         std::chrono::duration<double, std::milli>(queued - start).count(),
         std::chrono::duration<double, std::milli>(settled - queued).count());

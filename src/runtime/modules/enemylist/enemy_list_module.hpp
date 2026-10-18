@@ -1,5 +1,7 @@
 #pragma once
 
+#include "combat/action_packet.hpp"
+
 #include "../module.hpp"
 #include "enemy_source.hpp"
 #include "combat/combat_source.hpp"
@@ -30,7 +32,7 @@ namespace xiui
         auto ShouldRender(const hud_snapshot&) const -> bool override { return this->state_.enabled && !this->source_.Entries().empty(); }
         auto Render(const hud_snapshot& snapshot, const module_render_context& context) -> void override;
         auto Update(IAshitaCore* core, uint64_t now) -> void;
-        auto HandlePacket(IAshitaCore* core, uint16_t id, std::span<const uint8_t> data, uint64_t now) -> void;
+        auto HandlePacket(IAshitaCore* core, uint16_t id, std::span<const uint8_t> data, uint64_t now, const combat_action_packet* decoded = nullptr) -> void;
         auto Count(void) const -> size_t { return this->source_.Entries().size(); }
         auto SetCombat(const combat_source* source) -> void { this->combat_ = source; }
         auto SetTiming(const combat_timing_source* source) -> void { this->timing_ = source; }
@@ -49,6 +51,9 @@ namespace xiui
         auto RenderStatusTooltip(const module_render_context& context, IResourceManager* resources, float x, float y, bool controller = false) const -> void;
 
     private:
+#if defined(XIUI_ENABLE_INPUT_TESTS)
+        friend struct config_input_test;
+#endif
 #if defined(XIUI_ENABLE_PARITY_TESTS)
         friend struct module_parity_test;
         friend struct enemy_list_layout_test;

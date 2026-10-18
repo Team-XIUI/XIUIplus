@@ -152,10 +152,10 @@ namespace xiui
     auto minimap_module::ConfigSections(void) const -> std::span<const module_config_section>
     {
         static constexpr module_config_section sections[]{
-            {"General", "Map artwork, shape and zoom. Enhanced maps use Remapster art (CC BY-SA 4.0)."},
-            {"Appearance", "Map dimensions, rounded corners, drop shadow, background, frame and opacity."},
-            {"Markers", "Facing cone, green NPC dots, party, alliance, pet and selected target."},
-            {"Text", "Choose Labels or Zoom to edit visibility, position offsets and text styling independently."}};
+            {"General", "Map artwork, shape and zoom. Enhanced maps use Remapster art (CC BY-SA 4.0).", "general"},
+            {"Appearance", "Map dimensions, rounded corners, drop shadow, background, frame and opacity.", "appearance"},
+            {"Markers", "Facing cone, green NPC dots, party, alliance, pet and selected target.", "markers"},
+            {"Text", "Choose Labels or Zoom to edit visibility, position offsets and text styling independently.", "text"}};
         return sections;
     }
 

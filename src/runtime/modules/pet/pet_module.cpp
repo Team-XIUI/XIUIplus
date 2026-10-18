@@ -256,8 +256,8 @@ namespace xiui
     auto pet_module::ConfigSections(void) const -> std::span<const module_config_section>
     {
         static const auto sections = [] { std::array<module_config_section, 9> result{}; std::copy(BarConfigSections().begin(), BarConfigSections().end(), result.begin());
-            result[7] = {"Statuses", "Observed pet effects, native icons and unknown-duration presentation."};
-            result[8] = {"Portrait", "Avatar artwork, independent image offsets, scale, opacity and clipping."}; return result; }();
+            result[7] = {"Statuses", "Observed pet effects, native icons and unknown-duration presentation.", "statuses"};
+            result[8] = {"Portrait", "Avatar artwork, independent image offsets, scale, opacity and clipping.", "portrait"}; return result; }();
         return this->TargetConfig() ? BarConfigSections() : std::span<const module_config_section>{sections};
     }
     auto pet_module::ConfigSectionContains(const size_t section, const size_t index) -> bool

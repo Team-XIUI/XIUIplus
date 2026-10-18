@@ -51,9 +51,9 @@ namespace xiui
         if (index == goal_target_option) this->goal_alerted_ = false;
     }
 
-    auto experience_module::HandlePacket(IAshitaCore* core, const uint16_t id, const std::span<const uint8_t> data, const uint64_t now) -> void
+    auto experience_module::HandlePacket(IAshitaCore* core, const uint16_t id, const std::span<const uint8_t> data, const uint64_t now, const combat_action_packet* decoded) -> void
     {
-        this->source_.HandlePacket(core, id, data, now);
+        this->source_.HandlePacket(core, id, data, now, decoded);
     }
 
     auto experience_module::NeedsSave(const uint64_t now) -> bool

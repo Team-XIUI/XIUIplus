@@ -171,10 +171,10 @@ namespace xiui
     auto satchel_module::ConfigSections(void) const -> std::span<const module_config_section>
     {
         static constexpr module_config_section sections[]{
-            {"General", "Open with /xiui satchel. Browse current bags, saved characters and Porter Moogle slips."},
-            {"Layout", "Grid dimensions and display order. Custom positions are saved locally for each character and view."},
-            {"Appearance", "Native item artwork and the shared game window."},
-            {"Text", "Title, captions, quantities and item details retain their configured effects."}};
+            {"General", "Open with /xiui satchel. Browse current bags, saved characters and Porter Moogle slips.", "general"},
+            {"Layout", "Grid dimensions and display order. Custom positions are saved locally for each character and view.", "layout"},
+            {"Appearance", "Native item artwork and the shared game window.", "appearance"},
+            {"Text", "Title, captions, quantities and item details retain their configured effects.", "text"}};
         return sections;
     }
 

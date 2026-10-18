@@ -1,3 +1,4 @@
+#include "ui/text_fit.hpp"
 #include "party_module.hpp"
 #include "ui/health_colors.hpp"
 #include "modules/bar_config.hpp"
@@ -25,19 +26,6 @@ namespace
         const auto loaded = resource != nullptr ? ::LoadResource(module, resource) : nullptr;
         const auto* bytes = loaded != nullptr ? static_cast<const char*>(::LockResource(loaded)) : nullptr;
         return bytes != nullptr ? std::string_view{bytes, ::SizeofResource(module, resource)} : std::string_view{};
-    }
-
-    auto FitText(const xiui::ui::design_system& design, std::string text, const float width, const xiui::ui::text_style& style) -> std::string
-    {
-        if (design.MeasureText(text.c_str(), style) <= width) return text;
-        while (!text.empty())
-        {
-            size_t last = text.size() - 1;
-            while (last > 0 && (static_cast<unsigned char>(text[last]) & 0xC0) == 0x80) --last;
-            text.resize(last);
-            if (design.MeasureText((text + "...").c_str(), style) <= width) return text + "...";
-        }
-        return {};
     }
 
     auto JobText(const xiui::party_member& member, const bool mainLevel, const bool subJob, const bool subLevel, const bool masterLevel) -> std::string
@@ -522,19 +510,19 @@ namespace xiui
     auto party_module::ConfigSections(void) const -> std::span<const module_config_section>
     {
         static constexpr std::array<module_config_section, section_count> sections{{
-            {"General", "Visibility, preview and distance."},
-            {"Layout", "Resource layout, selected bar width and height, positions and offsets."},
-            {"Job Icons", "Icon visibility, size, anchoring and offsets. Job text is under Text > Jobs."},
-            {"Resources", "Choose HP, MP, TP and cast information to display."},
-            {"Bar Style", "Choose a bar, then adjust its theme, shape and bookends."},
-            {"Animation", "Smooth fill changes and animated sheen for the selected bar."},
-            {"Bar Effects", "Shadows and glows for the selected bar."},
-            {"Colors", "Resource fills, state colors and bar tints."},
-            {"Status Effects", "Choose combined effects or split rows, then edit the settings for that mode."},
-            {"Text", "Choose an element to edit its display, layout, font, offsets, colors and effects together."},
-            {"Selection", "Target and subtarget colors, background tint, padding and arrow."},
-            {"Tickers", "Swing and resting timing for you and observable party members. Other members' timing is estimated."},
-            {"Window", "Overall list width, entry spacing, reserved rows, padding and opacity."}}};
+            {"General", "Visibility, preview and distance.", "general"},
+            {"Layout", "Resource layout, selected bar width and height, positions and offsets.", "layout"},
+            {"Job Icons", "Icon visibility, size, anchoring and offsets. Job text is under Text > Jobs.", "job-icons"},
+            {"Resources", "Choose HP, MP, TP and cast information to display.", "resources"},
+            {"Bar Style", "Choose a bar, then adjust its theme, shape and bookends.", "bar-style"},
+            {"Animation", "Smooth fill changes and animated sheen for the selected bar.", "animation"},
+            {"Bar Effects", "Shadows and glows for the selected bar.", "bar-effects"},
+            {"Colors", "Resource fills, state colors and bar tints.", "colors"},
+            {"Status Effects", "Choose combined effects or split rows, then edit the settings for that mode.", "status-effects"},
+            {"Text", "Choose an element to edit its display, layout, font, offsets, colors and effects together.", "text"},
+            {"Selection", "Target and subtarget colors, background tint, padding and arrow.", "selection"},
+            {"Tickers", "Swing and resting timing for you and observable party members. Other members' timing is estimated.", "tickers"},
+            {"Window", "Overall list width, entry spacing, reserved rows, padding and opacity.", "window"}}};
         return sections;
     }
 
@@ -1054,7 +1042,7 @@ namespace xiui
         if (layout.framed) context.DrawContainer(layout.bounds, this->status_container_);
         const auto text = [&](std::string value, size_t index) {
             const auto bounds = this->StatusIconBounds(layout, index);
-            value = FitText(context.Design(), std::move(value), bounds.width, this->text_[1].style);
+            value = xiui::ui::FitText(context.Design(), std::move(value), bounds.width, this->text_[1].style);
             context.DrawText(value.c_str(), bounds, bounds, this->text_[1]);
         };
         for (size_t i = 0; i < layout.count; ++i)
@@ -1086,7 +1074,7 @@ namespace xiui
         auto profile = this->text_[5];
         profile.style.alignment = this->cast_placement_ == cast_name ? ui::text_alignment::left : ui::text_alignment::center;
         auto style = this->meters_[3];
-        const auto label = FitText(context.Design(), cast.interrupted != 0 ? "Interrupted" : cast.name,
+        const auto label = xiui::ui::FitText(context.Design(), cast.interrupted != 0 ? "Interrupted" : cast.name,
             context.MeterTextBounds(bar, style).width, profile.style);
         style.animation_enabled = false;
         meter_animation_state animation{};
@@ -1099,7 +1087,7 @@ namespace xiui
         const auto& design = context.Design();
         const auto text = [&](std::string value, const ui::rect& bounds, const size_t profile, const std::optional<D3DCOLOR> tint = std::nullopt) {
             const auto style = tint ? TintTextProfile(this->text_[profile], *tint) : this->text_[profile];
-            value = FitText(design, std::move(value), bounds.width, style.style);
+            value = xiui::ui::FitText(design, std::move(value), bounds.width, style.style);
             context.DrawText(value.c_str(), bounds, bounds, style);
         };
         if (this->selection_ && member.selected && !(this->ControllerFocused() && this->controller_member_id_ == member.id))
@@ -1130,7 +1118,7 @@ namespace xiui
         const bool nameCast = casting && this->cast_placement_ == cast_name;
         const float nameRoom = std::max(0.0f, nameBounds.width - std::max(0.0f, this->text_[0].offset_x) -
             (this->text_[0].placement != 0 ? 8.0f : 0));
-        const auto fittedName = FitText(design, member.name, nameRoom, this->text_[0].style);
+        const auto fittedName = xiui::ui::FitText(design, member.name, nameRoom, this->text_[0].style);
         const auto visibleName = context.TextBounds(fittedName.c_str(), nameBounds, nameBounds, this->text_[0]);
         const auto castArea = this->NameCastArea(nameBounds, visibleName.x);
         if (nameCast) this->DrawCast(member.cast, castArea, now, context);
@@ -1168,7 +1156,7 @@ namespace xiui
         {
             const auto content = context.DrawContainer(entry.zone, this->ZoneStyle());
             const auto& profile = this->text_[zone_text];
-            const auto zone = FitText(design, member.zone_name, content.width, profile.style);
+            const auto zone = xiui::ui::FitText(design, member.zone_name, content.width, profile.style);
             context.DrawText(zone.c_str(), content, content, profile);
             drawIdentity();
             return;
@@ -1213,8 +1201,8 @@ namespace xiui
                 fillTop = (fillTop & 0xFFFFFF) | (((fillTop >> 24) * alpha / 255) << 24);
             }
             const float textWidth = context.MeterTextBounds(bounds, this->meters_[index]).width;
-            const auto fitted = FitText(design, value, textWidth, valueStyle.style);
-            const auto label = FitText(design, !this->labels_ ? "" : index == 0 ? "HP" : index == 1 ? "MP" : "TP", textWidth, this->text_[2].style);
+            const auto fitted = xiui::ui::FitText(design, value, textWidth, valueStyle.style);
+            const auto label = xiui::ui::FitText(design, !this->labels_ ? "" : index == 0 ? "HP" : index == 1 ? "MP" : "TP", textWidth, this->text_[2].style);
             std::array<ui::meter_strip, 2> strips{};
             size_t stripCount{};
             if (index == 0)

@@ -1,5 +1,7 @@
 #pragma once
 
+#include "combat/action_packet.hpp"
+
 #include "../module.hpp"
 #include "progression.hpp"
 #include "experience_source.hpp"
@@ -69,7 +71,7 @@ namespace xiui
         auto ShouldRender(const hud_snapshot& snapshot) const -> bool override;
         auto Render(const hud_snapshot& snapshot, const module_render_context& context) -> void override;
         auto Update(IAshitaCore* core, uint64_t now) -> void;
-        auto HandlePacket(IAshitaCore* core, uint16_t id, std::span<const uint8_t> data, uint64_t now) -> void;
+        auto HandlePacket(IAshitaCore* core, uint16_t id, std::span<const uint8_t> data, uint64_t now, const combat_action_packet* decoded = nullptr) -> void;
         auto HandleCommand(IAshitaCore* core, std::string_view command) -> bool;
         auto NeedsSave(uint64_t now) -> bool;
         auto Progression(void) const -> const progression_state& { return this->progression_; }

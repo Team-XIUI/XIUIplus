@@ -170,19 +170,19 @@ namespace xiui
     auto target_module::ConfigSections(void) const -> std::span<const module_config_section>
     {
         static constexpr module_config_section sections[]{
-            {"General", "Visibility and information shown by this module."}, {"Layout", "Bar width and placement."},
-            {"Bar Style", "Window theme or Modern bars, shape and bookends."}, {"Animation", "Resource change animation."},
-            {"Effects", "Bar shadows and glow."}, {"Colors", "Resource fills and bar effects."},
-            {"Text", "Choose a text element and edit its style, effects and offsets."}, {"Attack Timing", "Observed attack timing."},
-            {"Status Effects", "Native icons, countdowns, placement and effect details."},
-            {"Cast Bar", "Independent main-target cast layout and effects."}, {"Entity Colors", "Shared name colors and optional HP gradients by entity type and claim."},
-            {"Mob Info", "Static monster data integrated into Target. Uses the pinned HeadsUp Phoenix snapshot; unavailable records stay hidden."}};
+            {"General", "Visibility and information shown by this module.", "general"}, {"Layout", "Bar width and placement.", "layout"},
+            {"Bar Style", "Window theme or Modern bars, shape and bookends.", "bar-style"}, {"Animation", "Resource change animation.", "animation"},
+            {"Effects", "Bar shadows and glow.", "effects"}, {"Colors", "Resource fills and bar effects.", "colors"},
+            {"Text", "Choose a text element and edit its style, effects and offsets.", "text"}, {"Attack Timing", "Observed attack timing.", "attack-timing"},
+            {"Status Effects", "Native icons, countdowns, placement and effect details.", "status-effects"},
+            {"Cast Bar", "Independent main-target cast layout and effects.", "cast-bar"}, {"Entity Colors", "Shared name colors and optional HP gradients by entity type and claim.", "entity-colors"},
+            {"Mob Info", "Static monster data integrated into Target. Uses the pinned HeadsUp Phoenix snapshot; unavailable records stay hidden.", "mob-info"}};
         if (this->config_view_ == 4)
         {
             static constexpr module_config_section rings[]{
-                {"General", "Terrain-following target rings and optional HP fill."},
-                {"Layout", "Inner and outer radius in world units."},
-                {"Colors", "Ring tint and opacity."}};
+                {"General", "Terrain-following target rings and optional HP fill.", "general"},
+                {"Layout", "Inner and outer radius in world units.", "layout"},
+                {"Colors", "Ring tint and opacity.", "colors"}};
             return rings;
         }
         if (this->config_view_ == 3) return BarConfigSections();

@@ -270,11 +270,13 @@ namespace xiui
         updateSelection();
     }
 
-    auto party_source::HandlePacket(IAshitaCore* core, const uint16_t id, const std::span<const uint8_t> data, const uint64_t now) -> void
+    auto party_source::HandlePacket(IAshitaCore* core, const uint16_t id, const std::span<const uint8_t> data, const uint64_t now, const combat_action_packet* decoded) -> void
     {
+        const combat_action_packet local{data};
+
         if (id == 0xA || id == 0xB) { this->Clear(); return; }
         if (id != 0x28 || core == nullptr) return;
-        const auto action = DecodeCombatAction(data);
+        const auto& action = (decoded != nullptr ? *decoded : local).Action();
         if (!action || action->target_count == 0) return;
         this->Update(core, now);
         auto found = std::find_if(this->members_.begin(), this->members_.end(), [&](const auto& member) { return member.active && member.in_zone && member.id == action->actor; });

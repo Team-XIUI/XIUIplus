@@ -13,6 +13,7 @@
 #include <cstdint>
 #include <span>
 #include <functional>
+#include <string_view>
 
 namespace xiui::ui { struct tp_meter_colors; }
 
@@ -113,6 +114,8 @@ namespace xiui
     {
         const char* name{};
         const char* description{};
+        const char* id{};
+        auto Id(void) const -> std::string_view { return this->id != nullptr ? this->id : this->name; }
     };
 
     struct meter_animation_state

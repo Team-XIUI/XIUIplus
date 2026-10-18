@@ -1,5 +1,7 @@
 #pragma once
 
+#include "combat/action_packet.hpp"
+
 #include "modules/module.hpp"
 #include "combat/combat_settings.hpp"
 #include "modules/party/party_source.hpp"
@@ -18,7 +20,7 @@ namespace xiui
         auto SetCombatSettings(combat_settings* settings) -> void { this->combat_settings_ = settings; }
         auto Rules(void) const -> server_rules { return this->CombatSettings().Rules(); }
         auto Update(uint64_t now, bool configOpen) -> void;
-        auto HandlePacket(IAshitaCore* core, uint16_t id, std::span<const uint8_t> data, uint64_t now) -> void;
+        auto HandlePacket(IAshitaCore* core, uint16_t id, std::span<const uint8_t> data, uint64_t now, const combat_action_packet* decoded = nullptr) -> void;
         auto Clear(void) -> void { this->tracker_.Clear(); this->preview_ = false; }
         auto ApplyMeterDefaults(const ui::meter_style& style) -> void override { this->meter_ = style; this->meter_.height = 10; }
         auto ApplyTextDefaults(const ui::theme& theme) -> void override;
