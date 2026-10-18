@@ -125,26 +125,40 @@ namespace xiui
     auto treasure_module::Batch(bool pass) -> void
     {
         if (!this->available_ || this->source_ == nullptr) return;
-        const auto snapshot = this->source_->Entries();
-        for (size_t slot = 0; slot < snapshot.size(); ++slot)
-            if (snapshot[slot].item != 0) this->source_->Act(this->core_, slot, snapshot[slot].generation, pass, ::GetTickCount64());
+        const auto batch = this->source_->CaptureBatch(pass, ::GetTickCount64());
+        this->SubmitBatch(batch);
     }
-    auto treasure_module::Activate(const control& control) -> void
+    auto treasure_module::SubmitBatch(const std::span<const treasure_action> batch) -> void
+    {
+        if (!this->available_ || this->source_ == nullptr) return;
+        this->source_->ActBatch(this->core_, batch, ::GetTickCount64());
+    }
+    auto treasure_module::Activate(const control& control, const std::vector<treasure_action>* batch) -> void
     {
         if (!control.available || !this->available_ || this->source_ == nullptr) return;
         if (this->sounds_ != nullptr) this->sounds_->Select(::GetTickCount64());
         this->selected_ = std::min(control.slot, size_t{9});
         switch (control.kind)
         {
-        case action::lot: case action::pass: this->source_->Act(this->core_, control.slot, control.generation, control.kind == action::pass, ::GetTickCount64()); break;
+        case action::lot:
+        case action::pass:
+            this->source_->Act(this->core_, control.slot, control.generation, control.kind == action::pass, ::GetTickCount64());
+            break;
         case action::lot_all: case action::pass_all:
-            if (control.batch_frozen)
-                for (const auto& item : control.batch) this->source_->Act(this->core_, item.slot, item.generation, item.pass, ::GetTickCount64());
+            if (batch != nullptr) this->SubmitBatch(*batch);
             else this->Batch(control.kind == action::pass_all);
             break;
-        case action::expand: this->expanded_ = !this->expanded_; this->changed_ = true; break;
-        case action::details: this->details_ = !this->details_; break;
-        case action::close: this->forced_ = false; this->EndInput(); break;
+        case action::expand:
+            this->expanded_ = !this->expanded_;
+            this->changed_ = true;
+            break;
+        case action::details:
+            this->details_ = !this->details_;
+            break;
+        case action::close:
+            this->forced_ = false;
+            this->EndInput();
+            break;
         }
     }
     auto treasure_module::HandleControllerAction(controller_action action, bool repeated) -> bool
@@ -160,7 +174,8 @@ namespace xiui
     }
     auto treasure_module::HandleMouse(uint32_t message, float x, float y) -> bool
     {
-        this->mouse_x_ = x; this->mouse_y_ = y;
+        this->mouse_x_ = x;
+        this->mouse_y_ = y;
         if (message == WM_LBUTTONDOWN || message == WM_LBUTTONDBLCLK)
         {
             if (!this->Contains(x, y)) return false;
@@ -169,22 +184,20 @@ namespace xiui
             for (const auto& control : this->controls_)
                 if (control.available && Inside(control.bounds, x, y))
                 {
-                    this->pressed_ = control;
+                    this->pressed_ = pointer_press{control};
                     if (control.kind == action::lot_all || control.kind == action::pass_all)
-                    {
-                        this->pressed_->batch_frozen = true;
-                        const auto now = ::GetTickCount64(); const auto& entries = this->source_->Entries();
-                        for (size_t slot = 0; slot < entries.size(); ++slot)
-                            if (const auto item = this->source_->Plan(slot, entries[slot].generation, control.kind == action::pass_all, now)) this->pressed_->batch.push_back(*item);
-                    }
+                        this->pressed_->batch = this->source_->CaptureBatch(control.kind == action::pass_all, ::GetTickCount64());
                     break;
                 }
             return true;
         }
         if (message == WM_LBUTTONUP && this->pointer_down_)
         {
-            const auto pressed = this->pressed_; this->pressed_.reset(); this->pointer_down_ = false;
-            if (pressed && this->ShouldRender({}) && Inside(pressed->bounds, x, y)) this->Activate(*pressed);
+            const auto pressed = std::move(this->pressed_);
+            this->pressed_.reset();
+            this->pointer_down_ = false;
+            if (pressed && this->ShouldRender({}) && Inside(pressed->target.bounds, x, y))
+                this->Activate(pressed->target, &pressed->batch);
             return true;
         }
         return this->Contains(x, y) && message == WM_MOUSEWHEEL;
@@ -192,9 +205,19 @@ namespace xiui
     auto treasure_module::Render(const hud_snapshot&, const module_render_context& context) -> void
     {
         const bool preview = context.IsEditing();
-        auto entries = this->source_ != nullptr ? this->source_->Entries() : std::array<treasure_entry, 10>{};
+        std::array<treasure_entry, treasure_source::capacity> previewEntries{};
         if (preview)
-            for (size_t i = 0; i < 3; ++i) { entries[i].item = 4096 + static_cast<uint32_t>(i); entries[i].count = 1; entries[i].winning_lot = 450; entries[i].winner = "Party member"; }
+        {
+            for (size_t i = 0; i < 3; ++i)
+            {
+                auto& entry = previewEntries[i];
+                entry.item = 4096 + static_cast<uint32_t>(i);
+                entry.count = 1;
+                entry.winning_lot = 450;
+                entry.winner = "Party member";
+            }
+        }
+        const auto& entries = !preview && this->source_ != nullptr ? this->source_->Entries() : previewEntries;
         const auto count = static_cast<size_t>(std::count_if(entries.begin(), entries.end(), [](const auto& item) { return item.item != 0; }));
         const auto& design = context.Design(); const auto now = ::GetTickCount64();
         const float titleHeight = std::max(28.0f, design.TextHeight(this->text_[0].style) + 6);
@@ -205,7 +228,7 @@ namespace xiui
         if (count != 0 && entries[this->selected_].item == 0)
             this->selected_ = static_cast<size_t>(std::find_if(entries.begin(), entries.end(), [](const auto& item) { return item.item != 0; }) - entries.begin());
         const size_t historyLines = count != 0 ? std::min(size_t{4}, entries[this->selected_].history.size()) : 0;
-        const bool error = this->source_ != nullptr && !this->source_->Error().empty();
+        const bool error = !preview && this->source_ != nullptr && !this->source_->Error().empty();
         const float detailHeight = this->details_ && count != 0 ? 6 + detailLine * (1 + historyLines + (error ? 1 : 0)) : 0;
         this->state_.bounds.height = this->container_.padding * 2 + titleHeight + 4 + std::max(size_t{1}, count) * rowHeight + buttonHeight + detailHeight;
         const auto content = context.DrawContainer(this->state_.bounds, this->container_);

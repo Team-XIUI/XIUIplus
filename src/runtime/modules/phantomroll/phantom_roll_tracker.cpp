@@ -32,7 +32,7 @@ namespace xiui
             if (action.targets[i].id == localId && action.targets[i].result_count != 0)
             { total = action.targets[i].parameter; break; }
         if (total < 1 || total > 17) return false;
-        const auto* roll = PhantomRollByAbility(action.parameter, false);
+        const auto* roll = PhantomRollByAbility(action.parameter, server_rules::retail);
         if (roll == nullptr && action.parameter != 123) return false;
         if (action.parameter == this->last_ability_ && total == this->last_total_ && now >= this->last_action_ && now - this->last_action_ < 1000) return false;
         phantom_roll_seat* seat{};
@@ -44,7 +44,7 @@ namespace xiui
             if (latest == nullptr) return false;
             seat = &this->seats_[static_cast<size_t>(latest - this->seats_.data())];
             if (total <= seat->total) return false;
-            roll = PhantomRollByAbility(seat->ability, false);
+            roll = PhantomRollByAbility(seat->ability, server_rules::retail);
         }
         else seat = this->Claim(roll->status);
         if (seat == nullptr || roll == nullptr) return false;
@@ -88,7 +88,7 @@ namespace xiui
         for (size_t i = 0; i < count; ++i)
         {
             if (used[i]) continue;
-            const auto* roll = PhantomRollByStatus(statuses[i].id, false);
+            const auto* roll = PhantomRollByStatus(statuses[i].id, server_rules::retail);
             if (roll == nullptr && statuses[i].id != 309) continue;
             auto empty = std::find_if(this->seats_.begin(), this->seats_.end(), [](const auto& seat) { return !seat.Present(); });
             if (empty == this->seats_.end()) break;

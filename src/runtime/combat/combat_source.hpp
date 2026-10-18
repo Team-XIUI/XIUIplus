@@ -2,6 +2,7 @@
 
 #include "Ashita.h"
 #include "action_packet.hpp"
+#include "server_rules.hpp"
 
 #include <string>
 #include <unordered_map>
@@ -44,7 +45,12 @@ namespace xiui
     public:
         static constexpr size_t capacity = 128, status_capacity = 32;
         auto Clear(void) -> void;
-        auto SetRules(int rules) -> void { if (this->rules_ != rules) { this->Clear(); this->rules_ = rules; } }
+        auto SetRules(const server_rules rules) -> void
+        {
+            if (this->rules_ == rules) return;
+            this->Clear();
+            this->rules_ = rules;
+        }
         auto Update(IAshitaCore* core, uint64_t now) -> void;
         auto HandlePacket(IAshitaCore* core, uint16_t id, std::span<const uint8_t> data, uint64_t now) -> void;
         auto Observe(const combat_action& action, IResourceManager* resources, uint64_t now) -> void;
@@ -57,7 +63,7 @@ namespace xiui
         std::unordered_map<uint32_t, combat_actor> actors_{};
         uint32_t player_{}, zone_{};
         uint64_t next_update_{};
-        int rules_{};
+        server_rules rules_{};
         auto Actor(uint32_t id, uint64_t now) -> combat_actor&;
     };
 }

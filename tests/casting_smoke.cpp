@@ -1,4 +1,5 @@
 #include "hud_runtime.hpp"
+#include "combat/ability_recast.hpp"
 #include "ui/recast_icons.hpp"
 
 #include <array>
@@ -84,15 +85,33 @@ namespace
         state.kind = action_cost_kind::ability; state.tp_cost = 200; state.player_tp = 199;
         Check(!state.Ready(), "job-ability TP costs use the modern TP scale");
         state.tp_cost = 0; state.charge_cost = 1;
-        ApplyChargeRecast(state, 60 * 60, 2, 120);
+        state.charges = 1; state.max_charges = 2; state.remaining = 60;
         Check(state.charges == 1 && state.remaining == 60 && state.Ready(), "a partially recharging pool remains usable with a full charge");
         state.charge_cost = 2;
         Check(!state.EnoughResources(), "multi-charge actions require the correct number of charges");
-        ApplyChargeRecast(state, 120 * 60, 2, 120);
+        state.charges = 0;
         Check(state.charges == 0 && state.remaining == 60 && !state.Ready(), "an exact pool multiple shows a full next-charge interval");
-        ApplyChargeRecast(state, 0, 5, 240);
-        Check(state.charges == 5 && state.remaining == 0 && state.total == 48, "a fully restored stratagem pool keeps its per-charge duration");
         Check(FormatCastTime(2.5f) == "2.5s" && FormatCastTime(61) == "1:01", "cast and recast times preserve short precision and minute boundaries");
+    }
+
+    auto ChargeRecasts(void) -> void
+    {
+        using namespace xiui;
+        const auto partial = CalculateChargeRecast(60 * 60, {2, 120});
+        Check(partial.charges == 1 && partial.maximum == 2 && partial.remaining == 60 && partial.duration == 60,
+            "an exact next-charge boundary keeps a full remaining interval");
+        const auto empty = CalculateChargeRecast(120 * 60, {2, 120});
+        Check(empty.charges == 0 && empty.remaining == 60, "a fully spent pool waits one charge interval");
+        const auto ready = CalculateChargeRecast(0, {5, 240});
+        Check(ready.charges == 5 && ready.remaining == 0 && ready.duration == 48,
+            "a fully restored stratagem pool keeps its per-charge duration");
+        const auto modified = CalculateChargeRecast(30 * 60, {2, 120}, static_cast<int16_t>(0xFFC4));
+        Check(modified.charges == 1 && modified.remaining == 30 && modified.duration == 30,
+            "native negative Calc2 values reduce the pool duration as signed values");
+        Check(CalculateChargeRecast(100, {}).maximum == 0 &&
+            CalculateChargeRecast(100, {2, 120}, -120).maximum == 0 &&
+            CalculateChargeRecast(100, {2, std::numeric_limits<float>::quiet_NaN()}).maximum == 0,
+            "unknown and invalid charge pools remain unavailable");
     }
 
     auto Commands(void) -> void
@@ -147,10 +166,9 @@ namespace xiui
             recast_sample spell{recast_kind::spell, 5}; spell.name = "Cure V"; spell.remaining = 5;
             tracker.Observe(spell, 12000); tracker.FinishSample(12000);
             Check(tracker.Entries().size() == 2, "spell and ability IDs have separate identities");
-            action_cost_state charge{};
-            ApplyChargeRecast(charge, 3600, 2, 120);
+            const auto charge = CalculateChargeRecast(3600, {2, 120});
             sample.id = 195; sample.name = "Quick Draw"; sample.remaining = charge.remaining;
-            sample.charges = charge.charges; sample.maximum_charges = charge.max_charges; sample.charge_duration = charge.total;
+            sample.charges = charge.charges; sample.maximum_charges = charge.maximum; sample.charge_duration = charge.duration;
             tracker.Observe(sample, 13000); tracker.FinishSample(13000);
             const auto& charged = tracker.Entries().back();
             Check(charged.charges == 1 && charged.maximum_charges == 2 && charged.duration == 60 && charged.Remaining(13000) == 60,
@@ -294,6 +312,12 @@ auto main(int argc, char** argv) -> int
 {
     try
     {
+        if (argc > 1 && std::strcmp(argv[1], "--charges-only") == 0)
+        {
+            CostState(); ChargeRecasts();
+            std::puts("Resource readiness and shared charge boundaries, modifiers and unavailable pools passed.");
+            return 0;
+        }
         if (argc > 1 && std::strcmp(argv[1], "--recast-only") == 0)
         {
             xiui::casting_test::Recast();
@@ -306,7 +330,7 @@ auto main(int argc, char** argv) -> int
             std::puts("Command-menu top/bottom options, resizing and persistence passed.");
             return 0;
         }
-        CastState(); CostState(); Commands(); xiui::casting_test::Selection(); xiui::casting_test::Modules();
+        CastState(); CostState(); ChargeRecasts(); Commands(); xiui::casting_test::Selection(); xiui::casting_test::Modules();
         std::puts("Casting state, native selection, resource readiness, charge timers, module settings and Player MP layout passed.");
         return 0;
     }

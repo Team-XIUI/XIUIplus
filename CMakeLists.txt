@@ -205,6 +205,9 @@ foreach(resource XIUI_CURSOR_RESOURCE XIUI_JOB_RESOURCE XIUI_NOTIFICATION_RESOUR
 endforeach()
 
 set(XIUI_HUD_SOURCES
+    src/runtime/hud_runtime_treasure.cpp
+    src/runtime/combat/ability_recast.cpp
+    src/runtime/combat/ability_recast.hpp
     src/runtime/modules/treasure/treasure_source.cpp
     src/runtime/modules/treasure/treasure_source.hpp
     src/runtime/modules/treasure/treasure_module.cpp
@@ -704,7 +707,7 @@ add_test(NAME xiui_keyboard_suppression_smoke COMMAND xiui_keyboard_suppression_
 add_executable(xiui_actionbars_data_smoke tests/actionbars_data_smoke.cpp
     src/runtime/modules/actionbars/action_store.cpp src/runtime/modules/actionbars/action_executor.cpp
     src/runtime/modules/actionbars/action_import.cpp src/runtime/settings/settings_store.cpp
-    src/runtime/chat/chat_encoding.cpp src/runtime/modules/castcost/cast_cost_source.cpp)
+    src/runtime/chat/chat_encoding.cpp src/runtime/combat/ability_recast.cpp)
 configure_xiui_target(xiui_actionbars_data_smoke)
 set_target_properties(xiui_actionbars_data_smoke PROPERTIES RUNTIME_OUTPUT_DIRECTORY "${CMAKE_SOURCE_DIR}/bin/tests")
 add_test(NAME xiui_actionbars_data_smoke COMMAND xiui_actionbars_data_smoke)

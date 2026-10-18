@@ -2,6 +2,8 @@
 
 ## Unreleased
 
+- Simplify shared combat-rule ownership and charged-recast helpers. Unify treasure batch eligibility and input checks, isolate edit samples, and avoid copying live lot history while rendering. Preserve profile keys and existing Lot/Pass behavior.
+
 - Add Treasure Pool management with individual/batch Lot/Pass, native items/winners/history, estimated timers and shared mouse/keyboard/controller actions. Keep treasure alerts in Notifications.
 - Add pinned Phoenix (75 cap) combat rules alongside Retail/Horizon: ordered skillchains, era roll powers/labels and ranged debuff estimates. Refresh mob data and spawn-slot hints, share charged-recast interpretation and add bounded distant party/alliance minimap markers.
 

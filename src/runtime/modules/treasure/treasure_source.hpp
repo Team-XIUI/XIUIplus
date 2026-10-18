@@ -42,8 +42,11 @@ namespace xiui
         auto Count(void) const -> size_t;
         auto Ready(void) const -> bool { return this->ready_; }
         auto Plan(size_t slot, uint64_t generation, bool pass, uint64_t now) const -> std::optional<treasure_action>;
+        auto CaptureBatch(bool pass, uint64_t now) const -> std::vector<treasure_action>;
         auto Queue(const treasure_action& action, uint64_t now, const std::function<void(const treasure_action&)>& send) -> bool;
+        auto QueueBatch(std::span<const treasure_action> actions, uint64_t now, const std::function<void(const treasure_action&)>& send) -> size_t;
         auto Act(IAshitaCore* core, size_t slot, uint64_t generation, bool pass, uint64_t now) -> bool;
+        auto ActBatch(IAshitaCore* core, std::span<const treasure_action> actions, uint64_t now) -> size_t;
         auto Error(void) const -> const std::string& { return this->error_; }
     private:
         struct drop_event { uint32_t item{}, start{}; uint64_t serial{}, expires{}; };
@@ -55,5 +58,6 @@ namespace xiui
         uint32_t player_{}, clock_start_{};
         bool ready_{}, clock_known_{};
         std::string error_{};
+        auto PrepareActions(IAshitaCore* core, uint64_t now) -> bool;
     };
 }

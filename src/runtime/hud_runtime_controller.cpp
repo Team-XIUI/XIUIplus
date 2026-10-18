@@ -161,7 +161,8 @@ namespace xiui
         switch (surface)
         {
         case controller_surface::treasure:
-            if (this->ControllerNativeMenuOpen() || !this->treasure_.BeginBrowse()) return false;
+            this->treasure_.Update(this->core_, this->TreasureInputAvailable());
+            if (!this->TreasureInputAvailable() || !this->treasure_.BeginBrowse()) return false;
             break;
         case controller_surface::notifications:
             this->controller_notification_id_ = this->notifications_.FirstDetail();

@@ -5,6 +5,7 @@
 #include "action_import.hpp"
 #include "actionbar_slot_style.hpp"
 #include "combat/skillchain_source.hpp"
+#include "combat/combat_settings.hpp"
 #include "controller_visuals.hpp"
 #include "modules/module.hpp"
 #include "config/text_input.hpp"
@@ -52,8 +53,8 @@ namespace xiui
         auto SetSounds(ui::native_ui_sounds* value) -> void { this->sounds_ = value; }
         auto SetSkillchains(const skillchain_source* source) -> void { this->skillchains_ = source; }
         auto SkillchainPredictionsEnabled(void) const -> bool { return this->skillchain_predictions_; }
-        auto SkillchainRules(void) const -> int { return this->skillchain_rules_; }
-        auto SkillchainRulesSetting(void) -> int* { return &this->skillchain_rules_; }
+        auto SetCombatSettings(combat_settings* settings) -> void { this->combat_settings_ = settings; }
+        auto SkillchainRules(void) const -> server_rules { return this->CombatSettings().Rules(); }
         auto SetFocusStyle(const ui::focus_frame_style& value) -> void { this->focus_style_ = value; }
         auto SetConfigText(const ui::config_text_settings* value) -> void { this->config_text_ = value; }
         auto UpdateControllerStatus(const controller_status& value) -> void { this->controller_status_ = value; }
@@ -181,7 +182,8 @@ namespace xiui
         action_executor* executor_{};
         const skillchain_source* skillchains_{};
         bool skillchain_predictions_{true}, magic_burst_settings_request_{};
-        int skillchain_rules_{};
+        combat_settings local_combat_settings_{};
+        combat_settings* combat_settings_{};
         ui::native_ui_sounds* sounds_{};
         const ui::config_text_settings* config_text_{};
         controller_crossbar_settings controller_settings_{};
@@ -232,6 +234,8 @@ namespace xiui
         std::array<std::array<crossbar_visuals::press_motion, action_crossbar_slots>, action_crossbar_banks> button_motion_{};
         std::array<crossbar_visuals::bank_motion, 2> bank_motion_{};
         auto Surface(void) const -> action_surface { return this->view_ == action_bar_count ? action_surface::crossbar : action_surface::hotbar; }
+        auto CombatSettings(void) -> combat_settings& { return this->combat_settings_ != nullptr ? *this->combat_settings_ : this->local_combat_settings_; }
+        auto CombatSettings(void) const -> const combat_settings& { return this->combat_settings_ != nullptr ? *this->combat_settings_ : this->local_combat_settings_; }
         auto ConfigBar(void) const -> size_t { return this->view_ == action_bar_count ? static_cast<size_t>(this->selected_bank_) : this->view_; }
         auto Presentation(const address& value) -> actionbar_presentation& { return this->bars_[value.surface == action_surface::crossbar ? action_bar_count : value.bar]; }
         auto Presentation(const address& value) const -> const actionbar_presentation& { return this->bars_[value.surface == action_surface::crossbar ? action_bar_count : value.bar]; }

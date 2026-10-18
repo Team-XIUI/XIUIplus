@@ -13,6 +13,12 @@ namespace
         const auto* value = reinterpret_cast<const char*>(bytes.data() + offset);
         return xiui::FromGameText({value, strnlen(value, 16)});
     }
+    auto SendDecision(IAshitaCore* core, const xiui::treasure_action& request) -> void
+    {
+        std::array<uint8_t, 8> bytes{};
+        bytes[4] = request.slot;
+        core->GetPacketManager()->AddOutgoingPacket(request.pass ? 0x42 : 0x41, static_cast<uint32_t>(bytes.size()), bytes.data());
+    }
 }
 
 namespace xiui
@@ -121,16 +127,37 @@ namespace xiui
         if (item.item == 0 || item.generation != generation || item.pending_until > now || item.lot == 65535 || (!pass && item.lot != 0)) return {};
         return treasure_action{static_cast<uint8_t>(slot), item.item, item.drop, generation, pass};
     }
+    auto treasure_source::CaptureBatch(const bool pass, const uint64_t now) const -> std::vector<treasure_action>
+    {
+        std::vector<treasure_action> actions;
+        actions.reserve(capacity);
+        for (size_t slot = 0; slot < capacity; ++slot)
+        {
+            if (const auto action = this->Plan(slot, this->entries_[slot].generation, pass, now))
+                actions.push_back(*action);
+        }
+        return actions;
+    }
     auto treasure_source::Queue(const treasure_action& action, const uint64_t now, const std::function<void(const treasure_action&)>& send) -> bool
     {
         const auto current = this->Plan(action.slot, action.generation, action.pass, now);
         if (!current || current->item != action.item || current->drop != action.drop || !send) return false;
         this->entries_[action.slot].pending_until = now + 2000;
-        send(action); return true;
+        send(action);
+        return true;
     }
-    auto treasure_source::Act(IAshitaCore* core, const size_t slot, const uint64_t generation, const bool pass, const uint64_t now) -> bool
+    auto treasure_source::QueueBatch(const std::span<const treasure_action> actions, const uint64_t now,
+        const std::function<void(const treasure_action&)>& send) -> size_t
     {
-        this->error_.clear(); this->Update(core, now, true);
+        size_t sent{};
+        for (const auto& action : actions)
+            sent += this->Queue(action, now, send) ? 1 : 0;
+        return sent;
+    }
+    auto treasure_source::PrepareActions(IAshitaCore* core, const uint64_t now) -> bool
+    {
+        this->error_.clear();
+        this->Update(core, now, true);
         auto* memory = core != nullptr ? core->GetMemoryManager() : nullptr;
         auto* player = memory != nullptr ? memory->GetPlayer() : nullptr;
         auto* target = memory != nullptr ? memory->GetTarget() : nullptr;
@@ -140,12 +167,26 @@ namespace xiui
         if (player == nullptr || player->GetIsZoning() || chat == nullptr || chat->IsInputOpen() || packets == nullptr ||
             (target != nullptr && (target->GetIsMenuOpen() || target->GetActionTargetActive() || target->GetIsSubTargetActive())) ||
             (properties != nullptr && ::GetForegroundWindow() != properties->GetFinalFantasyHwnd()))
-        { this->error_ = "Finish the current game interaction first."; return false; }
+        {
+            this->error_ = "Finish the current game interaction first.";
+            return false;
+        }
+        return true;
+    }
+    auto treasure_source::Act(IAshitaCore* core, const size_t slot, const uint64_t generation, const bool pass, const uint64_t now) -> bool
+    {
+        if (!this->PrepareActions(core, now)) return false;
         const auto action = this->Plan(slot, generation, pass, now);
-        if (!action) { this->error_ = "That item changed, has a decision, or is awaiting a response."; return false; }
-        return this->Queue(*action, now, [&](const auto& request) {
-            std::array<uint8_t, 8> bytes{}; bytes[4] = request.slot;
-            packets->AddOutgoingPacket(request.pass ? 0x42 : 0x41, static_cast<uint32_t>(bytes.size()), bytes.data());
-        });
+        if (!action)
+        {
+            this->error_ = "That item changed, has a decision, or is awaiting a response.";
+            return false;
+        }
+        return this->Queue(*action, now, [&](const auto& request) { SendDecision(core, request); });
+    }
+    auto treasure_source::ActBatch(IAshitaCore* core, const std::span<const treasure_action> actions, const uint64_t now) -> size_t
+    {
+        if (!this->PrepareActions(core, now)) return 0;
+        return this->QueueBatch(actions, now, [&](const auto& request) { SendDecision(core, request); });
     }
 }

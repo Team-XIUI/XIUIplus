@@ -2,6 +2,7 @@
 
 #include "Ashita.h"
 #include "action_packet.hpp"
+#include "server_rules.hpp"
 #include "modules/actionbars/action_model.hpp"
 
 #include <map>
@@ -42,8 +43,8 @@ namespace xiui
     public:
         static constexpr size_t capacity = 128;
         auto Clear(void) -> void;
-        auto SetRules(int rules) -> void;
-        auto Rules(void) const -> int { return this->rules_; }
+        auto SetRules(server_rules rules) -> void;
+        auto Rules(void) const -> server_rules { return this->rules_; }
         auto SetLocalBuffs(uint32_t actor, uint8_t buffs) -> void { this->local_actor_ = actor; this->local_buffs_ = buffs; }
         auto Observe(const combat_action& action, uint64_t now, uint8_t spellElement = 255) -> void;
         auto HandlePacket(IAshitaCore* core, uint16_t id, std::span<const uint8_t> data, uint64_t now) -> void;
@@ -64,7 +65,7 @@ namespace xiui
         mutable std::unordered_map<std::string, const resources::skillchain_skill*> names_{};
         uint32_t player_{}, zone_{}, local_actor_{}, target_{};
         uint8_t local_buffs_{};
-        int rules_{};
+        server_rules rules_{};
         uint64_t next_update_{};
         std::string pet_{};
         auto Skill(uint8_t category, uint32_t id, std::string_view name = {}) const -> const resources::skillchain_skill*;

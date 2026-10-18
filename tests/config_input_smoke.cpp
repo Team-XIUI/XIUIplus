@@ -470,6 +470,44 @@ namespace xiui
 {
     struct config_input_test
     {
+        static auto TreasureInput(void) -> bool
+        {
+            hud_runtime runtime;
+            runtime.visible_ = true;
+            runtime.editing_ = false;
+            runtime.treasure_.Open();
+            if (!check(runtime.TreasureInputAvailable(), "a visible forced pool can be closed even when empty")) return false;
+            runtime.visible_ = false;
+            if (!check(!runtime.TreasureInputAvailable(), "hidden XIUI suspends treasure input")) return false;
+            runtime.visible_ = true;
+            runtime.editing_ = true;
+            if (!check(!runtime.TreasureInputAvailable(), "edit previews cannot take treasure actions")) return false;
+            runtime.editing_ = false;
+            runtime.native_ui_.menu_visible = true;
+            if (!check(!runtime.TreasureInputAvailable(), "native menus retain treasure input ownership")) return false;
+            runtime.native_ui_.menu_visible = false;
+            for (auto* chat : {&runtime.chat_, &runtime.chat_second_})
+            {
+                chat->State().enabled = true;
+                if (!check(chat->BeginControllerHistory(), "chat history can be focused for input ownership")) return false;
+                chat->HandleControllerAction(controller_action::confirm, false, runtime.design_system_);
+                if (!check(chat->HistoryExpanded() && !runtime.TreasureInputAvailable(), "either expanded chat window owns input ahead of treasure")) return false;
+                chat->Focus(false);
+            }
+            if (!check(runtime.TreasureInputAvailable(), "closing expanded chat restores treasure availability")) return false;
+            runtime.treasure_.HandleMouse(WM_LBUTTONDOWN, 1, 1);
+            runtime.native_ui_.menu_visible = true;
+            if (!check(runtime.HandleTreasureMouse(WM_LBUTTONDOWN, 1, 1, true) && runtime.treasure_.PointerDown(), "blocked treasure gestures retain only release ownership")) return false;
+            if (!check(runtime.HandleTreasureMouse(WM_LBUTTONUP, 1, 1, true) && !runtime.treasure_.PointerDown(), "blocked treasure gestures drain their release")) return false;
+            runtime.native_ui_.menu_visible = false;
+            runtime.treasure_key_release_[VK_ESCAPE] = true;
+            if (!check(runtime.HandleTreasureKey(VK_ESCAPE, 0x40000000u, false), "held Cancel stays consumed after leaving treasure focus")) return false;
+            if (!check(runtime.HandleTreasureKey(VK_ESCAPE, 0xC0000000u, false) && !runtime.treasure_key_release_[VK_ESCAPE], "the owned Cancel release drains once")) return false;
+            if (!check(!runtime.HandleTreasureKey(VK_ESCAPE, 0, false), "a fresh unfocused Cancel returns to gameplay")) return false;
+            runtime.treasure_.State().enabled = false;
+            return check(!runtime.TreasureInputAvailable(), "disabled treasure cannot capture input");
+        }
+
         static auto ControlCount(hud_runtime& runtime) -> size_t
         {
             const auto slots = runtime.GroupOptionSlots();
@@ -4995,6 +5033,12 @@ int main(int argc, char** argv)
     if (argc == 2 && std::strcmp(argv[1], "--minimap-only") == 0) return RunMinimapChecks() ? 0 : 1;
     if (argc == 2 && std::strcmp(argv[1], "--skillchain-only") == 0) return RunSkillchainChecks() ? 0 : 1;
     if (argc == 2 && std::strcmp(argv[1], "--phoenix-only") == 0) return RunPhoenixIntegrationChecks() ? 0 : 1;
+    if (argc == 2 && std::strcmp(argv[1], "--treasure-input-only") == 0)
+    {
+        if (!xiui::config_input_test::TreasureInput()) return 1;
+        std::puts("Treasure input availability and owned key release checks passed.");
+        return 0;
+    }
     if (argc == 2 && std::strcmp(argv[1], "--player-resources-only") == 0) return RunPlayerResourceChecks() ? 0 : 1;
     if (argc == 2 && std::strcmp(argv[1], "--mp-preview-only") == 0) return RunMpCostPreviewChecks() ? 0 : 1;
     if (argc == 2 && std::strcmp(argv[1], "--new-features-only") == 0)

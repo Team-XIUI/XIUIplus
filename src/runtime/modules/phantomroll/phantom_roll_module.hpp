@@ -1,6 +1,7 @@
 #pragma once
 
 #include "modules/module.hpp"
+#include "combat/combat_settings.hpp"
 #include "modules/party/party_source.hpp"
 #include "phantom_roll_tracker.hpp"
 
@@ -14,8 +15,8 @@ namespace xiui
         auto State(void) -> module_state& override { return this->state_; }
         auto State(void) const -> const module_state& override { return this->state_; }
         auto SetSource(const party_source* source) -> void { this->source_ = source; }
-        auto SetRulesSetting(int* rules) -> void { this->shared_rules_ = rules; }
-        auto Rules(void) const -> int { return this->shared_rules_ != nullptr ? *this->shared_rules_ : this->rules_; }
+        auto SetCombatSettings(combat_settings* settings) -> void { this->combat_settings_ = settings; }
+        auto Rules(void) const -> server_rules { return this->CombatSettings().Rules(); }
         auto Update(uint64_t now, bool configOpen) -> void;
         auto HandlePacket(IAshitaCore* core, uint16_t id, std::span<const uint8_t> data, uint64_t now) -> void;
         auto Clear(void) -> void { this->tracker_.Clear(); this->preview_ = false; }
@@ -40,8 +41,9 @@ namespace xiui
         const party_source* source_{};
         phantom_roll_tracker tracker_{};
         bool preview_{}, container_{true}, potency_{true}, double_up_{true};
-        int rules_{}, layout_{}, selected_text_{};
-        int* shared_rules_{};
+        int layout_{}, selected_text_{};
+        combat_settings local_combat_settings_{};
+        combat_settings* combat_settings_{};
         float scale_{1};
         ui::container_style container_style_{0.95f, 5, 10, false};
         ui::meter_style meter_{ui::theme::CreateDefault().meter};
@@ -51,5 +53,7 @@ namespace xiui
         uint32_t player_id_{}, zone_{};
         uint8_t job_{}, subjob_{}, level_{};
         uint64_t now_{};
+        auto CombatSettings(void) -> combat_settings& { return this->combat_settings_ != nullptr ? *this->combat_settings_ : this->local_combat_settings_; }
+        auto CombatSettings(void) const -> const combat_settings& { return this->combat_settings_ != nullptr ? *this->combat_settings_ : this->local_combat_settings_; }
     };
 }

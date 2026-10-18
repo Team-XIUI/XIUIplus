@@ -1,5 +1,6 @@
 #include "cast_cost_source.hpp"
 #include "chat/chat_encoding.hpp"
+#include "combat/ability_recast.hpp"
 #include "Memory.h"
 
 #include <algorithm>
@@ -39,37 +40,6 @@ namespace xiui
         if (seconds >= 60) std::snprintf(text, sizeof(text), "%u:%02u", static_cast<unsigned>(std::ceil(seconds)) / 60, static_cast<unsigned>(std::ceil(seconds)) % 60);
         else std::snprintf(text, sizeof(text), "%.1fs", seconds);
         return text;
-    }
-
-    auto ApplyChargeRecast(action_cost_state& state, uint32_t frames, uint32_t maximum, float poolSeconds) -> void
-    {
-        if (maximum == 0 || !std::isfinite(poolSeconds) || poolSeconds <= 0) return;
-        const double perCharge = poolSeconds * 60.0 / maximum;
-        state.max_charges = maximum;
-        state.charges = maximum - std::min(maximum, static_cast<uint32_t>(std::ceil(frames / perCharge)));
-        state.total = static_cast<float>(perCharge / 60);
-        state.remaining = frames == 0 ? 0 : static_cast<float>((std::fmod(frames - 1.0, perCharge) + 1) / 60);
-        state.recast_known = true;
-    }
-
-    auto AbilityChargePool(IAshitaCore* core, const uint32_t timer) -> ability_charge_pool
-    {
-        auto* memory = core != nullptr ? core->GetMemoryManager() : nullptr;
-        auto* player = memory != nullptr ? memory->GetPlayer() : nullptr;
-        auto* resources = core != nullptr ? core->GetResourceManager() : nullptr;
-        if (player == nullptr) return {};
-        if (timer == 102)
-        {
-            const auto* ready = resources != nullptr ? resources->GetAbilityByName("Ready", 2) : nullptr;
-            return ready != nullptr && player->HasAbility(ready->Id) ? ability_charge_pool{3, 90} : ability_charge_pool{};
-        }
-        if (timer == 195) return {2, 120};
-        if (timer == 231)
-        {
-            const int level = player->GetMainJob() == 20 ? player->GetMainJobLevel() : player->GetSubJob() == 20 ? player->GetSubJobLevel() : 0;
-            return {static_cast<uint32_t>(level >= 10 ? std::min(5, (level - 10) / 20 + 1) : 0), 240};
-        }
-        return {};
     }
 
     auto cast_cost_source::Initialize(void) -> void
@@ -179,7 +149,8 @@ namespace xiui
         for (uint32_t i = 0; i < 32; ++i)
             if (recast->GetAbilityTimerId(i) == timer)
             {
-                frames = recast->GetAbilityTimer(i); modifier = recast->GetAbilityCalc2(i);
+                frames = recast->GetAbilityTimer(i);
+                modifier = static_cast<int16_t>(recast->GetAbilityCalc2(i));
                 state.base_recast = static_cast<float>(recast->GetAbilityRecast(i));
                 break;
             }
@@ -187,7 +158,13 @@ namespace xiui
         state.total = std::max({state.total, state.base_recast, state.remaining});
         const auto pool = AbilityChargePool(core, timer);
         if (timer == 102 && pool.maximum == 0) state.charge_cost = 0;
-        ApplyChargeRecast(state, frames, pool.maximum, pool.seconds + modifier);
+        if (const auto charges = CalculateChargeRecast(frames, pool, modifier); charges.maximum != 0)
+        {
+            state.charges = charges.charges;
+            state.max_charges = charges.maximum;
+            state.remaining = charges.remaining;
+            state.total = charges.duration;
+        }
         if (state.charge_cost != 0 && pool.maximum == 0) state.recast_known = false;
     }
 

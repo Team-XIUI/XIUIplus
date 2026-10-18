@@ -13,10 +13,12 @@ Treasure alerts and item-received rewards continue through the existing **Notifi
 ## Source and actions
 
 - [treasure_source](../../src/runtime/modules/treasure/treasure_source.cpp) reconciles ten native SDK slots and validated `0xD2`/`0xD3` packets. Identity includes the item, drop timestamp and a monotonic generation. Resolved-entry tombstones prevent an older SDK sample from restoring a removed item.
-- Individual and batch Lot/Pass use the same validated service and outgoing `0x41`/`0x42` packets. Batch requests capture eligible identities, recheck each slot and reject replacements. Pending responses prevent immediate duplicate activation; native decisions replace local pending state.
+- Individual and batch Lot/Pass use the same validated service and outgoing `0x41`/`0x42` packets. Mouse, controller and command batches share eligible-token capture and submission, recheck each slot and reject replacements. Lot All skips existing lots; Pass All can pass a previous lot while skipping passed/pending items. Pending responses prevent immediate duplicate activation; native decisions replace local pending state.
 - Zoning suspends actions while retaining entries until native reconciliation. Logout/character replacement clears transient state. Hidden UI, native menus/text/subtargets and foreground loss release browsing.
 - New-drop countdowns estimate the server's five-minute lifetime. Old entries use clock reconciliation only when available; otherwise timing stays unknown. Duplicate packets preserve identity and the original estimate. Native resolution removes entries immediately.
 - [treasure_module](../../src/runtime/modules/treasure/treasure_module.cpp) reuses shared native containers, item icons, typography, tinting, focus frames, settings and UI sounds. Edit samples cannot send requests.
+
+`hud_runtime_treasure` centralizes input availability, pointer/key handling and source updates. Either expanded chat window retains input priority; owned Cancel repeats/releases drain after browsing ends. Live rendering references the bounded source entries directly, and edit samples use an isolated array. Pointer batch tokens remain separate from lightweight focus controls.
 
 ## Input and controller behavior
 

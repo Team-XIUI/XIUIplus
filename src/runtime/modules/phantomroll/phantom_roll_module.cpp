@@ -32,9 +32,15 @@ namespace xiui
 
     auto phantom_roll_module::ResetDefaults(const ui::theme& theme) -> void
     {
-        const auto bounds = this->state_.bounds; const auto* source = this->source_; auto* rules = this->shared_rules_;
-        *this = {}; this->state_.bounds = bounds; this->source_ = source; this->shared_rules_ = rules;
-        this->ApplyTextDefaults(theme); this->ApplyMeterDefaults(theme.meter);
+        const auto bounds = this->state_.bounds;
+        const auto* source = this->source_;
+        auto* settings = this->combat_settings_;
+        *this = {};
+        this->state_.bounds = bounds;
+        this->source_ = source;
+        this->combat_settings_ = settings;
+        this->ApplyTextDefaults(theme);
+        this->ApplyMeterDefaults(theme.meter);
     }
 
     auto phantom_roll_module::Update(const uint64_t now, const bool configOpen) -> void
@@ -76,7 +82,8 @@ namespace xiui
     {
         this->Clear(); this->animation_ = {};
         this->state_.bounds = settings.ReadRect("layout.phantomroll", this->state_.bounds);
-        this->rules_ = std::clamp(settings.ReadInt("phantomroll", "rules", 0), 0, 2);
+        if (this->combat_settings_ == nullptr)
+            this->local_combat_settings_.SetRules(ServerRulesFromIndex(settings.ReadInt("phantomroll", "rules", 0)));
         this->layout_ = std::clamp(settings.ReadInt("phantomroll", "layout", 0), 0, 1);
         this->selected_text_ = std::clamp(settings.ReadInt("phantomroll", "selected_text", 0), 0, 4);
         this->state_.enabled = settings.ReadBool("phantomroll", "enabled", false);
@@ -98,7 +105,9 @@ namespace xiui
     auto phantom_roll_module::Save(const settings_store& settings) const -> void
     {
         settings.WriteRect("layout.phantomroll", this->state_.bounds);
-        settings.WriteInt("phantomroll", "rules", this->Rules()); settings.WriteInt("phantomroll", "layout", this->layout_);
+        if (this->combat_settings_ == nullptr)
+            settings.WriteInt("phantomroll", "rules", ServerRulesIndex(this->Rules()));
+        settings.WriteInt("phantomroll", "layout", this->layout_);
         settings.WriteInt("phantomroll", "selected_text", this->selected_text_);
         for (const auto& [key, value] : {std::pair{"enabled", this->state_.enabled}, {"container", this->container_}, {"potency", this->potency_}, {"double_up", this->double_up_}})
             settings.WriteBool("phantomroll", key, value);
@@ -131,7 +140,7 @@ namespace xiui
         switch (index)
         {
         case enabled: return module_option::Toggle("Enabled", "Show your two native roll effects; tracking continues while hidden.", &this->state_.enabled).Ordered(-50);
-        case rules: return module_option::Choice("Rules", "Shared with Action Bars / Skillchains. Base potency only; equipment, party-job and special ability modifiers remain unknown.", this->shared_rules_ != nullptr ? this->shared_rules_ : &this->rules_, server_rule_names, 3);
+        case rules: return module_option::Choice("Rules", "Shared with Action Bars / Skillchains. Base potency only; equipment, party-job and special ability modifiers remain unknown.", this->CombatSettings().RulesChoice(), server_rule_names, 3);
         case preview: return module_option::Action("Preview rolls", "Show separate samples until configuration closes; never changes live rolls.", "Preview");
         case layout: return module_option::Choice("Roll layout", "Arrange the two seats horizontally or vertically.", &this->layout_, layouts, 2);
         case width: return ModuleWidthOption(this->state_);

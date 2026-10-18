@@ -6,6 +6,8 @@ Status updated October 17, 2026. Original source audit: October 15, 2026 against
 
 ## Latest updates
 
+- [x] **Shared-code cleanup:** runtime-owned typed combat rules retain existing profile keys; Cast Cost, Recast and Action Bars use independent shared charge helpers. Treasure batches share eligible capture/submission, input gating is centralized, and rendering references live entries with isolated edit samples. Focused input, batch, migration, charge and Action Bars checks pass. AgentLink confirmed runtime **Oct 17 2026 18:33:05** hot-reloaded at **18:34:52**, preserving all 10,413 settings/profile values and exact theme bytes. Physical gameplay acceptance remains with Cody.
+
 - [x] **Phoenix source follow-up:** shared Retail/Horizon/Phoenix combat profiles, ordered skillchain resolution, ToAU roll powers/labels, ranged debuff estimates, fresh mob/spawn-slot data, shared charge interpretation and bounded distant minimap markers. Horizon remains supported; inventory restrictions remain excluded. See [source audit and implementation](phoenix-source-audit.md).
 
 - [x] **P07 — Treasure Pool:** native items/icons/counts, local lots/passes, winning lots/players, recent history, estimated/unknown timers, individual and batch actions, native containers and four styled text profiles. Mouse, keyboard and explicit controller focus share validated actions and stale-item checks. Treasure alerts continue through Notifications. Focused Phoenix/Treasure checks pass; live loot and physical acceptance remain with Cody. See [P07](implementation/07-treasure-pool.md).

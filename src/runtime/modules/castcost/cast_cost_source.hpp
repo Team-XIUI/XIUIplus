@@ -28,9 +28,6 @@ namespace xiui
         }
     };
 
-    auto ApplyChargeRecast(action_cost_state& state, uint32_t frames, uint32_t maximum, float poolSeconds) -> void;
-    struct ability_charge_pool { uint32_t maximum{}; float seconds{}; };
-    auto AbilityChargePool(IAshitaCore* core, uint32_t timer) -> ability_charge_pool;
     auto FormatCastTime(float seconds) -> std::string;
 
     struct selected_spell_mp_cost

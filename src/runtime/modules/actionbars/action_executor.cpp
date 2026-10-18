@@ -1,6 +1,6 @@
 #include "action_executor.hpp"
 #include "chat/chat_encoding.hpp"
-#include "modules/castcost/cast_cost_source.hpp"
+#include "combat/ability_recast.hpp"
 
 #include <algorithm>
 #include <cmath>
@@ -228,14 +228,28 @@ namespace xiui
                 if (slot.kind == action_kind::pet && memory->GetEntity()->GetPetTargetIndex(index) == 0) { result.reason = "An active pet is required."; return result; }
                 if (recast != nullptr)
                 {
-                    result.recast_known = true; uint32_t frames{}; int16_t modifier{};
-                    for (uint32_t entry = 0; entry < 32; ++entry) if (recast->GetAbilityTimerId(entry) == timer)
-                    { frames = recast->GetAbilityTimer(entry); modifier = recast->GetAbilityCalc2(entry); base = static_cast<float>(recast->GetAbilityRecast(entry)); break; }
+                    result.recast_known = true;
+                    uint32_t frames{};
+                    int16_t modifier{};
+                    for (uint32_t entry = 0; entry < 32; ++entry)
+                        if (recast->GetAbilityTimerId(entry) == timer)
+                        {
+                            frames = recast->GetAbilityTimer(entry);
+                            modifier = static_cast<int16_t>(recast->GetAbilityCalc2(entry));
+                            base = static_cast<float>(recast->GetAbilityRecast(entry));
+                            break;
+                        }
                     result.remaining = frames / 60.0f;
                     const auto pool = AbilityChargePool(core, timer);
                     if (timer == 102 && pool.maximum == 0) chargeCost = 0;
                     if (pool.maximum != 0)
-                    { action_cost_state charges{}; ApplyChargeRecast(charges, frames, pool.maximum, pool.seconds + modifier); result.charges = charges.charges; result.maximum_charges = pool.maximum; result.remaining = charges.remaining; result.total = charges.total; }
+                    {
+                        const auto charges = CalculateChargeRecast(frames, pool, modifier);
+                        result.charges = charges.charges;
+                        result.maximum_charges = pool.maximum;
+                        result.remaining = charges.remaining;
+                        result.total = charges.duration;
+                    }
                 }
             }
         }

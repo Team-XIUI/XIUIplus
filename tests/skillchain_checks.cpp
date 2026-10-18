@@ -1,6 +1,7 @@
 #include "combat/skillchain_source.hpp"
 #include "modules/actionbars/actionbars_module.hpp"
 #include "modules/magicburst/magic_burst_module.hpp"
+#include "modules/phantomroll/phantom_roll_module.hpp"
 
 #include <cstdio>
 #include <cstring>
@@ -26,6 +27,79 @@ namespace
         write(1000,17); write(103,10); write(0,31); write(1,1); write(7,10); write(500,17); write(288,10); write(0,1);
         bytes.resize((position + 7) / 8); return bytes;
     }
+
+    auto CheckCombatSettings(void) -> void
+    {
+        using namespace xiui;
+        const auto legacy = settings_store::FromIniText("[magicburst]\nrules=1\n[phantomroll]\nrules=2\n");
+        combat_settings settings;
+        settings.Load(legacy);
+        Check(settings.Rules() == server_rules::horizon, "shared rules retain the legacy Magic Burst migration precedence");
+        settings.Load(settings_store::FromIniText("[phantomroll]\nrules=2\n"));
+        Check(settings.Rules() == server_rules::retail, "standalone legacy roll rules do not change the runtime combat default");
+
+        const auto profile = settings_store::FromIniText("[actionbars]\nskillchain_rules=2\n[magicburst]\nrules=1\n[phantomroll]\nrules=0\n");
+        settings.Load(profile);
+        actionbars_module bars;
+        phantom_roll_module rolls;
+        bars.SetCombatSettings(&settings);
+        rolls.SetCombatSettings(&settings);
+        bars.Load(profile);
+        rolls.Load(profile);
+        Check(bars.SkillchainRules() == server_rules::phoenix && rolls.Rules() == server_rules::phoenix,
+            "both modules use the canonical runtime rules without overwriting them during load");
+
+        const auto choice = [](hud_module& module, const char* label) -> int* {
+            for (size_t index = 0; index < module.OptionCount(); ++index)
+            {
+                const auto option = module.Option(index);
+                if (option.label != nullptr && std::strcmp(option.label, label) == 0) return option.choice;
+            }
+            return nullptr;
+        };
+        auto* barRules = choice(bars, "Skillchain rules");
+        auto* rollRules = choice(rolls, "Rules");
+        Check(barRules != nullptr && barRules == rollRules, "both configuration surfaces edit the shared settings adapter");
+        *barRules = ServerRulesIndex(server_rules::horizon);
+        Check(rolls.Rules() == server_rules::horizon, "Action Bars edits reach Phantom Roll immediately");
+        *rollRules = ServerRulesIndex(server_rules::phoenix);
+        Check(bars.SkillchainRules() == server_rules::phoenix, "Phantom Roll edits reach Action Bars immediately");
+
+        auto saved = settings_store::FromIniText("");
+        bars.Save(saved);
+        rolls.Save(saved);
+        Check(saved.ReadInt("actionbars", "skillchain_rules", -1) == -1 && saved.ReadInt("phantomroll", "rules", -1) == -1,
+            "bound modules leave shared persistence to the runtime owner");
+        settings.Save(saved);
+        Check(saved.ReadInt("actionbars", "skillchain_rules", -1) == 2 && saved.ReadInt("phantomroll", "rules", -1) == 2,
+            "shared capture retains the canonical key and compatible roll mirror");
+        combat_settings restored;
+        restored.Load(settings_store::FromIniText(saved.ToIniText()));
+        Check(restored.Rules() == server_rules::phoenix, "shared rules survive preference snapshot round trips");
+
+        const auto theme = ui::theme::CreateDefault();
+        bars.ResetDefaults(theme);
+        rolls.ResetDefaults(theme);
+        Check(bars.SkillchainRules() == server_rules::phoenix && rolls.Rules() == server_rules::phoenix,
+            "module resets preserve the shared owner and its value");
+        settings.ResetDefaults();
+        Check(bars.SkillchainRules() == server_rules::retail && rolls.Rules() == server_rules::retail,
+            "the runtime owner resets shared rules once for every consumer");
+
+        phantom_roll_module standalone;
+        standalone.Load(legacy);
+        Check(standalone.Rules() == server_rules::phoenix, "standalone roll modules retain their legacy preferences");
+        standalone.Save(saved);
+        Check(saved.ReadInt("phantomroll", "rules", -1) == 2, "standalone roll preferences still save normally");
+
+        settings.Load(settings_store::FromIniText("[actionbars]\nskillchain_rules=-1\n"));
+        Check(settings.Rules() == server_rules::retail, "negative saved rules clamp to Retail");
+        settings.Load(settings_store::FromIniText("[actionbars]\nskillchain_rules=99\n"));
+        Check(settings.Rules() == server_rules::phoenix, "high saved rules retain the existing Phoenix clamp");
+        *settings.RulesChoice() = -4;
+        Check(settings.Rules() == server_rules::retail && *settings.RulesChoice() == 0,
+            "the settings adapter normalizes an invalid choice before exposing it again");
+    }
 }
 
 auto RunSkillchainChecks(void) -> bool
@@ -33,6 +107,7 @@ auto RunSkillchainChecks(void) -> bool
     using namespace xiui;
     try
     {
+        CheckCombatSettings();
         skillchain_source source;
         source.Observe(Action(2), 1000);
         Check(source.Find(100, 1000) != nullptr && !source.Find(100, 1000)->Burst(1000) &&
@@ -79,7 +154,7 @@ auto RunSkillchainChecks(void) -> bool
 
         source.Clear(); source.Observe(Action(3), 30000);
         Check(!source.Predict(100, 3, 37, {}, 30001).Active(), "Retail uses the pinned Retail property set");
-        source.SetRules(1); Check(source.Count() == 0, "changing rules invalidates existing observations");
+        source.SetRules(server_rules::horizon); Check(source.Count() == 0, "changing rules invalidates existing observations");
         source.Observe(Action(3), 30000);
         Check(source.Predict(100, 3, 37, {}, 30001).chain == skillchain_property::transfixion,
             "Horizon applies its property overlay before making the shared prediction");
@@ -93,7 +168,7 @@ auto RunSkillchainChecks(void) -> bool
         auto store = settings_store::FromIniText("[magicburst]\nenabled=0\npredictions=1\nrules=1\nopacity=0.6\n[layout.magicburst]\nx=123\ny=234\nwidth=160\n[text.magicburst.timer]\noffset_x=9\noffset_y=-4\n");
         magic_burst_module module; const auto theme = ui::theme::CreateDefault(); module.ApplyTextDefaults(theme); module.SetSource(&source); module.Load(store);
         actionbars_module bars; bars.ApplyTextDefaults(theme); bars.Load(store);
-        Check(!module.State().enabled && bars.SkillchainPredictionsEnabled() && bars.SkillchainRules() == 1,
+        Check(!module.State().enabled && bars.SkillchainPredictionsEnabled() && bars.SkillchainRules() == server_rules::horizon,
             "Action Bars preserves legacy prediction preferences independently of the hidden burst HUD");
         size_t predictionIndex = bars.OptionCount(), rulesIndex = bars.OptionCount(), hudIndex = bars.OptionCount();
         for (size_t index = 0; index < bars.OptionCount(); ++index)
@@ -119,7 +194,7 @@ auto RunSkillchainChecks(void) -> bool
         Check(bars.TakeMagicBurstSettingsRequest() && !bars.TakeMagicBurstSettingsRequest(), "the shared HUD shortcut activates once");
         *predictions = false; *rules = 0; bars.Save(store);
         actionbars_module restored; restored.Load(store);
-        Check(!restored.SkillchainPredictionsEnabled() && restored.SkillchainRules() == 0 && store.ReadBool("magicburst", "predictions", false),
+        Check(!restored.SkillchainPredictionsEnabled() && restored.SkillchainRules() == server_rules::retail && store.ReadBool("magicburst", "predictions", false),
             "canonical Action Bars settings override retained legacy keys on subsequent loads");
         module.Save(store);
         magic_burst_module loaded; loaded.ApplyTextDefaults(theme); loaded.Load(store);
@@ -128,7 +203,7 @@ auto RunSkillchainChecks(void) -> bool
             "burst display position and independent text settings survive normal profile round trips");
         module.ResetDefaults(theme);
         bars.ResetDefaults(theme);
-        Check(module.State().enabled && bars.SkillchainPredictionsEnabled() && bars.SkillchainRules() == 0 && module.State().bounds.x == 123,
+        Check(module.State().enabled && bars.SkillchainPredictionsEnabled() && bars.SkillchainRules() == server_rules::retail && module.State().bounds.x == 123,
             "reset restores feature defaults while retaining the movement anchor");
         size_t profiles{}; module.VisitTextSettings([&](ui::text_style&) { ++profiles; });
         Check(profiles == 3, "global typography visits all three burst text profiles");

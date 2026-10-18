@@ -71,15 +71,17 @@ namespace xiui
         this->targets_.clear(); this->buffs_.clear(); this->player_ = this->zone_ = this->local_actor_ = this->target_ = 0;
         this->local_buffs_ = 0; this->next_update_ = 0; this->pet_.clear();
     }
-    auto skillchain_source::SetRules(const int rules) -> void
+    auto skillchain_source::SetRules(const server_rules rules) -> void
     {
-        const int next = std::clamp(rules, 0, 2);
-        if (this->rules_ != next) { this->Clear(); this->names_.clear(); this->rules_ = next; }
+        if (this->rules_ == rules) return;
+        this->Clear();
+        this->names_.clear();
+        this->rules_ = rules;
     }
     auto skillchain_source::Skill(const uint8_t category, const uint32_t id, const std::string_view name) const -> const resources::skillchain_skill*
     {
-        const std::span<const resources::skillchain_skill> table = this->rules_ == 2 ? std::span<const resources::skillchain_skill>{resources::skillchain_phoenix} :
-            this->rules_ == 1 ? std::span<const resources::skillchain_skill>{resources::skillchain_horizon} : std::span<const resources::skillchain_skill>{resources::skillchain_retail};
+        const std::span<const resources::skillchain_skill> table = this->rules_ == server_rules::phoenix ? std::span<const resources::skillchain_skill>{resources::skillchain_phoenix} :
+            this->rules_ == server_rules::horizon ? std::span<const resources::skillchain_skill>{resources::skillchain_horizon} : std::span<const resources::skillchain_skill>{resources::skillchain_retail};
         const auto key = std::pair{category, id};
         const auto found = std::lower_bound(table.begin(), table.end(), key, [](const auto& row, const auto& value) {
             return std::pair{row.category, uint32_t{row.id}} < value;
@@ -161,7 +163,9 @@ namespace xiui
                 auto& window = this->Put(target.id, now);
                 window.properties = Bit(property); window.chain = property; window.depth = depth;
                 window.order = static_cast<uint8_t>(property);
-                window.opens = now + (this->rules_ == 2 ? 3001 : 3500); window.closes = now + 9800 - uint64_t{depth} * 1000; window.burst_started = now;
+                window.opens = now + (this->rules_ == server_rules::phoenix ? 3001 : 3500);
+                window.closes = now + 9800 - uint64_t{depth} * 1000;
+                window.burst_started = now;
                 consumeSpellBuff |= category == 4;
                 continue;
             }
@@ -182,7 +186,9 @@ namespace xiui
                 auto& window = this->Put(target.id, now);
                 window.properties = properties; window.chain = skillchain_property::none; window.depth = 0;
                 window.order = skill->order;
-                window.opens = now + (this->rules_ == 2 ? 3001 : 0); window.closes = now + 10000; window.burst_started = 0;
+                window.opens = now + (this->rules_ == server_rules::phoenix ? 3001 : 0);
+                window.closes = now + 10000;
+                window.burst_started = 0;
                 consumeSpellBuff |= category == 4;
             }
             else if (category == 3) this->Remove(target.id);

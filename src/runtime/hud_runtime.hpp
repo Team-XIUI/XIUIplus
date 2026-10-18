@@ -16,6 +16,7 @@
 #include "modules/pet/pet_source.hpp"
 #include "modules/bluemagic/blue_magic_module.hpp"
 #include "modules/phantomroll/phantom_roll_module.hpp"
+#include "combat/combat_settings.hpp"
 #include "modules/magicburst/magic_burst_module.hpp"
 #include "modules/enemylist/enemy_list_module.hpp"
 #include "modules/party/party_module.hpp"
@@ -200,6 +201,7 @@ namespace xiui
         pet_module pet_{};
         pet_module pet_target_{true};
         std::array<hud_module*, 6> pet_config_members_{};
+        combat_settings combat_settings_{};
         combat_source combat_source_{};
         combat_timing_source timing_source_{};
         party_timing_source party_timing_source_{};
@@ -466,6 +468,10 @@ namespace xiui
         auto UpdateSatchel(uint64_t now) -> void;
         auto HandleSatchelCommand(std::string_view command) -> bool;
         auto HandleSatchelKey(WPARAM key, LPARAM flags, bool blocked) -> bool;
+        auto TreasureInputAvailable(void) const -> bool;
+        auto UpdateTreasure(uint64_t now) -> void;
+        auto HandleTreasureKey(WPARAM key, LPARAM flags, bool blocked) -> bool;
+        auto HandleTreasureMouse(uint32_t message, float x, float y, bool blocked) -> bool;
         auto ActionBarsNativePaletteOwned(bool candidate = false) const -> bool;
         auto ActionBarsInputAvailable(bool keyboardReplacement = false) const -> bool;
         auto ActionBarsPointerOwns(float x, float y) const -> bool;

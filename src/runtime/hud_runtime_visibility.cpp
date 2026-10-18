@@ -113,7 +113,7 @@ namespace xiui
         case controller_surface::ready_check: return this->ContextVisible(this->ready_check_);
         case controller_surface::equipment: return this->ContextVisible(this->equipment_);
         case controller_surface::satchel: return this->ContextVisible(this->satchel_) && this->satchel_.ShouldRender({});
-        case controller_surface::treasure: return !this->ControllerNativeMenuOpen() && this->ContextVisible(this->treasure_) && this->treasure_.ShouldRender({}) && this->treasure_.InputFocused();
+        case controller_surface::treasure: return this->TreasureInputAvailable() && this->treasure_.InputFocused();
         case controller_surface::hotbar:
         case controller_surface::crossbar: return this->ActionBarsInputAvailable() && this->actionbars_.InputFocused();
         case controller_surface::target_status: return this->TargetStatusVisible();

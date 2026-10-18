@@ -84,7 +84,7 @@ namespace xiui
         auto& statuses = this->Actor(target, now).statuses;
         auto next = combat_status{static_cast<uint16_t>(status), static_cast<uint16_t>(spell), now,
             seconds != 0 ? now + static_cast<uint64_t>(seconds) * 1000 : 0, false, seconds != 0};
-        if (this->rules_ == 2)
+        if (this->rules_ == server_rules::phoenix)
         {
             uint32_t minimum{}, maximum{};
             if (spell == 58 || spell == 80 || spell == 59) { minimum = 30; maximum = 120; }
@@ -156,9 +156,17 @@ namespace xiui
         for (auto& [actorId, actor] : this->actors_)
         {
             (void)actorId;
-            if (this->rules_ == 2)
+            if (this->rules_ == server_rules::phoenix)
+            {
                 for (auto& status : actor.statuses)
-                    if (status.estimated && status.expires != 0 && now >= status.expires) { status.expires = 0; status.uncertain = true; }
+                {
+                    if (status.estimated && status.expires != 0 && now >= status.expires)
+                    {
+                        status.expires = 0;
+                        status.uncertain = true;
+                    }
+                }
+            }
             std::erase_if(actor.statuses, [now](const auto& status) { return status.expires != 0 && now >= status.expires; });
             if (!actor.cast.Active(now)) actor.cast = {};
             if (now >= actor.targeted && now - actor.targeted > 30000) actor.target = 0;

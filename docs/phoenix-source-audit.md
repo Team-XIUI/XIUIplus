@@ -17,6 +17,8 @@ The affected native x86 build and focused Phoenix/Treasure, Skillchain and Minim
 
 Installed through a coordinated AgentLink unload/load at 18:19 on October 17. Fresh status confirms host **18:11:58**, runtime **18:15:36**, GPU text, visible HUD and Phoenix (75 cap) rules; Treasure Pool is ready and empty. All 10,311 existing settings are retained except the two intentional shared rules values (`0` → `2`); 102 defaults were added and theme bytes are identical. Default profile follows the normal save path. Runtime SHA-256: `387FEE8E04C016B3E90AAAFB3DD7FF8DCD21938D63A07BB296D8C8536EB20AA8`. Backup/report: `out/phoenix-audit-20261017/install-20261017-181817` and `install-report.json`. No live Lot/Pass action was sent. Standalone 1.0.2 predates this implementation.
 
+The subsequent cleanup centralizes typed combat settings, charge helpers and Treasure Pool input/batch paths. Runtime **18:33:05** hot-reloaded at **18:34:52** with the existing host, GPU text, visible HUD and Phoenix rules retained. All 10,413 settings/profile values and exact theme bytes were preserved; Default profile changed whitespace only. Focused checks passed. Runtime SHA-256: `EC76D4FEE3E9BBB0EFD3AFD52ADB039E5A7168CD975F2DCFFD6B93B61ED83C13`; backup/report are under `out/cleanup-20261017`. No loot action was sent during validation.
+
 ## Source and scope
 
 Fetched `origin/live` and `origin/beta` from `phoenixffxi/Phoenix`:

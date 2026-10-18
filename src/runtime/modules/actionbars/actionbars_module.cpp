@@ -118,7 +118,9 @@ namespace xiui
         this->bars_[action_bar_count].size = 32; this->bars_[action_bar_count].slots = this->bars_[action_bar_count].columns = 8;
         this->bars_[0].state.enabled = true;
         this->inactive_ = this->prompts_ = this->allow_native_keys_ = this->crossbar_animations_ = true;
-        this->skillchain_predictions_ = true; this->skillchain_rules_ = 0; this->magic_burst_settings_request_ = false;
+        this->skillchain_predictions_ = true;
+        this->local_combat_settings_.ResetDefaults();
+        this->magic_burst_settings_request_ = false;
         this->container_ = {1, 5, 8, false};
         this->ApplyTextDefaults(theme);
         for (size_t index = 0; index < this->bars_.size(); ++index) this->Layout(index);
@@ -128,7 +130,8 @@ namespace xiui
     {
         this->SuspendInput();
         this->skillchain_predictions_ = settings.ReadBool("actionbars", "skillchain_predictions", settings.ReadBool("magicburst", "predictions", true));
-        this->skillchain_rules_ = std::clamp(settings.ReadInt("actionbars", "skillchain_rules", settings.ReadInt("magicburst", "rules", 0)), 0, 2);
+        if (this->combat_settings_ == nullptr)
+            this->local_combat_settings_.Load(settings);
         const int slotFrameVersion = settings.ReadInt("actionbars", "slot_frame_version", 0);
         auto legacySlots = actionbar_slot_style{}; legacySlots.frame = 0;
         for (size_t index = 0; index < this->workspace_bounds_.size(); ++index)
@@ -258,7 +261,8 @@ namespace xiui
             settings.WriteRect(workspace_sections[index], this->window_gesture_ != window_gesture::none && index == this->window_workspace_ ? this->window_original_ : this->workspace_bounds_[index]);
         settings.WriteInt("actionbars", "presentation_version", 1);
         settings.WriteBool("actionbars", "skillchain_predictions", this->skillchain_predictions_);
-        settings.WriteInt("actionbars", "skillchain_rules", this->skillchain_rules_);
+        if (this->combat_settings_ == nullptr)
+            this->local_combat_settings_.Save(settings);
         for (size_t index = 0; index < this->bars_.size(); ++index)
         {
             const auto& bar = this->bars_[index]; const auto section = std::string{"actionbars."} + bar_ids[index];
@@ -373,7 +377,7 @@ namespace xiui
         switch (index)
         {
         case skillchain_predictions: return module_option::Toggle("Action predictions", "Highlight compatible weapon skills/abilities and burstable spells on all hotbars and the crossbar. Works independently of the Magic Burst HUD.", &this->skillchain_predictions_);
-        case skillchain_rules: return module_option::Choice("Skillchain rules", "Shared combat profile for predictions, debuff estimates and Phantom Roll base values. Phoenix uses its 75-cap rules. Changing rules clears combat observations.", &this->skillchain_rules_, server_rule_names, 3);
+        case skillchain_rules: return module_option::Choice("Skillchain rules", "Shared combat profile for predictions, debuff estimates and Phantom Roll base values. Phoenix uses its 75-cap rules. Changing rules clears combat observations.", this->CombatSettings().RulesChoice(), server_rule_names, 3);
         case magic_burst_settings: return module_option::Action("Magic Burst HUD", "Open the separate burst display's visibility, appearance and text settings.", "Open HUD settings");
         case enabled: return module_option::Toggle("Enabled", "Show this bar; other bars keep their own enabled state.", &bar.state.enabled).Ordered(-100);
         case locked: return module_option::Toggle("Lock slot positions", "Prevent dragging existing actions. Click to activate; right-click for slot options.", &bar.locked).Ordered(-90);

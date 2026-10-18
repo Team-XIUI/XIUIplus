@@ -56,15 +56,15 @@ auto RunPhantomRollChecks(void) -> bool
     okay &= check(!tracker.Seats()[0].Present(), "unconfirmed action expires after grace");
     tracker.Clear(); tracker.Observe(Roll(98, 5), 123, 1000);
     okay &= check(!tracker.Observe(Roll(123, 8), 123, 46000), "closed Double-Up window rejects update");
-    const auto* retail = xiui::PhantomRollByAbility(105, false);
-    const auto* horizon = xiui::PhantomRollByAbility(105, true);
+    const auto* retail = xiui::PhantomRollByAbility(105, xiui::server_rules::retail);
+    const auto* horizon = xiui::PhantomRollByAbility(105, xiui::server_rules::horizon);
     okay &= check(retail != nullptr && horizon != nullptr && xiui::PhantomRollBasePotency(*retail, 4, 75) == 25 &&
         xiui::PhantomRollBasePotency(*horizon, 4, 75) == 92 && xiui::PhantomRollBasePotency(*horizon, 4, 50) == 61, "retail and Horizon base tables with known level");
     okay &= check(!xiui::PhantomRollBasePotency(*horizon, 4, 0) && !xiui::PhantomRollBasePotency(*retail, 0, 75), "unavailable inputs stay unknown");
-    const auto* companion = xiui::PhantomRollByAbility(304, false);
+    const auto* companion = xiui::PhantomRollByAbility(304, xiui::server_rules::retail);
     okay &= check(companion != nullptr && !xiui::PhantomRollBasePotency(*companion, 2, 99), "unsupported potency stays unknown");
     okay &= check(xiui::PhantomBustChance(5) == 0 && std::abs(xiui::PhantomBustChance(8) - 0.5f) < 0.001f && xiui::PhantomBustChance(11) == 1, "ordinary die risk boundaries");
-    okay &= check(xiui::PhantomRolls(false).size() == 31 && xiui::PhantomRolls(true).size() == 31, "both rule sets retain all roll identities");
+    okay &= check(xiui::PhantomRolls(xiui::server_rules::retail).size() == 31 && xiui::PhantomRolls(xiui::server_rules::horizon).size() == 31, "both rule sets retain all roll identities");
     tracker.Clear(); okay &= check(tracker.DoubleUpUntil() == 0 && !tracker.Seats()[0].Present(), "lifecycle clears roll state");
     return okay;
 }

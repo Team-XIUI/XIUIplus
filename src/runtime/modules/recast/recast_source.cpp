@@ -1,6 +1,6 @@
 #include "recast_source.hpp"
 #include "chat/chat_encoding.hpp"
-#include "modules/castcost/cast_cost_source.hpp"
+#include "combat/ability_recast.hpp"
 
 #include <algorithm>
 #include <array>
@@ -69,17 +69,16 @@ namespace xiui
             if (frames == 0 || timer >= seen.size() || (timer == 0 && slot != 0) || timer == 92 || seen[timer]) continue;
             seen[timer] = true;
             recast_sample sample{recast_kind::ability, timer};
-            sample.remaining = frames / 60.0f; sample.name = this->AbilityName(resources, player, timer);
+            sample.remaining = frames / 60.0f;
+            sample.name = this->AbilityName(resources, player, timer);
             const auto pool = AbilityChargePool(core, timer);
-            if (pool.maximum != 0)
+            const auto modifier = static_cast<int16_t>(recast->GetAbilityCalc2(slot));
+            if (const auto charges = CalculateChargeRecast(frames, pool, modifier); charges.maximum != 0)
             {
-                action_cost_state charges{};
-                ApplyChargeRecast(charges, frames, pool.maximum, pool.seconds + static_cast<int16_t>(recast->GetAbilityCalc2(slot)));
-                if (charges.recast_known)
-                {
-                    sample.charges = charges.charges; sample.maximum_charges = charges.max_charges;
-                    sample.remaining = charges.remaining; sample.charge_duration = charges.total;
-                }
+                sample.charges = charges.charges;
+                sample.maximum_charges = charges.maximum;
+                sample.remaining = charges.remaining;
+                sample.charge_duration = charges.duration;
             }
             this->tracker_.Observe(sample, now);
         }

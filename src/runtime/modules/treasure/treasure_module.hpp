@@ -47,7 +47,8 @@ namespace xiui
         friend struct phoenix_integration_test;
         enum option : size_t { enabled, open, automatic, expanded, width, opacity, padding, selected_text, base_options };
         enum class action : uint8_t { lot, pass, lot_all, pass_all, expand, details, close };
-        struct control { ui::rect bounds{}; action kind{}; size_t slot{}; uint64_t generation{}; bool available{}; bool batch_frozen{}; std::vector<treasure_action> batch{}; };
+        struct control { ui::rect bounds{}; action kind{}; size_t slot{}; uint64_t generation{}; bool available{}; };
+        struct pointer_press { control target{}; std::vector<treasure_action> batch{}; };
         module_state state_{true, {-1, -1, 540, 200}, 440, 100, 1000};
         treasure_source* source_{};
         IAshitaCore* core_{};
@@ -59,10 +60,11 @@ namespace xiui
         ui::container_style container_{0.95f, 5, 10, false};
         std::array<module_text_profile, 4> text_{};
         std::vector<control> controls_{};
-        std::optional<control> pressed_{};
+        std::optional<pointer_press> pressed_{};
         bool pointer_down_{};
         float mouse_x_{-1}, mouse_y_{-1};
-        auto Activate(const control& control) -> void;
+        auto Activate(const control& control, const std::vector<treasure_action>* batch = nullptr) -> void;
+        auto SubmitBatch(std::span<const treasure_action> batch) -> void;
         auto MoveFocus(int delta, bool vertical = false) -> void;
     };
 }

@@ -1,5 +1,6 @@
 #include "combat/skillchain_source.hpp"
 #include "combat/combat_source.hpp"
+#include "combat/server_rules.hpp"
 #include "modules/phantomroll/phantom_roll_data.hpp"
 #include "modules/minimap/minimap_source.hpp"
 #include "modules/mobinfo/mob_database.hpp"
@@ -69,22 +70,22 @@ auto RunPhoenixIntegrationChecks(void) -> bool
     try
     {
         using namespace xiui;
-        skillchain_source chains; chains.SetRules(2); chains.Observe(Action(2), 10000);
+        skillchain_source chains; chains.SetRules(server_rules::phoenix); chains.Observe(Action(2), 10000);
         Check(!chains.Predict(100, 3, 6, {}, 13000).Active(), "Phoenix opener hints wait more than three seconds");
         Check(chains.Predict(100, 3, 6, {}, 13001).chain == skillchain_property::impaction,
             "Shoulder Tackle to Spinning Attack retains Phoenix primary-property priority");
         chains.Clear(); chains.Observe(Action(534, 13, 110), 20000);
         Check(chains.Count() == 0, "Phoenix removes later-era Eclipse Bite resonation");
-        chains.SetRules(0); chains.Observe(Action(534, 13, 110), 20000);
+        chains.SetRules(server_rules::retail); chains.Observe(Action(534, 13, 110), 20000);
         Check(chains.Count() == 1, "Retail pet properties remain available");
-        chains.SetRules(1); chains.Observe(Action(3), 30000);
+        chains.SetRules(server_rules::horizon); chains.Observe(Action(3), 30000);
         Check(chains.Predict(100, 3, 37, {}, 30001).chain == skillchain_property::transfixion, "Horizon overlays remain independently supported");
-        const auto* healer = PhantomRollByAbility(100, 2); const auto* gallant = PhantomRollByAbility(104, 2);
+        const auto* healer = PhantomRollByAbility(100, server_rules::phoenix); const auto* gallant = PhantomRollByAbility(104, server_rules::phoenix);
         Check(healer && std::string{healer->stat} == "hMP" && PhantomRollBasePotency(*healer, 3, 75) == 10 &&
             gallant && std::string{gallant->stat} == "Dmg reflect" && PhantomRollBasePotency(*gallant, 3, 75) == 15,
             "Phoenix rolls use ToAU powers and effect semantics");
-        Check(PhantomRollByAbility(105, 1)->per_level && !PhantomRollByAbility(105, 2)->per_level, "Phoenix does not inherit Horizon Chaos scaling");
-        combat_source combat; combat.SetRules(2); combat.ApplyStatus(100, 4, 58, 236, 10000);
+        Check(PhantomRollByAbility(105, server_rules::horizon)->per_level && !PhantomRollByAbility(105, server_rules::phoenix)->per_level, "Phoenix does not inherit Horizon Chaos scaling");
+        combat_source combat; combat.SetRules(server_rules::phoenix); combat.ApplyStatus(100, 4, 58, 236, 10000);
         Check(combat.Find(100) && combat.Find(100)->statuses[0].earliest == 40000 && combat.Find(100)->statuses[0].expires == 130000,
             "Phoenix Paralyze carries a base duration range");
         ui::status_strip_settings strip; strip.timers = true; strip.crowd_control_only = false;
@@ -124,12 +125,30 @@ auto RunPhoenixIntegrationChecks(void) -> bool
         drop[20] = 2; drop[21] = 1; Put(drop, 24, uint32_t{5000}); pool.HandlePacket(0xD2, drop, 23000);
         snapshots[2] = {100, 1, 5000}; pool.Reconcile(snapshots, true, 1, 23000);
         Check(pool.Entries()[2].expires == 320000, "duplicate fresh drops do not shift the server clock used by old entries");
-        snapshots[1] = {102, 1, 7000}; pool.Reconcile(snapshots, true, 1, 23000);
-        std::vector<treasure_action> batch;
-        for (size_t i = 0; i < 2; ++i) if (const auto action = pool.Plan(i, pool.Entries()[i].generation, false, 23000)) batch.push_back(*action);
-        snapshots[1] = {103, 1, 8000}; pool.Reconcile(snapshots, true, 1, 23001); sent = 0;
-        for (const auto& action : batch) pool.Queue(action, 23001, [&](const auto&) { ++sent; });
-        Check(sent == 1, "batch decisions revalidate every captured item identity");
+        pool.Clear();
+        snapshots = {};
+        snapshots[0] = {100, 1, 1000};
+        snapshots[1] = {101, 1, 2000, 450};
+        snapshots[2] = {102, 1, 3000, 65535};
+        snapshots[3] = {103, 1, 4000};
+        snapshots[4] = {104, 1, 5000};
+        pool.Reconcile(snapshots, true, 1, 23000);
+        const auto pending = pool.Plan(3, pool.Entries()[3].generation, false, 23000);
+        Check(pending && pool.Queue(*pending, 23000, [](const auto&) {}), "batch fixture contains an awaiting response");
+        const auto lots = pool.CaptureBatch(false, 23000);
+        const auto passes = pool.CaptureBatch(true, 23000);
+        Check(lots.size() == 2 && lots[0].slot == 0 && lots[1].slot == 4,
+            "Lot All shares eligibility and skips prior lots, passes and pending decisions");
+        Check(passes.size() == 3 && passes[1].slot == 1,
+            "Pass All can change an existing lot while skipping passed and pending items");
+        snapshots[4] = {105, 1, 6000};
+        snapshots[5] = {106, 1, 7000};
+        pool.Reconcile(snapshots, true, 1, 23001);
+        sent = 0;
+        Check(pool.QueueBatch(lots, 23001, [&](const auto& request) { Check(request.slot == 0, "batch excludes reused slots and later arrivals"); ++sent; }) == 1 && sent == 1,
+            "captured batches revalidate identity without expanding to later arrivals");
+        Check(pool.QueueBatch(passes, 23001, [&](const auto& request) { Check(request.slot == 1 && request.pass, "Pass All retains the eligible prior lot"); }) == 1 &&
+            pool.QueueBatch(passes, 23001, [](const auto&) {}) == 0, "batch submission silently skips stale and newly pending decisions");
         phoenix_integration_test::TreasureController(pool);
         auto store = settings_store::FromIniText("[treasure]\nexpanded=0\n[layout.treasure]\nx=123\ny=234\n");
         treasure_module module; module.ApplyTextDefaults(ui::theme::CreateDefault()); module.SetSource(&pool); module.Load(store); module.Save(store);

@@ -1,5 +1,7 @@
 #pragma once
 
+#include "combat/server_rules.hpp"
+
 #include <array>
 #include <cstdint>
 #include <optional>
@@ -19,9 +21,9 @@ namespace xiui
         std::array<int16_t, 12> powers{};
     };
 
-    auto PhantomRolls(int rules) -> std::span<const phantom_roll_data>;
-    auto PhantomRollByAbility(uint32_t ability, int rules) -> const phantom_roll_data*;
-    auto PhantomRollByStatus(uint16_t status, int rules) -> const phantom_roll_data*;
+    auto PhantomRolls(server_rules rules) -> std::span<const phantom_roll_data>;
+    auto PhantomRollByAbility(uint32_t ability, server_rules rules) -> const phantom_roll_data*;
+    auto PhantomRollByStatus(uint16_t status, server_rules rules) -> const phantom_roll_data*;
     auto PhantomRollBasePotency(const phantom_roll_data& roll, uint8_t total, uint8_t level) -> std::optional<float>;
     auto PhantomRollPotencyText(const phantom_roll_data* roll, uint8_t total, uint8_t level, bool busted) -> std::string;
     inline auto PhantomBustChance(const uint8_t total) -> float

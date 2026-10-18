@@ -113,6 +113,7 @@ namespace xiui
         this->modules_.Add(this->equipment_);
         this->modules_.Add(this->satchel_);
         this->actionbars_.Initialize(nullptr, &this->action_store_, &this->action_executor_);
+        this->actionbars_.SetCombatSettings(&this->combat_settings_);
         this->modules_.Add(this->actionbars_);
         this->actionbar_members_[0] = &this->actionbars_;
         for (size_t index = 0; index < this->actionbar_children_.size(); ++index)
@@ -129,7 +130,7 @@ namespace xiui
         for (auto& group : this->notification_groups_) this->modules_.Add(group);
         this->blue_magic_.SetSource(&this->party_source_);
         this->phantom_roll_.SetSource(&this->party_source_);
-        this->phantom_roll_.SetRulesSetting(this->actionbars_.SkillchainRulesSetting());
+        this->phantom_roll_.SetCombatSettings(&this->combat_settings_);
         this->modules_.Add(this->blue_magic_);
         this->modules_.Add(this->phantom_roll_);
         this->magic_burst_.SetSource(&this->skillchain_source_);
@@ -489,20 +490,7 @@ namespace xiui
         this->mouse_y_ = cursor.y;
         if (this->HandleSatchelMouse(message, wParam, static_cast<float>(cursor.x), static_cast<float>(cursor.y), blocked)) return true;
         if (this->HandleActionBarsMouse(message, wParam, static_cast<float>(cursor.x), static_cast<float>(cursor.y), blocked)) return true;
-        if (this->treasure_.PointerDown() || (!blocked && !this->editing_ && this->visible_ && this->ContextVisible(this->treasure_) && !this->ControllerNativeBusy() && !this->ControllerNativeMenuOpen() && !this->chat_.HistoryExpanded() && this->treasure_.Contains(static_cast<float>(cursor.x), static_cast<float>(cursor.y))))
-        {
-            if (message == WM_LBUTTONDOWN || message == WM_LBUTTONDBLCLK) this->ReleaseControllerFocus();
-            if (this->treasure_.HandleMouse(message, static_cast<float>(cursor.x), static_cast<float>(cursor.y)))
-            {
-                if (message == WM_LBUTTONDOWN || message == WM_LBUTTONDBLCLK)
-                {
-                    this->chat_.Focus(false);
-                    ::SetCapture(gameWindow); if (::GetCapture() == gameWindow) this->mouse_capture_window_ = gameWindow;
-                }
-                if (message == WM_LBUTTONUP) this->ReleasePointerCapture();
-                this->SetChatMouseCapture(true); return true;
-            }
-        }
+        if (this->HandleTreasureMouse(message, static_cast<float>(cursor.x), static_cast<float>(cursor.y), blocked)) return true;
 
         D3DVIEWPORT8 viewport{};
         if (FAILED(this->device_->GetViewport(&viewport)))
@@ -806,28 +794,7 @@ namespace xiui
         this->UpdateVisibilityContext();
         if (this->HandleActionBarsKey(key, flags, blocked)) return true;
         if (this->HandleSatchelKey(key, flags, blocked)) return true;
-        if (key < this->treasure_key_release_.size() && this->treasure_key_release_[key] && (static_cast<uint32_t>(flags) & 0x80000000u) != 0)
-        { this->treasure_key_release_[key] = false; return true; }
-        if (this->treasure_.InputFocused())
-        {
-            if (blocked || this->ControllerNativeBusy() || this->ControllerNativeMenuOpen() || !this->ContextVisible(this->treasure_)) this->ReleaseControllerFocus();
-            else
-            {
-                const auto action = key == VK_UP ? controller_action::up : key == VK_DOWN ? controller_action::down :
-                    key == VK_LEFT ? controller_action::left : key == VK_RIGHT ? controller_action::right :
-                    key == VK_RETURN ? controller_action::confirm : key == VK_ESCAPE ? controller_action::cancel : controller_action::none;
-                if (action != controller_action::none)
-                {
-                    if ((static_cast<uint32_t>(flags) & 0x80000000u) == 0)
-                    {
-                        this->treasure_key_release_[key] = true;
-                        this->treasure_.HandleControllerAction(action, (static_cast<uint32_t>(flags) & 0x40000000u) != 0);
-                        this->UpdateControllerFocus();
-                    }
-                    return true;
-                }
-            }
-        }
+        if (this->HandleTreasureKey(key, flags, blocked)) return true;
         if (this->confirmation_key_release_ == key && key != 0)
         {
             if ((static_cast<uint32_t>(flags) & 0x80000000u) != 0) this->confirmation_key_release_ = 0;
@@ -1015,9 +982,9 @@ namespace xiui
             this->party_source_.HandlePacket(this->core_, id, {data, size}, ::GetTickCount64());
             this->blue_magic_.HandlePacket(this->core_, id, {data, size}, ::GetTickCount64());
             this->phantom_roll_.HandlePacket(this->core_, id, {data, size}, ::GetTickCount64());
-            this->combat_source_.SetRules(this->actionbars_.SkillchainRules());
+            this->combat_source_.SetRules(this->combat_settings_.Rules());
             this->combat_source_.HandlePacket(this->core_, id, {data, size}, ::GetTickCount64());
-            this->skillchain_source_.SetRules(this->actionbars_.SkillchainRules());
+            this->skillchain_source_.SetRules(this->combat_settings_.Rules());
             if (this->magic_burst_.State().enabled || this->actionbars_.SkillchainPredictionsEnabled()) this->skillchain_source_.HandlePacket(this->core_, id, {data, size}, ::GetTickCount64());
             else this->skillchain_source_.Clear();
             if (this->timing_ready_) this->timing_source_.HandlePacket(this->core_, this->combat_source_, id, {data, size}, ::GetTickCount64());
@@ -1196,16 +1163,20 @@ namespace xiui
         }
         else if (::_stricmp(command, "treasure lotall") == 0 || ::_stricmp(command, "treasure passall") == 0)
         {
-            if (this->visible_ && this->ContextVisible(this->treasure_) && !this->editing_ && !this->ControllerNativeBusy() && !this->ControllerNativeMenuOpen())
+            if (this->TreasureInputAvailable())
                 this->treasure_.Batch(::_stricmp(command, "treasure passall") == 0);
             return true;
         }
         else if (::_stricmp(command, "rules phoenix") == 0 || ::_stricmp(command, "rules retail") == 0 || ::_stricmp(command, "rules horizon") == 0)
         {
-            *this->actionbars_.SkillchainRulesSetting() = ::_stricmp(command, "rules phoenix") == 0 ? 2 : ::_stricmp(command, "rules horizon") == 0 ? 1 : 0;
-            this->skillchain_source_.Clear(); this->combat_source_.Clear(); this->SaveSettings();
+            const auto rules = ::_stricmp(command, "rules phoenix") == 0 ? server_rules::phoenix :
+                ::_stricmp(command, "rules horizon") == 0 ? server_rules::horizon : server_rules::retail;
+            this->combat_settings_.SetRules(rules);
+            this->skillchain_source_.Clear();
+            this->combat_source_.Clear();
+            this->SaveSettings();
             if (this->core_ != nullptr && this->core_->GetChatManager() != nullptr)
-                this->core_->GetChatManager()->Writef(1, false, "[XIUI] Combat rules: %s.", ServerRulesName(this->actionbars_.SkillchainRules()));
+                this->core_->GetChatManager()->Writef(1, false, "[XIUI] Combat rules: %s.", ServerRulesName(this->combat_settings_.Rules()));
             return true;
         }
         else if (::_stricmp(command, "skillchain status") == 0 || ::_stricmp(command, "magicburst status") == 0)
@@ -1213,7 +1184,7 @@ namespace xiui
             const auto* window = this->skillchain_source_.Current(::GetTickCount64());
             if (this->core_ != nullptr && this->core_->GetChatManager() != nullptr)
                 this->core_->GetChatManager()->Writef(1, false, "[XIUI] Skillchains: %s rules; %zu tracked targets; selected %u; chain %s; HUD %s; predictions %s.",
-                    ServerRulesName(this->actionbars_.SkillchainRules()), this->skillchain_source_.Count(), this->skillchain_source_.Target(),
+                    ServerRulesName(this->combat_settings_.Rules()), this->skillchain_source_.Count(), this->skillchain_source_.Target(),
                     window != nullptr && window->chain != skillchain_property::none ? SkillchainName(window->chain) : "none",
                     this->magic_burst_.State().enabled ? "enabled" : "disabled", this->actionbars_.SkillchainPredictionsEnabled() ? "enabled" : "disabled");
             return true;
@@ -1579,6 +1550,7 @@ namespace xiui
 
     auto hud_runtime::ResetSettings(void) -> void
     {
+        this->combat_settings_.ResetDefaults();
         this->heal_prediction_source_.Load(settings_store::FromIniText(""));
         this->ReleaseControllerFocus();
         this->CloseProfileControls();
@@ -1702,6 +1674,7 @@ namespace xiui
     auto hud_runtime::LoadSettings(const settings_store& store) -> void
     {
         this->skillchain_source_.Clear();
+        this->combat_settings_.Load(store);
         this->SuspendActionBarsInput();
         this->action_executor_.Cancel();
         this->action_store_.Load(store);
@@ -1739,6 +1712,7 @@ namespace xiui
         this->heal_prediction_source_.Save(store);
         for (const auto* module : this->modules_.All())
             module->Save(store);
+        this->combat_settings_.Save(store);
         if (this->controller_config_.moving)
             store.WriteRect((std::string{"layout."} + this->controller_config_.moving_id).c_str(), this->controller_config_.move_original);
         store.WriteRect("layout.config", this->config_bounds_);
@@ -2032,7 +2006,7 @@ namespace xiui
     {
         if (!this->visible_) return 0;
         const auto x = static_cast<float>(this->mouse_x_), y = static_cast<float>(this->mouse_y_);
-        if (!this->editing_ && this->ContextVisible(this->treasure_))
+        if (this->TreasureInputAvailable())
             if (const auto target = this->treasure_.SoundTarget(x, y)) return 0x500000000ULL | target;
         if (!this->editing_ && this->ContextVisible(this->ready_check_) && !this->chat_.HistoryExpanded() && this->ready_check_.Contains(x, y))
         {
@@ -2102,7 +2076,7 @@ namespace xiui
             if (this->ContextVisible(this->ready_check_)) this->ready_check_.SetHover(static_cast<float>(cursor.x), static_cast<float>(cursor.y));
             this->SetChatMouseCapture(active && ((satchel && this->satchel_.PointerOwns(static_cast<float>(cursor.x), static_cast<float>(cursor.y))) ||
                 (actionbars && this->actionbars_.PointerOwns(static_cast<float>(cursor.x), static_cast<float>(cursor.y))) ||
-                (this->ContextVisible(this->treasure_) && (this->treasure_.PointerDown() || this->treasure_.Contains(static_cast<float>(cursor.x), static_cast<float>(cursor.y)))) ||
+                this->treasure_.PointerDown() || (this->TreasureInputAvailable() && this->treasure_.Contains(static_cast<float>(cursor.x), static_cast<float>(cursor.y))) ||
                 (this->ContextVisible(this->ready_check_) && (this->ready_check_.PointerDown() || this->ready_check_.Contains(static_cast<float>(cursor.x), static_cast<float>(cursor.y)))) ||
                 this->ChatResizing() || this->chat_pointer_ != nullptr || this->ChatAt(static_cast<float>(cursor.x), static_cast<float>(cursor.y)) != nullptr));
             this->cursor_renderer_.SetNativeCursorHidden(this->chat_mouse_block_saved_);
@@ -2735,13 +2709,10 @@ namespace xiui
         this->notification_source_.Update(this->core_, this->notifications_.Center(), now);
         if (this->hud_target_pressed_ && (::GetAsyncKeyState(VK_LBUTTON) & 0x8000) == 0)
         { this->hud_target_pressed_ = false; this->hud_target_module_ = nullptr; }
-        this->combat_source_.SetRules(this->actionbars_.SkillchainRules());
+        this->combat_source_.SetRules(this->combat_settings_.Rules());
         this->combat_source_.Update(this->core_, now);
-        this->treasure_source_.Update(this->core_, now);
-        this->treasure_.SetFocusStyle(this->general_.FocusStyle());
-        this->treasure_.Update(this->core_, this->visible_ && this->ContextVisible(this->treasure_) && !this->editing_ && !this->ControllerNativeBusy() && !this->ControllerNativeMenuOpen());
-        if (this->treasure_.TakeSettingsChanged()) this->SaveSettings();
-        this->skillchain_source_.SetRules(this->actionbars_.SkillchainRules());
+        this->UpdateTreasure(now);
+        this->skillchain_source_.SetRules(this->combat_settings_.Rules());
         if (this->magic_burst_.State().enabled || this->actionbars_.SkillchainPredictionsEnabled()) this->skillchain_source_.Update(this->core_, now);
         else this->skillchain_source_.Clear();
         this->actionbars_.SetSkillchains(&this->skillchain_source_);

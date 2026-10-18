@@ -78,18 +78,31 @@ namespace
 
 namespace xiui
 {
-    auto PhantomRolls(const int rules) -> std::span<const phantom_roll_data>
-    { return rules == 2 ? std::span<const phantom_roll_data>{resources::phoenix_rolls} : rules == 1 ? std::span<const phantom_roll_data>{horizon} : std::span<const phantom_roll_data>{retail}; }
-
-    auto PhantomRollByAbility(const uint32_t ability, const int rules) -> const phantom_roll_data*
+    auto PhantomRolls(const server_rules rules) -> std::span<const phantom_roll_data>
     {
-        for (const auto& roll : PhantomRolls(rules)) if (roll.ability == ability) return &roll;
+        switch (rules)
+        {
+        case server_rules::phoenix: return resources::phoenix_rolls;
+        case server_rules::horizon: return horizon;
+        default: return retail;
+        }
+    }
+
+    auto PhantomRollByAbility(const uint32_t ability, const server_rules rules) -> const phantom_roll_data*
+    {
+        for (const auto& roll : PhantomRolls(rules))
+        {
+            if (roll.ability == ability) return &roll;
+        }
         return nullptr;
     }
 
-    auto PhantomRollByStatus(const uint16_t status, const int rules) -> const phantom_roll_data*
+    auto PhantomRollByStatus(const uint16_t status, const server_rules rules) -> const phantom_roll_data*
     {
-        for (const auto& roll : PhantomRolls(rules)) if (roll.status == status) return &roll;
+        for (const auto& roll : PhantomRolls(rules))
+        {
+            if (roll.status == status) return &roll;
+        }
         return nullptr;
     }
 
