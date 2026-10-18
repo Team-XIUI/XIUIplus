@@ -104,6 +104,7 @@ namespace xiui
         auto OpenLibrary(bool crossbar = false, size_t bar = 0, size_t slot = 0) -> void;
         auto OpenPalettes(bool crossbar = false, size_t bar = 0) -> void;
         auto OpenSetup(void) -> void;
+        auto OpenKeybinds(bool crossbar = false, size_t bar = 0) -> void;
         auto OpenImport(void) -> void;
         auto SelectedBar(void) const -> size_t { return this->view_; }
         auto TakeConfigurationRequest(void) -> std::optional<size_t> { return std::exchange(this->configuration_request_, {}); }
@@ -138,11 +139,12 @@ namespace xiui
             slot_cooldown_style, slot_cooldown_color, slot_cooldown_text,
             slot_binding_anchor, slot_binding_x, slot_binding_y, slot_count_anchor, slot_count_x, slot_count_y,
             slot_timer_anchor, slot_timer_x, slot_timer_y, slot_mp_cost, slot_cost_anchor, slot_cost_x, slot_cost_y,
-            slot_apply_all, slot_reset, crossbar_animations, skillchain_predictions, skillchain_rules, magic_burst_settings, base_options };
-        enum class dialog : uint8_t { none, picker, editor, palettes, name, delete_palette, delete_macro, import, setup, palette_dropdown, slot_menu, bar_menu };
+            slot_apply_all, slot_reset, crossbar_animations, skillchain_predictions, skillchain_rules, magic_burst_settings, keybinds, base_options };
+        enum class dialog : uint8_t { none, picker, editor, palettes, name, delete_palette, delete_macro, import, setup, palette_dropdown, slot_menu, bar_menu, keybinds };
         enum class control_kind : uint8_t { button, field, choice, list, toggle, label, slider, dropdown };
         enum class window_gesture : uint8_t { none, move, resize };
         enum class slot_pass : uint8_t { all, background, content, foreground };
+        enum keybind_control : int { keybind_bar = 1100, keybind_bank, keybind_key_first = 1200, keybind_clear_first = 1300 };
         struct address
         {
             action_surface surface{};
@@ -190,7 +192,7 @@ namespace xiui
         controller_status controller_status_{};
         ui::rect viewport_{};
         library_metrics library_metrics_{};
-        std::array<ui::rect, 4> workspace_bounds_{{{-1, -1, 640, 480}, {-1, -1, 580, 460}, {-1, -1, 720, 548}, {-1, -1, 680, 416}}};
+        std::array<ui::rect, 5> workspace_bounds_{{{-1, -1, 640, 480}, {-1, -1, 580, 460}, {-1, -1, 720, 548}, {-1, -1, 680, 416}, {-1, -1, 680, 580}}};
         ui::rect window_start_{}, window_original_{};
         window_gesture window_gesture_{};
         uint8_t window_resize_edges_{};
@@ -268,6 +270,11 @@ namespace xiui
         auto PaletteRows(void) const -> size_t;
         auto Controls(void) const -> std::vector<control>;
         auto SetupControls(const ui::rect&) const -> std::vector<control>;
+        auto KeybindControls(const ui::rect&) const -> std::vector<control>;
+        auto KeybindRows(void) const -> size_t;
+        auto ActivateKeybindControl(int, int) -> bool;
+        auto MoveKeybindControl(int, int) -> bool;
+        auto KeybindMappingLabel(size_t slot) const -> std::string;
         auto ActivateSetupControl(int, int) -> bool;
         auto SetupSliderOption(const control&, float&) const -> module_option;
         auto SetSetupSlider(int, float) -> void;

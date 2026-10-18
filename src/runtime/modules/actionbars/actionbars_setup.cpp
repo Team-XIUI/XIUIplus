@@ -90,6 +90,17 @@ namespace xiui
 
     }
 
+    auto actionbars_module::KeybindMappingLabel(const size_t slot) const -> std::string
+    {
+        const auto& mapping = this->Mapping();
+        const int preset = this->setup_preset_ < 0 ? PresetFor(mapping, this->setup_backend_) : this->setup_preset_;
+        const auto value = mapping.slots[slot];
+        const auto backend = this->setup_backend_ == 0 ? controller_backend::xinput : controller_backend::direct_input;
+        if (value == -2 && this->controller_status_.crossbar_mapping_known && this->controller_status_.backend == backend)
+            return "Auto: " + MappingName(this->controller_status_.crossbar_mapping.slots[slot], this->setup_backend_, preset);
+        return MappingName(value, this->setup_backend_, preset);
+    }
+
     auto actionbars_module::SetupControls(const ui::rect& bounds) const -> std::vector<control>
     {
         std::vector<control> controls;
@@ -234,6 +245,18 @@ namespace xiui
         {
             add(0, "XInput"); add(1, "DirectInput"); current = this->setup_backend_;
         }
+        else if (item.id == keybind_bar && this->dialog_ == dialog::keybinds)
+        {
+            for (size_t bar = 0; bar < action_bar_count; ++bar) add(static_cast<int>(bar), "Hotbar " + std::to_string(bar + 1));
+            add(static_cast<int>(action_bar_count), "Crossbar");
+            current = this->selected_.surface == action_surface::crossbar ? static_cast<int>(action_bar_count) : static_cast<int>(this->selected_.bar);
+        }
+        else if (item.id == keybind_bank && this->dialog_ == dialog::keybinds)
+        {
+            constexpr const char* names[]{"Left trigger", "Right trigger", "Left then right", "Right then left", "Double left", "Double right"};
+            for (int bank = 0; bank < static_cast<int>(action_crossbar_banks); ++bank) add(bank, names[bank]);
+            current = static_cast<int>(this->selected_.bar);
+        }
         else if (item.id == mapping_preset)
         {
             for (int index = 0; index < 5; ++index) add(index, preset_names[index]);
@@ -275,6 +298,20 @@ namespace xiui
         const bool changed = index != this->setup_choice_index_;
         this->setup_choice_input_.Cancel(); this->setup_choice_pressed_.reset();
         if (!changed) return;
+        if (this->setup_control_ == keybind_bar && this->dialog_ == dialog::keybinds)
+        {
+            this->OpenKeybinds(value == static_cast<int>(action_bar_count), value == static_cast<int>(action_bar_count) ? 0 : static_cast<size_t>(value));
+            this->focused_control_ = keybind_bar;
+            return;
+        }
+        if (this->setup_control_ == keybind_bank && this->dialog_ == dialog::keybinds)
+        {
+            this->selected_.bar = static_cast<size_t>(value);
+            this->selected_bank_ = value;
+            this->palette_scroll_ = 0;
+            this->SyncStorage();
+            return;
+        }
         if (this->setup_control_ == mapping_backend)
         { this->setup_backend_ = value; this->setup_preset_ = -1; return; }
         if (this->setup_control_ == mapping_preset)
@@ -309,7 +346,7 @@ namespace xiui
 
     auto actionbars_module::HandleSetupMouse(const uint32_t message, const WPARAM buttons, const float x, const float y) -> bool
     {
-        if (this->dialog_ != dialog::setup) return false;
+        if (this->dialog_ != dialog::setup && this->dialog_ != dialog::keybinds) return false;
         const bool press = message == WM_LBUTTONDOWN || message == WM_LBUTTONDBLCLK;
         if (this->setup_choice_input_.Opened())
         {
@@ -363,7 +400,7 @@ namespace xiui
 
     auto actionbars_module::HandleSetupController(const controller_action action, const bool repeated) -> bool
     {
-        if (this->dialog_ != dialog::setup) return false;
+        if (this->dialog_ != dialog::setup && this->dialog_ != dialog::keybinds) return false;
         if (this->setup_choice_input_.Opened())
         {
             if (action == controller_action::cancel || action == controller_action::next_tab || action == controller_action::previous_tab) this->setup_choice_input_.Cancel();

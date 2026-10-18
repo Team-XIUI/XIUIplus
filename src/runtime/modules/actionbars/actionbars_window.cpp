@@ -18,7 +18,7 @@ namespace xiui
     }
 
     auto actionbars_module::IsWindowDialog(const dialog value) -> bool
-    { return value == dialog::picker || value == dialog::editor || value == dialog::palettes || value == dialog::import || value == dialog::setup; }
+    { return value == dialog::picker || value == dialog::editor || value == dialog::palettes || value == dialog::import || value == dialog::setup || value == dialog::keybinds; }
     auto actionbars_module::WindowDialog(void) const -> dialog
     {
         if (this->dialog_ == dialog::name || this->dialog_ == dialog::delete_palette) return dialog::palettes;
@@ -32,6 +32,7 @@ namespace xiui
         case dialog::palettes: case dialog::import: return 1;
         case dialog::editor: return 2;
         case dialog::setup: return 3;
+        case dialog::keybinds: return 4;
         default: return 0;
         }
     }
@@ -48,7 +49,7 @@ namespace xiui
     }
     auto actionbars_module::WindowMinimum(const size_t index) const -> ui::point
     {
-        constexpr ui::point minimum[]{{520, 420}, {500, 440}, {680, 548}, {620, 416}};
+        constexpr ui::point minimum[]{{520, 420}, {500, 440}, {680, 548}, {620, 416}, {620, 360}};
         if (index == 0)
         {
             const auto& metrics = this->library_metrics_;
@@ -60,7 +61,7 @@ namespace xiui
             const float footerHeight = static_cast<float>(rows) * (std::max(28.0f, metrics.button_height + 10) + 8) - 8;
             return {width, std::max(420.0f, 42 + 9 * std::max(28.0f, metrics.nav_height + 10) + 8 + footerHeight + 12)};
         }
-        return minimum[std::min(index, size_t{3})];
+        return minimum[std::min(index, size_t{4})];
     }
     auto actionbars_module::WindowBounds(void) const -> ui::rect
     {

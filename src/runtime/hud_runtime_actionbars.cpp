@@ -160,10 +160,10 @@ namespace xiui
         command = normalized;
         const auto space = command.find(' ');
         const auto name = command.substr(0, space);
-        if (name != "hotbar" && name != "crossbar" && name != "macros" && name != "palettes" && name != "actionbars") return false;
+        if (name != "hotbar" && name != "crossbar" && name != "macros" && name != "palettes" && name != "actionbars" && name != "keybinds") return false;
         auto argument = space == std::string_view::npos ? std::string_view{} : command.substr(space + 1);
         while (!argument.empty() && argument.front() == ' ') argument.remove_prefix(1);
-        const bool crossbar = name == "crossbar";
+        const bool crossbar = name == "crossbar" || (name == "keybinds" && argument == "crossbar");
         if (argument == "cancel" || (name == "macros" && argument == "stop"))
         { this->action_executor_.Cancel(); this->SuspendActionBarsInput(); return true; }
         if (argument == "status")
@@ -196,7 +196,8 @@ namespace xiui
         this->ReleaseControllerFocus();
         this->ReleaseChatInput();
         this->SuspendSatchelInput();
-        if (argument == "setup") this->actionbars_.OpenSetup();
+        if (name == "keybinds" || argument == "keybinds" || argument == "binds") this->actionbars_.OpenKeybinds(crossbar);
+        else if (argument == "setup") this->actionbars_.OpenSetup();
         else if (name == "palettes" || argument == "palettes") this->actionbars_.OpenPalettes(crossbar);
         else if (argument == "import") this->actionbars_.OpenImport();
         else if (name == "macros" || argument == "edit" || argument == "actions") this->actionbars_.OpenLibrary(crossbar);

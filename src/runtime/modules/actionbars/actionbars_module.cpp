@@ -25,7 +25,7 @@ namespace xiui
         constexpr std::array<size_t, 9> crossbar_sections{0, 6, 1, 2, 3, 4, 5, 7, 8};
         constexpr std::array<size_t, 8> hotbar_sections{0, 1, 2, 3, 4, 5, 7, 8};
         constexpr const char* profile_sections[]{"text.actionbars.title", "text.actionbars.label", "text.actionbars.binding", "text.actionbars.timer", "text.actionbars.tooltip", "text.actionbars.count", "text.actionbars.cost"};
-        constexpr const char* workspace_sections[]{"layout.action_library", "layout.action_sets", "layout.action_editor", "layout.action_controller"};
+        constexpr const char* workspace_sections[]{"layout.action_library", "layout.action_sets", "layout.action_editor", "layout.action_controller", "layout.action_keybinds"};
         constexpr int window_move = 700, window_resize = 701, window_close = 702;
         constexpr const char* categories[]{"All actions", "Spells", "Abilities", "Weapon skills", "Items", "Equipment", "Pet commands", "Macros", "Commands"};
         constexpr action_kind category_kinds[]{action_kind::none, action_kind::spell, action_kind::ability, action_kind::weapon_skill, action_kind::item, action_kind::equip, action_kind::pet, action_kind::macro, action_kind::command};
@@ -41,7 +41,7 @@ namespace xiui
         constexpr int command_preview = 530, command_import = 531, command_learned = 532, command_pet = 533, command_all_actions = 534;
         constexpr int command_kind = 540, command_target = 541, command_equipment = 542, command_native_book = 543, command_native_set = 544, command_native_slot = 545, command_native_alt = 546;
         constexpr int command_macro_copy = 547, command_macro_delete = 548;
-        constexpr int menu_library = 550, menu_edit = 551, menu_palettes = 552, menu_lock = 553, menu_shape = 554, menu_settings = 555;
+        constexpr int menu_library = 550, menu_edit = 551, menu_palettes = 552, menu_lock = 553, menu_shape = 554, menu_settings = 555, menu_keybinds = 556;
         constexpr int new_macro = 560, new_command = 561, new_native = 562;
         constexpr int setup_enable = 600;
 
@@ -344,6 +344,7 @@ namespace xiui
     {
         if (section >= this->ConfigSections().size() || index >= this->OptionCount()) return false;
         section = this->view_ == action_bar_count ? crossbar_sections[section] : hotbar_sections[section];
+        if (index == keybinds) return section == 0;
         if (index == edit || index == palettes || index == import) return false;
         if (index == bar_selector) return this->view_ < action_bar_count;
         if (index == bank) return this->view_ == action_bar_count && section == 1;
@@ -376,6 +377,7 @@ namespace xiui
         const auto customSlot = [&](module_option option) { return option.VisibleWhen(bar.style.frame != actionbar_slot_style::window_frame); };
         switch (index)
         {
+        case keybinds: return module_option::Action("Keybinds", "Open the slot list to rebind hotbar keys or crossbar controller buttons.", "Open").Ordered(-40);
         case skillchain_predictions: return module_option::Toggle("Action predictions", "Highlight compatible weapon skills/abilities and burstable spells on all hotbars and the crossbar. Works independently of the Magic Burst HUD.", &this->skillchain_predictions_);
         case skillchain_rules: return module_option::Choice("Skillchain rules", "Shared combat profile for predictions, debuff estimates and Phantom Roll base values. Phoenix uses its 75-cap rules. Changing rules clears combat observations.", this->CombatSettings().RulesChoice(), server_rule_names, 3);
         case magic_burst_settings: return module_option::Action("Magic Burst HUD", "Open the separate burst display's visibility, appearance and text settings.", "Open HUD settings");
@@ -475,6 +477,7 @@ namespace xiui
     {
         switch (index)
         {
+        case keybinds: this->OpenKeybinds(this->Surface() == action_surface::crossbar, this->ConfigBar()); break;
         case magic_burst_settings: this->magic_burst_settings_request_ = true; break;
         case bar_selector: this->SelectConfigView(static_cast<size_t>(std::clamp(this->selected_bar_, 0, 9))); break;
         case edit: this->OpenLibrary(this->Surface() == action_surface::crossbar, this->ConfigBar()); break;
@@ -754,6 +757,7 @@ namespace xiui
         this->CommitField();
         if (this->sounds_) this->sounds_->Select(this->now_);
         if (this->ActivateSetupControl(id, adjustment)) return;
+        if (this->ActivateKeybindControl(id, adjustment)) return;
         if (id >= category_first && id < category_first + static_cast<int>(std::size(categories)))
         { this->category_ = id - category_first; this->result_scroll_ = this->focused_result_ = 0; this->RebuildResults(); return; }
         if (this->dialog_ == dialog::picker && id >= result_first && static_cast<size_t>(id - result_first) < this->results_.size())
@@ -797,6 +801,7 @@ namespace xiui
         case menu_library: this->OpenLibrary(this->selected_.surface == action_surface::crossbar, this->selected_.bar, this->selected_.slot); break;
         case menu_edit: this->OpenEditor(this->selected_.surface == action_surface::crossbar, this->selected_.bar, this->selected_.slot); break;
         case menu_palettes: this->OpenPalettes(this->selected_.surface == action_surface::crossbar, this->selected_.bar); break;
+        case menu_keybinds: this->OpenKeybinds(this->selected_.surface == action_surface::crossbar, this->selected_.bar); break;
         case menu_lock: this->Presentation(this->selected_).locked = !this->Presentation(this->selected_).locked; this->settings_changed_ = true; this->CloseDialog(); break;
         case menu_shape: this->CycleShape(this->selected_.bar); this->CloseDialog(); break;
         case menu_settings: this->configuration_request_ = this->view_; this->CloseDialog(); break;
@@ -889,7 +894,7 @@ namespace xiui
             const auto bounds = this->dialog_ == dialog::slot_menu ? this->SlotBounds(this->selected_) : this->dialog_ == dialog::bar_menu ? this->MenuBounds(index) : this->PaletteBounds(index);
             const auto count = this->store_ ? this->store_->Palettes(this->selected_.surface, this->selected_.bar).size() : 0;
             const bool popup = this->dialog_ != dialog::palette_dropdown;
-            const auto rows = this->dialog_ == dialog::bar_menu ? (index == action_bar_count ? 4 : 5) : index == action_bar_count ? 3 : 5;
+            const auto rows = this->dialog_ == dialog::bar_menu ? (index == action_bar_count ? 5 : 6) : index == action_bar_count ? 3 : 5;
             const float width = std::min(256.0f, viewport.width - 16), height = 16 + static_cast<float>(popup ? rows : std::min(count, visible_results) + 1) * 30;
             float y = bounds.y + bounds.height + 6;
             if (y + height > viewport.y + viewport.height - 8) y = bounds.y - height - 6;
@@ -924,6 +929,7 @@ namespace xiui
         };
         const auto footer = [&]() { button(command_cancel, right - 208, bounds.y + bounds.height - 44, 96, "Cancel"); };
         if (this->dialog_ == dialog::none) return result;
+        if (this->dialog_ == dialog::keybinds) return this->KeybindControls(bounds);
         if (this->dialog_ == dialog::slot_menu || this->dialog_ == dialog::bar_menu)
         {
             float y = bounds.y + 8;
@@ -941,6 +947,7 @@ namespace xiui
             else
             {
                 entry(menu_library, "Actions & macros..."); entry(menu_palettes, this->selected_.surface == action_surface::hotbar ? "Action sets (all hotbars)..." : "Crossbar action sets...");
+                entry(menu_keybinds, "Keybinds...");
                 entry(menu_lock, this->Presentation(this->selected_).locked ? "Unlock slot positions" : "Lock slot positions");
                 if (this->selected_.surface == action_surface::hotbar) entry(menu_shape, "Change bar shape");
                 entry(menu_settings, "Bar settings...");
@@ -1085,6 +1092,12 @@ namespace xiui
     auto actionbars_module::Scrollbar(void) const -> ui::config_scrollbar
     {
         const auto bounds = this->DialogBounds();
+        if (this->dialog_ == dialog::keybinds)
+        {
+            const bool crossbar = this->selected_.surface == action_surface::crossbar;
+            return {{bounds.x + bounds.width - 20, bounds.y + (crossbar ? 150 : 116), 8, static_cast<float>(this->KeybindRows()) * 32 - 4},
+                static_cast<int>(crossbar ? action_crossbar_slots : action_bar_slots), static_cast<int>(this->KeybindRows()), static_cast<int>(this->palette_scroll_)};
+        }
         if (this->dialog_ == dialog::picker)
         {
             const auto layout = this->LibraryLayout();
@@ -1121,6 +1134,7 @@ namespace xiui
     auto actionbars_module::MoveControl(const int dx, const int dy) -> void
     {
         this->CommitField();
+        if (this->MoveKeybindControl(dx, dy)) return;
         const bool picker = this->dialog_ == dialog::picker;
         const auto focusResult = [&]() {
             if (!picker || this->focused_control_ < result_first || static_cast<size_t>(this->focused_control_ - result_first) >= this->results_.size()) return;
@@ -1690,6 +1704,7 @@ namespace xiui
             case dialog::delete_macro: title = "Delete shared macro?"; break;
             case dialog::import: title = "Import action palettes"; break;
             case dialog::setup: title = "Controller Setup"; break;
+            case dialog::keybinds: title = "Keybinds"; break;
             default: break;
             }
             if (floating)

@@ -683,6 +683,104 @@ namespace xiui
                 }
             }
         }
+        static auto Keybinds(void) -> void
+        {
+            keyboard_restore restore;
+            BYTE keys[256]{};
+            SetKeyboardState(keys);
+            action_store store;
+            action_executor executor;
+            actionbars_module module;
+            module.Initialize(nullptr, &store, &executor);
+            module.viewport_ = {0, 0, 1280, 900};
+            for (auto& bar : module.bars_) bar.keys = {};
+            const auto control = [&](const int id) {
+                const auto controls = module.Controls();
+                const auto found = std::find_if(controls.begin(), controls.end(), [&](const auto& item) { return item.id == id; });
+                Check(found != controls.end(), "keybind control is present");
+                return *found;
+            };
+            const auto choose = [&](const int id, const int value) {
+                module.ActivateControl(id);
+                Check(module.setup_choice_input_.Opened(), "keybind selectors use the shared dropdown");
+                const auto found = std::find_if(module.setup_choices_.begin(), module.setup_choices_.end(), [&](const auto& item) { return item.first == value; });
+                Check(found != module.setup_choices_.end(), "requested keybind choice is available");
+                module.SelectSetupChoice(static_cast<int>(found - module.setup_choices_.begin()));
+            };
+            module.OpenKeybinds(false, 1);
+            Check(module.FloatingWindowOpen() && module.WindowIndex() == 4 && control(1100).text == "Hotbar 2",
+                "Keybinds opens its own workspace for the selected bar");
+            Check(control(700).enabled && control(701).enabled && control(702).enabled && control(1211).text == "Unbound",
+                "all twelve slots and shared move/resize/close controls are reachable");
+            module.ActivateControl(1204);
+            Check(module.binding_capture_ && module.selected_.slot == 4, "a slot enters explicit key capture");
+            module.HandleKey(VK_F8, 0);
+            Check(!module.binding_capture_ && module.bars_[1].keys[4].key == VK_F8 && module.bars_[0].keys[4].key == 0,
+                "capture updates only the selected hotbar slot");
+            Check(module.HandleKey(VK_F8, 0xC0000000u), "the captured key release is owned");
+            module.ActivateControl(1205);
+            module.HandleKey(VK_F8, 0);
+            Check(module.binding_capture_ && module.bars_[1].keys[5].key == 0 && module.message_.find("Already bound") != std::string::npos,
+                "conflicts preserve both bindings and keep capture available");
+            module.HandleKey(VK_F8, 0xC0000000u);
+            module.HandleKey(VK_ESCAPE, 0);
+            module.HandleKey(VK_ESCAPE, 0xC0000000u);
+            Check(!module.binding_capture_ && module.bars_[1].keys[5].key == 0, "Escape cancels capture without replacing a binding");
+            module.ActivateControl(1304);
+            Check(module.bars_[1].keys[4].key == 0 && !control(1304).enabled, "Clear unbinds that slot and disables itself");
+            keys[VK_CONTROL] = keys[VK_SHIFT] = 0x80;
+            SetKeyboardState(keys);
+            module.ActivateControl(1204);
+            module.HandleKey(VK_F9, 0);
+            module.HandleKey(VK_F9, 0xC0000000u);
+            Check(module.bars_[1].keys[4] == actionbar_binding{VK_F9, 5}, "captured combinations retain Ctrl and Shift");
+            keys[VK_CONTROL] = keys[VK_SHIFT] = 0;
+            SetKeyboardState(keys);
+            module.workspace_bounds_[4].height = 360;
+            module.focused_control_ = 1200;
+            for (int row = 0; row < 11; ++row) module.HandleControllerAction(controller_action::down, false);
+            Check(module.focused_control_ == 1211 && module.palette_scroll_ > 0 && control(1211).enabled,
+                "controller navigation scrolls the final slot into view in compact windows");
+            choose(1100, static_cast<int>(action_bar_count));
+            Check(module.selected_.surface == action_surface::crossbar && control(623).kind == actionbars_module::control_kind::dropdown,
+                "the bar selector opens controller slot mappings for Crossbar");
+            choose(606, 0);
+            const auto oldDirect = module.controller_settings_.direct_input;
+            choose(623, 14);
+            Check(module.controller_settings_.xinput.slots[0] == 14 && module.controller_settings_.direct_input == oldDirect,
+                "crossbar rebinding updates only the selected input backend");
+            choose(1101, 5);
+            Check(module.selected_.bar == 5 && module.controller_settings_.xinput.slots[0] == 14,
+                "trigger-bank previews retain the same physical button mapping");
+            module.ActivateControl(1300);
+            Check(module.controller_settings_.xinput.slots[0] == -1, "crossbar Clear uses the existing unbound mapping");
+            choose(606, 1);
+            choose(623, -41);
+            Check(module.controller_settings_.direct_input.slots[0] == -41, "DirectInput supports the existing signed POV choices");
+            module.ActivateControl(624);
+            const auto prior = module.controller_settings_.direct_input.slots[1];
+            module.HandleControllerAction(controller_action::down, false);
+            module.HandleControllerAction(controller_action::cancel, false);
+            Check(!module.setup_choice_input_.Opened() && module.DialogOpen() && module.controller_settings_.direct_input.slots[1] == prior,
+                "Cancel dismisses mapping choices without applying their highlight");
+            auto settings = settings_store::FromIniText("");
+            module.Save(settings);
+            actionbars_module loaded;
+            loaded.Load(settings);
+            Check(loaded.bars_[1].keys[4] == actionbar_binding{VK_F9, 5} && loaded.controller_settings_.direct_input.slots[0] == -41 &&
+                loaded.controller_settings_.xinput.slots[0] == -1 && loaded.workspace_bounds_[4].height == 360,
+                "keybinds and the independent workspace persist using existing settings paths");
+            const auto portable = settings.Preferences("").ToIniText();
+            Check(portable.find("controller.crossbar.device") == std::string::npos, "controller mappings remain local in portable profiles");
+            module.CloseDialog();
+            module.SelectConfigView(2);
+            module.OnOptionChanged(actionbars_module::keybinds);
+            Check(module.dialog_ == actionbars_module::dialog::keybinds && module.selected_.bar == 2 &&
+                module.ConfigSectionContains(0, actionbars_module::keybinds), "both settings and the workspace share the Keybinds entry");
+            auto runtime = std::make_unique<hud_runtime>();
+            Check(runtime->HandleActionBarsCommand("crossbar keybinds") && runtime->actionbars_.dialog_ == actionbars_module::dialog::keybinds &&
+                runtime->actionbars_.selected_.surface == action_surface::crossbar, "the crossbar keybinds command opens the same list");
+        }
         static auto ControllerSetup(void) -> void
         {
             action_store store; action_executor executor; actionbars_module module;
@@ -1234,12 +1332,17 @@ namespace xiui
             Check(!module.Option(actionbars_module::edit).available && !module.Option(actionbars_module::palettes).available && !module.Option(actionbars_module::import).available,
                 "workspace destinations are not duplicated as settings rows");
         }
-        static auto Run(void) -> void { ControllerVisuals(); Ownership(); DirectInteraction(); LibraryPlacement(); BarControlsAndCrossbarGeometry(); EmptyBarEditBounds(); Editing(); KeyboardAndCrossbar(); Persistence(); SlotStylePersistence(); SlotStyleCompatibility(); SlotFrameProfileOverlay(); SlotTextDefaults(); SlotStyleActions(); SlotStyleGeometry(); ControllerSetup(); RuntimeOwnership(); NativeMacroKeyboardOwnership(); EditModeManagement(); DependentSettings(); WorkspaceCursors(); FloatingWorkspaces(); LibraryCategories(); LibraryLayoutAndSearch(); LibraryGridNavigation(); Configuration(); }
+        static auto Run(void) -> void { ControllerVisuals(); Ownership(); DirectInteraction(); LibraryPlacement(); BarControlsAndCrossbarGeometry(); EmptyBarEditBounds(); Editing(); KeyboardAndCrossbar(); Persistence(); SlotStylePersistence(); SlotStyleCompatibility(); SlotFrameProfileOverlay(); SlotTextDefaults(); SlotStyleActions(); SlotStyleGeometry(); Keybinds(); ControllerSetup(); RuntimeOwnership(); NativeMacroKeyboardOwnership(); EditModeManagement(); DependentSettings(); WorkspaceCursors(); FloatingWorkspaces(); LibraryCategories(); LibraryLayoutAndSearch(); LibraryGridNavigation(); Configuration(); }
     };
 }
 
 auto main(const int argc, char** argv) -> int
 {
+    if (argc == 2 && std::strcmp(argv[1], "--keybinds-only") == 0)
+    {
+        try { xiui::actionbars_ui_test::Keybinds(); std::puts("Hotbar and crossbar keybind list checks passed."); return 0; }
+        catch (const std::exception& error) { std::fprintf(stderr, "Keybinds check failed: %s\n", error.what()); return 1; }
+    }
     if (argc == 2 && std::strcmp(argv[1], "--controller-setup-only") == 0)
     {
         try { xiui::actionbars_ui_test::ControllerSetup(); xiui::actionbars_ui_test::Configuration(); std::puts("Controller setup and configuration checks passed."); return 0; }

@@ -229,6 +229,8 @@ EXP includes native implementations of [Momentum's EXP features](https://github.
 
 **Extras → Commands → General → Window anchor** offers Top or Bottom for the native command window and its connected spell, ability and detail panels. Each panel keeps that edge aligned as its height changes. Existing profiles default to Bottom.
 
+**Action Bars → Hotbars → Actions → Keybinds** and **Crossbar → General → Keybinds** open a slot list for rebinding. The bar menu and `/xiui keybinds` open it too. Select a hotbar binding and press a key combination, or choose a crossbar slot's controller mapping. Clear removes the binding while retaining its action. See [Keybinds](docs/actionbars.md#keybinds).
+
 Skillchain predictions and Retail/Horizon/Phoenix rules are configured under
 **Action Bars → Hotbars / Crossbar → Skillchains** (`/xiui skillchain`).
 **Open HUD settings** leads to **Extras → Magic Burst** (`/xiui magicburst`)

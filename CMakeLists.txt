@@ -371,6 +371,7 @@ set(XIUI_HUD_SOURCES
     src/runtime/modules/actionbars/action_import.cpp
     src/runtime/modules/actionbars/actionbars_module.cpp
     src/runtime/modules/actionbars/actionbars_setup.cpp
+    src/runtime/modules/actionbars/actionbars_keybinds.cpp
     src/runtime/modules/actionbars/actionbars_display.cpp
     src/runtime/modules/actionbars/actionbars_library.cpp
     src/runtime/modules/actionbars/actionbars_window.cpp

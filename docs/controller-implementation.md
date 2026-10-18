@@ -32,6 +32,8 @@ Confirm, Cancel, Actions, Cycle Window and navigation follow the effective nativ
 
 ## Implemented paths
 
+Action Bars **Keybinds** opens an independent slot list from Hotbars → Actions, Crossbar → General, the bar menu or `/xiui keybinds`. Confirm on a hotbar binding starts explicit keyboard combination capture; Escape/Cancel abandons it. Crossbar rows use the shared XInput/DirectInput mapping dropdown with Auto/Unbound choices; mappings apply across trigger banks. Directions scroll through slot rows, Left/Right reaches Clear, and Cancel dismisses the current dropdown/capture before closing the window. Holding Confirm cannot repeat a binding change or execute an action. Controller navigation can choose keyboard bindings, but supplying a keyboard combination still requires the keyboard. See [Action Bars](actionbars.md#keybinds).
+
 Configuration uses the shared [settings order and paired rows](settings-organization.md). Controller focus follows displayed geometry rather than assuming every row has two available controls. Empty cells and disabled controls are skipped; scrolling and pointer input use the same slots and original option IDs.
 
 Player resource formats, state colors and separate resource text use those same controls. Player Bar → General and Party → Resources each have a passive MP preview preference, enabled by default and independently adjustable. Target's Subtarget and Target of Target views expose independent settings; Independent/Detached windows join Movement Preview with normal centering, Confirm/Cancel and committed-position autosave. FFXI retains subtarget and spell confirmation. Detached status icons share Target effect inspection, including when main Target is disabled.

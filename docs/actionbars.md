@@ -38,6 +38,16 @@ Click the action set caption to choose a set; the bar menu opens management. Cre
 
 **Pet-aware assignments** selects matching overrides when a pet is present. The editor can save an override for the current pet; the base assignment remains the fallback.
 
+## Keybinds
+
+Open **Keybinds** from **Hotbars → Actions** or **Crossbar → General**, or from a bar's menu. `/xiui keybinds`, `/xiui hotbar keybinds` and `/xiui crossbar keybinds` open the same independent, movable/resizable window. Its Bar dropdown lists all ten hotbars and Crossbar, including empty slots. Each row shows the slot/action and current binding; Clear removes the binding without removing the action.
+
+For a hotbar, select its binding and press a key combination. Ctrl, Alt and Shift are supported. Escape cancels, and an existing conflicting assignment is reported without replacing either slot. Bindings stay attached to bar slots when action sets change. Full keyboard mode still reserves ordinary unfocused typing for chat.
+
+For Crossbar, choose a trigger bank to see its actions, select XInput or DirectInput, then choose the button for a slot using the shared mapping dropdown. Auto follows the game mapping; Clear uses Unbound. Physical slot mappings apply to every trigger bank and use the same device settings as Controller Setup. Hardware mappings remain local when sharing profiles.
+
+Mouse, keyboard and controller share the list, dropdowns and Clear actions. Directional navigation scrolls rows into view; Confirm opens a binding and Cancel dismisses a dropdown/capture or leaves the window. Keyboard capture consumes its key press/release and never executes the slot. Existing gameplay execution remains paused while the workspace is open.
+
 ## Controller Setup
 
 Choose Crossbar → **Controller Setup** → **Controller Setup**, or run `/xiui crossbar setup`. General is the first Crossbar topic, followed by Controller Setup. General, Mappings and Timing tabs keep everyday setup separate from raw device adjustments. Auto follows the effective FFXI mappings; Xbox, PlayStation, Nintendo and custom choices are also available. Physical mapping and replacement preferences stay on this computer when profiles are shared. Setup and Configuration pause gameplay trigger actions; close both to use the crossbar.
