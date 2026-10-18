@@ -776,7 +776,7 @@ namespace xiui
             module.SelectConfigView(2);
             module.OnOptionChanged(actionbars_module::keybinds);
             Check(module.dialog_ == actionbars_module::dialog::keybinds && module.selected_.bar == 2 &&
-                module.ConfigSectionContains(0, actionbars_module::keybinds), "both settings and the workspace share the Keybinds entry");
+                module.ConfigSectionContains(1, actionbars_module::keybinds), "the Keybinds topic opens the same workspace");
             auto runtime = std::make_unique<hud_runtime>();
             Check(runtime->HandleActionBarsCommand("crossbar keybinds") && runtime->actionbars_.dialog_ == actionbars_module::dialog::keybinds &&
                 runtime->actionbars_.selected_.surface == action_surface::crossbar, "the crossbar keybinds command opens the same list");
@@ -1318,19 +1318,42 @@ namespace xiui
                 "normal bars use shared direct buttons for all ten hotbars");
             *selector.choice = 2; module.OnOptionChanged(actionbars_module::bar_selector);
             Check(module.ConfigView() == 2 && runtime->ActiveConfigPage().SectionView(0) == 2, "the selected normal bar remains the active configuration view");
-            runtime->active_config_section_ = 1;
+            runtime->active_config_section_ = 2;
             Check(runtime->ElementSelector().count == 10 && runtime->ElementSelector().selected == 2 &&
-                !module.ConfigSectionContains(1, actionbars_module::bank), "hotbar layout shows direct hotbar buttons without trigger-bank tabs");
+                !module.ConfigSectionContains(2, actionbars_module::bank), "hotbar layout shows direct hotbar buttons without trigger-bank tabs");
+            Check(std::string{module.ConfigSections()[0].name} == "Actions" && std::string{module.ConfigSections()[1].name} == "Keybinds" &&
+                !module.ConfigSectionContains(0, actionbars_module::keybinds), "hotbar Keybinds appears below Actions in the sidebar");
+            runtime->SelectConfigTopic(1);
+            Check(module.FloatingWindowOpen() && module.dialog_ == actionbars_module::dialog::keybinds && module.selected_.bar == 2,
+                "activating the hotbar Keybinds topic opens its slot list directly");
+            module.CloseDialog();
             runtime->SelectConfigModule(&module, action_bar_count);
             Check(std::string{module.ConfigSections()[0].name} == "General" && std::string{module.ConfigSections()[1].name} == "Controller Setup" &&
                 module.ConfigSectionContains(0, actionbars_module::enabled) && module.ConfigSectionContains(1, actionbars_module::setup) && !module.ConfigSectionContains(0, actionbars_module::setup),
                 "crossbar General is first and Controller Setup is second with the matching controls");
-            runtime->active_config_section_ = 2;
+            Check(std::string{module.ConfigSections()[2].name} == "Keybinds" && !module.ConfigSectionContains(0, actionbars_module::keybinds) &&
+                !module.ConfigSectionContains(1, actionbars_module::keybinds), "crossbar Keybinds appears below Controller Setup in the sidebar");
+            runtime->SelectConfigTopic(2);
+            Check(module.dialog_ == actionbars_module::dialog::keybinds && module.selected_.surface == action_surface::crossbar,
+                "activating the crossbar Keybinds topic opens the controller slot list");
+            module.CloseDialog();
+            runtime->active_config_section_ = 3;
             Check(runtime->ElementSelector().count == 6, "crossbar layout retains all six trigger-bank tabs");
             Check(runtime->ActiveConfigPage().SectionContains(1, &module) && !module.ConfigSectionContains(0, actionbars_module::bar_selector),
                 "crossbar controls keep their surface tab and hide the normal-bar selector");
             Check(!module.Option(actionbars_module::edit).available && !module.Option(actionbars_module::palettes).available && !module.Option(actionbars_module::import).available,
                 "workspace destinations are not duplicated as settings rows");
+            auto legacy = settings_store::FromIniText("[session.config]\nmodule=hotbar\nview=2\nsection=1\n");
+            runtime->LoadConfigSelection(legacy);
+            Check(runtime->active_config_section_ == 2 && std::string{module.ConfigSections()[2].name} == "Layout", "old hotbar topic selections retain their destination");
+            legacy.WriteInt("session.config", "view", static_cast<int>(action_bar_count));
+            legacy.WriteInt("session.config", "section", 2);
+            runtime->LoadConfigSelection(legacy);
+            Check(runtime->active_config_section_ == 3 && std::string{module.ConfigSections()[3].name} == "Layout", "old crossbar topic selections retain their destination");
+            runtime->active_config_section_ = 2;
+            runtime->SaveConfigSelection(legacy);
+            runtime->LoadConfigSelection(legacy);
+            Check(runtime->active_config_section_ == 2 && !module.DialogOpen(), "new Keybinds topic selections round trip without reopening transient workspaces");
         }
         static auto Run(void) -> void { ControllerVisuals(); Ownership(); DirectInteraction(); LibraryPlacement(); BarControlsAndCrossbarGeometry(); EmptyBarEditBounds(); Editing(); KeyboardAndCrossbar(); Persistence(); SlotStylePersistence(); SlotStyleCompatibility(); SlotFrameProfileOverlay(); SlotTextDefaults(); SlotStyleActions(); SlotStyleGeometry(); Keybinds(); ControllerSetup(); RuntimeOwnership(); NativeMacroKeyboardOwnership(); EditModeManagement(); DependentSettings(); WorkspaceCursors(); FloatingWorkspaces(); LibraryCategories(); LibraryLayoutAndSearch(); LibraryGridNavigation(); Configuration(); }
     };

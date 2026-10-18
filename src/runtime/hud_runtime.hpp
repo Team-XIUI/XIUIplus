@@ -595,6 +595,7 @@ namespace xiui
         auto VisibleConfigPages(void) const -> std::vector<config_page>;
         auto ActiveConfigPage(void) -> config_page;
         auto SelectConfigModule(hud_module* module, std::optional<size_t> view = std::nullopt) -> void;
+        auto SelectConfigTopic(size_t index) -> void;
         auto SaveConfigSelection(const settings_store& store) const -> void;
         auto LoadConfigSelection(const settings_store& store) -> void;
         auto HasConfigSections(void) const -> bool

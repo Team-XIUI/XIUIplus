@@ -40,7 +40,7 @@ Click the action set caption to choose a set; the bar menu opens management. Cre
 
 ## Keybinds
 
-Open **Keybinds** from **Hotbars → Actions** or **Crossbar → General**, or from a bar's menu. `/xiui keybinds`, `/xiui hotbar keybinds` and `/xiui crossbar keybinds` open the same independent, movable/resizable window. Its Bar dropdown lists all ten hotbars and Crossbar, including empty slots. Each row shows the slot/action and current binding; Clear removes the binding without removing the action.
+Select **Keybinds** in the left sidebar: directly below **Actions** for Hotbars and below **Controller Setup** for Crossbar. The sidebar item opens the list directly. Bar menus, `/xiui keybinds`, `/xiui hotbar keybinds` and `/xiui crossbar keybinds` open the same independent, movable/resizable window. Its Bar dropdown lists all ten hotbars and Crossbar, including empty slots. Each row shows the slot/action and current binding; Clear removes the binding without removing the action.
 
 For a hotbar, select its binding and press a key combination. Ctrl, Alt and Shift are supported. Escape cancels, and an existing conflicting assignment is reported without replacing either slot. Bindings stay attached to bar slots when action sets change. Full keyboard mode still reserves ordinary unfocused typing for chat.
 

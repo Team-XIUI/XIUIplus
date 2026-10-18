@@ -22,8 +22,8 @@ namespace xiui
         constexpr const char* config_views[]{"Hotbar 1", "Hotbar 2", "Hotbar 3", "Hotbar 4", "Hotbar 5", "Hotbar 6", "Hotbar 7", "Hotbar 8", "Hotbar 9", "Hotbar 10", "Crossbar", "Actions & Macros", "Action Sets", "Import"};
         constexpr const char* bar_ids[]{"hotbar", "hotbar2", "hotbar3", "hotbar4", "hotbar5", "hotbar6", "hotbar7", "hotbar8", "hotbar9", "hotbar10", "crossbar"};
         constexpr const char* bank_names[]{"Left trigger", "Right trigger", "Left then right", "Right then left", "Double left", "Double right"};
-        constexpr std::array<size_t, 9> crossbar_sections{0, 6, 1, 2, 3, 4, 5, 7, 8};
-        constexpr std::array<size_t, 8> hotbar_sections{0, 1, 2, 3, 4, 5, 7, 8};
+        constexpr std::array<size_t, 10> crossbar_sections{0, 6, 9, 1, 2, 3, 4, 5, 7, 8};
+        constexpr std::array<size_t, 9> hotbar_sections{0, 9, 1, 2, 3, 4, 5, 7, 8};
         constexpr const char* profile_sections[]{"text.actionbars.title", "text.actionbars.label", "text.actionbars.binding", "text.actionbars.timer", "text.actionbars.tooltip", "text.actionbars.count", "text.actionbars.cost"};
         constexpr const char* workspace_sections[]{"layout.action_library", "layout.action_sets", "layout.action_editor", "layout.action_controller", "layout.action_keybinds"};
         constexpr int window_move = 700, window_resize = 701, window_close = 702;
@@ -325,7 +325,8 @@ namespace xiui
         static constexpr module_config_section sections[]{ {"Actions", "Assignments and action storage."}, {"Layout", "Bar shape, slot size and spacing."}, {"Display", "Labels, empty slots and container."},
             {"Slots", "Frame, corners, artwork and colors."}, {"Effects", "Unavailable actions, highlights and cooldowns."}, {"Overlays", "Key bindings, counts, MP costs and recast text."},
             {"Controller", "Trigger controls and device setup."}, {"Text", "Fonts, colors and effects for each text element."},
-            {"Skillchains", "Shared skillchain and Magic Burst predictions for all hotbars and the crossbar. Timings are estimates."} };
+            {"Skillchains", "Shared skillchain and Magic Burst predictions for all hotbars and the crossbar. Timings are estimates."},
+            {"Keybinds", "Rebind hotbar slots and crossbar controller buttons."} };
         static const auto crossbarSections = [] {
             std::array<module_config_section, crossbar_sections.size()> result{};
             for (size_t index = 0; index < result.size(); ++index) result[index] = sections[crossbar_sections[index]];
@@ -340,11 +341,17 @@ namespace xiui
         }();
         return this->view_ == action_bar_count ? std::span<const module_config_section>{crossbarSections} : std::span<const module_config_section>{hotbarSections};
     }
+    auto actionbars_module::OpenKeybindsSection(const size_t section) -> bool
+    {
+        if (!this->ConfigSectionContains(section, keybinds)) return false;
+        this->OpenKeybinds(this->Surface() == action_surface::crossbar, this->ConfigBar());
+        return true;
+    }
     auto actionbars_module::ConfigSectionContains(size_t section, const size_t index) -> bool
     {
         if (section >= this->ConfigSections().size() || index >= this->OptionCount()) return false;
         section = this->view_ == action_bar_count ? crossbar_sections[section] : hotbar_sections[section];
-        if (index == keybinds) return section == 0;
+        if (index == keybinds) return section == 9;
         if (index == edit || index == palettes || index == import) return false;
         if (index == bar_selector) return this->view_ < action_bar_count;
         if (index == bank) return this->view_ == action_bar_count && section == 1;

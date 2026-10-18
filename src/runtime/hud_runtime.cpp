@@ -2340,9 +2340,7 @@ namespace xiui
             for (size_t index = 0; index < topics.size(); ++index)
                 if (Contains(this->ConfigLayout().Submenu(index, topics.size()), x, y))
                 {
-                    this->active_config_section_ = index;
-                    this->active_color_ = nullptr;
-                    this->option_scroll_ = 0;
+                    this->SelectConfigTopic(index);
                     return true;
                 }
         }
@@ -2929,6 +2927,7 @@ namespace xiui
         store.WriteInt("session.config", "section", static_cast<int>(this->active_config_section_));
         store.WriteInt("session.config", "party_presets_general", 1);
         store.WriteInt("session.config", "party_presets_location", 2);
+        store.WriteInt("session.config", "actionbar_keybinds_topic", 1);
         store.WriteInt("session.config", "appearance_tab", static_cast<int>(this->general_.AppearanceTab()));
     }
 
@@ -2950,10 +2949,24 @@ namespace xiui
         }
         if (this->active_module_ == &this->general_ && section == 6 && store.ReadInt("session.config", "party_presets_location", 0) < 2)
         { this->active_module_ = &this->party_; section = 0; }
+        if (this->active_module_ == &this->actionbars_ && store.ReadInt("session.config", "actionbar_keybinds_topic", 0) == 0)
+        {
+            const size_t firstMoved = this->actionbars_.ConfigView() == action_bar_count ? 2 : 1;
+            if (section >= firstMoved) ++section;
+        }
         const auto sections = this->active_module_->ConfigSections();
         this->active_config_section_ = section < sections.size() ? section : 0;
         this->general_.SelectAppearanceTab(static_cast<size_t>(std::max(0, store.ReadInt("session.config", "appearance_tab", 0))));
         this->NormalizeConfigSelection();
+    }
+
+    auto hud_runtime::SelectConfigTopic(const size_t index) -> void
+    {
+        this->active_config_section_ = index;
+        this->active_color_ = nullptr;
+        this->option_scroll_ = 0;
+        if (this->active_module_ == &this->actionbars_ && this->actionbars_.OpenKeybindsSection(index))
+            this->FinishActionBarsLaunch();
     }
 
     auto hud_runtime::SelectConfigModule(hud_module* module, const std::optional<size_t> view) -> void

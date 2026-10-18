@@ -105,6 +105,7 @@ namespace xiui
         auto OpenPalettes(bool crossbar = false, size_t bar = 0) -> void;
         auto OpenSetup(void) -> void;
         auto OpenKeybinds(bool crossbar = false, size_t bar = 0) -> void;
+        auto OpenKeybindsSection(size_t section) -> bool;
         auto OpenImport(void) -> void;
         auto SelectedBar(void) const -> size_t { return this->view_; }
         auto TakeConfigurationRequest(void) -> std::optional<size_t> { return std::exchange(this->configuration_request_, {}); }

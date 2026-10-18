@@ -310,7 +310,7 @@ namespace xiui
         }
         else if (area == region::topics)
         {
-            if (this->HasConfigSubmenu()) this->active_config_section_ = item.index;
+            if (this->HasConfigSubmenu()) this->SelectConfigTopic(item.index);
             else
             {
                 const auto categories = this->ConfigCategories();
