@@ -213,6 +213,24 @@ namespace xiui
         if (!this->runtime_faulted_ && this->instance_ != nullptr) this->api_.handle_chat(this->instance_, &event);
     }
 
+    auto runtime_host::DescribeNpcCapture(void) const -> std::string
+    {
+        std::lock_guard lock(this->mutex_);
+        const auto found = std::find_if(this->chat_history_.rbegin(), this->chat_history_.rend(), [](const chat_event& event) {
+            return event.mode == 150 || event.mode == 151 || event.mode == 190 || event.mode == 142 || event.mode == 144;
+        });
+        if (found == this->chat_history_.rend()) return "[XIUI] NPC capture: no NPC text captured since load.";
+        char header[160]{};
+        std::snprintf(header, sizeof(header), "[XIUI] NPC capture: mode %u; sequence %llu; windows %u; tail bytes: ", found->mode, found->sequence, found->windows);
+        std::string result{header};
+        const auto length = std::strlen(found->text);
+        for (size_t at = length > 32 ? length - 32 : 0; at < length; ++at)
+        {
+            char hex[4]{}; std::snprintf(hex, sizeof(hex), "%02X ", static_cast<uint8_t>(found->text[at])); result += hex;
+        }
+        return result;
+    }
+
     auto runtime_host::HandleKey(const WPARAM key, const LPARAM flags, const bool blocked) -> bool
     {
         std::lock_guard lock(this->mutex_);

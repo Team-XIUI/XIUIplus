@@ -196,6 +196,7 @@ namespace xiui::ui
     auto config_controls::IconId(const char* id) -> icon_glyph
     {
         if (id != nullptr && std::strcmp(id, "casting") == 0) return icon_glyph::castbar;
+        if (id != nullptr && std::strcmp(id, "chat.bubbles") == 0) return icon_glyph::chat;
         if (id != nullptr && std::strcmp(id, "minimap") == 0) return icon_glyph::minimap;
         if (id != nullptr && std::strcmp(id, "satchel") == 0) return icon_glyph::inventory;
         if (id != nullptr && (std::strncmp(id, "hotbar", 6) == 0 || std::strcmp(id, "crossbar") == 0)) return icon_glyph::commands;

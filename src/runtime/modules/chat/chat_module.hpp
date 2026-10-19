@@ -42,6 +42,7 @@ namespace xiui
         auto Receive(IAshitaCore* core, const chat_event& event, bool audible = true) -> void;
         auto ObserveTellPacket(uint16_t id, std::span<const uint8_t> packet) -> void;
         auto SetInputContext(IChatManager* chat) -> void;
+        auto SetDialogueActive(bool active) -> void;
         auto HandleKey(IAshitaCore* core, WPARAM key, LPARAM flags, bool blocked, bool replaceNative, std::span<const std::string> replyTargets = {}) -> bool;
         auto OpenTell(std::string_view recipient) -> bool;
         auto AdoptDraft(chat_draft draft) -> bool;
@@ -57,6 +58,9 @@ namespace xiui
         auto Capture(runtime_state& state) const -> void;
         auto Restore(const runtime_state& state) -> void;
         auto Count(void) const -> size_t { return this->History().Lines().size(); }
+        auto CapturedLine(uint64_t sequence) const -> const chat_line*
+        { const auto& lines = this->History().Lines(); return !lines.empty() && lines.back().sequence == sequence ? &lines.back() : nullptr; }
+        auto ColorOverrides(void) const -> const chat_color_overrides& { return this->Colors(); }
         auto AttachSecondWindow(chat_module& second) -> void;
         auto EnsureWindowDefaults(void) -> void;
         auto ViewName(void) const -> const char* { return chat_tab_names[this->active_tab_]; }
@@ -102,7 +106,7 @@ namespace xiui
         friend struct controller_module_test;
 #endif
         struct tab_state { size_t scroll{}; uint32_t unread{}; };
-        struct rendered_span { std::string text; int color{-1}; float width{}; bool timestamp{}; };
+        struct rendered_span { std::string text; int color{-1}; float width{}; bool timestamp{}, dialogue_prompt{}; };
         struct rendered_row { uint64_t sequence{}; uint32_t mode{}, color{}; std::vector<rendered_span> spans; };
         struct message_entrance { uint64_t sequence{}, started{}; };
         struct message_motion { float opacity{1}, x{}; };
@@ -133,6 +137,7 @@ namespace xiui
         static constexpr int game_channel = 9;
         int channel_{game_channel};
         bool focused_{}, resizing_{}, pointer_down_{};
+        bool dialogue_active_{};
         bool hovered_{};
         float input_reveal_{};
         uint64_t input_animation_tick_{};
@@ -203,6 +208,7 @@ namespace xiui
         auto MessageAnimationDuration(void) const -> float { return 22000.0f / this->message_animation_speed_; }
         auto ScrollbarOpacity(uint64_t now) const -> float;
         auto RebuildRows(const ui::design_system& design, float width) -> void;
+        auto DialoguePromptActive(uint64_t sequence) const -> bool;
         auto HistoryLayout(const ui::design_system& design) const -> history_layout;
         auto HistoryTabName(size_t index) const -> const char* { return index == 0 && this->secondary_ ? "Window 2" : chat_history_tabs[index]; }
         auto SelectHistoryTab(size_t index) -> void;

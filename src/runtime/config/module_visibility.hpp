@@ -11,6 +11,7 @@ namespace xiui
     struct module_visibility_context
     {
         bool event_active{};
+        bool dialogue_active{};
         bool menu_open{};
         bool macro_palette{};
         bool map_open{};
@@ -55,6 +56,8 @@ namespace xiui
 
     class module_visibility_source
     {
+        friend struct config_input_test;
+
     public:
         auto Initialize(void) -> void;
         auto Read(IAshitaCore* core, bool nativeMenuOpen) const -> module_visibility_context;
@@ -62,6 +65,9 @@ namespace xiui
     private:
         uintptr_t menu_slot_{};
         uintptr_t event_slot_{};
+        uintptr_t event_owner_slot_{};
+        uintptr_t event_entity_slot_{};
+        uintptr_t player_entity_slot_{};
         uintptr_t interface_object_{};
     };
 } // namespace xiui

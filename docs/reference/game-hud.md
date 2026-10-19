@@ -14,6 +14,8 @@ XIUI's target snapshot reads the selected target index and entity name, HP perce
 
 Preferences save under `[game_hud]` in `xiuinative.ini`. Native windows still follow the game's normal lifetime, menu, and login rules when their visibility option is on.
 
+During NPC events/cutscenes, XIUI temporarily stops suppressing all three native chat logs so dialogue remains visible even when **Hide during events** hides XIUI chat. The saved native visibility choices resume afterward. Explicit **Hide all UI** retains its documented full-hide behavior.
+
 Development commands:
 
 - `/xiui gamehud` opens this config section.

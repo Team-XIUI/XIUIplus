@@ -32,6 +32,26 @@ namespace xiui
 
     auto FromUtf8(const std::string_view text) -> std::wstring { return Decode(text, CP_UTF8); }
 
+    auto GameTextDialogueControl(const std::string_view text) -> dialogue_control
+    {
+        auto control = dialogue_control::absent;
+        for (size_t at = 0; at < text.size(); ++at)
+        {
+            if (const auto token = ChatTokenSize(text, at); token != 0) { at += token - 1; continue; }
+            const auto byte = static_cast<uint8_t>(text[at]);
+            if ((byte == 0x1E || byte == 0x1F) && at + 1 < text.size()) ++at;
+            else if (byte == 0x7F && at + 1 < text.size())
+            {
+                const auto code = static_cast<uint8_t>(text[++at]);
+                if (code >= 0x31 && code <= 0x37)
+                    control = code <= 0x33 || code == 0x37 ? dialogue_control::manual : dialogue_control::timed;
+                if (code >= 0x34 && code <= 0x36 && at + 1 < text.size()) ++at;
+            }
+            else if (::IsDBCSLeadByteEx(932, byte) && at + 1 < text.size()) ++at;
+        }
+        return control;
+    }
+
     auto FromGameText(const std::string_view text) -> std::string
     {
         std::string result;

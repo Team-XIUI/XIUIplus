@@ -27,6 +27,7 @@ namespace xiui
 
         auto HandlePacket(uint16_t id, const uint8_t* data, uint32_t size) -> void;
         auto HandleChat(chat_event event) -> void;
+        auto DescribeNpcCapture(void) const -> std::string;
         auto HandleKey(WPARAM key, LPARAM flags, bool blocked) -> bool;
         auto ChatFocused(void) const -> bool;
         auto CrossbarSettings(void) const -> controller_crossbar_settings;

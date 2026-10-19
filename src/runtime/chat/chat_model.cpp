@@ -1,4 +1,5 @@
 #include "chat_model.hpp"
+#include "chat_encoding.hpp"
 
 namespace
 {
@@ -119,12 +120,21 @@ namespace xiui
             ++this->revision_;
             return;
         }
-        if (event.windows == 0 || expanded.empty()) return;
+        if (event.windows == 0) return;
+        const auto mode = event.mode & 255;
+        const bool npc = mode == 150 || mode == 151 || mode == 190;
+        const auto control = GameTextDialogueControl(event.text);
+        // Native NPC redraws have already consumed the continuation control.
+        const bool prompt = npc && (control == dialogue_control::manual ||
+            (mode == 190 && control == dialogue_control::absent));
+        if (npc || mode == 142 || mode == 144)
+            this->dialogue_prompt_sequence_ = prompt ? event.sequence : 0;
+        if (expanded.empty()) return;
         auto spans = ParseChatText(expanded);
         RemoveAddonTimestamps(spans);
         if (spans.empty()) return;
         if (event.indent) spans.insert(spans.begin(), chat_span{"  ", -1});
-        this->lines_.push_back({event.sequence, event.timestamp, event.mode, event.color, event.windows, std::move(spans)});
+        this->lines_.push_back({event.sequence, event.timestamp, event.mode, event.color, event.windows, std::move(spans), prompt});
         while (this->lines_.size() > chat_history_capacity) this->lines_.pop_front();
         ++this->revision_;
     }

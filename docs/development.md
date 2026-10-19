@@ -22,6 +22,8 @@ Use [the focused check guide](../tests/README.md) to select checks. Runtime chan
 
 Read the returned install path. AgentLink lives in the neighboring plugin repository, not this SDK. The client may be `phoenix-loader` with the character's window title; a timeout or missing `pol` process does not prove the game is closed. Retry and inspect the actual game window/log if needed.
 
+`& ../phoenixlighting/scripts/game.ps1 -Screenshot` captures the current game frame at full resolution and returns the PNG path in `files`. It can also follow diagnostic steps; open the returned image to inspect actual rendering rather than relying on loaded/visible status alone.
+
 After packaging, save and unload before replacing the loaded DLL. Substitute the confirmed path if it differs:
 
 ```powershell

@@ -150,6 +150,8 @@ namespace xiui
         this->chat_second_.SetNativeFilters(this->chat_filters_);
         this->modules_.Add(this->chat_);
         this->modules_.Add(this->chat_second_);
+        this->chat_bubbles_.SetColors(this->chat_.ColorOverrides());
+        this->modules_.Add(this->chat_bubbles_);
         this->modules_.Add(this->compass_);
         this->modules_.Add(this->minimap_);
         this->modules_.Add(this->world_info_);
@@ -1023,6 +1025,7 @@ namespace xiui
             if (id == 0xA0) this->minimap_source_.HandlePartyPosition({data, size}, now);
             this->treasure_source_.HandlePacket(id, {data, size}, now);
             this->chat_.ObserveTellPacket(id, {data, size});
+            if (id == 0x000A || id == 0x000B) this->chat_bubbles_.Clear();
             this->notification_source_.HandlePacket(this->core_, this->notifications_.Center(), id, {data, size}, now);
             this->experience_.HandlePacket(this->core_, id, {data, size}, now, &actionPacket);
             this->enemy_list_.HandlePacket(this->core_, id, {data, size}, now, &actionPacket);
@@ -2245,6 +2248,8 @@ namespace xiui
         this->settings_error_reported_ = settingsFailed;
         const uint64_t now = ::GetTickCount64();
         this->UpdateCharacterProfile(now);
+        if (this->ContextVisible(this->chat_bubbles_)) this->chat_bubbles_.Update(this->core_, this->visibility_context_.dialogue_active, now);
+        else this->chat_bubbles_.Clear();
         if (now >= this->next_chat_palette_update_)
         {
             this->chat_colors_ = this->chat_palette_.Read();
@@ -2375,6 +2380,7 @@ namespace xiui
         if (this->editing_) this->DrawLayoutBackground(context.Viewport());
         this->target_.BeginRenderFrame();
         this->notifications_.BeginRenderFrame();
+        if (this->ContextVisible(this->chat_bubbles_)) this->chat_bubbles_.Render(snapshot, context);
         for (auto* module : this->modules_.All())
         {
             if (!this->editing_ && module == &this->satchel_) continue;

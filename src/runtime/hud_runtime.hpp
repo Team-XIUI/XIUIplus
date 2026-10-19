@@ -42,6 +42,7 @@
 #include "modules/game_hud/game_hud_module.hpp"
 #include "modules/general/general_module.hpp"
 #include "modules/chat/chat_module.hpp"
+#include "modules/chat/chat_bubbles_module.hpp"
 #include "modules/compass/compass_module.hpp"
 #include "modules/minimap/minimap_module.hpp"
 #include "modules/minimap/minimap_source.hpp"
@@ -83,7 +84,12 @@ namespace xiui
         auto Render(const hud_snapshot& snapshot) -> void;
         auto RenderWorld(const hud_snapshot& snapshot) -> void;
         auto HandleMouseMessage(uint32_t message, WPARAM wParam, LPARAM lParam, bool blocked) -> bool;
-        auto HandleChat(const chat_event& event) -> void { this->chat_.Receive(this->core_, event, this->chat_alerts_ready_ && this->ContextVisible(this->chat_)); }
+        auto HandleChat(const chat_event& event) -> void
+        {
+            this->chat_.Receive(this->core_, event, this->chat_alerts_ready_ && this->ContextVisible(this->chat_));
+            if (this->chat_alerts_ready_ && this->ContextVisible(this->chat_bubbles_))
+                if (const auto* line = this->chat_.CapturedLine(event.sequence)) this->chat_bubbles_.Receive(this->core_, *line);
+        }
         auto HandleKey(WPARAM key, LPARAM flags, bool blocked) -> bool;
         auto HandleController(const controller_event& event) -> bool;
         auto ControllerCapture(void) const -> controller_capture_mode;
@@ -255,6 +261,7 @@ namespace xiui
         game_hud_module game_hud_{};
         chat_module chat_{};
         chat_module chat_second_{true};
+        chat_bubbles_module chat_bubbles_{};
         chat_module* chat_pointer_{};
         compass_module compass_{};
         minimap_module minimap_{};

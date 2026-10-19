@@ -77,7 +77,7 @@ namespace xiui
         const auto page = this->ActiveConfigPage();
         if (page.SectionCount() > 1)
         {
-            constexpr const char* chatNames[]{"Window 1", "Window 2"};
+            constexpr const char* chatNames[]{"Window 1", "Window 2", "Bubbles"};
             for (size_t index = 0; index < page.SectionCount(); ++index)
             {
                 const auto bounds = layout.Section(index, page.SectionCount());

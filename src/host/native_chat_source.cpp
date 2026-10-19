@@ -51,6 +51,8 @@ namespace
     auto __fastcall AddWindow(void* self, void*, void* window, const char* text, const native_metadata* metadata, const bool indent, const bool lastFlag) -> int32_t
     {
         auto lease = capture_gate.Enter();
+        xiui::chat_event event{};
+        const bool hasText = lease && ReadMessage(text, event.text, sizeof(event.text));
         capture_context context{current_capture};
         current_capture = &context;
         const auto result = add_window(self, window, text, metadata, indent, lastFlag);
@@ -58,8 +60,7 @@ namespace
         if (lease && context.windows != 0)
         {
             native_metadata info{};
-            xiui::chat_event event{};
-            if (Read(reinterpret_cast<uintptr_t>(metadata), info) && ReadMessage(text, event.text, sizeof(event.text)))
+            if (hasText && Read(reinterpret_cast<uintptr_t>(metadata), info))
             {
                 event.timestamp = ::GetTickCount64();
                 event.sequence = info.serial;

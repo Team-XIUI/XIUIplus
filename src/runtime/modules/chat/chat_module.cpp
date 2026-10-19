@@ -15,6 +15,8 @@
 
 namespace
 {
+    constexpr float dialogue_prompt_padding = 2.0f;
+
     auto MessageProgress(const uint64_t started, const uint64_t now, const float duration) -> float
     {
         if (now < started) return 1;
@@ -486,6 +488,19 @@ namespace xiui
         if (this->second_window_ != nullptr) { this->second_window_->tabs_ = {}; this->second_window_->scrollbar_until_ = 0; this->second_window_->message_entrances_.clear(); this->second_window_->ResetCollapse(); }
     }
 
+    auto chat_module::SetDialogueActive(const bool active) -> void
+    {
+        this->dialogue_active_ = active;
+        if (this->second_window_ != nullptr) this->second_window_->dialogue_active_ = active;
+        if (!active && this->shared_model_ == nullptr) this->model_.DismissDialoguePrompt();
+    }
+
+    auto chat_module::DialoguePromptActive(const uint64_t sequence) const -> bool
+    {
+        return this->dialogue_active_ && !this->HistoryExpanded() && this->tabs_[this->active_tab_].scroll == 0 &&
+            sequence != 0 && sequence == this->History().DialoguePromptSequence();
+    }
+
     auto chat_module::Receive(IAshitaCore* core, const chat_event& event, const bool audible) -> void
     {
         if (this->shared_model_ != nullptr) return;
@@ -569,7 +584,8 @@ namespace xiui
 
     auto chat_module::CollapsePinned(void) const -> bool
     {
-        return this->layout_editing_ || this->resizing_ || this->Focused() || this->input_reveal_ > 0 || this->HistoryFocused() || this->tabs_[this->active_tab_].scroll != 0;
+        return this->layout_editing_ || this->resizing_ || this->Focused() || this->input_reveal_ > 0 || this->HistoryFocused() ||
+            this->tabs_[this->active_tab_].scroll != 0 || (this->dialogue_active_ && this->History().DialoguePromptSequence() != 0);
     }
 
     auto chat_module::ResetCollapse(void) -> void
@@ -1363,8 +1379,9 @@ namespace xiui
             rendered_row row{line.sequence, line.mode, line.color};
             float used{};
             const auto finish = [&] { this->rows_.push_back(std::move(row)); row = {line.sequence, line.mode, line.color}; used = 0.0f; };
-            const auto append = [&](const std::string& token, const int color, const bool timestamp = false) {
-                const auto tokenWidth = MeasureChatText(design, token, this->text_.style) + this->text_.style.letter_spacing * this->text_.style.scale;
+            const auto append = [&](const std::string& token, const int color, const bool timestamp = false, const bool prompt = false) {
+                const auto tokenWidth = MeasureChatText(design, token, this->text_.style) + this->text_.style.letter_spacing * this->text_.style.scale +
+                    (prompt ? dialogue_prompt_padding : 0.0f);
                 if (used > 0.0f && used + tokenWidth > width)
                 {
                     if (token.find_first_not_of(' ') == std::string::npos) return;
@@ -1372,8 +1389,8 @@ namespace xiui
                 }
                 if (tokenWidth <= width)
                 {
-                    if (!row.spans.empty() && row.spans.back().color == color && row.spans.back().timestamp == timestamp) { row.spans.back().text += token; row.spans.back().width += tokenWidth; }
-                    else row.spans.push_back({token, color, tokenWidth, timestamp});
+                    if (!row.spans.empty() && row.spans.back().color == color && row.spans.back().timestamp == timestamp && row.spans.back().dialogue_prompt == prompt) { row.spans.back().text += token; row.spans.back().width += tokenWidth; }
+                    else row.spans.push_back({token, color, tokenWidth, timestamp, prompt});
                     used += tokenWidth;
                     return;
                 }
@@ -1382,10 +1399,11 @@ namespace xiui
                     const size_t begin = pos;
                     NextUtf8(token, pos);
                     const auto glyph = token.substr(begin, pos - begin);
-                    const auto glyphWidth = MeasureChatText(design, glyph, this->text_.style) + this->text_.style.letter_spacing * this->text_.style.scale;
+                    const auto glyphWidth = MeasureChatText(design, glyph, this->text_.style) + this->text_.style.letter_spacing * this->text_.style.scale +
+                        (prompt ? dialogue_prompt_padding : 0.0f);
                     if (used > 0 && used + glyphWidth > width) finish();
-                    if (!row.spans.empty() && row.spans.back().color == color && row.spans.back().timestamp == timestamp) { row.spans.back().text += glyph; row.spans.back().width += glyphWidth; }
-                    else row.spans.push_back({glyph, color, glyphWidth, timestamp});
+                    if (!row.spans.empty() && row.spans.back().color == color && row.spans.back().timestamp == timestamp && row.spans.back().dialogue_prompt == prompt) { row.spans.back().text += glyph; row.spans.back().width += glyphWidth; }
+                    else row.spans.push_back({glyph, color, glyphWidth, timestamp, prompt});
                     used += glyphWidth;
                 }
             };
@@ -1412,6 +1430,7 @@ namespace xiui
                     append(token, span.color_index);
                     position = end;
                 }
+            if (line.dialogue_prompt) append("\xE2\x96\xBC", -1, false, true);
             if (!row.spans.empty()) finish();
         }
         if (incremental && this->CurrentScroll() > 0 && this->rows_.size() > previousRows + oldLastRows)
@@ -1518,7 +1537,14 @@ namespace xiui
                 const auto color = this->SpanColor(row, span, snapshot.chat_colors);
                 auto profile = FadeText(TintTextProfile(this->text_, color), motion.opacity);
                 profile.placement = 0; profile.style.alignment = ui::text_alignment::left;
-                const ui::rect bounds{x, y, std::max(0.0f, log.x + log.width - x), lineHeight};
+                const float padding = span.dialogue_prompt ? dialogue_prompt_padding : 0.0f;
+                ui::rect bounds{x + padding, y, std::max(0.0f, log.x + log.width - x - padding), lineHeight};
+                if (span.dialogue_prompt && this->DialoguePromptActive(row.sequence))
+                {
+                    const float phase = static_cast<float>(now % 900) * (6.2831853f / 900);
+                    bounds.y -= (1 - std::cos(phase)) * 1.5f * profile.style.scale;
+                    profile = FadeText(profile, 0.75f + std::cos(phase) * 0.25f);
+                }
                 DrawChatText(context, span.text, bounds, profile);
                 x += span.width;
             }

@@ -1,5 +1,12 @@
 # Changelog
 
+## Unreleased
+
+- Add Chat → Bubbles for nearby Say, Linkshell 1/2, Party, Yell, Shout and NPC speech, with channel, appearance and text controls.
+- Restore NPC dialogue continuation arrows, with a pulsing/bouncing current prompt, shared chat routing and native advance input.
+- Evaluate the complete native event predicate so an enabled event system without a local event cannot hide every XIUI module.
+- Keep native NPC dialogue available during events/cutscenes when XIUI chat is hidden, then resume the saved native chat visibility afterward.
+
 ## 1.0.5-alpha.1 — 2026-10-18
 
 - Publish the first private GitHub alpha release as one standalone x86 DLL, with a SHA-256 checksum and installation notes. The binary version is 1.0.5.

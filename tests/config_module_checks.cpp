@@ -1229,10 +1229,52 @@ namespace xiui
 
     auto config_input_test::AllUiVisibility(void) -> bool
     {
+        module_visibility_source visibilitySource;
+        uint8_t eventEnabled{1};
+        uintptr_t eventOwner{};
+        uint16_t eventEntity{102}, playerEntity{102};
+        visibilitySource.event_slot_ = reinterpret_cast<uintptr_t>(&eventEnabled);
+        visibilitySource.event_owner_slot_ = reinterpret_cast<uintptr_t>(&eventOwner);
+        visibilitySource.event_entity_slot_ = reinterpret_cast<uintptr_t>(&eventEntity);
+        visibilitySource.player_entity_slot_ = reinterpret_cast<uintptr_t>(&playerEntity);
+        auto eventContext = visibilitySource.Read(nullptr, false);
+        if (!check(eventContext.event_available && !eventContext.event_active,
+            "an enabled native event system with no event owner must not hide XIUI")) return false;
+        eventOwner = 1;
+        eventContext = visibilitySource.Read(nullptr, false);
+        if (!check(eventContext.event_available && eventContext.event_active,
+            "an owned native event for the current entity activates event visibility")) return false;
+        eventEntity = 103;
+        if (!check(!visibilitySource.Read(nullptr, false).event_active, "another entity's native event cannot hide the local HUD")) return false;
+        eventEntity = playerEntity;
+        eventEnabled = 0;
+        if (!check(!visibilitySource.Read(nullptr, false).event_active, "disabled event processing cannot activate event visibility")) return false;
+        visibilitySource.event_owner_slot_ = 0;
+        eventContext = visibilitySource.Read(nullptr, false);
+        if (!check(!eventContext.event_available && !eventContext.event_active,
+            "an incomplete native event predicate cannot manufacture an active event")) return false;
+
         hud_runtime runtime;
-        runtime.game_hud_.Load(settings_store::FromIniText("[game_hud]\nenabled=1\nshow_player=0\nshow_party=1\n"));
+        runtime.actionbars_.Load(settings_store::FromIniText("[actionbars]\nreplace_native_macros=0\n"));
+        runtime.game_hud_.Load(settings_store::FromIniText("[game_hud]\nenabled=1\nshow_player=0\nshow_party=1\nshow_chat1=0\nshow_chat2=0\nshow_chatlog=0\n"));
+        runtime.general_.Visibility().Load(settings_store::FromIniText("[visibility]\nhide_events=1\n"));
         runtime.world_info_.State().enabled = false;
         const auto nativeMask = runtime.NativeHudHiddenMask();
+        const auto nativeChat = NativeHudBit(native_hud_element::chat1) | NativeHudBit(native_hud_element::chat2) | NativeHudBit(native_hud_element::chatlog);
+        runtime.visibility_context_.event_active = true;
+        if (!check(!runtime.ContextVisible(runtime.chat_) && !runtime.ContextVisible(runtime.chat_second_) &&
+            runtime.NativeHudHiddenMask() == (nativeMask & ~nativeChat) && (nativeMask & nativeChat) == nativeChat,
+            "NPC events restore every native dialogue log while replacement chat is hidden and other HUD choices remain active")) return false;
+        runtime.SetVisible(false);
+        const uint32_t allNative = (uint32_t{1} << native_hud_options.size()) - 1;
+        if (!check(runtime.NativeHudHiddenMask() == allNative, "explicit Hide all still applies during an NPC event")) return false;
+        runtime.SetVisible(true);
+        runtime.visibility_context_ = {};
+        if (!check(runtime.NativeHudHiddenMask() == nativeMask && (runtime.game_hud_.HiddenMask() & nativeChat) == nativeChat,
+            "leaving an NPC event resumes saved chat suppression without rewriting visibility preferences")) return false;
+        runtime.visibility_context_.menu_open = true;
+        if (!check(runtime.NativeHudHiddenMask() == nativeMask, "ordinary menus do not restore duplicate native chat")) return false;
+        runtime.visibility_context_ = {};
         const auto playerBounds = runtime.player_.State().bounds;
         runtime.editing_ = true;
         runtime.config_.bounds = {40, 40, 1100, 600};
@@ -1263,7 +1305,6 @@ namespace xiui
         runtime.mouse_x_ = static_cast<int>(dialog.Create().x + 5);
         runtime.mouse_y_ = static_cast<int>(dialog.Create().y + 5);
         runtime.ProcessPointerMessage(WM_LBUTTONDOWN, MK_LBUTTON, viewport);
-        const uint32_t allNative = (uint32_t{1} << native_hud_options.size()) - 1;
         if (!check(!runtime.IsVisible() && !runtime.IsEditing() && runtime.NativeHudHiddenMask() == allNative &&
             !runtime.ContextVisible(runtime.player_) && runtime.ControllerCapture() == controller_capture_mode::none && !runtime.ApplyConfirmedAction(),
             "explicit Hide all hides both HUDs exactly once and releases XIUI focus")) return false;

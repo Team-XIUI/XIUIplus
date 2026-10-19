@@ -60,6 +60,7 @@ namespace xiui
     {
         this->visibility_context_ = this->visibility_source_.Read(this->core_, this->native_ui_.menu_visible);
         this->general_.Visibility().SetContext(this->visibility_context_);
+        this->chat_.SetDialogueActive(this->visibility_context_.dialogue_active);
         this->target_.SetMobInfoDisplayAllowed(this->ContextVisible(this->target_));
         this->target_recipient_.SetDisplayAllowed(this->ContextVisible(this->target_recipient_));
         this->subtarget_.SetDisplayAllowed(this->ContextVisible(this->subtarget_));
@@ -145,7 +146,11 @@ namespace xiui
             return address;
         };
         this->menu_slot_ = operand("8B480C85C974??8B510885D274??3B05", 16);
-        this->event_slot_ = operand("A0????????84C0741AA1????????85C0741166A1????????663B05????????0F94C0C3", 1);
+        constexpr const char* eventPattern = "A0????????84C0741AA1????????85C0741166A1????????663B05????????0F94C0C3";
+        this->event_slot_ = operand(eventPattern, 1);
+        this->event_owner_slot_ = operand(eventPattern, 10);
+        this->event_entity_slot_ = operand(eventPattern, 20);
+        this->player_entity_slot_ = operand(eventPattern, 27);
         this->interface_object_ = operand("8B4424046A016A0050B9????????E8????????F6D81BC040C3", 10);
     }
 
@@ -161,7 +166,11 @@ namespace xiui
         if (party != nullptr && entity != nullptr)
         {
             const auto index = party->GetMemberTargetIndex(0);
-            if (index != 0 && index < entity->GetEntityMapSize()) context.event_active = entity->GetStatus(index) == 4;
+            if (index != 0 && index < entity->GetEntityMapSize())
+            {
+                context.event_active = entity->GetStatus(index) == 4;
+                context.dialogue_active = context.event_active || entity->GetStatusServer(index) == 4;
+            }
             const auto playerId = party->GetMemberServerId(0);
             if (playerId != 0)
                 for (uint32_t slot = 1; slot < 18; ++slot)
@@ -172,8 +181,13 @@ namespace xiui
                     }
         }
         uint8_t value{};
-        context.event_available = ::Read(this->event_slot_, value) && value <= 1;
-        if (context.event_available) context.event_active = value == 1;
+        uintptr_t eventOwner{};
+        uint16_t eventEntity{}, playerEntity{};
+        // The native enable byte alone does not establish an active event.
+        context.event_available = ::Read(this->event_slot_, value) && value <= 1 &&
+            ::Read(this->event_owner_slot_, eventOwner) && ::Read(this->event_entity_slot_, eventEntity) && ::Read(this->player_entity_slot_, playerEntity);
+        if (context.event_available) context.event_active = value == 1 && eventOwner != 0 && eventEntity == playerEntity;
+        context.dialogue_active = context.dialogue_active || context.event_active;
         context.interface_available = this->interface_object_ != 0 && ::Read(this->interface_object_ + 0xB4, value) && value <= 1;
         if (context.interface_available) context.interface_hidden = value == 1;
         std::array<char, 16> name{};

@@ -14,7 +14,10 @@ namespace xiui
 
     auto hud_runtime::NativeHudHiddenMask(void) const -> uint32_t
     {
-        const auto mask = this->visible_ ? this->game_hud_.HiddenMask() : (uint32_t{1} << native_hud_options.size()) - 1;
+        auto mask = this->visible_ ? this->game_hud_.HiddenMask() : (uint32_t{1} << native_hud_options.size()) - 1;
+        // NPC dialogue uses the native logs even when XIUI replaces normal chat.
+        if (this->visible_ && this->visibility_context_.event_active)
+            mask &= ~(NativeHudBit(native_hud_element::chat1) | NativeHudBit(native_hud_element::chat2) | NativeHudBit(native_hud_element::chatlog));
         return mask | (this->actionbars_.ReplaceNativeMacros() ? native_keyboard_macro_palette : 0);
     }
 

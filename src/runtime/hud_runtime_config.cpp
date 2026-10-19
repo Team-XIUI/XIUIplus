@@ -131,7 +131,7 @@ namespace xiui
         return {{{"general", "General", &this->general_},
             {"hotbar", "Action Bars", &this->actionbars_, nullptr, nullptr, this->actionbar_members_, 1, "Hotbars", 0, action_bar_count},
             {"casting", "Casting", &this->cast_bar_, &this->cast_cost_, &this->recast_},
-            {"chat", "Chat", &this->chat_, &this->chat_second_},
+            {"chat", "Chat", &this->chat_, &this->chat_second_, &this->chat_bubbles_},
             {"enemylist", this->enemy_list_.DisplayName(), &this->enemy_list_},
             {"experience", this->experience_.DisplayName(), &this->experience_},
             {"inventory", "Inventory", &this->inventory_[0], &this->satchel_, &this->equipment_, this->inventory_config_members_, this->inventory_.size(), "Dots", 1},

@@ -292,6 +292,12 @@ namespace xiui
             this->WriteChat(this->native_hud_.Status().c_str());
             return true;
         }
+
+        if (::_stricmp(argument, "chat capture") == 0)
+        {
+            this->WriteChat(this->runtime_.DescribeNpcCapture().c_str());
+            return true;
+        }
         if (::_stricmp(argument, "rings host") == 0)
         {
             char message[320]{};

@@ -17,6 +17,9 @@ namespace xiui
         for (const auto* section : {"chat", "chat2"})
             if (!source.ReadString(section, "channel").empty())
                 target.WriteInt(section, "channel_version", source.ReadInt(section, "channel_version", 0));
+        if (!source.ReadString("chat.bubbles", "opacity").empty() || !source.ReadString("chat.bubbles", "width").empty() ||
+            !source.ReadString("chat.bubbles", "offset_y").empty())
+            target.WriteInt("chat.bubbles", "appearance_version", source.ReadInt("chat.bubbles", "appearance_version", 0));
         const int frameVersion = source.ReadInt("actionbars", "slot_frame_version", 0);
         // A replaced legacy section must not inherit the snapshot's migration marker.
         source.VisitPreferences([&](const std::string_view section, const std::string_view key, const std::string_view) {

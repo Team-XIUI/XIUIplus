@@ -66,6 +66,158 @@ namespace xiui
 {
     struct chat_test
     {
+        static auto Bubbles(void) -> void
+        {
+            const auto line = [](const uint64_t sequence, const uint32_t mode, const char* text) {
+                return chat_line{sequence, 1000, mode, 0xFFFFFFFF, 1, {{text, -1}}};
+            };
+            const auto body = [](const bubble_message& message) {
+                std::string text; for (const auto& span : message.spans) text += span.text; return text;
+            };
+            for (const auto mode : {1u, 9u, 2u, 10u, 3u, 11u})
+            {
+                const auto message = ParseBubbleMessage(line(1, mode, "Shuu[PortJeuno]: Hello there."));
+                Check(message && message->speaker == "Shuu" && body(*message) == "Hello there.",
+                    "say, shout and yell resolve the speaker without a remote-zone suffix");
+            }
+            for (const auto mode : {5u, 13u, 210u})
+            {
+                const auto message = ParseBubbleMessage(line(1, mode, "(Friend) Party message."));
+                Check(message && message->channel == bubble_channel::party && message->speaker == "Friend", "party wrappers resolve their speaker");
+            }
+            for (const auto mode : {6u, 14u, 213u, 214u})
+            {
+                const auto message = ParseBubbleMessage(line(1, mode, "[2]<Friend> Linkshell message."));
+                Check(message && message->speaker == "Friend" && body(*message) == "Linkshell message." &&
+                    message->channel == (mode < 200 ? bubble_channel::linkshell1 : bubble_channel::linkshell2), "linkshell channels keep native membership routing");
+            }
+            for (const auto mode : {4u, 12u, 20u, 142u, 191u, 200u})
+                Check(!ParseBubbleMessage(line(1, mode, "Friend : Choose an option.")), "tells, combat, native options and system messages cannot become speech bubbles");
+            auto colored = line(1, 9, "Friend : "); colored.spans.push_back({"Colored speech.", 280});
+            const auto parsed = ParseBubbleMessage(colored);
+            Check(parsed && parsed->spans.size() == 1 && parsed->spans[0].color_index == 280 && body(*parsed) == "Colored speech.",
+                "removing speaker prefixes preserves inline colors");
+            const auto named = ParseBubbleMessage(line(1, 190, "Malene : A page of dialogue."));
+            const auto continuation = ParseBubbleMessage(line(2, 190, "  Continued dialogue: still the same speaker."));
+            Check(named && named->speaker == "Malene" && continuation && continuation->continuation &&
+                body(*continuation) == "Continued dialogue: still the same speaker.", "indented NPC continuation is not mistaken for a new speaker");
+
+            chat_bubbles_module bubbles;
+            bubbles.ApplyTextDefaults(ui::theme::CreateDefault());
+            bubbles.Add(line(1, 190, "Malene : A page of dialogue."), *named, 4, 100, 1000);
+            bubbles.Add(line(2, 190, "  Continued dialogue."), *continuation, 4, 100, 1200);
+            Check(bubbles.bubbles_.size() == 1 && bubbles.bubbles_[0].spans.size() == 3 && bubbles.bubbles_[0].spans[1].text == " " &&
+                bubbles.bubbles_[0].started == 1000, "NPC fragments flow together without forcing a new line or restarting the entrance");
+            ui::design_system design;
+            bubbles.RebuildRows(bubbles.bubbles_[0], design, 10000);
+            Check(bubbles.bubbles_[0].rows.size() == 1, "separate native chunks can share a single bubble row");
+            bubbles.bubbles_[0].spans.push_back({"\nAn explicit paragraph.", -1});
+            bubbles.bubbles_[0].cache_font = -1;
+            bubbles.RebuildRows(bubbles.bubbles_[0], design, 10000);
+            Check(bubbles.bubbles_[0].rows.size() == 2, "embedded paragraph breaks remain intact");
+            const auto next = ParseBubbleMessage(line(3, 190, "Malene : Next page."));
+            bubbles.Add(line(3, 190, "Malene : Next page."), *next, 4, 100, 1400);
+            Check(bubbles.bubbles_.size() == 1 && bubbles.bubbles_[0].spans.size() == 1 && bubbles.bubbles_[0].spans[0].text == "Next page.",
+                "a new NPC page replaces its speaker's previous bubble");
+            const auto entering = chat_bubbles_module::Motion(bubbles.bubbles_[0], 1490);
+            Check(chat_bubbles_module::Motion(bubbles.bubbles_[0], 1400).opacity == 0 && entering.opacity > 0 && entering.opacity < 1 && entering.offset_y > 0 &&
+                chat_bubbles_module::Motion(bubbles.bubbles_[0], 1580).opacity == 1, "bubble entrance eases from transparent and below to fully visible");
+            Check(bubbles.outgoing_.size() == 1 && chat_bubbles_module::Motion(bubbles.outgoing_[0], 1400).opacity == 1 &&
+                chat_bubbles_module::Motion(bubbles.outgoing_[0], 1520).offset_y < 0 && chat_bubbles_module::Motion(bubbles.outgoing_[0], 1640).opacity == 0,
+                "replaced dialogue fades and slides out while the new page enters");
+            const auto expires = bubbles.bubbles_[0].expires;
+            const auto leaving = chat_bubbles_module::Motion(bubbles.bubbles_[0], expires - 120);
+            Check(leaving.opacity > 0 && leaving.opacity < 1 && leaving.offset_y < 0 &&
+                chat_bubbles_module::Motion(bubbles.bubbles_[0], expires).opacity == 0, "natural expiration uses the same smooth exit without depending on frame rate");
+            for (uint32_t i = 0; i < 20; ++i) bubbles.Add(line(i + 4, 9, "Friend : Hello."), *parsed, i + 10, i + 200, 1500);
+            Check(bubbles.bubbles_.size() == 12, "busy chat keeps a bounded number of active speakers");
+            bubbles.channels_[static_cast<size_t>(bubble_channel::say)] = false;
+            bubbles.OnOptionChanged(8);
+            Check(bubbles.bubbles_.empty(), "disabling a channel removes its existing bubbles");
+            settings_store saved{".bubbles-check.ini"}; bubbles.range_ = 42; bubbles.Save(saved);
+            chat_bubbles_module restored; restored.Load(saved);
+            Check(restored.range_ == 42 && !restored.channels_[0] && !restored.HasEditableBounds(), "bubble preferences persist without creating a movable HUD or input focus target");
+            const auto oldProfile = settings_store::FromIniText("[chat.bubbles]\nopacity=0.900\nwidth=320\noffset_y=20\n");
+            const auto stampedProfile = settings_store::FromIniText("[chat.bubbles]\nopacity=0.900\nwidth=320\noffset_y=20\nappearance_version=1\n");
+            for (const auto* profile : {&oldProfile, &stampedProfile})
+            {
+                settings_store snapshot{""}; restored.Save(snapshot);
+                OverlayProfilePreferences(snapshot, *profile);
+                restored.Load(snapshot);
+                Check(restored.opacity_ == 0 && restored.width_ == 360 && restored.offset_y_ == 28,
+                    "loading an old character profile cannot inherit the current snapshot's migration marker");
+            }
+            restored.opacity_ = 0.9f; restored.width_ = 400; restored.offset_y_ = 36;
+            settings_store customized{""}; restored.Save(customized);
+            settings_store snapshot{""}; bubbles.Save(snapshot);
+            OverlayProfilePreferences(snapshot, customized); restored.Load(snapshot);
+            Check(restored.opacity_ == 0.9f && restored.width_ == 400 && restored.offset_y_ == 36,
+                "later bubble appearance preferences survive profile handoff");
+            hud_runtime runtime;
+            const auto page = runtime.ConfigPages()[3];
+            Check(page.SectionCount() == 3 && page.SectionModule(2) == &runtime.chat_bubbles_ && page.SectionContains(2, &runtime.chat_bubbles_),
+                "Bubbles is a sibling category of both chat windows through shared configuration navigation");
+            restored.Update(nullptr, false, 2000);
+            Check(restored.bubbles_.empty(), "missing game state safely clears transient speech");
+        }
+
+        static auto DialoguePrompts(void) -> void
+        {
+            for (const auto code : {0x31, 0x32, 0x33, 0x37})
+                Check(GameTextDialogueControl(std::string{"NPC text\x7F"} + static_cast<char>(code)) == dialogue_control::manual, "manual native continuation markers survive decoding as metadata");
+            for (const auto code : {0x34, 0x35, 0x36})
+                Check(GameTextDialogueControl(std::string{"NPC text\x7F"} + static_cast<char>(code) + '\x01') == dialogue_control::timed, "timed dialogue must not request a manual advance");
+            Check(GameTextDialogueControl(ChatToken(0x7F31)) == dialogue_control::absent &&
+                GameTextDialogueControl("\x1E\x7F" "1") == dialogue_control::absent &&
+                GameTextDialogueControl("Text\x7F") == dialogue_control::absent, "tokens, palette operands and truncated controls are not dialogue prompts");
+
+            chat_module chat, second{true};
+            chat.AttachSecondWindow(second);
+            chat.ApplyTextDefaults(ui::theme::CreateDefault());
+            second.ApplyTextDefaults(ui::theme::CreateDefault());
+            chat.SetDialogueActive(true);
+            const auto append = [&](const uint64_t sequence, const uint32_t mode, const char* text, const uint32_t windows = 1) {
+                chat_event event{}; event.sequence = sequence; event.timestamp = 1000; event.mode = mode; event.windows = windows;
+                strcpy_s(event.text, text); chat.Receive(nullptr, event, false);
+            };
+            append(1, 150, "Malene : A longer dialogue line that wraps.\x7F\x31");
+            ui::design_system design;
+            chat.RebuildRows(design, 110);
+            Check(chat.rows_.size() > 1 && chat.rows_.back().spans.back().dialogue_prompt &&
+                chat.rows_.back().spans.back().text == "\xE2\x96\xBC", "one filled continuation arrow follows the final wrapped NPC row");
+            size_t markers{};
+            for (const auto& row : chat.rows_)
+                for (const auto& span : row.spans) markers += span.dialogue_prompt;
+            Check(markers == 1 && chat.DialoguePromptActive(1) && chat.CollapsePinned() && !chat.Focused(),
+                "pending dialogue animates its current marker and stays readable without taking input focus");
+            append(1, 150, "Malene : A longer dialogue line that wraps.\x7F\x31", 2);
+            second.RebuildRows(design, 110);
+            Check(chat.Count() == 1 && second.rows_.back().spans.back().dialogue_prompt && second.DialoguePromptActive(1),
+                "native routing merges the marker once and supports the shared second chat window");
+            append(2, 5, "Unrelated party chatter.");
+            Check(chat.DialoguePromptActive(1), "unrelated chat cannot dismiss the pending NPC prompt");
+            chat.tabs_[chat.active_tab_].scroll = 1;
+            Check(!chat.DialoguePromptActive(1), "scrollback does not animate a historical prompt");
+            chat.tabs_[chat.active_tab_].scroll = 0;
+            append(3, 190, "<Sigh> What is it with you people and this \x87\xB2" "adventuring\x87\xB3 business?", 2);
+            second.RebuildRows(design, 110);
+            Check(!chat.DialoguePromptActive(1) && second.DialoguePromptActive(3) && second.rows_.back().spans.back().dialogue_prompt,
+                "the captured native mode-190 page gets its arrow without a raw continuation control");
+            const auto count = chat.Count();
+            append(4, 151, "\x7F\x34\x01");
+            Check(chat.Count() == count && !chat.DialoguePromptActive(3), "an empty auto-advance control clears the old prompt without adding a blank row");
+            append(5, 1, "Regular chat.\x7F\x31");
+            Check(!chat.model_.Lines().back().dialogue_prompt, "ordinary chat never acquires an NPC continuation marker");
+            append(6, 150, "Final page.\x7F\x31");
+            chat.SetDialogueActive(false);
+            Check(!chat.DialoguePromptActive(6) && !second.DialoguePromptActive(6) && !chat.CollapsePinned(),
+                "ending native dialogue stops both windows' animation and releases reactive sizing");
+            chat.SetDialogueActive(true);
+            append(7, 190, "Timed NPC redraw.\x7F\x34\x01");
+            Check(!chat.model_.Lines().back().dialogue_prompt && !chat.DialoguePromptActive(7),
+                "an explicit timed control overrides the mode-190 continuation fallback");
+        }
+
         static auto ReactiveWindows(void) -> void
         {
             native_filter_records = {}; native_filter_writes = 0;
@@ -1845,6 +1997,18 @@ int main(int argc, char** argv)
 {
     try
     {
+        if (argc == 2 && std::strcmp(argv[1], "--bubbles-only") == 0)
+        {
+            xiui::chat_test::Bubbles();
+            std::puts("Chat bubble channels, speaker parsing, NPC pages, bounded speakers, persistence and category navigation passed.");
+            return 0;
+        }
+        if (argc == 2 && std::strcmp(argv[1], "--dialogue-prompt-only") == 0)
+        {
+            xiui::chat_test::DialoguePrompts();
+            std::puts("NPC continuation markers, wrapping, shared-window routing, animation lifetime and passive input passed.");
+            return 0;
+        }
         if (argc == 2 && std::strcmp(argv[1], "--native-channel-only") == 0)
         {
             xiui::chat_test::NativeSendChannel();

@@ -32,6 +32,7 @@ namespace xiui
         uint64_t sequence{}, timestamp{};
         uint32_t mode{}, color{}, windows{};
         std::vector<chat_span> spans;
+        bool dialogue_prompt{};
     };
 
     auto ChatCategory(uint32_t mode) -> chat_tab;
@@ -42,12 +43,15 @@ namespace xiui
     {
     public:
         auto Add(const chat_event& event, std::string_view expanded) -> void;
-        auto Clear(void) -> void { this->lines_.clear(); ++this->revision_; }
+        auto Clear(void) -> void { this->lines_.clear(); this->dialogue_prompt_sequence_ = 0; ++this->revision_; }
+        auto DialoguePromptSequence(void) const -> uint64_t { return this->dialogue_prompt_sequence_; }
+        auto DismissDialoguePrompt(void) -> void { this->dialogue_prompt_sequence_ = 0; }
         auto Lines(void) const -> const std::deque<chat_line>& { return this->lines_; }
         auto Revision(void) const -> uint64_t { return this->revision_; }
 
     private:
         std::deque<chat_line> lines_;
         uint64_t revision_{};
+        uint64_t dialogue_prompt_sequence_{};
     };
 } // namespace xiui
