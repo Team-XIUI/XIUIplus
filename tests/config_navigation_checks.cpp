@@ -15,7 +15,7 @@ namespace xiui
         SYSTEMTIME now{}; ::GetLocalTime(&now);
         char date[16]{};
         std::snprintf(date, sizeof(date), "%04u-%02u-%02u", now.wYear, now.wMonth, now.wDay);
-        report << "# Settings presentation audit\n\nGenerated " << date << ". Source: runtime option metadata and shared layout.\n"
+        report << "# Settings inventory\n\nGenerated " << date << ". Source: runtime option metadata and shared layout.\n"
             << "Regenerate with `./scripts/update-docs.ps1`. Each bullet is one visual row; [empty] preserves paired controls.\n\n";
         size_t pages{}, controls{}, variants{};
         const auto audit = [&](const std::string& title, std::set<std::string>& seen) {

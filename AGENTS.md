@@ -12,8 +12,8 @@
 
 For HUD changes, follow [the shared foundations](docs/foundations.md), especially **HUD text**. Reuse the theme roles, module text profiles, rendering, controls, and persistence. Compact sizing must retain normal text effects. Apply game-state colors with `TintTextProfile` so gradients and effects survive. Plain configuration text is a separate presentation.
 
-Start with [developer navigation](docs/README.md) for task-to-file routes, [development](docs/development.md) for build/install/default capture, and [focused checks](tests/README.md) for proportional validation. Generated documentation is refreshed with `scripts/update-docs.ps1`; assets have a [generator index](assets/README.md).
+Start with [developer navigation](docs/README.md) and the relevant [short module note](docs/modules/README.md). [Development](docs/development.md) covers builds/install/default capture; [focused checks](tests/README.md) keeps validation proportional. Generated documentation uses `scripts/update-docs.ps1`; assets have a [generator index](assets/README.md).
 
-For interactive feature changes, apply [the controller support skill](.agents/skills/xiui-controller-support/SKILL.md) and read [current implementation](docs/controller-implementation.md) first. [The controller plan](docs/controller-plan.md) records remaining acceptance and links dated research; proposed capabilities are not automatically available.
+For interactive feature changes, apply [the controller support skill](.agents/skills/xiui-controller-support/SKILL.md) and read [input ownership](docs/reference/input.md) first. Its [remaining acceptance](docs/reference/input.md#remaining-acceptance) distinguishes implemented behavior from hardware/native-keyboard limits. Old audits and implementation plans live in [the archive](docs/archive/README.md), not the routine reading path.
 
 For releases, use the `xiui-native-release` skill and `scripts/package.ps1`. Ship one `dist/xiuinative.dll`; the host/runtime DLL pair is for development hot reload.

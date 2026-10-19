@@ -1,35 +1,36 @@
-"""Render the parity audit and its implementation plans as one HTML document."""
+"""Rebuild the archived parity audit and implementation records as one HTML document."""
 
 from html import escape
 from pathlib import Path
 from urllib.parse import unquote
 from datetime import datetime, timezone
 import argparse
+import os
 import re
 
 
 ROOT = Path(__file__).resolve().parents[1]
 DOCS = ROOT / "docs"
-PLANS = sorted((DOCS / "implementation").glob("[0-9][0-9]-*.md"))
-AUDIT = DOCS / "feature-parity.md"
-INDEX = DOCS / "implementation" / "README.md"
-OUTPUT = DOCS / "feature-parity.html"
-GUIDES = [(DOCS / "status-effects.md", "status-effects", "Status Effects usage"),
-          (DOCS / "chat-filters.md", "chat-filters", "Native chat filters"),
-          (DOCS / "settings-organization.md", "settings-organization", "Settings organization"),
-          (DOCS / "settings-audit.md", "settings-audit", "Settings inventory"),
-          (DOCS / "native-mob-data-findings.md", "mob-data", "HeadsUp and native data"),
-          (DOCS / "world-target-bar.md", "world-target", "World Target Bar"),
-          (DOCS / "target-rings.md", "target-rings", "Target Rings"),
-          (DOCS / "heal-prediction.md", "heal-prediction", "Heal bar prediction"),
-          (DOCS / "presets.md", "presets", "Party presets"),
-          (DOCS / "chat-input.md", "chat-input", "Chat input limit and counter"),
-          (DOCS / "chat-windows.md", "chat-windows", "Reactive chat and shared stacking"),
-          (DOCS / "config-window.md", "config-window", "Resizable Configuration")]
-GUIDES.append((DOCS / "satchel.md", "satchel", "Satchel inventories and storage slips"))
-GUIDES.append((DOCS / "actionbars.md", "actionbars", "Hotbars, macros and controller crossbar"))
+PLANS = sorted((DOCS / "archive/implementation").glob("[0-9][0-9]-*.md"))
+AUDIT = DOCS / "archive/feature-parity.md"
+INDEX = DOCS / "archive/implementation" / "README.md"
+OUTPUT = DOCS / "archive/feature-parity.html"
+GUIDES = [(DOCS / "reference/status-effects.md", "status-effects", "Status Effects usage"),
+          (DOCS / "reference/chat-filters.md", "chat-filters", "Native chat filters"),
+          (DOCS / "reference/settings.md", "settings-organization", "Settings organization"),
+          (DOCS / "reference/settings-inventory.md", "settings-audit", "Settings inventory"),
+          (DOCS / "archive/native-mob-data-findings.md", "mob-data", "HeadsUp and native data"),
+          (DOCS / "reference/world-target-bar.md", "world-target", "World Target Bar"),
+          (DOCS / "reference/target-rings.md", "target-rings", "Target Rings"),
+          (DOCS / "reference/heal-prediction.md", "heal-prediction", "Heal bar prediction"),
+          (DOCS / "reference/party-presets.md", "presets", "Party presets"),
+          (DOCS / "reference/chat-input.md", "chat-input", "Chat input limit and counter"),
+          (DOCS / "reference/chat-windows.md", "chat-windows", "Reactive chat and shared stacking"),
+          (DOCS / "reference/configuration.md", "config-window", "Resizable Configuration")]
+GUIDES.append((DOCS / "reference/satchel.md", "satchel", "Satchel inventories and storage slips"))
+GUIDES.append((DOCS / "reference/actionbars.md", "actionbars", "Hotbars, macros and controller crossbar"))
 GUIDES.append((DOCS / "foundations.md", "foundations", "Shared foundations"))
-GUIDES.append((DOCS / "reference/module-foundations.md", "module-foundations", "Module foundations"))
+GUIDES.append((DOCS / "archive/module-foundations-2026-10-18.md", "module-foundations", "Module foundations"))
 EMBEDDED = {
     AUDIT.resolve(): "audit",
     INDEX.resolve(): "contract",
@@ -46,13 +47,20 @@ def link_target(target, source):
     if re.match(r"^[a-z]+:", target, re.I):
         return target
     path, _, fragment = target.partition("#")
+    line = re.search(r":(\d+)$", path)
+    if line:
+        path = path[:line.start()]
+        fragment = fragment or "L" + line.group(1)
     resolved = (source.parent / unquote(path)).resolve() if path else source.resolve()
     if resolved in EMBEDDED:
         prefix = EMBEDDED[resolved]
         if prefix == "contract" and fragment in {"shared-implementation-contract", "dependency-notes"}:
             return "#" + prefix + "-" + fragment
         return "#" + prefix
-    return resolved.as_uri() + ("#" + fragment if fragment else "")
+    suffix = "#" + fragment if fragment else ""
+    if resolved.is_relative_to(ROOT):
+        return os.path.relpath(resolved, OUTPUT.parent).replace("\\", "/") + suffix
+    return resolved.as_uri() + suffix
 
 
 def inline(value, source):
@@ -382,7 +390,7 @@ def render(export_diagram=False):
             + '<span class="plan-caption">' + escape(priority) + '</span></span><span class="badge '
             + ("missing" if status.startswith("Missing") else "implemented" if status.startswith("Implemented") else "partial") + '">' + escape(status) + "</span></summary>"
             '<div class="plan-body prose">' + markdown(content, path, "p" + number)
-            + '<div class="plan-source"><a href="' + path.as_uri() + '" target="_blank" rel="noopener">Source Markdown ↗</a></div>'
+            + '<div class="plan-source"><a href="' + os.path.relpath(path, OUTPUT.parent).replace("\\", "/") + '" target="_blank" rel="noopener">Source Markdown ↗</a></div>'
             + "</div></details>"
         )
 
@@ -402,19 +410,14 @@ def render(export_diagram=False):
                          '<span class="chapter-num">' + str(index + 3).zfill(2) + '</span><h2>' + escape(title)
                          + '</h2></div><article class="prose">' + markdown(path.read_text(encoding="utf-8"), path, anchor)
                          + '</article></section>' for index, (path, anchor, title) in enumerate(GUIDES))
-    version = (ROOT / "VERSION").read_text(encoding="utf-8").strip()
     guide_nav = "".join('<a href="#' + anchor + '">' + escape(title) + '</a>' for _, anchor, title in GUIDES)
-    distribution = ROOT / "dist" / "xiuinative.dll"
-    release_html = ('<p class="hero-meta"><span class="completed">Current distribution · ' + escape(version)
-                    + '</span> &nbsp; / &nbsp; <a href="' + distribution.as_uri()
-                    + '">xiuinative.dll · one standalone DLL</a></p>') if distribution.exists() else ""
-    title = "XIUI — Feature tracker & implementation plans"
+    title = "XIUI — Archived feature audit & implementation records"
     output = """<!doctype html>
 <html lang="en">
 <head>
 <meta charset="utf-8">
 <meta name="viewport" content="width=device-width, initial-scale=1">
-<meta name="description" content="XIUI feature audit, {{TOTAL}} implementation records, native status usage and HeadsUp research.">
+<meta name="description" content="Archived XIUI feature audit and {{TOTAL}} implementation records, with supporting guides and research.">
 <title>""" + title + """</title>
 <link rel="preconnect" href="https://fonts.googleapis.com">
 <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
@@ -424,7 +427,7 @@ def render(export_diagram=False):
 <body>
 <div class="layout">
 <nav class="sidebar" aria-label="Document navigation">
-<div><div class="brand">XIUI</div><div class="edition">Feature parity / 2026</div></div>
+<div><div class="brand">XIUI</div><div class="edition">Archived feature parity / 2026</div></div>
 <div class="nav-main"><a href="#overview">Overview</a><a href="#updates">Latest updates</a><a href="#audit">Full audit</a><a href="#plans">Implementation records</a>""" + guide_nav + """<a href="#contract">Shared contract</a></div>
 <div class="nav-label">01—12, 28 / New features</div><div class="plan-nav">""" + "".join(item for path, item in zip(PLANS, nav) if is_new(path)) + """</div>
 <div class="nav-label">13—27 / Existing modules</div><div class="plan-nav">""" + "".join(item for path, item in zip(PLANS, nav) if not is_new(path)) + """</div>
@@ -432,27 +435,26 @@ def render(export_diagram=False):
 </nav>
 <main>
 <header class="hero" id="overview">
-<p class="eyebrow">Lua XIUI → XIUI / Feature parity</p>
-<h1>The features.<br><em>The gaps. The path forward.</em></h1>
-<p class="lead">Latest completed changes, remaining features, implementation records and usage guides in one reference.</p>
-<div class="hero-meta">UPDATED {{UPDATED_SHORT}} &nbsp; / &nbsp; LUA 1.8.4 → NATIVE {{VERSION}} + DEVELOPMENT CHANGES<br>{{COMPLETED_RECORDS}} implemented. Other features remain future work.</div>
-""" + release_html + """
+<p class="eyebrow">Archived Lua XIUI → Native feature audit</p>
+<h1>The feature audit.<br><em>Implementation records.</em></h1>
+<p class="lead">Historical status and implementation evidence. Counts and acceptance claims reflect the recorded audit date. Use the <a href="../README.md">current documentation</a> for new work; supporting guides below may have newer edits.</p>
+<div class="hero-meta">AUDIT RECORDED {{UPDATED_SHORT}}<br>{{COMPLETED_RECORDS}} recorded as implemented.</div>
 <div class="stats" aria-label="Audit totals">
 <div class="stat pending"><strong>{{ABSENT_FAMILIES}}</strong><span>Absent feature families</span><small>{{ABSENT_NAMES}}</small></div>
 <div class="stat pending"><strong>{{EXISTING_PENDING}}</strong><span>Remaining existing-module packages</span><small>Source comparison</small></div>
 <div class="stat"><strong>{{TOTAL}}</strong><span>Implementation records</span><small><span class="completed">{{COMPLETED}} completed</span><span class="pending">{{PENDING}} future</span></small></div>
 </div>
-<div class="status-legend" aria-label="Completion colors"><span class="completed">Completed in the working tree</span><span class="pending">Not yet implemented / deferred</span></div>
+<div class="status-legend" aria-label="Completion colors"><span class="completed">Recorded as completed</span><span class="pending">Recorded as pending / deferred</span></div>
 <a class="jump" href="#plans">Browse the implementation plans <span aria-hidden="true">↓</span></a>
 </header>
 <section class="chapter" id="updates">
 <div class="chapter-top"><span class="chapter-num completed">LATEST</span><h2>Latest completed changes</h2></div>
-<p class="chapter-note">Current feature, Party, text and configuration improvements. The totals above count the {{TOTAL}} retained implementation records; individual fixes are tracked here and in the full audit.</p>
+<p class="chapter-note">Recorded feature, Party, text and configuration improvements. The totals above count the {{TOTAL}} retained implementation records; individual fixes are tracked here and in the full audit.</p>
 <article class="prose">""" + latest_html + """</article>
 </section>
 <section class="chapter" id="audit">
 <div class="chapter-top"><span class="chapter-num">01</span><h2>The full comparison</h2></div>
-<p class="chapter-note">The source audit with current implementation status, remaining gaps, Native coverage and deferred work.</p>
+<p class="chapter-note">The source audit with implementation status, remaining gaps, Native coverage and deferred work at the recorded date.</p>
 <details class="audit-details" open><summary>Read the feature-parity audit</summary><article class="prose">""" + audit_html + """</article></details>
 </section>
 <section class="chapter" id="plans">
@@ -475,7 +477,7 @@ def render(export_diagram=False):
 """ + guide_html + """
 <section class="chapter" id="contract">
 <div class="chapter-top"><span class="chapter-num">{{CONTRACT_NUMBER}}</span><h2>Shared implementation contract</h2></div>
-<p class="chapter-note">The common foundations and dependency notes for current and future work.</p>
+<p class="chapter-note">The shared contract and dependency notes preserved with these implementation records. Follow the current foundations for new work.</p>
 <article class="prose">""" + contract_html + """</article>
 </section>
 <footer>XIUI · {{UPDATED_DATE}} · Audit, all {{TOTAL}} implementation records, Status Effects, Native Chat Filters and settings guides, the settings inventory, and native-data research.<br>Regenerate from the repository root: <code>python scripts/render_feature_parity.py</code>. All content, styles and interactions are in this file; web fonts are optional.</footer>
@@ -485,7 +487,7 @@ def render(export_diagram=False):
 </body>
 </html>
 """
-    output = output.replace("{{VERSION}}", escape(version)).replace("{{CONTRACT_NUMBER}}", str(len(GUIDES) + 3).zfill(2))
+    output = output.replace("{{CONTRACT_NUMBER}}", str(len(GUIDES) + 3).zfill(2))
     output = output.replace("{{UPDATED_DATE}}", escape(updated)).replace("{{UPDATED_SHORT}}", escape(updated.upper()))
     output = output.replace("{{COMPLETED}}", str(completed_count)).replace("{{PENDING}}", str(len(PLANS) - completed_count))
     completed_ids = {record[1:] for record in completed_records}
@@ -500,9 +502,9 @@ def render(export_diagram=False):
     output = output.replace("{{ABSENT_NAMES}}", escape(absent_names or "All audited feature families implemented"))
     output = output.replace("{{COMPLETED_RECORDS}}", ", ".join(completed_records))
     generated = datetime.now(timezone.utc).isoformat(timespec="seconds")
-    sources = [AUDIT, INDEX, *PLANS, *(path for path, _, _ in GUIDES), ROOT / "VERSION"]
+    sources = [AUDIT, INDEX, *PLANS, *(path for path, _, _ in GUIDES)]
     provenance = ("<!-- Generated by scripts/render_feature_parity.py at " + generated
-                  + ". Regenerate: ./scripts/update-docs.ps1\nInputs: "
+                  + ". Regenerate: python scripts/render_feature_parity.py\nInputs: "
                   + ", ".join(path.relative_to(ROOT).as_posix() for path in sources) + " -->\n")
     output = output.replace("<!doctype html>\n", "<!doctype html>\n" + provenance, 1)
     OUTPUT.write_text(output, encoding="utf-8")

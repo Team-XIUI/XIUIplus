@@ -73,4 +73,4 @@ Use `-OutputPath` and `-ThemeOutputPath` to capture elsewhere. `-SkipBuild` reus
 ./scripts/update-docs.ps1 -SkipBuild
 ```
 
-This exports settings from option metadata, renders the feature page from Markdown and checks local file links. It does not run gameplay checks or regenerate assets. `python scripts/check-doc-links.py` checks links alone; external URLs and heading anchors are outside its scope. The HTML renderer writes only the repository output by default; `--export-diagram` also writes the personal diagrams copy.
+This exports the [settings inventory](reference/settings-inventory.md) from option metadata and checks local file links. It does not run gameplay checks, regenerate assets or refresh historical acceptance records. `python scripts/check-doc-links.py` checks links alone. The archived feature view is rebuilt only when needed with `python scripts/render_feature_parity.py`; `--export-diagram` additionally writes the personal diagrams copy.

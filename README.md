@@ -10,10 +10,11 @@ Start with [AGENTS.md](AGENTS.md), then [the task-to-file guide](docs/README.md)
 
 - [Development](docs/development.md): toolchain, standalone install, AgentLink and isolated hot reload.
 - [Shared foundations](docs/foundations.md): rendering, text, controls, containers and persistence contracts.
-- [Controller implementation](docs/controller-implementation.md): current input behavior and remaining hardware limits.
+- [Module notes](docs/modules/README.md): short agent overviews, source owners and focused checks.
+- [Input ownership](docs/reference/input.md): mouse, keyboard, controller and remaining hardware limits.
 - [Focused checks](tests/README.md): build targets, arguments and required fixtures.
 - [Assets and generators](assets/README.md): generated files, source provenance and notices.
-- [Feature records](docs/implementation/README.md): implemented scope and remaining acceptance; [combined view](docs/feature-parity.html).
+- [Detailed references](docs/reference/README.md) and [archived records](docs/archive/README.md): current deep dives versus historical evidence.
 
 ## Build and install
 

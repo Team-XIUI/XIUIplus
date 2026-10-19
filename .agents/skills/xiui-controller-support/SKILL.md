@@ -7,11 +7,11 @@ description: Design, implement or review controller support for XIUI Native inte
 
 Apply to the XIUI Native repository containing this skill.
 
-Read its `AGENTS.md`, relevant shared foundations and `docs/controller-implementation.md` first for implemented commands, semantic actions and native-keyboard/hardware limits. Resolve the ABI from `src/shared/runtime_api.hpp`. Reuse current normalized input, config session and focus foundations.
+Read its `AGENTS.md`, relevant shared foundations and `docs/reference/input.md` first for implemented commands, semantic actions and native-keyboard/hardware limits. Resolve the ABI from `src/shared/runtime_api.hpp`. Reuse current normalized input, config session and focus foundations.
 
-`docs/controller-plan.md` records remaining acceptance and links dated research. Historical proposals are not available APIs or standing authorization for live experiments. A request for research or planning authorizes documentation, not application implementation.
+`docs/reference/input.md#remaining-acceptance` records remaining acceptance and links dated research. Historical proposals are not available APIs or standing authorization for live experiments. A request for research or planning authorizes documentation, not application implementation.
 
-For live diagnostics, consult `docs/controller-agentlink-findings.md`. AgentLink can forward existing Ashita diagnostic commands, but an accepted `QueueButtonData` call does not prove a connected or emulated controller, delivered input or successful navigation. Confirm runtime readiness, device/backend availability and observed callbacks/state transitions first. Honor the task's authorization for experiments and preserve current user work.
+For live diagnostics, consult `docs/archive/controller-agentlink-2026-10-14.md`. AgentLink can forward existing Ashita diagnostic commands, but an accepted `QueueButtonData` call does not prove a connected or emulated controller, delivered input or successful navigation. Confirm runtime readiness, device/backend availability and observed callbacks/state transitions first. Honor the task's authorization for experiments and preserve current user work.
 
 ## Native behavior and input contract
 
