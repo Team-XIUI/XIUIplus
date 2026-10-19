@@ -27,7 +27,7 @@ Sources and research artifacts are under ignored `out/lua-migration-research/`. 
 
 ## Current progress
 
-The approved Native destinations are implemented, packaged and installed; the audit records the focused checks and runtime confirmation. The existing action importer now handles real Lua saved profiles and the selected action metadata. The full-profile discovery/conversion/preview workflow below remains to be implemented. Deferred capabilities stay deferred.
+The approved Native destinations are implemented, packaged and installed; the audit records the focused checks and runtime confirmation. The existing action importer now handles real Lua saved profiles and the selected action metadata. The full-profile discovery/conversion/preview workflow is now implemented in the profile menu; see [current import behavior](../reference/lua-profile-import.md). Focused checks cover release-writer fixtures and isolated persistence. Live visual/gameplay acceptance is pending. Deferred capabilities stay deferred.
 
 ## 1. Finalize the field and data manifest
 

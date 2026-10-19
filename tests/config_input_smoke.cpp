@@ -4,6 +4,12 @@ using namespace xiui::config_checks;
 
 int main(int argc, char** argv)
 {
+    if (argc == 2 && std::strcmp(argv[1], "--lua-profile-import-only") == 0)
+    {
+        if (!xiui::config_input_test::LuaProfileImport()) return 1;
+        std::puts("XIUI Lua profile conversion, discovery, preview, controller routing and isolated import checks passed.");
+        return 0;
+    }
     if (argc == 2 && std::strcmp(argv[1], "--startup-wiring-only") == 0)
     {
         if (!xiui::config_input_test::StartupWiring()) return 1;

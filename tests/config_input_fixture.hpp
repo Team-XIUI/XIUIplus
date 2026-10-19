@@ -118,6 +118,7 @@ namespace xiui
         static auto __cdecl PreviewSound(void) -> void;
         static auto ChatSoundPreview(void) -> bool;
         static auto ProfileSharing(void) -> bool;
+        static auto LuaProfileImport(void) -> bool;
         static auto ChatCustomization(void) -> bool;
         static auto ChatAlertInput(void) -> bool;
         static auto ConfigCollapse(void) -> bool;

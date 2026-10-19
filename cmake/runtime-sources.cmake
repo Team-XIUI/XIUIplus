@@ -1,4 +1,17 @@
+execute_process(COMMAND "${Python3_EXECUTABLE}" "${CMAKE_SOURCE_DIR}/scripts/build-lua-profile-schema.py"
+    --output "${CMAKE_BINARY_DIR}/generated/lua_profile_schema.hpp" COMMAND_ERROR_IS_FATAL ANY)
+set_property(DIRECTORY APPEND PROPERTY CMAKE_CONFIGURE_DEPENDS
+    scripts/build-lua-profile-schema.py tests/fixtures/lua/1.8.4/defaults.json tests/fixtures/lua/1.8.5/defaults.json)
+
 set(XIUI_HUD_SOURCES
+    src/runtime/settings/lua_profile_import.cpp
+    src/runtime/settings/lua_setup_import.cpp
+    src/runtime/hud_runtime_lua_import.cpp
+    src/runtime/settings/lua_import_common.cpp
+    src/runtime/settings/lua_import_party.cpp
+    src/runtime/settings/lua_import_pet.cpp
+    src/runtime/settings/lua_import_actions.cpp
+    src/runtime/settings/lua_import_extras.cpp
     src/runtime/hud_runtime_config.cpp
     src/runtime/hud_runtime_config_input.cpp
     src/runtime/hud_runtime_config_render.cpp

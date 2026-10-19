@@ -34,6 +34,7 @@ namespace xiui::ui
         auto KeyLabel(void) const -> rect { return this->Row(144, 18, 106); }
         auto Key(void) const -> rect { return this->Row(170, std::max(18.0f, this->bounds_.height - 288)); }
         auto Paste(void) const -> rect { return {this->bounds_.x + this->bounds_.width - 120, this->bounds_.y + 138, 96, 26}; }
+        auto ImportSource(size_t index) const -> rect { auto value = this->KeyLabel(); value.y -= 6; value.x += index * 120; value.width = 112; value.height = 26; return value; }
         auto Status(void) const -> rect { return this->Row(this->bounds_.height - 110, 22); }
         auto Error(void) const -> rect { return this->Row(this->extended_ ? this->bounds_.height - 86 : 125.0f, 28); }
     private:

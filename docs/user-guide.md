@@ -41,6 +41,7 @@ Installation and build instructions are in [Development](development.md). For so
 - Live theme reload without compilation
 - C++ renderer hot reload without unloading the Ashita plugin
 - Persisted layout and settings
+- [XIUI Lua profile import](reference/lua-profile-import.md) through the profile three-dot menu → Import profile → XIUI Lua, with preview and new-profile creation
 - Per-element native game HUD visibility controls, independent of XIUI module visibility
 - Explicit Direct3D8 state capture and restoration
 

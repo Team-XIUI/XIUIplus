@@ -48,6 +48,7 @@ add_executable(xiui_config_input_smoke
     tests/config_input_smoke.cpp
     tests/config_check_support.cpp
     tests/config_profile_checks.cpp
+    tests/lua_profile_checks.cpp
     tests/config_text_checks.cpp
     tests/config_navigation_checks.cpp
     tests/config_module_checks.cpp

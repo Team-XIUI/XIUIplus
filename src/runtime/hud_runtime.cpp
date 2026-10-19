@@ -1,4 +1,5 @@
 #include "hud_runtime.hpp"
+#include "config/lua_import_layout.hpp"
 #include "combat/server_rules.hpp"
 #include "input/keyboard_policy.hpp"
 #include "config/contributor_list.hpp"
@@ -616,6 +617,12 @@ namespace xiui
             {
                 if (this->profile_dialog_ == profile_dialog::share || this->profile_dialog_ == profile_dialog::import_profile)
                 {
+                    if (this->profile_dialog_ == profile_dialog::import_profile && this->profile_import_lua_)
+                    {
+                        const ui::lua_import_layout layout{this->config_.bounds, viewport};
+                        if (Contains(layout.Control(12), static_cast<float>(this->mouse_x_), static_cast<float>(this->mouse_y_))) this->profile_lua_report_.Scroll(-(delta / WHEEL_DELTA) * 3);
+                        return captured;
+                    }
                     const ui::profile_dialog_layout dialog{this->config_.bounds, viewport, true};
                     if (Contains(dialog.Key(), static_cast<float>(this->mouse_x_), static_cast<float>(this->mouse_y_)))
                         this->profile_key_view_.Scroll(-(delta / WHEEL_DELTA) * 3);

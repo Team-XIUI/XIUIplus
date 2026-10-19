@@ -92,6 +92,9 @@ namespace xiui
         this->profile_share_key_.clear();
         this->profile_key_view_.Reset();
         this->profile_import_.reset();
+        this->profile_import_lua_ = false;
+        this->profile_lua_path_.Cancel(); this->profile_lua_preview_.reset();
+        this->profile_lua_report_.Reset(); this->profile_lua_report_text_.clear(); this->profile_lua_status_.clear();
         this->profile_key_copied_ = false;
         this->profile_dialog_ = profile_dialog::create;
         this->profile_error_.clear();
@@ -273,6 +276,8 @@ namespace xiui
         const auto x = static_cast<float>(this->mouse_x_), y = static_cast<float>(this->mouse_y_);
         if (this->profile_name_.Focused())
         {
+            if (this->profile_dialog_ == profile_dialog::import_profile && this->profile_import_lua_)
+            { const auto target = this->LuaImportTarget(viewport); return target != 0 ? profile_target | target : 0; }
             const bool extended = this->profile_dialog_ == profile_dialog::share || this->profile_dialog_ == profile_dialog::import_profile;
             const ui::profile_dialog_layout dialog{this->config_.bounds, viewport, extended};
             if (this->profile_dialog_ != profile_dialog::share && this->profile_dialog_ != profile_dialog::delete_profile && !this->ConfirmingAction() && Contains(dialog.Field(), x, y)) return profile_target | 10;
@@ -281,6 +286,8 @@ namespace xiui
             if (Contains(dialog.Close(), x, y)) return profile_target | 13;
             if (extended && Contains(dialog.Key(), x, y)) return profile_target | 14;
             if (this->profile_dialog_ == profile_dialog::import_profile && Contains(dialog.Paste(), x, y)) return profile_target | 15;
+            if (this->profile_dialog_ == profile_dialog::import_profile)
+                for (size_t i = 0; i < 2; ++i) if (Contains(dialog.ImportSource(i), x, y)) return profile_target | (16 + i);
             return 0;
         }
         if (this->profiles_.Ready() && Contains(this->ConfigLayout().ProfileSelector(), x, y)) return profile_target | 1;
@@ -304,6 +311,7 @@ namespace xiui
         const auto target = this->ProfileSoundTarget(viewport) & ~profile_target;
         if (this->profile_name_.Focused())
         {
+            if (this->profile_dialog_ == profile_dialog::import_profile && this->profile_import_lua_) return this->LuaImportClick(viewport);
             if (target == 10 && this->profile_dialog_ != profile_dialog::share) this->profile_name_.SelectAll();
             else if (target == 11 || target == 13) this->CloseProfileControls();
             else if (target == 12 && this->profile_dialog_ == profile_dialog::share) this->CopyProfileKey();
@@ -313,6 +321,7 @@ namespace xiui
             else if (target == 12) this->CreateProfile();
             else if (target == 14 && this->profile_dialog_ == profile_dialog::share) this->CopyProfileKey();
             else if (target == 14 || target == 15) this->PasteProfileKey();
+            else if (target == 16 || target == 17) this->SetProfileImportSource(target == 17);
             return true;
         }
         if (target == 2)
@@ -357,6 +366,8 @@ namespace xiui
     auto hud_runtime::HandleProfileKey(const WPARAM key, const LPARAM flags) -> bool
     {
         if (!this->profile_name_.Focused() && !this->profile_dropdown_ && !this->profile_actions_) return false;
+        if (this->profile_name_.Focused() && this->profile_dialog_ == profile_dialog::import_profile && this->profile_import_lua_)
+            return this->HandleLuaImportKey(key, flags);
         if ((static_cast<uint32_t>(flags) & 0x80000000u) != 0) return true;
         const bool repeat = (static_cast<uint32_t>(flags) & 0x40000000u) != 0;
         if (key == VK_ESCAPE)
@@ -373,6 +384,8 @@ namespace xiui
         }
         if (this->profile_name_.Focused())
         {
+            if (this->profile_dialog_ == profile_dialog::import_profile && key == VK_TAB && (::GetKeyState(VK_CONTROL) & 0x8000) != 0 && !repeat)
+            { this->SetProfileImportSource(true); return true; }
             if (this->profile_dialog_ == profile_dialog::delete_profile || this->ConfirmingAction())
             {
                 if (key == VK_TAB || key == VK_LEFT || key == VK_RIGHT)
@@ -441,6 +454,7 @@ namespace xiui
 
     auto hud_runtime::CreateProfile(void) -> bool
     {
+        if (this->profile_dialog_ == profile_dialog::import_profile && this->profile_import_lua_) return this->CreateLuaProfiles();
         if (this->profile_dialog_ == profile_dialog::import_profile && !this->profile_import_)
         { this->profile_error_ = "Paste a valid share key first."; return false; }
         this->SaveSettings();
@@ -585,6 +599,8 @@ namespace xiui
             if (!this->profile_error_.empty()) this->config_controls_.Tooltip(this->profile_error_.c_str(), this->ConfigLayout().ProfileSelector(), viewport);
             return;
         }
+        if (this->profile_dialog_ == profile_dialog::import_profile && this->profile_import_lua_)
+        { this->DrawLuaProfileImport(viewport); return; }
         this->design_system_.FillRect(this->config_.bounds, 0x66000000);
         const bool sharing = this->profile_dialog_ == profile_dialog::share;
         const bool importing = this->profile_dialog_ == profile_dialog::import_profile;
@@ -606,7 +622,7 @@ namespace xiui
         const auto warningTitle = warning ? this->profile_name_.Editor().Text() + "?" : std::string{};
         this->config_controls_.Text(warning ? warningTitle.c_str() : resetting ? "Reset to defaults?" : confirming ? "Apply changes?" : deleting ? "Delete profile?" : sharing ? "Share profile" : importing ? "Import profile" : duplicate ? "Duplicate profile" : renaming ? "Rename profile" : "Create profile",
             dialog.Title(), title);
-        const char* help = confirming ? this->confirmation_message_.c_str() : deleting ? "Delete this profile and switch to Default?" : sharing ? "Copy this key to share your layout and settings." : importing ? "Paste a share key, choose a name, then import." :
+        const char* help = confirming ? this->confirmation_message_.c_str() : deleting ? "Delete this profile and switch to Default?" : sharing ? "Copy this key to share your layout and settings." : importing ? "Choose a share key or an XIUI Lua setup to import." :
             duplicate ? "Copy the selected profile into a separate setup." : renaming ? "Choose a new name for this profile." : "Start with your current layout and module settings.";
         if (warning)
         {
@@ -639,7 +655,13 @@ namespace xiui
         if (extended)
         {
             this->design_system_.FillRect({dialog.Field().x, bounds.y + 70, dialog.Field().width, 1}, theme.colors.border);
-            this->config_controls_.Text("Share key", dialog.KeyLabel(), caption);
+            if (importing)
+            {
+                auto sourceStyle = caption; sourceStyle.alignment = ui::text_alignment::center;
+                this->config_controls_.Button(dialog.ImportSource(0), "Share key", sourceStyle, true);
+                this->config_controls_.Button(dialog.ImportSource(1), "XIUI Lua", sourceStyle, Contains(dialog.ImportSource(1), x, y));
+            }
+            else this->config_controls_.Text("Share key", dialog.KeyLabel(), caption);
             this->profile_key_view_.Draw(this->design_system_, this->config_controls_, dialog.Key(), this->profile_share_key_, Contains(dialog.Key(), x, y),
                 importing && !this->profile_import_ && !this->profile_error_.empty());
             const char* status = sharing ? (this->profile_key_copied_ ? "Copied to clipboard. Ready to share." : "Click the key or press Ctrl+C to copy.") :

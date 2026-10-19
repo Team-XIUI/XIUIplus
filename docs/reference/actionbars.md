@@ -81,7 +81,7 @@ For deliberate browsing, use `/xiui focus hotbar` or `/xiui focus crossbar`, or 
 
 ## Importing
 
-**Import Lua / tHotBar / tCrossBar** reads a local saved data file, displays a preview and warnings, then creates new palettes after Import is selected. Existing layouts are preserved. Supported sources include XIUI saved profiles using the actual assignment serializer, returned Lua tables, tHotBar/tCrossBar assignments and native INI action data. This imports actions and shared library records; the complete profile/settings migration workflow remains separate. Expressions and executable Lua are rejected. Unsupported source features are reported rather than executed.
+**Import Lua / tHotBar / tCrossBar** reads a local saved data file, displays a preview and warnings, then creates new palettes after Import is selected. Existing layouts are preserved. Supported sources include XIUI saved profiles using the actual assignment serializer, returned Lua tables, tHotBar/tCrossBar assignments and native INI action data. This imports actions and shared library records; full settings/placement imports are available separately through [Import profile → XIUI Lua](lua-profile-import.md). Expressions and executable Lua are rejected. Unsupported source features are reported rather than executed.
 
 The reusable library accepts typed actions as well as command macros, including unused entries from Lua. Right-click a shared library entry, or focus it and press controller Actions / keyboard Menu, to edit it without assigning a slot. Shared edits update references; deleting a library entry keeps its currently assigned actions usable.
 

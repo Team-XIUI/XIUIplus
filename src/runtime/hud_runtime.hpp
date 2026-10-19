@@ -43,6 +43,7 @@
 #include "modules/general/general_module.hpp"
 #include "modules/chat/chat_module.hpp"
 #include "modules/chat/chat_bubbles_module.hpp"
+#include "settings/lua_setup_import.hpp"
 #include "modules/compass/compass_module.hpp"
 #include "modules/minimap/minimap_module.hpp"
 #include "modules/minimap/minimap_source.hpp"
@@ -323,6 +324,12 @@ namespace xiui
         std::string profile_share_key_{};
         ui::share_key_view profile_key_view_{};
         std::optional<settings_store> profile_import_{};
+        bool profile_import_lua_{}, profile_lua_activate_{}, profile_lua_links_{}, profile_lua_controls_{}, profile_lua_done_{};
+        ui::text_input profile_lua_path_{};
+        std::optional<lua_setup_preview> profile_lua_preview_{};
+        size_t profile_lua_selection_{SIZE_MAX};
+        std::string profile_lua_report_text_{}, profile_lua_status_{};
+        ui::share_key_view profile_lua_report_{};
         int profile_scroll_{};
         size_t profile_keyboard_selection_{};
         hud_module* confirmation_module_{};
@@ -483,6 +490,18 @@ namespace xiui
         auto ActivateConfigAction(hud_module& module, size_t option) -> bool;
         auto ApplyConfirmedAction(void) -> bool;
         auto OpenProfileDialog(profile_dialog mode) -> bool;
+        auto SetProfileImportSource(bool lua) -> void;
+        auto PreviewLuaProfiles() -> bool;
+        auto BrowseLuaProfile() -> void;
+        auto CreateLuaProfiles() -> bool;
+        auto CycleLuaProfile(int direction) -> void;
+        auto LuaImportReady() const -> bool;
+        auto LuaImportClick(const D3DVIEWPORT8& viewport) -> bool;
+        auto LuaImportTarget(const D3DVIEWPORT8& viewport) const -> uint64_t;
+        auto ActivateLuaImportControl(size_t index) -> void;
+        auto HandleLuaImportKey(WPARAM key, LPARAM flags) -> bool;
+        auto HandleLuaImportController(controller_action action) -> bool;
+        auto DrawLuaProfileImport(const D3DVIEWPORT8& viewport) -> void;
         auto ProfileActionAvailable(size_t index) const -> bool;
         auto OpenProfileAction(size_t index) -> bool;
         auto MoveProfileAction(int direction) -> void;

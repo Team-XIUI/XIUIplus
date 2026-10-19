@@ -253,6 +253,11 @@ namespace xiui::lua_data
         if (this->input_.size() > maximum_file) this->Fail("The data file exceeds 16 MB");
         if (this->input_.starts_with("\xEF\xBB\xBF")) this->at_ = 3;
         this->Skip(); value result;
+        if (this->Word("require"))
+        {
+            if (!this->Consume('(') || this->String() != "common" || !this->Consume(')')) this->Fail("Only the common serializer header is accepted");
+            this->Consume(';');
+        }
         if (this->Word("local"))
         {
             if (!this->Word("settings") || !this->Consume('=')) this->Fail("Expected local settings declaration");

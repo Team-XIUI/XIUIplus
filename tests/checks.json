@@ -1,6 +1,12 @@
 {
   "checks": [
     {
+      "name": "lua-profile-import",
+      "target": "xiui_config_input_smoke",
+      "arguments": ["--lua-profile-import-only"],
+      "requires_arguments": false
+    },
+    {
       "name": "startup-wiring",
       "target": "xiui_config_input_smoke",
       "arguments": [

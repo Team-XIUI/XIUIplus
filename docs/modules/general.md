@@ -8,4 +8,6 @@ Owns shared appearance, global/config typography, visibility preferences, input 
 
 **Focused check:** `./scripts/check.ps1 -Name global-text`, `input-mode` or `all-ui-visibility`, according to the change.
 
+Profile menu imports use `hud_runtime_profiles.cpp` and `hud_runtime_lua_import.cpp`. [Lua profile import](../reference/lua-profile-import.md) documents discovery, reports and optional activation; `lua-profile-import` is its focused check.
+
 [Detailed guide](../reference/configuration.md) · [Shared foundations](../foundations.md) · [Check commands](../../tests/README.md)

@@ -1,4 +1,5 @@
 #include "hud_runtime.hpp"
+#include "config/lua_import_layout.hpp"
 
 #include "config/attributions.hpp"
 #include "config/contributor_list.hpp"
@@ -442,6 +443,7 @@ namespace xiui
         {
             const bool share = this->profile_dialog_ == profile_dialog::share;
             const bool importing = this->profile_dialog_ == profile_dialog::import_profile;
+            if (importing && this->profile_import_lua_) return this->HandleLuaImportController(value);
             const bool deleting = this->profile_dialog_ == profile_dialog::delete_profile;
             const bool confirming = this->ConfirmingAction();
             if (value == action::cancel) this->CloseProfileControls();
@@ -451,7 +453,7 @@ namespace xiui
                 else
                 {
                     const auto previous = focus.modal_item;
-                    focus.modal_item = static_cast<uint8_t>(std::clamp(static_cast<int>(focus.modal_item) + Direction(value), 0, importing ? 3 : share || deleting || confirming ? 1 : 2));
+                    focus.modal_item = static_cast<uint8_t>(std::clamp(static_cast<int>(focus.modal_item) + Direction(value), 0, importing ? 5 : share || deleting || confirming ? 1 : 2));
                     if (previous != focus.modal_item) this->ui_sounds_.Play(ui::native_ui_sound::hover);
                 }
             }
@@ -462,6 +464,7 @@ namespace xiui
                 else if (deleting) { if (focus.modal_item == 1) this->DeleteProfile(); }
                 else if (confirming) { if (focus.modal_item == 1) this->ApplyConfirmedAction(); }
                 else if (importing && focus.modal_item == 2) this->PasteProfileKey();
+                else if (importing && (focus.modal_item == 4 || focus.modal_item == 5)) this->SetProfileImportSource(focus.modal_item == 5);
                 else if (focus.modal_item == 1)
                 {
                     if (this->profile_dialog_ == profile_dialog::rename) this->RenameProfile();
@@ -659,6 +662,9 @@ namespace xiui
             const bool share = this->profile_dialog_ == profile_dialog::share, importing = this->profile_dialog_ == profile_dialog::import_profile;
             const ui::profile_dialog_layout dialog{this->config_.bounds, viewport, share || importing};
             bounds = focus.modal_item == 0 ? dialog.Cancel() : focus.modal_item == 1 ? dialog.Create() : importing && focus.modal_item == 2 ? dialog.Paste() : dialog.Field();
+            if (importing && focus.modal_item >= 4) bounds = dialog.ImportSource(focus.modal_item - 4);
+            if (importing && this->profile_import_lua_)
+            { const ui::lua_import_layout luaLayout{this->config_.bounds, viewport}; bounds = luaLayout.Control(focus.modal_item); }
             legend = this->ConfirmingAction() || this->profile_dialog_ == profile_dialog::delete_profile ?
                 "D-pad: choose action   Confirm: activate   Cancel: close" : "D-pad: choose action   Confirm: activate   Cancel: close   Keyboard: edit name";
         }

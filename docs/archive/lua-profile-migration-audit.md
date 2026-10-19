@@ -183,7 +183,7 @@ This means the work is primarily a converter across the whole setup, with the sp
 3. Treat appearance parity as optional scope: backgrounds/fonts/artwork first, then finer card/recast/text/layout controls. Import supported values and explicitly report substitutions when a capability is declined.
 4. Finish the importer within the chosen scope, with every discovered meaningful field classified as exact, approximate, unsupported or blocked by source data. Unsupported fields are visible to users; they are not an automatic instruction to expand Native.
 
-The selected Native work is implemented. The next migration step is the complete profile/settings workflow, using these destinations and reporting the remaining deferred differences.
+The selected Native work is implemented. The complete profile/settings workflow is now documented in [Lua profile import](../reference/lua-profile-import.md), including reports for deferred differences. The validation record below belongs to the earlier Native capability work.
 
 ## Validation and installed build
 

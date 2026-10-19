@@ -15,7 +15,7 @@ The wrapper builds only the selected target, then runs its catalogued arguments.
 - Config controls/input: `config-ui`, `choice-arrows`, `element-tabs`, `input-mode`.
 - Config geometry: `config-resize`, `config-sidebar`, `scrollbar`; lookup: `settings-search`.
 - Text: `config-text`, `global-text`, `text-rasterization`.
-- Preferences/profiles: `settings` (dedicated store executable), `defaults` (passes the shipped INI automatically), `profile-delete`, `party-presets`.
+- Preferences/profiles: `settings` (dedicated store executable), `defaults` (passes the shipped INI automatically), `profile-delete`, `party-presets`, `lua-profile-import` (release writer fixtures and isolated import persistence).
 - Controller: `controller-input` (host adapter/normalization), `controller-config` (shared config actions), `cursor-ownership` (pointer lifetime). Synthetic checks do not establish physical-device/native-keyboard acceptance.
 - Minimap: `minimap`, including named IDs, pinned edge toggles and burnt contour geometry.
 - Other feature boundaries: `all-ui-visibility`, `target-rings`, `notification-feedback`, `heal-prediction`, `experience-model`. See `-List` and the dispatcher for the rest.

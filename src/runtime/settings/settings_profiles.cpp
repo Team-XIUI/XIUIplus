@@ -8,6 +8,7 @@
 #include <filesystem>
 #include <fstream>
 #include <iterator>
+#include <set>
 
 namespace xiui
 {
@@ -94,6 +95,19 @@ namespace xiui
         this->entries_.push_back({"default", "Default", (directory / "default.ini").string()});
         for (const auto& file : std::filesystem::directory_iterator{directory, error})
         {
+            if (file.is_directory(error) && file.path().filename().string().starts_with("lua-"))
+            {
+                for (const auto& imported : std::filesystem::directory_iterator{file.path(), error})
+                {
+                    if (this->entries_.size() >= 128) break;
+                    if (!imported.is_regular_file(error) || imported.path().extension() != ".ini" || !imported.path().stem().string().starts_with("profile-")) continue;
+                    settings_store store{imported.path().string()};
+                    const auto name = store.ReadString("profile", "name"), id = imported.path().stem().string();
+                    if (name.empty() || name.size() > 64 || std::any_of(this->entries_.begin(), this->entries_.end(), [&](const auto& item) { return SameName(item.name, name); })) continue;
+                    this->entries_.push_back({id, name, imported.path().string()});
+                }
+                continue;
+            }
             if (this->entries_.size() >= 128) break;
             if (!file.is_regular_file(error) || file.path().extension() != ".ini" || file.path().stem() == "default") continue;
             const auto id = file.path().stem().string();
@@ -175,5 +189,91 @@ namespace xiui
         this->selected_ = this->entries_.size() - 1;
         error.clear();
         return true;
+    }
+
+    auto settings_profiles::Import(const std::span<const import_entry> profiles, const std::span<const import_file> archive,
+        std::vector<size_t>& created, std::string& reportPath, std::string& error) -> bool
+    {
+        created.clear(); reportPath.clear();
+        std::filesystem::path staging;
+        std::vector<std::filesystem::path> staged;
+        try
+        {
+            if (!this->Ready() || profiles.empty()) throw std::runtime_error{"No profiles are ready to import."};
+            std::vector<const import_entry*> pending;
+            std::set<std::string> sources;
+            for (const auto& profile : profiles)
+            {
+                const bool exists = std::any_of(this->entries_.begin(), this->entries_.end(), [&](const auto& entry) {
+                    return settings_store{entry.path}.ReadString("profile", "lua_source_id") == profile.source_id;
+                });
+                if (!exists && sources.insert(profile.source_id).second) pending.push_back(&profile);
+            }
+            if (pending.empty()) { error = "These source profiles have already been imported."; return false; }
+            if (this->entries_.size() + pending.size() > 128) throw std::runtime_error{"Import exceeds the 128-profile limit. Select fewer profiles."};
+            FILETIME time{}; ::GetSystemTimeAsFileTime(&time);
+            static std::atomic<uint32_t> serial{};
+            char batch[80]{};
+            std::snprintf(batch, sizeof(batch), "%08X%08X-%08X-%08X", time.dwHighDateTime, time.dwLowDateTime,
+                ::GetCurrentProcessId(), serial.fetch_add(1));
+            const auto root = std::filesystem::weakly_canonical(this->directory_);
+            staging = root / (std::string{"pending-lua-"} + batch);
+            const auto destination = root / (std::string{"lua-"} + batch);
+            if (!std::filesystem::create_directory(staging)) throw std::runtime_error{"Could not stage the import."};
+            const auto write = [&](const std::string& name, const std::string_view bytes) {
+                if (name.empty() || name.find_first_of("/\\:") != std::string::npos || name == "." || name == "..") throw std::runtime_error{"Invalid archive filename."};
+                const auto path = staging / name;
+                const auto file = ::CreateFileW(path.c_str(), GENERIC_WRITE, 0, nullptr, CREATE_NEW, FILE_ATTRIBUTE_NORMAL, nullptr);
+                if (file == INVALID_HANDLE_VALUE) throw std::runtime_error{"Could not stage an import file."};
+                staged.push_back(path);
+                DWORD count{};
+                const bool success = bytes.size() <= MAXDWORD && ::WriteFile(file, bytes.data(), static_cast<DWORD>(bytes.size()), &count, nullptr) &&
+                    count == bytes.size() && ::FlushFileBuffers(file);
+                ::CloseHandle(file);
+                if (!success) throw std::runtime_error{"Could not save the import. Existing profiles are unchanged."};
+            };
+            std::vector<entry> entries;
+            for (size_t i = 0; i < pending.size(); ++i)
+            {
+                const auto& profile = *pending[i];
+                auto name = this->UniqueName(profile.name);
+                auto original = name;
+                size_t length = std::min<size_t>(40, original.size());
+                while (length < original.size() && length > 0 && (static_cast<unsigned char>(original[length]) & 0xC0) == 0x80) --length;
+                original.resize(length);
+                for (size_t suffix = 2; std::any_of(entries.begin(), entries.end(), [&](const auto& entry) { return SameName(name, entry.name); }); ++suffix)
+                    name = this->UniqueName(original + " " + std::to_string(suffix));
+                if (!this->ValidateName(name, this->entries_.size(), error)) throw std::runtime_error{error};
+                const auto id = std::string{"profile-lua-"} + batch + "-" + std::to_string(i);
+                auto store = profile.preferences.Preferences("");
+                store.WriteString("profile", "name", name); store.WriteInt("profile", "version", 1);
+                store.WriteString("profile", "lua_source_id", profile.source_id);
+                write(id + ".ini", store.ToIniText());
+                entries.push_back({id, name, (destination / (id + ".ini")).string()});
+            }
+            for (const auto& file : archive)
+            {
+                if (file.name != "report.txt") { write(file.name, file.bytes); continue; }
+                std::string report = file.bytes + "\nNative destinations (source order):\n";
+                for (const auto& entry : entries) report += entry.name + " -> " + entry.path + "\n";
+                report += "\nNative's profile selector retains its normal name ordering. Source profile order is recorded above.\n";
+                write(file.name, report);
+            }
+            if (std::filesystem::weakly_canonical(staging).parent_path() != root || std::filesystem::weakly_canonical(destination).parent_path() != root)
+                throw std::runtime_error{"Import path is outside the profile directory."};
+            this->entries_.reserve(this->entries_.size() + entries.size()); created.reserve(entries.size());
+            auto savedReportPath = (destination / "report.txt").string();
+            if (!::MoveFileExW(staging.c_str(), destination.c_str(), MOVEFILE_WRITE_THROUGH)) throw std::runtime_error{"Could not publish the import. Existing profiles are unchanged."};
+            staging.clear();
+            for (auto& entry : entries) { created.push_back(this->entries_.size()); this->entries_.push_back(std::move(entry)); }
+            reportPath = std::move(savedReportPath);
+            error.clear(); return true;
+        }
+        catch (const std::exception& failure)
+        {
+            // Only files created in this private staging directory are removed.
+            if (!staging.empty()) { std::error_code ignored; for (const auto& file : staged) std::filesystem::remove(file, ignored); std::filesystem::remove(staging, ignored); }
+            error = failure.what(); return false;
+        }
     }
 }

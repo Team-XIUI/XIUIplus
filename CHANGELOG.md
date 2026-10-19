@@ -2,6 +2,7 @@
 
 ## Unreleased
 
+- Add XIUI Lua setup discovery, conversion preview and safe new-profile import under the profile menu's Import profile dialog, with saved reports and optional activation/character links/controller behavior.
 - Add Chat → Bubbles for nearby Say, Linkshell 1/2, Party, Yell, Shout and NPC speech, with channel, appearance and text controls.
 - Restore NPC dialogue continuation arrows, with a pulsing/bouncing current prompt, shared chat routing and native advance input.
 - Evaluate the complete native event predicate so an enabled event system without a local event cannot hide every XIUI module.

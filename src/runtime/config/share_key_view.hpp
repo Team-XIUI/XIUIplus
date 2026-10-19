@@ -29,7 +29,10 @@ namespace xiui::ui
             float used{};
             for (size_t i = 0; i < key.size(); ++i)
             {
+                if (key[i] == '\r') continue;
+                if (key[i] == '\n') { this->lines_.emplace_back(key.substr(begin, i - begin - (i > begin && key[i - 1] == '\r' ? 1 : 0))); begin = i + 1; used = 0; continue; }
                 const auto character = static_cast<unsigned char>(key[i]);
+                const size_t bytes = character < 0x80 ? 1 : (character & 0xE0) == 0xC0 ? 2 : (character & 0xF0) == 0xE0 ? 3 : 4;
                 const float advance = advances[character < advances.size() ? character : '?'];
                 if (i > begin && used + spacing + advance > width)
                 {
@@ -38,12 +41,13 @@ namespace xiui::ui
                     used = 0;
                 }
                 used += (i > begin ? spacing : 0) + advance;
+                i += std::min(bytes, key.size() - i) - 1;
             }
             if (begin < key.size()) this->lines_.emplace_back(key.substr(begin));
             this->Scroll(0);
         }
 
-        auto Draw(const design_system& design, const config_controls& controls, const rect& bounds, std::string_view key, bool hovered, bool invalid = false) -> void
+        auto Draw(const design_system& design, const config_controls& controls, const rect& bounds, std::string_view key, bool hovered, bool invalid = false, const char* emptyText = "Paste an XIUI share key") -> void
         {
             const auto& theme = design.GetTheme();
             design.FillRoundedRect(bounds, (theme.colors.chrome & 0x00FFFFFF) | 0xE0000000, 4);
@@ -71,7 +75,7 @@ namespace xiui::ui
             if (key.empty())
             {
                 style.top_color = style.bottom_color = theme.colors.muted;
-                design.DrawText("Paste an XIUI share key", {content.x, content.y, content.width, line_height}, style);
+                design.DrawText(emptyText, {content.x, content.y, content.width, line_height}, style);
                 return;
             }
             for (int row = 0; row < this->visible_ && this->first_ + row < static_cast<int>(this->lines_.size()); ++row)
