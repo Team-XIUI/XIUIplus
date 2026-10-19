@@ -65,6 +65,20 @@ For an explicitly selected saved snapshot:
 
 Use `-OutputPath` and `-ThemeOutputPath` to capture elsewhere. `-SkipBuild` reuses the existing utility. Capture does not package/install: check the changed baseline, then build the standalone DLL normally. Never restore older settings over current user changes as part of cleanup.
 
+## GitHub releases
+
+Releases live in the [private repository](https://github.com/Shuu-37/xiui-plugin/releases). Keep root `VERSION` numeric for CMake/Windows; alpha tags append the channel, such as `v1.0.5-alpha.1`. Preserve the shipped defaults unless a capture was requested.
+
+Run `./scripts/package.ps1` and require both packaging checks to pass. Commit and push the intended source on `main`, then create and push an annotated tag at that commit. Upload only `dist/xiuinative.dll` and `dist/SHA256SUMS.txt`; no companion runtime or external assets are needed. Write the checksum as `<lowercase SHA-256>  xiuinative.dll`.
+
+With the tag pushed and release notes written:
+
+```powershell
+gh release create v1.0.5-alpha.1 dist/xiuinative.dll dist/SHA256SUMS.txt --verify-tag --prerelease --latest=false --title 'XIUI Native 1.0.5 Alpha 1' --notes-file out/release-notes.md
+```
+
+Use a new tag for each alpha. Stable releases omit the channel suffix and prerelease flags. [.github/release.yml](../.github/release.yml) groups generated notes by PR label; manually include direct-commit changes and known limitations. Verify uploaded asset hashes and prerelease status after publication.
+
 ## Update documentation
 
 ```powershell

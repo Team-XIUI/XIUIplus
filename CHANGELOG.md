@@ -1,6 +1,12 @@
 # Changelog
 
-## Unreleased
+## 1.0.5-alpha.1 — 2026-10-18
+
+- Publish the first private GitHub alpha release as one standalone x86 DLL, with a SHA-256 checksum and installation notes. The binary version is 1.0.5.
+- Reduce burnt Minimap contour rendering cost by avoiding repeated expensive distance calculations.
+- Keep chat's sending Enter press and release owned through Alt+R/Ctrl+R replies so it does not reopen the native command menu.
+- Restore locked-HUD pointer interactions, including Satchel, and allow visible XIUI controls while ordinary native menus are open.
+- Organize short module notes, detailed references and historical records, with updated agent navigation and documentation generators.
 
 - Preserve live timing/healing/sound dependencies during startup and prevent missed callback shutdown wake-ups.
 - Atomically merge settings snapshots, retain unknown fields/comments/Unicode files and reject non-finite numeric preferences.

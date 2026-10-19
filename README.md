@@ -2,7 +2,7 @@
 
 XIUI is an in-client Final Fantasy XI HUD for Ashita v4, rendered with Direct3D8.
 
-The shareable release is one [dist/xiuinative.dll](dist/xiuinative.dll). Copy it into Ashita's `plugins` folder and run `/load xiuinative`. Existing settings are preserved. See [the changelog](CHANGELOG.md) and [the user guide](docs/user-guide.md) for features and commands.
+Download `xiuinative.dll` from [GitHub Releases](https://github.com/Shuu-37/xiui-plugin/releases) (repository access required). Copy it into Ashita's `plugins` folder and run `/load xiuinative`. Existing settings are preserved. Local packaging produces [dist/xiuinative.dll](dist/xiuinative.dll). See [the changelog](CHANGELOG.md) and [the user guide](docs/user-guide.md) for features and commands.
 
 ## Working on XIUI
 
