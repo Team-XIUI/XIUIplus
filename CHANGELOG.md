@@ -2,6 +2,23 @@
 
 ## Unreleased
 
+## 1.0.6-alpha.1 — 2026-10-19
+
+- Add nearby living enemy dots to the minimap, enabled by default with an independent Markers toggle; use red except for other groups' purple claims. Add a Triangle/Dot player icon choice.
+- Initialize missing native HUD visibility settings and section resets from the shipped preset while preserving explicit saved toggle choices.
+- Include minimap hover in shared mouse capture so wheel zoom receives input over the visible map.
+- Add Window 2's opt-in Match Window 1 settings, with disabled inherited controls, independent filters and positions, and saved overrides restored when unlinked.
+- Let the party panel reach either screen edge without reserving invisible space for external buffs and debuffs.
+- Fit untouched default and missing HUD positions from the authored 2560×1440 preset to the actual game viewport, defer placeholder startup placement, preserve moved modules, and add position-only recovery with `/xiui layout defaults`.
+
+- Let manual chat height override native/custom maximum lines while retaining timed collapse; share sent history and unsent drafts across Space and slash input.
+- Add opt-in Global hotbar visuals with saved independent overrides, retain per-bar shapes/positions/actions/keys, accept Lua-sized slots/spacing, and document remaining Lua settings gaps. Keep Global outside movable bar selection.
+- Keep native party suppression active while fishing, allowing only the verified hooked-fish HP renderer.
+- Anchor command menus using live height rather than creation height; keep oversized menus above the configured bottom.
+
+- Anchor target rings to the native model's interpolated render position so movement coordinates cannot pull them ahead of the visible character.
+- Let Confirm/A or Enter request removal of the focused local effect when the client marks it cancellable; retain native text/targeting priority and consume held Confirm/release.
+- Keep Chat 2 focused during native combat-menu polling and retain controller focus/navigation when cycling into Buffs and Debuffs.
 - Add XIUI Lua setup discovery, conversion preview and safe new-profile import under the profile menu's Import profile dialog, with saved reports and optional activation/character links/controller behavior.
 - Add Chat → Bubbles for nearby Say, Linkshell 1/2, Party, Yell, Shout and NPC speech, with channel, appearance and text controls.
 - Restore NPC dialogue continuation arrows, with a pulsing/bouncing current prompt, shared chat routing and native advance input.

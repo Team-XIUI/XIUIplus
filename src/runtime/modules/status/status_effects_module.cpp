@@ -296,6 +296,28 @@ namespace xiui
         return index ? this->Layout(effects).Icon(*index) : ui::rect{};
     }
 
+    auto status_effects_module::ControllerEffect(void) const -> std::optional<uint16_t>
+    {
+        const auto effects = this->Effects();
+        const auto index = this->ControllerIndex(effects);
+        return index ? std::optional{effects.entries[*index].id} : std::nullopt;
+    }
+
+    auto status_effects_module::CancelControllerEffect(IPacketManager* packets, const IStatusIcon* icon,
+        const uint32_t localPlayer, const std::span<const int16_t> active) const -> bool
+    {
+        const auto effects = this->Effects();
+        const auto index = this->ControllerIndex(effects);
+        if (!index || packets == nullptr || icon == nullptr || icon->CanCancel != 1 ||
+            localPlayer == 0 || effects.player != localPlayer || active.size() != 32 || !LocalStatusSnapshotReady(active)) return false;
+        const auto id = effects.entries[*index].id;
+        if (id == 0 || icon->Index != id || static_cast<size_t>(std::count(active.begin(), active.end(), static_cast<int16_t>(id))) <= this->controller_occurrence_) return false;
+        // Native status cancellation request; the server confirms removal.
+        std::array<uint8_t, 8> packet{0xF1, 0x04, 0, 0, static_cast<uint8_t>(id), static_cast<uint8_t>(id >> 8), 0, 0};
+        packets->AddOutgoingPacket(0x0F1, static_cast<uint32_t>(packet.size()), packet.data());
+        return true;
+    }
+
     auto status_effects_module::RenderStatusTooltip(const module_render_context& context, IResourceManager* resources,
         const float x, const float y, const bool controller) const -> void
     {

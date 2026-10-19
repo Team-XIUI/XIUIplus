@@ -660,6 +660,13 @@ namespace xiui
         return chat != nullptr && Contains(chat->Grip(this->design_system_), x, y);
     }
 
+    auto hud_runtime::MinimapPointerOwns(const float x, const float y) const -> bool
+    {
+        return this->visible_ && !this->editing_ && this->interaction_ == interaction::none && this->chat_pointer_ == nullptr &&
+            !this->chat_.HistoryExpanded() && !this->chat_second_.HistoryExpanded() && this->ContextVisible(this->minimap_) &&
+            this->minimap_.ShouldRender({}) && this->minimap_.Contains(x, y);
+    }
+
     auto hud_runtime::PointerInputBlocked(const bool blocked) const -> bool
     {
         if (!blocked) return false;
@@ -791,7 +798,7 @@ namespace xiui
     {
         if (!this->ContextVisible(this->chat_)) return;
         if (this->config_.slider_input.Focused() || this->config_.text_input.Focused() || this->config_.choice_input.Opened()) return;
-        if (this->chat_.HistoryFocused())
+        if (this->chat_.HistoryFocused() || this->chat_second_.HistoryFocused())
         {
             if (manager != nullptr && manager->IsInputOpen() != 0) this->ReleaseChatInput();
             return;
@@ -889,7 +896,7 @@ namespace xiui
         if (this->editing_ && this->HandleProfileKey(key, flags)) return true;
         if (this->editing_ && this->HandleChoiceKey(key, flags)) return true;
         const bool replacement = this->chat_capture_available_ && (this->game_hud_.HiddenMask() & NativeHudBit(native_hud_element::chat1)) != 0;
-        const auto* manager = this->core_->GetChatManager();
+        auto* manager = this->core_->GetChatManager();
         const auto* memory = this->core_->GetMemoryManager();
         const auto* target = memory != nullptr ? memory->GetTarget() : nullptr;
         const bool targeting = target != nullptr && (target->GetIsSubTargetActive() != 0 || target->GetActionTargetActive() != 0);
@@ -905,6 +912,8 @@ namespace xiui
             this->chat_native_menu_recipient_ = this->SelectedChatRecipient();
             this->chat_native_menu_confirmed_at_ = ::GetTickCount64();
         }
+        if (replacement && !this->editing_ && !blocked)
+            this->SyncNativeChatInput(manager, this->native_ui_.menu_visible, targeting);
         return this->HandleChatKey(key, flags, blocked, replacement, targeting, manager != nullptr ? manager->IsInputOpen() : 0);
     }
 
@@ -944,6 +953,11 @@ namespace xiui
                 key == VK_TAB ? ((::GetKeyState(VK_SHIFT) & 0x8000) != 0 ? controller_action::previous_tab : controller_action::next_tab) : controller_action::none;
             if (action == controller_action::none) return false;
             if (this->ControllerNativeBusy()) { this->ReleaseControllerFocus(); return false; }
+            if (action == controller_action::confirm)
+            {
+                if ((keyFlags & 0x40000000u) != 0) return true;
+                this->confirmation_key_release_ = key;
+            }
             this->keyboard_window_focus_ = true;
             const bool consumed = this->HandleControllerStatus(action);
             this->UpdateControllerFocus();
@@ -1170,6 +1184,16 @@ namespace xiui
             this->FinishInteraction();
             this->SaveSettings();
             message = "[XIUI] Current settings queued for saving.";
+        }
+        else if (::_stricmp(command, "layout defaults") == 0)
+        {
+            if (this->default_settings_text_.empty()) return false;
+            this->FinishInteraction();
+            auto snapshot = this->CaptureSettings();
+            RestoreDefaultLayoutPositions(snapshot, settings_store::FromIniText(this->default_settings_text_));
+            this->LoadSettings(snapshot);
+            this->SaveSettings();
+            message = "[XIUI] Default positions fitted to the game window. Appearance and actions preserved.";
         }
         else if (::_stricmp(command, "general") == 0 || ::_stricmp(command, "theme") == 0)
         {
@@ -1731,8 +1755,17 @@ namespace xiui
             this->LoadSettings(settings_store::CachedFile(this->settings_path_));
     }
 
-    auto hud_runtime::LoadSettings(const settings_store& store) -> void
+    auto hud_runtime::LoadSettings(const settings_store& source, layout_viewport viewport) -> void
     {
+        if (!viewport.Valid() && this->device_ != nullptr)
+        {
+            D3DVIEWPORT8 actual{};
+            if (SUCCEEDED(this->device_->GetViewport(&actual))) viewport = {static_cast<int>(actual.Width), static_cast<int>(actual.Height)};
+        }
+        const auto defaults = settings_store::FromIniText(this->default_settings_text_);
+        const auto store = FitLayoutViewport(source, defaults, viewport);
+        this->game_hud_.SetDefaults(defaults);
+        this->layout_viewport_ = ReadLayoutViewport(store);
         this->skillchain_source_.Clear();
         this->combat_settings_.Load(store);
         this->SuspendActionBarsInput();
@@ -1763,6 +1796,8 @@ namespace xiui
         this->config_.scroll = 0;
         this->layout_initialized_ = false;
         this->LoadConfigSelection(store);
+        if (viewport.Valid()) this->pending_layout_settings_.reset();
+        else this->pending_layout_settings_ = settings_store::FromIniText(store.ToIniText());
     }
 
     auto hud_runtime::CaptureSettings(void) const -> settings_store
@@ -1783,6 +1818,7 @@ namespace xiui
         store.WriteInt("layout.config", "width_version", 1);
         store.WriteInt("layout.config", "height_version", 1);
         this->SaveConfigSelection(store);
+        WriteLayoutViewport(store, this->layout_viewport_);
         return store;
     }
 
@@ -1809,6 +1845,15 @@ namespace xiui
 
     auto hud_runtime::EnsureLayout(const D3DVIEWPORT8& viewport) -> void
     {
+        const layout_viewport actual{static_cast<int>(viewport.Width), static_cast<int>(viewport.Height)};
+        if (!actual.Valid()) return;
+        const bool fitted = this->pending_layout_settings_.has_value();
+        if (fitted)
+        {
+            auto pending = std::move(*this->pending_layout_settings_);
+            this->pending_layout_settings_.reset();
+            this->LoadSettings(pending, actual);
+        }
         if (!this->layout_initialized_)
         {
             if (this->config_.bounds.x < 0.0f)
@@ -1886,6 +1931,8 @@ namespace xiui
             }
         }
         this->ClampLayout(viewport);
+        this->layout_viewport_ = actual;
+        if (fitted) this->SaveSettings();
     }
 
     auto hud_runtime::ClampLayout(const D3DVIEWPORT8& viewport) -> void
@@ -1995,6 +2042,7 @@ namespace xiui
                 (actionbars && this->actionbars_.PointerOwns(static_cast<float>(cursor.x), static_cast<float>(cursor.y))) ||
                 this->treasure_.PointerDown() || (this->TreasureInputAvailable(true) && this->treasure_.Contains(static_cast<float>(cursor.x), static_cast<float>(cursor.y))) ||
                 (this->ContextVisible(this->ready_check_) && (this->ready_check_.PointerDown() || this->ready_check_.Contains(static_cast<float>(cursor.x), static_cast<float>(cursor.y)))) ||
+                this->MinimapPointerOwns(static_cast<float>(cursor.x), static_cast<float>(cursor.y)) ||
                 this->ChatResizing() || this->chat_pointer_ != nullptr || this->ChatAt(static_cast<float>(cursor.x), static_cast<float>(cursor.y)) != nullptr));
             this->cursor_renderer_.SetNativeCursorHidden(this->chat_mouse_block_saved_);
             this->UpdateSoundHover(viewport, active);
@@ -2317,7 +2365,7 @@ namespace xiui
         if (this->experience_.NeedsSave(now)) this->SaveSettings();
         this->world_source_.Update(this->core_, now);
         if (this->minimap_.State().enabled && this->device_ != nullptr && this->ContextVisible(this->minimap_))
-            this->minimap_source_.Update(this->core_, now, this->minimap_.NpcsEnabled(), this->minimap_.DistantPartyEnabled() && this->ContextVisible(this->minimap_) && this->GameWindowFocused() && !this->editing_);
+            this->minimap_source_.Update(this->core_, now, this->minimap_.NpcsEnabled(), this->minimap_.DistantPartyEnabled() && this->ContextVisible(this->minimap_) && this->GameWindowFocused() && !this->editing_, this->minimap_.EnemiesEnabled());
         else this->minimap_source_.Clear();
         this->notifications_.Expire(now);
         this->game_hud_.SetAvailable(snapshot.native_hud_available_mask);

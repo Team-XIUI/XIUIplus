@@ -455,6 +455,70 @@ namespace xiui
             "profile files, overlays and share keys exclude local character bindings case-insensitively");
     }
 
+    auto config_input_test::ViewportLayout(const char* source) -> bool
+    {
+        std::ifstream file{source, std::ios::binary};
+        const std::string text{std::istreambuf_iterator<char>{file}, {}};
+        const auto defaults = settings_store::FromIniText(text);
+        if (!check(ReadLayoutViewport(defaults) == layout_viewport{2560, 1440}, "captured defaults record their actual reference viewport")) return false;
+        hud_runtime runtime; runtime.default_settings_text_ = text;
+        for (const auto size : {layout_viewport{1920, 1080}, layout_viewport{1280, 720}, layout_viewport{2560, 1440}, layout_viewport{2560, 1080}})
+        {
+            runtime.LoadSettings(defaults);
+            runtime.EnsureLayout({0, 0, 0, 0, 0, 1});
+            if (!check(!runtime.layout_initialized_ && runtime.player_.State().bounds.x == 982,
+                "a startup placeholder viewport cannot clamp or save the layout")) return false;
+            const D3DVIEWPORT8 viewport{0, 0, static_cast<DWORD>(size.width), static_cast<DWORD>(size.height), 0, 1};
+            runtime.EnsureLayout(viewport);
+            const auto player = runtime.player_.State().bounds;
+            const auto chat = runtime.chat_.State().bounds;
+            const auto second = runtime.chat_second_.State().bounds;
+            if (!check(player.x == 982 + (size.width - 2560) / 2 && player.y == 1309 + size.height - 1440 &&
+                chat.x == 8 && chat.y == 1209 + size.height - 1440 &&
+                second.y + second.height == chat.y && runtime.experience_.State().bounds.y == 1401 + size.height - 1440,
+                "first load retains the central HUD and stacked chat offsets at the real window resolution")) return false;
+            for (const auto* module : {static_cast<hud_module*>(&runtime.player_), static_cast<hud_module*>(&runtime.minimap_),
+                static_cast<hud_module*>(&runtime.equipment_), static_cast<hud_module*>(&runtime.inventory_[0])})
+            {
+                const auto& bounds = module->State().bounds;
+                if (!check(bounds.x >= 0 && bounds.y >= 0 && bounds.x + bounds.width <= size.width && bounds.y + bounds.height <= size.height,
+                    "core first-load modules fit inside windowed and wide viewports")) return false;
+            }
+            const auto saved = runtime.CaptureSettings();
+            runtime.LoadSettings(saved); runtime.EnsureLayout(viewport); runtime.EnsureLayout(viewport);
+            if (!check(ReadLayoutViewport(saved) == size && runtime.player_.State().bounds.x == player.x && runtime.chat_.State().bounds.y == chat.y,
+                "the fitted viewport and positions survive reload without repeated scaling")) return false;
+            const auto refitted = FitLayoutViewport(saved, defaults, {2560, 1440}).ReadRect("layout.player", {});
+            if (!check(refitted.x == 982 && refitted.y == 1309,
+                "untouched fitted positions resolve from the authored preset when the resolution changes")) return false;
+        }
+        const layout_viewport window{1920, 1080};
+        auto partial = settings_store::FromIniText("[layout.player]\nx=123\nwidth=577\nheight=76\n");
+        const auto fitted = FitLayoutViewport(partial, defaults, window);
+        if (!check(fitted.ReadInt("layout.player", "x", 0) == 123 && fitted.ReadInt("layout.player", "y", 0) == 949,
+            "a missing axis gets a viewport-aware default without replacing its saved partner")) return false;
+        auto custom = settings_store::FromIniText("[layout.player]\nx=300\ny=400\nwidth=577\nheight=76\n");
+        if (!check(FitLayoutViewport(custom, defaults, window).ReadRect("layout.player", {}).x == 300 &&
+            FitLayoutViewport(custom, defaults, window).ReadRect("layout.player", {}).y == 400,
+            "legacy saved positions without resolution metadata remain authoritative")) return false;
+        WriteLayoutViewport(custom, {2560, 1440});
+        const auto moved = FitLayoutViewport(custom, defaults, window).ReadRect("layout.player", {});
+        if (!check(moved.x == 300 && moved.y == 400, "moved modules retain their saved positions even when the viewport changes")) return false;
+        custom.WriteInt("layout.viewport", "width", 0); custom.WriteInt("layout.viewport", "height", 0);
+        auto overlay = runtime.CaptureSettings(); OverlayProfilePreferences(overlay, custom);
+        if (!check(!ReadLayoutViewport(overlay).Valid(), "legacy profile positions cannot inherit another profile's viewport")) return false;
+        if (!check(FitLayoutAxis(2160, 400, 2560, 1920) == 1520 && FitLayoutAxis(1080, 400, 2560, 1920) == 760 &&
+            FitLayoutAxis(-1, 400, 2560, 1920) == -1, "saved right, center and automatic anchors remain meaningful at another resolution")) return false;
+        runtime.LoadSettings(defaults, window); runtime.player_.State().bounds.x = 20;
+        runtime.player_.Settings().name_text.style.top_color = 0xFF123456;
+        const auto width = runtime.player_.State().bounds.width;
+        if (!check(runtime.HandleCommand("layout defaults"), "position-only recovery uses the shared command route")) return false;
+        runtime.EnsureLayout({0, 0, 1920, 1080, 0, 1});
+        return check(runtime.player_.State().bounds.x == 662 && runtime.player_.State().bounds.width == width &&
+            runtime.player_.Settings().name_text.style.top_color == 0xFF123456,
+            "recovering initial positions keeps current dimensions, appearance and action preferences");
+    }
+
     auto config_input_test::DefaultProfile(const char* source) -> bool
     {
         const auto root = std::filesystem::temp_directory_path() / ("xiui-defaults-" + std::to_string(::GetCurrentProcessId()));

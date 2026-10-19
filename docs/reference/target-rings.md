@@ -14,6 +14,8 @@ The ring uses the actual world scene surface, authoritative terrain camera and m
 
 Settings use ordinary mouse, keyboard and controller controls. The ring is a passive world display and captures no targeting or movement input. Preferences persist in `[target.rings]` and participate in global defaults, reset and profiles.
 
+Ring placement uses the native model draw's interpolated root position, which can differ from the entity movement coordinates while walking. `world/entity_render_position.hpp` verifies the actor/entity ownership and the client position getter before reading its vector; unavailable layouts hide the ring. There is no velocity offset or additional position smoothing. The focused ring check covers a movement anchor ahead of the rendered model, actor replacement and invalid native layouts/coordinates.
+
 The host/runtime contract is **ABI 16**, carrying the world draw callback and borrowed scene color/depth surfaces alongside the captured camera/viewport. Development installs must replace both DLLs together once; the standalone distribution remains one DLL.
 
 Focused verification: `xiui_config_input_smoke --target-rings-only` covers slope vertices, separate steps, stacked floors, HP arcs, missing geometry, radius constraints, config ownership and preference persistence. An optional client-directory argument also decodes Jugner Forest and projects onto a known native floor position. Cody checks the visual/gameplay result.

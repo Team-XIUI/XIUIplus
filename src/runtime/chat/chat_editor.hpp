@@ -33,6 +33,7 @@ namespace xiui
         auto SelectedText(void) const -> std::string;
         auto Remember(void) -> void;
         auto History(int direction) -> void;
+        auto RestartHistory(void) -> void { this->history_index_ = this->history_.size(); this->history_draft_.clear(); }
         auto Complete(const std::vector<std::string>& candidates, bool reverse) -> void;
         auto CompleteCandidates(const std::vector<chat_completion>& candidates, bool reverse) -> void;
         auto SelectCompletion(size_t index) -> void;

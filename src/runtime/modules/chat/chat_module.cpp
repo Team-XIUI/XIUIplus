@@ -139,27 +139,68 @@ namespace xiui
 
     auto chat_module::EnsureWindowDefaults(void) -> void
     {
-        if (!this->secondary_ || this->defaults_initialized_ || this->parent_ == nullptr) return;
-        this->state_.bounds.width = this->parent_->state_.bounds.width;
-        this->state_.bounds.height = this->parent_->state_.bounds.height;
-        this->state_.content_bounds = {};
-        this->container_ = this->parent_->container_;
-        this->text_ = this->parent_->text_;
-        this->chrome_ = this->parent_->chrome_;
-        this->line_spacing_ = this->parent_->line_spacing_;
-        this->message_animation_ = this->parent_->message_animation_;
-        this->message_animation_speed_ = this->parent_->message_animation_speed_;
-        this->collapse_mode_ = this->parent_->collapse_mode_;
-        this->collapse_delay_ = this->parent_->collapse_delay_;
-        this->collapse_min_lines_ = this->parent_->collapse_min_lines_;
-        this->collapse_max_lines_ = this->parent_->collapse_max_lines_;
-        this->timestamp_display_ = this->parent_->timestamp_display_;
-        this->timestamp_color_enabled_ = this->parent_->timestamp_color_enabled_;
-        this->timestamp_color_ = this->parent_->timestamp_color_;
-        this->visible_tabs_ = this->parent_->visible_tabs_;
-        this->channel_ = this->parent_->channel_;
-        this->cache_revision_ = UINT64_MAX;
-        this->defaults_initialized_ = true;
+        if (!this->secondary_ || this->parent_ == nullptr) return;
+        if (!this->defaults_initialized_)
+        {
+            this->ApplyWindowSettings(this->parent_->CaptureWindowSettings());
+            this->visible_tabs_ = this->parent_->visible_tabs_;
+            this->channel_ = this->parent_->channel_;
+            this->defaults_initialized_ = true;
+        }
+        if (this->MatchingWindow1())
+        {
+            auto settings = this->parent_->CaptureWindowSettings();
+            const auto width = settings.width, height = settings.height;
+            if (!this->independent_settings_) this->independent_settings_ = this->CaptureWindowSettings();
+            else
+            {
+                // Keep viewport clamps until the source dimensions change.
+                if (width == this->matched_width_) settings.width = this->state_.bounds.width;
+                if (height == this->matched_height_) settings.height = this->state_.bounds.height;
+            }
+            this->ApplyWindowSettings(settings);
+            this->matched_width_ = width; this->matched_height_ = height;
+        }
+        else if (this->independent_settings_)
+        {
+            this->ApplyWindowSettings(*this->independent_settings_);
+            this->independent_settings_.reset();
+        }
+    }
+
+    auto chat_module::CaptureWindowSettings(void) const -> window_settings
+    {
+        return {this->state_.bounds.width, this->state_.bounds.height, this->container_, this->text_, this->chrome_, this->line_spacing_,
+            this->message_animation_, this->message_animation_speed_, this->collapse_mode_, this->collapse_delay_, this->collapse_min_lines_,
+            this->collapse_max_lines_, this->height_limits_lines_, this->timestamp_display_, this->timestamp_color_enabled_, this->timestamp_color_};
+    }
+
+    auto chat_module::ApplyWindowSettings(const window_settings& settings) -> void
+    {
+        if (this->state_.bounds.width != settings.width || this->state_.bounds.height != settings.height ||
+            this->container_.padding != settings.container.padding || this->line_spacing_ != settings.line_spacing ||
+            this->text_.style.font != settings.text.style.font || this->text_.style.scale != settings.text.style.scale ||
+            this->text_.style.letter_spacing != settings.text.style.letter_spacing || this->timestamp_display_ != settings.timestamp_display ||
+            this->collapse_mode_ != settings.collapse_mode || this->collapse_delay_ != settings.collapse_delay ||
+            this->collapse_min_lines_ != settings.collapse_min_lines || this->collapse_max_lines_ != settings.collapse_max_lines ||
+            this->height_limits_lines_ != settings.height_limits_lines) this->ResetCollapse();
+        if (this->message_animation_ != settings.message_animation) this->message_entrances_.clear();
+        if (this->state_.bounds.width != settings.width || this->state_.bounds.height != settings.height) this->state_.content_bounds = {};
+        this->state_.bounds.width = settings.width;
+        this->state_.bounds.height = settings.height;
+        this->container_ = settings.container;
+        this->text_ = settings.text; this->chrome_ = settings.chrome;
+        this->line_spacing_ = settings.line_spacing;
+        this->message_animation_ = settings.message_animation;
+        this->message_animation_speed_ = settings.message_animation_speed;
+        this->collapse_mode_ = settings.collapse_mode;
+        this->collapse_delay_ = settings.collapse_delay;
+        this->collapse_min_lines_ = settings.collapse_min_lines;
+        this->collapse_max_lines_ = settings.collapse_max_lines;
+        this->height_limits_lines_ = settings.height_limits_lines;
+        this->timestamp_display_ = settings.timestamp_display;
+        this->timestamp_color_enabled_ = settings.timestamp_color_enabled;
+        this->timestamp_color_ = settings.timestamp_color;
     }
 
     auto chat_module::ApplyTextDefaults(const ui::theme& theme) -> void
@@ -178,12 +219,14 @@ namespace xiui
         this->message_animation_speed_ = 100;
         this->collapse_mode_ = 0; this->collapse_delay_ = 5;
         this->collapse_min_lines_ = 0; this->collapse_max_lines_ = 12;
+        this->height_limits_lines_ = false;
         this->shared_windows_ = false;
         this->ResetCollapse();
         this->state_.enabled = !this->secondary_;
         this->state_.bounds.width = 560.0f;
         this->state_.bounds.height = 260.0f;
         this->defaults_initialized_ = false;
+        this->match_window1_ = false; this->independent_settings_.reset();
         this->container_ = {};
         this->text_ = {};
         this->ApplyTextDefaults(theme);
@@ -202,6 +245,8 @@ namespace xiui
 
     auto chat_module::Load(const settings_store& store) -> void
     {
+        this->independent_settings_.reset();
+        this->match_window1_ = this->secondary_ && store.ReadBool(this->Id(), "match_window1", false);
         if (!this->secondary_) { this->alerts_.Load(store); this->colors_.Load(store); }
         if (!this->secondary_) this->shared_windows_ = store.ReadBool("chat", "shared_windows", false);
         this->state_.enabled = store.ReadBool(this->Id(), "enabled", !this->secondary_);
@@ -220,6 +265,7 @@ namespace xiui
         };
         this->collapse_delay_ = collapseValue("collapse_delay", 5, 3, 30);
         this->collapse_max_lines_ = collapseValue("collapse_max_lines", 12, 1, 40);
+        this->height_limits_lines_ = store.ReadBool(this->Id(), "height_limits_lines", false);
         this->collapse_min_lines_ = std::min(this->collapse_max_lines_, collapseValue("collapse_min_lines", 0, 0, 40));
         this->ResetCollapse();
         this->input_counter_ = store.ReadBool(this->Id(), "input_counter", true);
@@ -250,30 +296,36 @@ namespace xiui
                 }
             }
         }
+        if (this->MatchingWindow1()) this->EnsureWindowDefaults();
         if (!this->state_.enabled) this->Focus(false);
     }
 
     auto chat_module::Save(const settings_store& store) const -> void
     {
+        const auto window = this->independent_settings_.value_or(this->CaptureWindowSettings());
+        auto bounds = this->state_.bounds;
+        bounds.width = window.width; bounds.height = window.height;
         if (!this->secondary_) { this->alerts_.Save(store); this->colors_.Save(store); }
         if (!this->secondary_) store.WriteBool("chat", "shared_windows", this->shared_windows_);
+        if (this->secondary_) store.WriteBool(this->Id(), "match_window1", this->match_window1_);
         store.WriteBool(this->Id(), "enabled", this->state_.enabled);
-        store.WriteRect(this->secondary_ ? "layout.chat2" : "layout.chat", this->state_.bounds);
-        store.WriteFloat(this->Id(), "opacity", this->container_.opacity);
-        store.WriteFloat(this->Id(), "padding", this->container_.padding);
-        store.WriteFloat(this->Id(), "line_spacing", this->line_spacing_);
-        store.WriteInt(this->Id(), "message_animation", this->message_animation_);
-        store.WriteFloat(this->Id(), "message_animation_speed", this->message_animation_speed_);
-        store.WriteInt(this->Id(), "collapse_mode", this->collapse_mode_);
-        store.WriteFloat(this->Id(), "collapse_delay", this->collapse_delay_);
-        store.WriteFloat(this->Id(), "collapse_min_lines", this->collapse_min_lines_);
-        store.WriteFloat(this->Id(), "collapse_max_lines", this->collapse_max_lines_);
+        store.WriteRect(this->secondary_ ? "layout.chat2" : "layout.chat", bounds);
+        store.WriteFloat(this->Id(), "opacity", window.container.opacity);
+        store.WriteFloat(this->Id(), "padding", window.container.padding);
+        store.WriteFloat(this->Id(), "line_spacing", window.line_spacing);
+        store.WriteInt(this->Id(), "message_animation", window.message_animation);
+        store.WriteFloat(this->Id(), "message_animation_speed", window.message_animation_speed);
+        store.WriteInt(this->Id(), "collapse_mode", window.collapse_mode);
+        store.WriteFloat(this->Id(), "collapse_delay", window.collapse_delay);
+        store.WriteFloat(this->Id(), "collapse_min_lines", window.collapse_min_lines);
+        store.WriteFloat(this->Id(), "collapse_max_lines", window.collapse_max_lines);
+        store.WriteBool(this->Id(), "height_limits_lines", window.height_limits_lines);
         store.WriteBool(this->Id(), "input_counter", this->input_counter_);
-        store.WriteInt(this->Id(), "timestamp_display", this->timestamp_display_);
-        store.WriteBool(this->Id(), "timestamp_color_enabled", this->timestamp_color_enabled_);
+        store.WriteInt(this->Id(), "timestamp_display", window.timestamp_display);
+        store.WriteBool(this->Id(), "timestamp_color_enabled", window.timestamp_color_enabled);
         store.WriteInt(this->Id(), "timestamp_color_version", 1);
-        store.WriteArgb(this->Id(), "timestamp_color", this->timestamp_color_);
-        store.WriteBool(this->Id(), "timestamps", this->timestamp_display_ >= 2);
+        store.WriteArgb(this->Id(), "timestamp_color", window.timestamp_color);
+        store.WriteBool(this->Id(), "timestamps", window.timestamp_display >= 2);
         store.WriteInt(this->Id(), "active_tab", this->active_tab_);
         store.WriteInt(this->Id(), "source", this->source_);
         store.WriteBool(this->Id(), "tab_window1", this->visible_tabs_[0]);
@@ -282,8 +334,8 @@ namespace xiui
         if (this->secondary_) store.WriteBool(this->Id(), "defaults_initialized", this->defaults_initialized_);
         store.WriteInt(this->Id(), "channel", this->channel_);
         store.WriteInt(this->Id(), "channel_version", 1);
-        SaveTextProfile(store, this->secondary_ ? "chat2.text" : "chat.text", this->text_);
-        SaveTextProfile(store, this->secondary_ ? "chat2.chrome" : "chat.chrome", this->chrome_);
+        SaveTextProfile(store, this->secondary_ ? "chat2.text" : "chat.text", window.text);
+        SaveTextProfile(store, this->secondary_ ? "chat2.chrome" : "chat.chrome", window.chrome);
     }
 
     auto chat_module::ConfigSections(void) const -> std::span<const module_config_section>
@@ -304,6 +356,7 @@ namespace xiui
     auto chat_module::ConfigSectionContains(const size_t section, const size_t index) -> bool
     {
         if (section >= this->ConfigSections().size() || index >= this->OptionCount()) return false;
+        if (this->secondary_ && index == this->MatchWindow1Option()) return section == 0;
         if (index >= this->CollapseOptionStart()) return section == 2;
         if (index == this->AnimationOptionStart() + 2) return !this->secondary_ && section == 0;
         if (index >= this->AnimationOptionStart()) return section == 8;
@@ -320,12 +373,38 @@ namespace xiui
 
     auto chat_module::Option(const size_t index) -> module_option
     {
+        this->EnsureWindowDefaults();
+        if (this->secondary_ && index == this->MatchWindow1Option())
+        {
+            auto option = module_option::Toggle("Match Window 1 settings", "Follow Window 1 size, appearance, text, timestamps and animation. Filters, tabs, visibility and position stay independent. Turn off to restore this window's settings.", &this->match_window1_).Ordered(-40);
+            option.available = this->parent_ != nullptr;
+            return option;
+        }
+        auto option = this->WindowOption(index);
+        if (this->MatchingWindow1() && this->InheritedWindowOption(index))
+        {
+            option.available = false;
+            option.description = "Matches Window 1. Turn off Match Window 1 settings under General to customize this window.";
+        }
+        return option;
+    }
+
+    auto chat_module::InheritedWindowOption(const size_t index) const -> bool
+    {
+        return index != 0 && index != this->MatchWindow1Option() && !(index >= 7 && index <= 9) &&
+            !(index >= this->NativeFiltersStart() && index < this->AnimationOptionStart());
+    }
+
+    auto chat_module::WindowOption(const size_t index) -> module_option
+    {
+        if (index == this->CollapseOptionStart() + (this->secondary_ ? 4 : 5))
+            return module_option::Toggle("Use window height for maximum", "Resizing the window enables this automatically. Turn off to follow the maximum line setting again.",
+                &this->height_limits_lines_).Ordered(314).VisibleWhen(this->collapse_mode_ != 1);
         if (!this->secondary_ && index == this->CollapseOptionStart() + 4)
             return module_option::Toggle("Shared window stack", "Keep the gap between stacked chat windows as the lower window collapses. Saved positions are retained.",
                 &this->shared_windows_).Ordered(320, true).VisibleWhen(this->second_window_ != nullptr && this->second_window_->state_.enabled);
         if (index >= this->CollapseOptionStart() && index < this->CollapseOptionStart() + 4)
         {
-            this->EnsureWindowDefaults();
             const auto setting = index - this->CollapseOptionStart();
             if (setting == 0)
             {
@@ -340,7 +419,6 @@ namespace xiui
         }
         if (index == this->AnimationOptionStart() + 2)
             return module_option::Toggle("Character counter", "Show the current length and game limit above the right edge of chat input. The limit is always enforced.", &this->input_counter_);
-        this->EnsureWindowDefaults();
         if (index == this->AnimationOptionStart() + 1)
         {
             auto option = module_option::Slider("Animation speed (%)", "Higher is faster. 100% keeps the original speed; 50% takes twice as long.",
@@ -418,6 +496,15 @@ namespace xiui
 
     auto chat_module::OnOptionChanged(const size_t index) -> void
     {
+        if (this->secondary_ && index == this->MatchWindow1Option())
+        {
+            this->EnsureWindowDefaults();
+            this->CancelPointer(); this->ResetCollapse(); this->cache_revision_ = UINT64_MAX;
+            return;
+        }
+        if (this->MatchingWindow1() && this->InheritedWindowOption(index)) { this->EnsureWindowDefaults(); return; }
+        if (index == 2) { this->height_limits_lines_ = true; this->ResetCollapse(); }
+        if (index == this->CollapseOptionStart() || index == this->CollapseOptionStart() + 3) this->height_limits_lines_ = false;
         if (index >= this->CollapseOptionStart())
         {
             if (index == this->CollapseOptionStart() + 2) this->collapse_max_lines_ = std::max(this->collapse_max_lines_, this->collapse_min_lines_);
@@ -433,6 +520,7 @@ namespace xiui
         if (index == (this->secondary_ ? 7u : 8u))
             this->active_tab_ = static_cast<int>(this->source_ == 0 ? chat_tab::window1 : this->source_ == 1 ? chat_tab::window2 : chat_tab::all);
         if (!this->state_.enabled) this->Focus(false);
+        if (this->second_window_ != nullptr && this->second_window_->MatchingWindow1()) this->second_window_->EnsureWindowDefaults();
     }
 
     auto chat_module::PreviewChoice(const size_t index, const size_t choice) -> bool
@@ -443,6 +531,7 @@ namespace xiui
 
     auto chat_module::Focus(const bool focused, const bool preserveExpandedHistory) -> void
     {
+        if (focused && !this->Focused()) this->editor_.RestartHistory();
         if (focused || !preserveExpandedHistory || !this->HistoryExpanded())
             this->history_view_.focused = this->history_view_.expanded = false;
         this->history_view_.pointer = {-1, -1};
@@ -576,6 +665,7 @@ namespace xiui
 
     auto chat_module::CollapseSettings(void) const -> std::optional<native_chat_window_settings>
     {
+        if (this->MatchingWindow1()) return this->parent_->CollapseSettings();
         if (this->collapse_mode_ == 0) return this->native_window_settings_;
         if (this->collapse_mode_ == 1) return std::nullopt;
         return native_chat_window_settings{true, static_cast<uint32_t>(this->collapse_min_lines_),
@@ -622,7 +712,7 @@ namespace xiui
         this->RebuildRows(design, std::max(1.0f, content.width - 14));
         const auto lineHeight = std::max(1.0f, design.TextHeight(this->text_.style) + this->line_spacing_);
         const auto capacity = std::max<size_t>(1, static_cast<size_t>(content.height / lineHeight));
-        const auto maximum = std::min<size_t>(capacity, settings->maximum_lines);
+        const auto maximum = this->height_limits_lines_ ? capacity : std::min<size_t>(capacity, settings->maximum_lines);
         const auto minimum = std::min<size_t>(maximum, settings->minimum_lines);
         const auto floor = this->rows_.size() > maximum ? this->rows_.size() - maximum : 0;
         auto retained = this->rows_.size() > minimum ? this->rows_.size() - minimum : 0;
@@ -688,6 +778,7 @@ namespace xiui
 
     auto chat_module::Grip(const ui::design_system& design) const -> ui::rect
     {
+        if (this->MatchingWindow1()) return {};
         const auto frame = this->FrameBounds(design);
         return {frame.x + frame.width - 18, frame.y, 18, std::min(18.0f, frame.height)};
     }
@@ -804,6 +895,7 @@ namespace xiui
                     std::max(this->state_.minimum_width, viewport.x + viewport.width - this->resize_bounds_.x));
                 const float tabsHeight = this->state_.bounds.y - this->VisualBounds(design).y;
                 this->state_.bounds.height = std::clamp(this->resize_bounds_.height - y + this->resize_y_, this->state_.minimum_height, std::max(this->state_.minimum_height, bottom - viewport.y - tabsHeight));
+                if (this->state_.bounds.height != this->resize_bounds_.height) this->height_limits_lines_ = true;
                 this->state_.bounds.y = bottom - this->state_.bounds.height;
                 this->state_.content_bounds = {};
             }
@@ -1266,7 +1358,7 @@ namespace xiui
     auto chat_module::AdoptDraft(chat_draft draft) -> bool
     {
         if (!this->state_.enabled || this->secondary_) return false;
-        this->editor_.Set(std::move(draft.text), draft.caret);
+        if (!draft.text.empty()) this->editor_.Set(std::move(draft.text), draft.caret);
         this->reply_recipient_.clear();
         this->error_.clear();
         this->input_start_ = 0;
@@ -1663,7 +1755,7 @@ namespace xiui
                 context.DrawButton(layout.controller_actions[index], labels[index], index == this->controller_compose_action_, profile);
         }
         this->DrawCompletions(layout, context);
-        if (this->hovered_)
+        if (this->hovered_ && !this->MatchingWindow1())
         {
             const auto grip = this->Grip(context.Design());
             context.Design().DrawTriangle(grip.x + 3, grip.y + 3, grip.x + 15, grip.y + 3, grip.x + 15, grip.y + 15, theme.colors.accent);

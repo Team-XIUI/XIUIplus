@@ -1,5 +1,6 @@
 #include "modules/target/target_module.hpp"
 #include "modules/target/target_ring_draw_scope.hpp"
+#include "world/entity_render_position.hpp"
 #include <cmath>
 #include <cstdio>
 #include <filesystem>
@@ -171,6 +172,43 @@ auto RunTargetRingChecks(const char* client_root) -> bool
         if (!okay) std::fprintf(stderr,"target ring check failed: %s\n",message);
         return okay;
     };
+    {
+        alignas(uintptr_t) std::array<uint8_t, 0x700> actor{};
+        Ashita::FFXI::entity_t entity{};
+        std::array<uintptr_t, 0x1C0 / sizeof(uintptr_t)> table{};
+        std::array<uint8_t, 7> getter{0x8D, 0x81, 0xFC, 0x05, 0, 0, 0xC3};
+        const auto actorAddress = reinterpret_cast<uintptr_t>(actor.data());
+        const auto entityAddress = reinterpret_cast<uintptr_t>(&entity);
+        const auto getterAddress = reinterpret_cast<uintptr_t>(getter.data());
+        const auto tableAddress = reinterpret_cast<uintptr_t>(table.data());
+        std::memcpy(actor.data(), &tableAddress, sizeof(tableAddress));
+        std::memcpy(actor.data() + 0x70, &entityAddress, sizeof(entityAddress));
+        entity.ActorPointer = actorAddress;
+        table[0x1BC / sizeof(uintptr_t)] = getterAddress;
+        entity.Movement.LocalPosition = {12, 3, 24};
+        ground_point rendered{11.5f, 2.9f, 23.5f}, position{};
+        std::memcpy(actor.data() + 0x5FC, rendered.data(), sizeof(rendered));
+        if (!check(ReadEntityRenderPosition(actorAddress, entityAddress, getterAddress, getter.size(), position) && position == rendered,
+            "ring anchor follows the model draw position when the movement anchor runs ahead")) return false;
+        entity.Movement.LocalPosition.X = 14;
+        rendered[0] = 12.25f;
+        std::memcpy(actor.data() + 0x5FC, rendered.data(), sizeof(rendered));
+        if (!check(ReadEntityRenderPosition(actorAddress, entityAddress, getterAddress, getter.size(), position) && position == rendered,
+            "moving models use their current interpolated anchor without velocity prediction or retained lag")) return false;
+        entity.ActorPointer = 0;
+        if (!check(!ReadEntityRenderPosition(actorAddress, entityAddress, getterAddress, getter.size(), position),
+            "replaced actor ownership cannot supply a ring anchor")) return false;
+        entity.ActorPointer = actorAddress;
+        getter[0] = 0xE9;
+        if (!check(!ReadEntityRenderPosition(actorAddress, entityAddress, getterAddress, getter.size(), position),
+            "unrecognized native position getters fail without guessing an actor offset")) return false;
+        getter[0] = 0x8D;
+        rendered[0] = std::numeric_limits<float>::quiet_NaN();
+        std::memcpy(actor.data() + 0x5FC, rendered.data(), sizeof(rendered));
+        if (!check(!ReadEntityRenderPosition(actorAddress, entityAddress, getterAddress, getter.size(), position) &&
+            !ReadEntityRenderPosition(actorAddress, entityAddress, getterAddress + 8, getter.size(), position),
+            "invalid model coordinates and getters outside the native client are unavailable")) return false;
+    }
     zone_ground slope;
     const auto point=[](float x,float z) -> ground_point { return {x,x*0.3f+z*0.1f,z}; };
     slope.Add({point(-5,-5),point(5,-5),point(5,5)});

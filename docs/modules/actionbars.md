@@ -4,6 +4,8 @@ Hotbars, controller crossbar, reusable macros, palettes and their management win
 
 **Start in:** [actionbars_module.hpp](../../src/runtime/modules/actionbars/actionbars_module.hpp), [actionbars_display.cpp](../../src/runtime/modules/actionbars/actionbars_display.cpp), [hud_runtime_actionbars.cpp](../../src/runtime/hud_runtime_actionbars.cpp).
 
+Global visuals are opt-in per hotbar. Preserve independent shapes, assignments, keys and positions; unlinking restores saved local visuals. The detailed guide records remaining Lua compatibility gaps.
+
 **Keep intact:** Keep native macro suppression separate from crossbar activation. All execution uses the validated executor. Pointer management can work over native menus; unclaimed keyboard/controller navigation remains native. Shared library edits must not silently assign slots.
 
 **Focused check:** `xiui_actionbars_ui_smoke --input-ownership-only`; crossbar normalization uses `xiui_crossbar_input_smoke`.

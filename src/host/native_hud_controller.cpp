@@ -134,6 +134,7 @@ namespace xiui
             if (native_hud_options[index].resource != nullptr)
                 this->slots_[index] = this->FindMenu(native_hud_options[index].resource);
         this->chat_input_slot_ = this->FindMenu("inline");
+        this->party_draw_ = this->Find("51A1????????5785C08BF90F84????????8A474084C074128B4F0868????????E8????????5F59C20400");
         constexpr const char* macroPalettes[]{"mcr1pall", "mcr2pall", "mcr1long", "mcr2long"};
         for (size_t index = 0; index < this->macro_palette_slots_.size(); ++index)
             this->macro_palette_slots_[index] = this->FindMenu(macroPalettes[index]);
@@ -287,20 +288,6 @@ namespace xiui
         return player != nullptr && player->GetLoginStatus() == static_cast<uint8_t>(Ashita::FFXI::Enums::LoginStatus::LoggedIn);
     }
 
-    auto native_hud_controller::IsFishing(void) const -> bool
-    {
-        auto* memory = this->core_->GetMemoryManager();
-        auto* party = memory != nullptr ? memory->GetParty() : nullptr;
-        auto* entity = memory != nullptr ? memory->GetEntity() : nullptr;
-        const auto index = party != nullptr ? party->GetMemberTargetIndex(0) : 0;
-        if (entity == nullptr || index == 0 || index >= entity->GetEntityMapSize())
-            return true;
-        const auto fishing = [](const uint32_t status) {
-            return (status >= 38 && status <= 43) || (status >= 50 && status <= 53) || (status >= 56 && status <= 62);
-        };
-        return fishing(entity->GetStatus(index)) || fishing(entity->GetStatusServer(index));
-    }
-
     auto native_hud_controller::SetClock(const bool hidden) -> void
     {
         if (this->clock_hidden_ == hidden)
@@ -320,8 +307,6 @@ namespace xiui
         this->menus_.Update(menuLayout);
         if ((hiddenMask & NativeHudBit(native_hud_element::target)) == 0)
             this->RestoreTargetBox();
-        if (hiddenMask != 0 && this->IsFishing())
-            hiddenMask &= ~NativeHudBit(native_hud_element::party);
         const uint32_t windowMask = hiddenMask & ~(NativeHudBit(native_hud_element::compass) | NativeHudBit(native_hud_element::clock));
         this->hidden_.store(hiddenMask, std::memory_order_release);
         if (!this->SetHook(windowMask != 0 || (menuLayout.enabled && this->menus_.State().menu_available)))
@@ -375,6 +360,12 @@ namespace xiui
             uintptr_t current{};
             if (Read(this->slots_[index], current) && current == owner)
             {
+                if (index == static_cast<size_t>(native_hud_element::party) && this->party_draw_ != 0)
+                {
+                    uintptr_t table{}, draw{}; uint8_t fishGauge{};
+                    if (Read(owner, table) && Read(table + 0x28, draw) && draw == this->party_draw_ &&
+                        Read(owner + 0x40, fishGauge) && fishGauge == 1) return false;
+                }
                 if (index == static_cast<size_t>(native_hud_element::target))
                 {
                     if (this->HideTargetBox(owner, primitive))
@@ -477,6 +468,7 @@ namespace xiui
         this->native_macros_ = {}; this->macro_entry_ = 0;
         this->macro_hook_created_ = this->macro_hook_enabled_ = this->minhook_initialized_ = false;
         this->chat_input_slot_ = 0;
+        this->party_draw_ = 0;
         this->compass_ = {};
         this->connection_ = {};
         this->core_ = nullptr;

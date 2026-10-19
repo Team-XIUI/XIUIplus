@@ -123,7 +123,7 @@ namespace xiui
         auto OnOptionChanged(size_t) -> void override;
         auto ApplyTextDefaults(const ui::theme&) -> void override;
         auto VisitTextSettings(const text_settings_visitor& visitor) -> void override
-        { VisitTextProfiles(visitor, this->text_); for (auto& bar : this->bars_) VisitTextProfiles(visitor, bar.text); }
+        { VisitTextProfiles(visitor, this->text_); VisitTextProfiles(visitor, this->global_.text); for (auto& bar : this->bars_) VisitTextProfiles(visitor, bar.text); for (auto& bar : this->local_visuals_) VisitTextProfiles(visitor, bar.text); this->ApplyGlobalVisuals(); }
         auto ResetDefaults(const ui::theme&) -> void override;
         auto Load(const settings_store&) -> void override;
         auto Save(const settings_store&) const -> void override;
@@ -144,7 +144,7 @@ namespace xiui
             slot_cooldown_style, slot_cooldown_color, slot_cooldown_text,
             slot_binding_anchor, slot_binding_x, slot_binding_y, slot_count_anchor, slot_count_x, slot_count_y,
             slot_timer_anchor, slot_timer_x, slot_timer_y, slot_mp_cost, slot_cost_anchor, slot_cost_x, slot_cost_y,
-            slot_apply_all, slot_reset, crossbar_animations, skillchain_predictions, skillchain_rules, magic_burst_settings, keybinds, shared_expanded, vertical_gap, per_bar_text, label_wrap, diamond_spacing, group_spacing, button_icons, prompt_size, prompt_gap_x, prompt_gap_y, visibility_mode, visibility_delay, visibility_fade, base_options };
+            slot_apply_all, slot_reset, crossbar_animations, skillchain_predictions, skillchain_rules, magic_burst_settings, keybinds, shared_expanded, vertical_gap, per_bar_text, label_wrap, diamond_spacing, group_spacing, button_icons, prompt_size, prompt_gap_x, prompt_gap_y, visibility_mode, visibility_delay, visibility_fade, use_global, base_options };
         enum class dialog : uint8_t { none, picker, editor, palettes, name, delete_palette, delete_macro, import, setup, palette_dropdown, slot_menu, bar_menu, keybinds, icons };
         enum class control_kind : uint8_t { button, field, choice, list, toggle, label, slider, dropdown, icon };
         enum icon_control : int { field_icon_query = 8, command_icon_picker = 566, command_icon_default = 567, command_icon_back = 568, icon_first = 100000 };
@@ -194,6 +194,16 @@ namespace xiui
             size_t rows{}, columns{};
         };
         std::array<actionbar_presentation, action_bar_count + 1> bars_{};
+        static constexpr size_t global_view = action_bar_count + 4;
+        actionbar_presentation global_{};
+        std::array<actionbar_presentation, action_bar_count> local_visuals_{};
+        std::array<bool, action_bar_count> use_global_{};
+        static auto CopyVisuals(const actionbar_presentation& source, actionbar_presentation& destination) -> void;
+        auto ApplyGlobalVisuals(void) -> void;
+        auto ConfigPresentation(void) -> actionbar_presentation& { return this->view_ == global_view ? this->global_ : this->bars_[this->view_]; }
+        auto SavedPresentation(size_t index) const -> actionbar_presentation;
+        auto PresentationOption(size_t) -> module_option;
+        static auto VisualOption(size_t) -> bool;
         std::array<bool, action_bar_count + 1> available_{true, true, true, true, true, true, true, true, true, true, true};
         std::array<module_text_profile, 7> text_{};
         ui::container_style container_{1, 5, 8, false};
@@ -265,7 +275,7 @@ namespace xiui
         auto Surface(void) const -> action_surface { return this->view_ == action_bar_count ? action_surface::crossbar : action_surface::hotbar; }
         auto CombatSettings(void) -> combat_settings& { return this->combat_settings_ != nullptr ? *this->combat_settings_ : this->local_combat_settings_; }
         auto CombatSettings(void) const -> const combat_settings& { return this->combat_settings_ != nullptr ? *this->combat_settings_ : this->local_combat_settings_; }
-        auto ConfigBar(void) const -> size_t { return this->view_ == action_bar_count ? static_cast<size_t>(this->selected_bank_) : this->view_; }
+        auto ConfigBar(void) const -> size_t { return this->view_ == action_bar_count ? static_cast<size_t>(this->selected_bank_) : std::min(this->view_, action_bar_count - 1); }
         auto Presentation(const address& value) -> actionbar_presentation& { return this->bars_[value.surface == action_surface::crossbar ? action_bar_count : value.bar]; }
         auto Presentation(const address& value) const -> const actionbar_presentation& { return this->bars_[value.surface == action_surface::crossbar ? action_bar_count : value.bar]; }
         auto Layout(size_t) -> void;

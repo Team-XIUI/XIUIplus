@@ -4,6 +4,12 @@ using namespace xiui::config_checks;
 
 int main(int argc, char** argv)
 {
+    if (argc == 3 && std::strcmp(argv[1], "--viewport-layout-only") == 0)
+    {
+        if (!xiui::config_input_test::ViewportLayout(argv[2])) return 1;
+        std::puts("First-load viewport fitting, missing positions, saved layouts and position-only recovery passed.");
+        return 0;
+    }
     if (argc == 2 && std::strcmp(argv[1], "--lua-profile-import-only") == 0)
     {
         if (!xiui::config_input_test::LuaProfileImport()) return 1;

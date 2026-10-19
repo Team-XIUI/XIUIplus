@@ -6,16 +6,26 @@ namespace xiui
 {
     auto game_hud_module::ResetDefaults(const ui::theme&) -> void
     {
-        this->preferences_ = {};
+        this->preferences_ = this->defaults_;
+    }
+
+    auto game_hud_module::SetDefaults(const settings_store& store) -> void
+    {
+        this->defaults_.enabled = store.ReadBool("game_hud", "enabled", true);
+        for (size_t index = 0; index < native_hud_options.size(); ++index)
+        {
+            const auto key = std::string{"show_"} + native_hud_options[index].key;
+            this->defaults_.shown[index] = store.ReadBool("game_hud", key.c_str(), true);
+        }
     }
 
     auto game_hud_module::Load(const settings_store& store) -> void
     {
-        this->preferences_.enabled = store.ReadBool("game_hud", "enabled", true);
+        this->preferences_.enabled = store.ReadBool("game_hud", "enabled", this->defaults_.enabled);
         for (size_t index = 0; index < native_hud_options.size(); ++index)
         {
             const auto key = std::string{"show_"} + native_hud_options[index].key;
-            this->preferences_.shown[index] = store.ReadBool("game_hud", key.c_str(), true);
+            this->preferences_.shown[index] = store.ReadBool("game_hud", key.c_str(), this->defaults_.shown[index]);
         }
     }
 

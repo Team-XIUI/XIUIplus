@@ -29,3 +29,13 @@ Rendering, pointer controls, scrolling and controller navigation use the same la
 Keyboard users can start resizing with **Alt+F8**, adjust with the arrow keys, press **Space** for one-pixel steps, and use **Enter** to save or **Escape** to cancel. Controller users can select **Resize** in Configuration's Utilities region and use directional input, Actions for fine steps, Confirm and Cancel. Both routes use the same size constraints as dragging. Keyboard resizing also works when controller enumeration is disabled.
 
 Resizing changes only the configuration window's layout. It does not apply presets or change HUD preferences.
+
+## First-load layout fitting
+
+The shipped layout was authored at **2560×1440**. XIUI records that reference in `layout.viewport`, waits for a valid Direct3D game viewport, and fits untouched default positions to the player's window. It preserves the stacked chat offsets and central bottom HUD alignment; other default elements retain their relative edge placement. Window dimensions and text styling remain as configured, with normal bounds checks for smaller windows.
+
+Missing position settings receive fitted defaults. Moved modules retain their saved positions, including when another resolution is detected; old layouts without viewport metadata remain unchanged. Untouched defaults can be fitted again from the original preset rather than scaling the previous result repeatedly. Saves and portable profiles include their reference viewport.
+
+For a first-load layout already saved in a clamped state by an older build, `/xiui layout defaults` restores **positions only**, fitted to the current game window. Current appearance, sizes, actions, bindings and visibility choices are retained. Ordinary reloads preserve customized placement.
+
+Focused check: `xiui_config_input_smoke --viewport-layout-only config/xiuinative-defaults.ini`.

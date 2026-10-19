@@ -1377,9 +1377,7 @@ namespace xiui
     auto party_module::PlacementBounds(const bool editing) const -> ui::rect
     {
         const bool preview = editing && this->preview_;
-        const auto layout = this->LayoutRows(this->DisplayCount(editing), preview, this->StatusPreview(editing));
-        const auto visual = this->VisualBounds(layout);
-        return {visual.x + 8, visual.y + 8, visual.width - layout.right_overflow - 16, visual.height - 16};
+        return this->LayoutRows(this->DisplayCount(editing), preview, this->StatusPreview(editing)).bounds;
     }
 
     auto party_module::HitTarget(const float x, const float y) const -> std::pair<uint32_t, uint32_t>

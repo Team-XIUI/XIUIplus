@@ -109,7 +109,7 @@ namespace xiui
         return this->map_;
     }
 
-    auto minimap_source::Update(IAshitaCore* core, const uint64_t now, const bool npcs, const bool distantParty) -> void
+    auto minimap_source::Update(IAshitaCore* core, const uint64_t now, const bool npcs, const bool distantParty, const bool enemies) -> void
     {
         const auto* memory = core != nullptr ? core->GetMemoryManager() : nullptr;
         auto* party = memory != nullptr ? memory->GetParty() : nullptr;
@@ -147,17 +147,33 @@ namespace xiui
             return true;
         };
         const auto pet = entity->GetPetTargetIndex(index);
-        if (npcs)
+        if (npcs || enemies)
         {
-            size_t count{};
+            std::array<uint32_t, 18> group{};
+            if (enemies)
+                for (uint32_t member = 0; member < group.size(); ++member)
+                    if (member == 0 || party->GetMemberIsActive(member)) group[member] = party->GetMemberServerId(member);
+            size_t npcCount{}, enemyCount{};
             const auto limit = std::min(entity->GetEntityMapSize(), 4096u);
-            for (uint32_t candidate = 1; candidate < limit && count < 128; ++candidate)
+            for (uint32_t candidate = 1; candidate < limit && ((npcs && npcCount < 128) || (enemies && enemyCount < 256)); ++candidate)
             {
-                if (candidate == pet || entity->GetServerId(candidate) == 0 ||
-                    !IsMinimapNpc(entity->GetSpawnFlags(candidate), entity->GetRenderFlags0(candidate))) continue;
+                if (candidate == pet || candidate == index || entity->GetServerId(candidate) == 0) continue;
+                const auto flags = entity->GetSpawnFlags(candidate), render = entity->GetRenderFlags0(candidate);
+                const bool npc = npcs && npcCount < 128 && IsMinimapNpc(flags, render);
+                const bool enemy = enemies && enemyCount < 256 && IsMinimapEnemy(flags, render, entity->GetHPPercent(candidate));
+                if (!npc && !enemy) continue;
                 const float dx = entity->GetLocalPositionX(candidate) - x, dy = entity->GetLocalPositionY(candidate) - y;
                 if (!std::isfinite(dx) || !std::isfinite(dy) || dx * dx + dy * dy > 120 * 120) continue;
-                if (add(candidate, minimap_npc_color, minimap_marker_kind::npc)) ++count;
+                if (npc)
+                {
+                    if (add(candidate, minimap_npc_color, minimap_marker_kind::npc)) ++npcCount;
+                }
+                else
+                {
+                    const auto claim = entity->GetClaimStatus(candidate);
+                    const auto color = MinimapEnemyColor(claim, IsGroupClaim(claim, group));
+                    if (add(candidate, color, minimap_marker_kind::enemy)) ++enemyCount;
+                }
             }
         }
         bool requestPositions{};
@@ -191,7 +207,11 @@ namespace xiui
         {
             const auto selected = target->GetTargetIndex(0);
             if (selected > 0 && selected < entity->GetEntityMapSize())
-                add(selected, ReadEntityNameColor(*party, *entity, selected), minimap_marker_kind::target);
+            {
+                const auto name = ReadEntityNameState(*party, *entity, selected);
+                const auto color = IsMonster(name.kind) ? MinimapEnemyColor(entity->GetClaimStatus(selected), name.kind == entity_class::group_mob) : name.color;
+                add(selected, color, minimap_marker_kind::target);
+            }
         }
     }
 }

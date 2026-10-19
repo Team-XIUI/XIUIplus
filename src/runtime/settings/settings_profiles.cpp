@@ -1,4 +1,5 @@
 #include "settings_profiles.hpp"
+#include "layout_viewport.hpp"
 #include "chat/chat_encoding.hpp"
 
 #include <algorithm>
@@ -15,6 +16,12 @@ namespace xiui
     auto OverlayProfilePreferences(const settings_store& target, const settings_store& source) -> void
     {
         target.OverlayPreferences(source);
+        if (!LayoutSections(source).empty())
+        {
+            const auto viewport = ReadLayoutViewport(source);
+            target.WriteInt("layout.viewport", "width", viewport.width);
+            target.WriteInt("layout.viewport", "height", viewport.height);
+        }
         for (const auto* section : {"chat", "chat2"})
             if (!source.ReadString(section, "channel").empty())
                 target.WriteInt(section, "channel_version", source.ReadInt(section, "channel_version", 0));

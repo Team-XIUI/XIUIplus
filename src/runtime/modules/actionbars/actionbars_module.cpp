@@ -20,8 +20,8 @@ namespace xiui
     namespace
     {
         constexpr const char* bar_names[]{"Hotbar 1", "Hotbar 2", "Hotbar 3", "Hotbar 4", "Hotbar 5", "Hotbar 6", "Hotbar 7", "Hotbar 8", "Hotbar 9", "Hotbar 10", "Crossbar"};
-        constexpr const char* config_views[]{"Hotbar 1", "Hotbar 2", "Hotbar 3", "Hotbar 4", "Hotbar 5", "Hotbar 6", "Hotbar 7", "Hotbar 8", "Hotbar 9", "Hotbar 10", "Crossbar", "Actions & Macros", "Action Sets", "Import"};
-        constexpr const char* bar_ids[]{"hotbar", "hotbar2", "hotbar3", "hotbar4", "hotbar5", "hotbar6", "hotbar7", "hotbar8", "hotbar9", "hotbar10", "crossbar"};
+        constexpr const char* config_views[]{"Hotbar 1", "Hotbar 2", "Hotbar 3", "Hotbar 4", "Hotbar 5", "Hotbar 6", "Hotbar 7", "Hotbar 8", "Hotbar 9", "Hotbar 10", "Crossbar", "Actions & Macros", "Action Sets", "Import", "Global"};
+        constexpr const char* bar_ids[]{"hotbar", "hotbar2", "hotbar3", "hotbar4", "hotbar5", "hotbar6", "hotbar7", "hotbar8", "hotbar9", "hotbar10", "crossbar", "global"};
         constexpr const char* bank_names[]{"Left trigger", "Right trigger", "Left then right", "Right then left", "Double left", "Double right", "Shared expanded"};
         constexpr std::array<size_t, 10> crossbar_sections{0, 6, 9, 1, 2, 3, 4, 5, 7, 8};
         constexpr std::array<size_t, 9> hotbar_sections{0, 9, 1, 2, 3, 4, 5, 7, 8};
@@ -63,11 +63,44 @@ namespace xiui
 
     actionbars_module::actionbars_module()
     {
+        this->global_.custom_text = true;
         this->bars_[0].state.enabled = true;
         this->bars_[action_bar_count].size = 32;
         this->bars_[action_bar_count].columns = 8;
         this->bars_[action_bar_count].slots = 8;
         for (size_t index = 0; index < this->bars_.size(); ++index) this->Layout(index);
+    }
+
+    auto actionbars_module::CopyVisuals(const actionbar_presentation& source, actionbar_presentation& destination) -> void
+    {
+        const auto state = destination.state;
+        const auto keys = destination.keys;
+        const auto locked = destination.locked;
+        const auto columns = destination.columns, slots = destination.slots;
+        destination = source;
+        destination.state = state; destination.keys = keys; destination.locked = locked;
+        destination.columns = columns; destination.slots = slots;
+    }
+
+    auto actionbars_module::ApplyGlobalVisuals(void) -> void
+    {
+        for (size_t index = 0; index < action_bar_count; ++index)
+            if (this->use_global_[index]) { CopyVisuals(this->global_, this->bars_[index]); this->Layout(index); }
+    }
+
+    auto actionbars_module::SavedPresentation(const size_t index) const -> actionbar_presentation
+    {
+        if (index == this->bars_.size()) return this->global_;
+        auto result = this->bars_[index];
+        if (index < action_bar_count && this->use_global_[index]) CopyVisuals(this->local_visuals_[index], result);
+        return result;
+    }
+
+    auto actionbars_module::VisualOption(const size_t index) -> bool
+    {
+        return (index >= size && index <= padding) || index == selected_text ||
+            (index >= slot_frame && index <= slot_reset) || index == vertical_gap || index == per_bar_text ||
+            index == label_wrap || index >= base_options;
     }
 
     auto actionbars_module::Initialize(IAshitaCore* core, action_store* store, action_executor* executor) -> void
@@ -103,6 +136,7 @@ namespace xiui
             this->bars_[index] = {};
             this->bars_[index].state.bounds.x = position.x; this->bars_[index].state.bounds.y = position.y;
         }
+        this->global_ = {}; this->global_.custom_text = true; this->use_global_.fill(false);
         this->bars_[action_bar_count].size = 32; this->bars_[action_bar_count].slots = this->bars_[action_bar_count].columns = 8;
         this->bars_[0].state.enabled = true;
         this->inactive_ = this->prompts_ = this->allow_native_keys_ = this->crossbar_animations_ = true;
@@ -111,7 +145,7 @@ namespace xiui
         this->local_combat_settings_.ResetDefaults();
         this->magic_burst_settings_request_ = false;
         this->container_ = {1, 5, 8, false};
-        this->ApplyTextDefaults(theme);
+        this->ApplyTextDefaults(theme); this->global_.text = this->text_;
         for (size_t index = 0; index < this->bars_.size(); ++index) this->Layout(index);
     }
 
@@ -128,17 +162,17 @@ namespace xiui
         auto& setupBounds = this->workspace_bounds_[3];
         if (settings.ReadInt("actionbars", "setup_layout_version", 0) < 1 && (setupBounds.height == 548 || setupBounds.height == 510))
         { setupBounds.height = 416; this->settings_changed_ = true; }
-        for (size_t index = 0; index < this->bars_.size(); ++index)
+        for (size_t index = 0; index <= this->bars_.size(); ++index)
         {
-            auto& bar = this->bars_[index];
+            auto& bar = index == this->bars_.size() ? this->global_ : this->bars_[index];
             const auto section = std::string{"actionbars."} + bar_ids[index];
             bar.state.bounds = settings.ReadRect(("layout." + std::string{bar_ids[index]}).c_str(), bar.state.bounds);
             for (auto [key, value] : {std::pair{"enabled", &bar.state.enabled}, {"locked", &bar.locked}, {"heading", &bar.heading}, {"labels", &bar.labels}, {"bindings", &bar.bindings}, {"resources", &bar.resources}, {"cooldowns", &bar.cooldowns}, {"empty", &bar.empty}, {"background", &bar.background}, {"tooltips", &bar.tooltips}})
                 *value = settings.ReadBool(section.c_str(), key, *value);
             const auto number = [&](const char* key, float value, float minimum, float maximum) { const auto result = settings.ReadFloat(section.c_str(), key, value); return std::clamp(std::isfinite(result) ? result : value, minimum, maximum); };
             bar.columns = std::round(number("columns", bar.columns, 1, 12)); bar.slots = std::round(number("slots", bar.slots, 1, 12));
-            bar.size = number("icon_size", bar.size, 24, 72); bar.gap = number("spacing", bar.gap, 0, 24);
-            bar.gap_y = number("vertical_spacing", -1, -1, 24); bar.custom_text = settings.ReadBool(section.c_str(), "custom_text", false);
+            bar.size = number("icon_size", bar.size, 16, 72); bar.gap = number("spacing", bar.gap, 0, 32);
+            bar.gap_y = number("vertical_spacing", -1, -1, 32); bar.custom_text = settings.ReadBool(section.c_str(), "custom_text", false);
             bar.label_wrap = settings.ReadBool(section.c_str(), "label_wrap", false); bar.button_icons = settings.ReadBool(section.c_str(), "button_icons", true);
             bar.diamond_spacing = number("diamond_spacing", -1, -1, 128); bar.group_spacing = number("group_spacing", 32, 0, 128);
             bar.prompt_size = number("prompt_size", 16, 8, 48); bar.prompt_gap_x = number("prompt_gap_x", 8, 0, 48); bar.prompt_gap_y = number("prompt_gap_y", 2, 0, 48);
@@ -234,9 +268,9 @@ namespace xiui
             }
             this->settings_changed_ = true;
         }
-        for (size_t barIndex = 0; barIndex < this->bars_.size(); ++barIndex)
+        for (size_t barIndex = 0; barIndex <= this->bars_.size(); ++barIndex)
             for (size_t role = 0; role < this->text_.size(); ++role)
-                this->bars_[barIndex].text[role] = LoadTextProfile(settings, ("text.actionbars.bar" + std::to_string(barIndex) + "." + std::to_string(role)).c_str(), this->text_[role]);
+                (barIndex == this->bars_.size() ? this->global_ : this->bars_[barIndex]).text[role] = LoadTextProfile(settings, ("text.actionbars.bar" + std::to_string(barIndex) + "." + std::to_string(role)).c_str(), this->text_[role]);
         auto& controller = this->controller_settings_;
         for (auto [key, value] : {std::pair{"enabled", &controller.enabled}, {"replace_native", &controller.replace_native}, {"expanded", &controller.expanded}, {"double_tap", &controller.double_tap}, {"palette_cycle", &controller.palette_cycle}, {"palette_left_shoulder", &controller.palette_left_shoulder}})
             *value = settings.ReadBool("controller.crossbar.device", key, *value);
@@ -254,6 +288,13 @@ namespace xiui
             mapping.palette_modifier = static_cast<int16_t>(std::clamp(settings.ReadInt(section, "palette_modifier", mapping.palette_modifier), minimum, maximum));
             for (size_t slot = 0; slot < 8; ++slot) mapping.slots[slot] = static_cast<int16_t>(std::clamp(settings.ReadInt(section, ("slot" + std::to_string(slot + 1)).c_str(), mapping.slots[slot]), minimum, maximum));
         }
+        this->global_.custom_text = true;
+        for (size_t index = 0; index < action_bar_count; ++index)
+        {
+            this->local_visuals_[index] = this->bars_[index];
+            this->use_global_[index] = settings.ReadBool((std::string{"actionbars."} + bar_ids[index]).c_str(), "use_global", false);
+        }
+        this->ApplyGlobalVisuals();
         this->SyncStorage();
     }
 
@@ -265,9 +306,9 @@ namespace xiui
         settings.WriteBool("actionbars", "skillchain_predictions", this->skillchain_predictions_);
         if (this->combat_settings_ == nullptr)
             this->local_combat_settings_.Save(settings);
-        for (size_t index = 0; index < this->bars_.size(); ++index)
+        for (size_t index = 0; index <= this->bars_.size(); ++index)
         {
-            const auto& bar = this->bars_[index]; const auto section = std::string{"actionbars."} + bar_ids[index];
+            const auto bar = this->SavedPresentation(index); const auto section = std::string{"actionbars."} + bar_ids[index];
             settings.WriteRect(("layout." + std::string{bar_ids[index]}).c_str(), bar.state.bounds);
             for (auto [key, value] : {std::pair{"enabled", bar.state.enabled}, {"locked", bar.locked}, {"heading", bar.heading}, {"labels", bar.labels}, {"bindings", bar.bindings}, {"resources", bar.resources}, {"cooldowns", bar.cooldowns}, {"empty", bar.empty}, {"background", bar.background}, {"tooltips", bar.tooltips}})
                 settings.WriteBool(section.c_str(), key, value);
@@ -289,12 +330,14 @@ namespace xiui
                 settings.WriteInt((section + ".modifiers").c_str(), key.c_str(), bar.keys[slot].modifiers);
             }
         }
+        for (size_t index = 0; index < action_bar_count; ++index)
+            settings.WriteBool((std::string{"actionbars."} + bar_ids[index]).c_str(), "use_global", this->use_global_[index]);
         settings.WriteBool("actionbars", "shared_expanded", this->shared_expanded_);
         settings.WriteInt("actionbars", "crossbar_visibility", this->crossbar_visibility_);
         settings.WriteFloat("actionbars", "crossbar_release_delay", this->crossbar_delay_); settings.WriteFloat("actionbars", "crossbar_fade", this->crossbar_fade_);
-        for (size_t barIndex = 0; barIndex < this->bars_.size(); ++barIndex)
+        for (size_t barIndex = 0; barIndex <= this->bars_.size(); ++barIndex)
         {
-            const auto section = std::string{"actionbars."} + bar_ids[barIndex]; const auto& bar = this->bars_[barIndex];
+            const auto section = std::string{"actionbars."} + bar_ids[barIndex]; const auto bar = this->SavedPresentation(barIndex);
             settings.WriteFloat(section.c_str(), "vertical_spacing", bar.gap_y); settings.WriteBool(section.c_str(), "custom_text", bar.custom_text);
             settings.WriteBool(section.c_str(), "label_wrap", bar.label_wrap); settings.WriteBool(section.c_str(), "button_icons", bar.button_icons);
             for (const auto& [key, value] : {std::pair{"diamond_spacing", bar.diamond_spacing}, {"group_spacing", bar.group_spacing}, {"prompt_size", bar.prompt_size}, {"prompt_gap_x", bar.prompt_gap_x}, {"prompt_gap_y", bar.prompt_gap_y}}) settings.WriteFloat(section.c_str(), key, value);
@@ -329,7 +372,7 @@ namespace xiui
         if (value == 11) { this->OpenLibrary(this->Surface() == action_surface::crossbar, this->ConfigBar()); return; }
         if (value == 12) { this->OpenPalettes(this->Surface() == action_surface::crossbar, this->ConfigBar()); return; }
         if (value == 13) { this->OpenImport(); return; }
-        this->view_ = std::min(value, action_bar_count);
+        this->view_ = value == global_view ? global_view : std::min(value, action_bar_count);
         if (this->view_ < action_bar_count) this->selected_bar_ = static_cast<int>(this->view_);
         this->SyncStorage();
     }
@@ -352,6 +395,8 @@ namespace xiui
             for (size_t index = 0; index < result.size(); ++index) result[index] = sections[hotbar_sections[index]];
             return result;
         }();
+        static const std::array<module_config_section, 6> globalSections{sections[1], sections[2], sections[3], sections[4], sections[5], sections[7]};
+        if (this->view_ == global_view) return globalSections;
         return this->view_ == action_bar_count ? std::span<const module_config_section>{crossbarSections} : std::span<const module_config_section>{hotbarSections};
     }
     auto actionbars_module::OpenKeybindsSection(const size_t section) -> bool
@@ -364,6 +409,8 @@ namespace xiui
     {
         if (section >= this->ConfigSections().size() || index >= this->OptionCount()) return false;
         const auto topic = this->ConfigSections()[section].Id();
+        if (this->view_ == global_view && !VisualOption(index)) return false;
+        if (index == use_global) return this->view_ < action_bar_count && topic == "layout";
         if (index == keybinds) return topic == "keybinds";
         if (index == edit || index == palettes || index == import) return false;
         if (index == bar_selector) return this->view_ < action_bar_count;
@@ -389,7 +436,15 @@ namespace xiui
     }
     auto actionbars_module::Option(const size_t index) -> module_option
     {
-        auto& bar = this->bars_[this->view_];
+        auto result = this->PresentationOption(index);
+        if (this->view_ < action_bar_count && this->use_global_[this->view_] && VisualOption(index) && index != selected_text)
+            result.available = false;
+        return result;
+    }
+
+    auto actionbars_module::PresentationOption(const size_t index) -> module_option
+    {
+        auto& bar = this->ConfigPresentation();
         static constexpr const char* scopes[]{"Global", "Main job (shared subjob)", "Main job + subjob"};
         static constexpr const char* profiles[]{"Title", "Action label", "Key / button", "Countdown", "Tooltip", "Item count / charges", "MP cost"};
         static constexpr const char* frames[]{"Beveled", "Flat", "Outline", "Icon only", "Window theme"};
@@ -401,9 +456,10 @@ namespace xiui
         const auto customSlot = [&](module_option option) { return option.VisibleWhen(bar.style.frame != actionbar_slot_style::window_frame); };
         switch (index)
         {
+        case use_global: return module_option::Toggle("Use Global Settings", "Follow Global size, spacing, display, slot effects and text. Turn off to restore independent visuals. Shapes, positions, actions and keys stay independent.", this->view_ < action_bar_count ? &this->use_global_[this->view_] : nullptr).Ordered(-100).VisibleWhen(this->view_ < action_bar_count);
         case shared_expanded: return controllerOnly(module_option::Toggle("Shared expanded bank", "Both trigger orders use a separate Shared bank. Ordered-bank assignments are retained.", &this->shared_expanded_));
-        case vertical_gap: return module_option::Slider("Vertical spacing", "Row spacing; -1 follows horizontal spacing.", &bar.gap_y, -1, 24, 1).Ordered(122);
-        case per_bar_text: return module_option::Toggle("Independent text styles", "Customize text for this bar instead of the shared Action Bars styles.", &bar.custom_text).Ordered(-50);
+        case vertical_gap: return module_option::Slider("Vertical spacing", "Row spacing; -1 follows horizontal spacing.", &bar.gap_y, -1, 32, 1).Ordered(122);
+        case per_bar_text: return module_option::Toggle("Independent text styles", "Customize text for this bar instead of the shared Action Bars styles.", &bar.custom_text).Ordered(-50).VisibleWhen(this->view_ != global_view);
         case label_wrap: return module_option::Toggle("Wrap action labels", "Allow up to two lines below action icons.", &bar.label_wrap).VisibleWhen(bar.labels);
         case diamond_spacing: return controllerOnly(module_option::Slider("Diamond spacing", "Space between D-pad and face-button diamonds; -1 uses the default.", &bar.diamond_spacing, -1, 128, 1).Ordered(123));
         case group_spacing: return controllerOnly(module_option::Slider("Trigger group spacing", "Space between the left and right crossbar groups.", &bar.group_spacing, 0, 128, 1).Ordered(124));
@@ -433,8 +489,8 @@ namespace xiui
             auto value = module_option::Choice("Bar shape", "Right-click the bar number to cycle shapes. Assignments keep their order.", &this->shape_, shapes, 7).Ordered(100);
             return value.VisibleWhen(this->view_ != action_bar_count);
         }
-        case size: return module_option::Slider("Slot size", "Overall slot dimensions; artwork padding is configured under Slots.", &bar.size, 24, 72, 1).Ordered(120, true);
-        case gap: return module_option::Slider("Spacing", "Space between slots; crossbar diamonds keep their shape.", &bar.gap, 0, 24, 1).Ordered(121);
+        case size: return module_option::Slider("Slot size", "Overall slot dimensions; artwork padding is configured under Slots.", &bar.size, 16, 72, 1).Ordered(120, true);
+        case gap: return module_option::Slider("Spacing", "Space between slots; crossbar diamonds keep their shape.", &bar.gap, 0, 32, 1).Ordered(121);
         case heading: return module_option::Toggle("Action set caption", "Show the selected action set below the icons. Click it to switch sets.", &bar.heading);
         case labels: return module_option::Toggle("Action labels", "Show action names below their icons.", &bar.labels);
         case bindings: return module_option::Toggle("Key / button labels", "Show configured key bindings or controller positions.", &bar.bindings).Ordered(100);
@@ -512,8 +568,13 @@ namespace xiui
     }
     auto actionbars_module::OnOptionChanged(const size_t index) -> void
     {
-        if (index == per_bar_text && this->bars_[this->view_].custom_text) this->bars_[this->view_].text = this->text_;
+        if (index == per_bar_text && this->ConfigPresentation().custom_text) this->ConfigPresentation().text = this->text_;
         if (index == shared_expanded) this->SuspendInput();
+        if (index == use_global && this->view_ < action_bar_count)
+        {
+            if (this->use_global_[this->view_]) this->local_visuals_[this->view_] = this->bars_[this->view_];
+            else CopyVisuals(this->local_visuals_[this->view_], this->bars_[this->view_]);
+        }
         switch (index)
         {
         case keybinds: this->OpenKeybinds(this->Surface() == action_surface::crossbar, this->ConfigBar()); break;
@@ -521,7 +582,7 @@ namespace xiui
         case bar_selector: this->SelectConfigView(static_cast<size_t>(std::clamp(this->selected_bar_, 0, 9))); break;
         case edit: this->OpenLibrary(this->Surface() == action_surface::crossbar, this->ConfigBar()); break;
         case shape:
-            if (this->view_ < action_bar_count && this->shape_ < 6) { static constexpr float columns[]{12, 6, 4, 3, 2, 1}; this->bars_[this->view_].columns = columns[this->shape_]; this->bars_[this->view_].slots = 12; }
+            if (this->view_ != action_bar_count && this->shape_ < 6) { static constexpr float columns[]{12, 6, 4, 3, 2, 1}; this->ConfigPresentation().columns = columns[this->shape_]; this->ConfigPresentation().slots = 12; }
             break;
         case crossbar_enabled:
             this->controller_settings_.enabled = this->controller_settings_.replace_native = this->trigger_controls_;
@@ -534,12 +595,14 @@ namespace xiui
         case scope: if (this->store_) this->store_->SetScope(this->Surface(), this->ConfigBar(), static_cast<action_scope>(this->storage_scope_)); break;
         case pet_aware: if (this->store_) this->store_->SetPetAware(this->Surface(), this->ConfigBar(), this->storage_pet_); break;
         case bank: this->SyncStorage(); break;
-        case slot_apply_all: { const auto design = this->bars_[this->view_].style; for (auto& bar : this->bars_) bar.style = design; break; }
-        case slot_reset: this->bars_[this->view_].style = {}; break;
+        case slot_apply_all: { const auto design = this->ConfigPresentation().style; for (auto& bar : this->bars_) bar.style = design; break; }
+        case slot_reset: this->ConfigPresentation().style = {}; break;
         default: break;
         }
-        if (index == enabled && !this->bars_[this->view_].state.enabled) this->SuspendInput();
+        if (index == enabled && !this->ConfigPresentation().state.enabled) this->SuspendInput();
+        this->ApplyGlobalVisuals();
         for (size_t bar = 0; bar < this->bars_.size(); ++bar) this->Layout(bar);
+        this->SyncStorage();
         this->settings_changed_ = true;
     }
 
@@ -547,7 +610,7 @@ namespace xiui
     {
         if (this->store_) { this->storage_scope_ = static_cast<int>(this->store_->Scope(this->Surface(), this->ConfigBar())); this->storage_pet_ = this->store_->PetAware(this->Surface(), this->ConfigBar()); }
         static constexpr float columns[]{12, 6, 4, 3, 2, 1};
-        const auto& bar = this->bars_[this->view_]; const auto found = std::find(std::begin(columns), std::end(columns), bar.columns);
+        const auto& bar = this->ConfigPresentation(); const auto found = std::find(std::begin(columns), std::end(columns), bar.columns);
         this->shape_ = bar.slots == 12 && found != std::end(columns) ? static_cast<int>(found - std::begin(columns)) : 6;
         this->trigger_controls_ = this->controller_settings_.enabled && this->controller_settings_.replace_native;
     }

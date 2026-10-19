@@ -92,7 +92,23 @@ namespace xiui
             if (!Check(visual.x + visual.width > placed.x + placed.width, "party edit bounds still include the outside artwork and countdowns")) return false;
             runtime.ClampLayout(viewport);
             const auto after = runtime.MovementBounds(runtime.party_);
-            return Check(Near(after.x + after.width, 1920), "normal layout clamping preserves an edge-aligned party position");
+            if (!Check(Near(after.x + after.width, 1920), "normal layout clamping preserves an edge-aligned party position")) return false;
+            for (const int placement : {0, 1})
+                for (const int order : {0, 3})
+                {
+                    runtime.party_.Load(settings_store::FromIniText("[party]\nstatus_placement=" + std::to_string(placement) +
+                        "\nstatus_order=" + std::to_string(order) + "\nstatus_container=true\nstatus_columns=16\n"));
+                    bounds.x = -4000;
+                    ClampMovementPosition(bounds, runtime.MovementBounds(runtime.party_), viewport);
+                    if (!Check(Near(bounds.x, 0), "left-side status space cannot stop the party panel reaching the left edge")) return false;
+                    runtime.ClampLayout(viewport);
+                    if (!Check(Near(bounds.x, 0), "normal layout clamping keeps the party panel at the left edge")) return false;
+                    bounds.x = 4000;
+                    ClampMovementPosition(bounds, runtime.MovementBounds(runtime.party_), viewport);
+                    const auto right = runtime.MovementBounds(runtime.party_);
+                    if (!Check(Near(bounds.x + right.width, 1920), "right-side status space cannot stop the party panel reaching the right edge")) return false;
+                }
+            return true;
         }
 
         static auto Toolbar(void) -> bool
@@ -131,6 +147,10 @@ namespace xiui
                 "centering or moving the module leaves its screen toolbar in place")) return false;
             runtime.config_.module = &runtime.inventory_[1]; runtime.inventory_[1].State().enabled = false;
             if (!Check(!runtime.MovementToolbar(viewport), "disabled inventory trackers have no movement toolbar")) return false;
+            runtime.config_.module = &runtime.actionbars_;
+            runtime.actionbars_.SelectConfigView(runtime.actionbars_.ConfigViews().size() - 1);
+            if (!Check(runtime.MovementSelectionModule() == nullptr && !runtime.MovementToolbar(viewport),
+                "Global hotbar settings cannot select a nonexistent movable bar")) return false;
             const auto edge = ui::movement_toolbar::AtTop({0, 0, 1920, 1080});
             return Check(edge.bounds.x >= 0 && edge.bounds.y >= 0 && edge.bounds.x + edge.bounds.width <= 1920 && edge.bounds.y + edge.bounds.height <= 1080,
                 "toolbar stays visible when a module touches the screen edge");

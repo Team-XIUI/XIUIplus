@@ -1,6 +1,14 @@
 # Action Bars
 
-Configuration → **Action Bars** has five destinations: Hotbars, Crossbar, Actions & Macros, Action Sets and Import. Hotbars and Crossbar contain their layout and display settings; the other destinations open separate workspace windows. Hotbars shows direct buttons for Hotbar 1–10 above its settings, wrapping to fit the window. Each surface has its own enable flag, position, layout and assignment lock. Normal bars offer up to twelve slots; the controller crossbar has seven stored banks of eight slots, including a separate Shared expanded bank. Move bars through the existing configuration movement controls.
+Configuration → **Action Bars** has six destinations: Hotbars, Crossbar, Actions & Macros, Action Sets, Import and Global. Hotbars and Crossbar contain their layout and display settings; the other destinations open separate workspace windows. Hotbars shows direct buttons for Hotbar 1–10 above its settings, wrapping to fit the window. Each surface has its own enable flag, position, layout and assignment lock. Normal bars offer up to twelve slots; the controller crossbar has seven stored banks of eight slots, including a separate Shared expanded bank. Move bars through the existing configuration movement controls.
+
+## Global settings and Lua compatibility
+
+**Action Bars → Global** edits shared hotbar size, spacing, display, slot design, effects, overlays and text. Enable **Hotbars → Layout → Use Global Settings** for each bar that should follow it. Shapes, visible slot counts, positions, enabled states, locks, actions and keybindings remain independent. Turning the toggle off restores saved independent visuals, including after reload. Existing profiles and Lua imports remain independent until opted in; the crossbar keeps its own settings. Slot size accepts 16–72 px and spacing 0–32 px, covering Lua's smaller slots and wider spacing.
+
+Checked against XIUI Lua 1.8.5: native already supports Global/main-job/main-job+subjob action storage, pet-aware assignments, palettes, ten hotbars, per-slot keybindings, label wrapping, quantity/charges, MP costs, text effects, overlay anchors and expanded/double/shared crossbar banks. **Global action storage** controls assignments; **Global visual settings** controls appearance.
+
+Remaining differences: Lua's selected-bar stack with one group anchor and shared stack spacing is not implemented; native bars move independently. Lua's separate full-stack item count, custom slot-frame image selector, per-bar background themes/scales and separate background/border padding/opacity controls also remain absent. Native uses the shared game-window theme and container controls. Lua profile import converts effective per-bar visuals rather than restoring Global links.
 
 ## Assigning actions
 

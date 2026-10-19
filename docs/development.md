@@ -55,7 +55,7 @@ Capture only when requested. This changes the baseline embedded for new installs
 ./scripts/check.ps1 -Name defaults
 ```
 
-The script verifies loaded XIUI with AgentLink, requests `/xiui save sync`, and requires its completed-save reply. It snapshots the saved INI and theme, backs up the previous baseline under `out/defaults-capture-*`, then atomically publishes each baseline file. Older builds must be updated before live capture. The companion `config/xiuinative-defaults.capture.json` records source type, timestamp, counts and hashes after each capture.
+The script verifies loaded XIUI with AgentLink, requests `/xiui save sync`, and requires its completed-save reply. It snapshots the saved INI and theme, backs up the previous baseline under `out/defaults-capture-*`, then atomically publishes each baseline file. Older builds must be updated before live capture. The companion `config/xiuinative-defaults.capture.json` records source type, timestamp, counts and hashes after each capture. The saved `layout.viewport` records the game viewport used for those positions; keep it with the captured preset so first loads can fit other resolutions.
 
 The C++ utility uses `settings_store::VisitPreferences`, the same boundary as portable settings, to omit session, profile metadata and local controller-device data. It also removes retired container demos and empty sections while preserving empty preference values, disabled states, Unicode and positions. UTF-8 and UTF-16LE saved files are supported.
 

@@ -96,10 +96,11 @@ namespace xiui
         if (enabled)
         {
             std::array<int16_t, 4> frame{};
-            if (!Read(value.primitive + 0x42, frame) || frame[2] <= frame[0] || frame[3] <= frame[1]) return;
-            // Align each panel's own edge; native lists can have different vertical origins.
+            int16_t originalLeft{};
+            if (!Read(value.primitive + 0x42, originalLeft) || !Read(value.primitive + 0x3A, frame) || frame[2] <= frame[0] || frame[3] <= frame[1]) return;
+            // +0x42 retains the creation rectangle; +0x3A tracks live resizing.
             target = {
-                static_cast<int16_t>(std::clamp<int>(frame[0] + this->offset_x_, -16000, 16000)),
+                static_cast<int16_t>(std::clamp<int>(originalLeft + this->offset_x_, -16000, 16000)),
                 static_cast<int16_t>(std::clamp<int>(this->anchor_y_ - (this->layout_.anchor_top ? 0 : frame[3] - frame[1]), -16000, 16000))};
         }
         if (current != target && !Reposition(this->reposition_, value.primitive, target[0], target[1])) return;
@@ -142,18 +143,19 @@ namespace xiui
             if (!Read(node, next) || !Read(node + 0x10, primitive) || !Read(node + 0x14, removed)) break;
             node = next;
             std::array<char, 16> name{};
-            std::array<int16_t, 4> frame{};
+            std::array<int16_t, 4> frame{}, liveFrame{};
             if (removed || !Read(primitive + 0x70, closed) || closed || !Read(primitive + 4, resource) ||
                 !Read(resource + 0x46, name) || Excluded(name) || !Read(primitive + 0x0C, owner) ||
                 !Read(owner + 8, attached) || attached != primitive || !MovableFrame(primitive, name) ||
-                !Read(primitive + 0x42, frame) || frame[2] <= frame[0] || frame[3] <= frame[1]) continue;
+                !Read(primitive + 0x42, frame) || frame[2] <= frame[0] || frame[3] <= frame[1] ||
+                !Read(primitive + 0x3A, liveFrame) || liveFrame[2] <= liveFrame[0] || liveFrame[3] <= liveFrame[1]) continue;
             auto& value = this->menus_[this->count_++];
             value = {primitive, owner, resource};
             for (size_t i = 0; i < previousCount; ++i)
                 if (previous[i].primitive == primitive && previous[i].owner == owner && previous[i].resource == resource) { value = previous[i]; break; }
             left = std::min<int>(left, frame[0]); top = std::min<int>(top, frame[1]);
             right = std::max<int>(right, frame[2]); bottom = std::max<int>(bottom, frame[3]);
-            tallest = std::max<int>(tallest, frame[3] - frame[1]);
+            tallest = std::max<int>(tallest, liveFrame[3] - liveFrame[1]);
         }
         this->state_.menu_count = static_cast<uint32_t>(this->count_);
         this->state_.menu_visible = this->count_ != 0;

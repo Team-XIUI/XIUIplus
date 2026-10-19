@@ -1,4 +1,6 @@
 #include "target_rings.hpp"
+#include "world/entity_render_position.hpp"
+#include "Memory.h"
 
 #include <algorithm>
 #include <chrono>
@@ -304,7 +306,12 @@ namespace xiui
         if (hasHealth && snapshot.target_hp_percent==0) { this->stage_="target is dead"; return; }
         auto appearance=settings;
         appearance.color=settings.Color(ReadEntityNameColor(*party,*entity,index));
-        const ground_point center{entity->GetLocalPositionX(index),entity->GetLocalPositionZ(index),entity->GetLocalPositionY(index)};
+        static_assert(offsetof(Ashita::FFXI::entity_t, ActorPointer) == 0xA0);
+        static const auto clientCode = Ashita::Memory::GetModuleBase("FFXiMain.dll");
+        static const auto clientSize = Ashita::Memory::GetModuleSize("FFXiMain.dll");
+        ground_point center{};
+        if (!ReadEntityRenderPosition(entity->GetActorPointer(index), reinterpret_cast<uintptr_t>(entity->GetRawEntity(index)), clientCode, clientSize, center))
+        { this->stage_="missing model render position"; this->mesh_valid_=false; return; }
         const auto now=::GetTickCount64();
         if (!this->mesh_valid_ || this->last_id_!=snapshot.target_server_id || now-this->hp_animation_.last_tick>500)
             this->hp_animation_={};

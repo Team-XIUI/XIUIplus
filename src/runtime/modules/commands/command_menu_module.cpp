@@ -66,7 +66,8 @@ namespace xiui
         {
             const float edge = this->AnchorsTop() ? bounds.y : bounds.y + bounds.height;
             bounds.width = std::max(32.0f, value.width * scaleX);
-            bounds.height = std::max(24.0f, value.height * scaleY);
+            const float availableHeight = this->AnchorsTop() ? viewportHeight - edge : edge;
+            bounds.height = std::clamp(value.height * scaleY, 24.0f, std::max(24.0f, availableHeight));
             bounds.y = this->AnchorsTop() ? edge : std::max(0.0f, edge - bounds.height);
         }
     }

@@ -108,8 +108,19 @@ namespace xiui
             (renderFlags & 0x200) != 0 && (renderFlags & 0x4000) == 0;
     }
 
+    inline auto IsMinimapEnemy(const uint32_t spawnFlags, const uint32_t renderFlags, const uint32_t hpPercent) -> bool
+    {
+        return IsMonster(ClassifyEntity(spawnFlags, 0, false, false)) && (spawnFlags & 0x1800) == 0 &&
+            (renderFlags & 0x200) != 0 && (renderFlags & 0x4000) == 0 && hpPercent > 0;
+    }
+
     inline constexpr uint32_t minimap_npc_color = 0xFF55DD77;
-    enum class minimap_marker_kind : uint8_t { party, alliance, pet, target, npc };
+    inline constexpr uint32_t minimap_enemy_color = 0xFFFF5555;
+    inline auto MinimapEnemyColor(const uint32_t claim, const bool groupClaim) -> uint32_t
+    {
+        return (claim & 0xFFFF) != 0 && !groupClaim ? other_claim_name_color : minimap_enemy_color;
+    }
+    enum class minimap_marker_kind : uint8_t { party, alliance, pet, target, npc, enemy };
     struct minimap_marker { ui::point uv{}; uint32_t color{0xFFFFFFFF}; minimap_marker_kind kind{}; };
     struct minimap_state
     {

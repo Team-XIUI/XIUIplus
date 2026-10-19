@@ -1184,7 +1184,17 @@ namespace xiui
 
     auto config_input_test::MinimapEdgeButtons(void) -> bool
     {
+        class mouse final : public IMouse
+        {
+        public:
+            bool blocked{};
+            void AddCallback(const char*, mousecallback_f) override {}
+            void RemoveCallback(const char*) override {}
+            bool GetBlockInput(void) const override { return this->blocked; }
+            void SetBlockInput(bool value) override { this->blocked = value; }
+        } input;
         hud_runtime runtime;
+        runtime.mouse_ = &input;
         runtime.editing_ = true;
         runtime.config_.bounds = {40, 40, 1100, 600};
         runtime.config_.module = &runtime.minimap_;
@@ -1224,11 +1234,54 @@ namespace xiui
             if (!check(option.button_toggles[part], "controller activation shares the pointer toggle")) return false;
             if (part < 3) focus.MoveGrid(items, 1, 0);
         }
-        return true;
+        minimap_state mapState{}; mapState.zone = 103; mapState.available = true;
+        minimap_maps maps;
+        runtime.minimap_.SetSource(mapState, maps);
+        runtime.minimap_.State().bounds = {1400, 80, 240, 260};
+        runtime.visible_ = true; runtime.editing_ = false;
+        if (!check(runtime.MinimapPointerOwns(1500, 180) && !runtime.MinimapPointerOwns(1390, 180) &&
+            !runtime.MinimapPointerOwns(1500, 500), "visible map hover claims zoom input without capturing outside or caption space")) return false;
+        runtime.SetChatMouseCapture(true);
+        if (!check(input.blocked && !runtime.PointerInputBlocked(true), "minimap hover capture is unwrapped before wheel handling")) return false;
+        runtime.SetChatMouseCapture(false);
+        if (!check(!input.blocked, "leaving the map releases its shared mouse block")) return false;
+        input.blocked = true;
+        runtime.SetChatMouseCapture(true);
+        if (!check(runtime.PointerInputBlocked(true), "minimap hover preserves another owner's preexisting mouse block")) return false;
+        runtime.SetChatMouseCapture(false); input.blocked = false;
+        runtime.chat_.State().enabled = true;
+        runtime.chat_.BeginControllerHistory();
+        runtime.chat_.HandleControllerAction(controller_action::confirm, false, runtime.design_system_);
+        if (!check(!runtime.MinimapPointerOwns(1500, 180), "expanded chat retains input over the minimap")) return false;
+        runtime.chat_.Focus(false);
+        runtime.editing_ = true;
+        if (!check(!runtime.MinimapPointerOwns(1500, 180), "layout editing retains its own mouse capture")) return false;
+        runtime.editing_ = false; runtime.minimap_.State().enabled = false;
+        return check(!runtime.MinimapPointerOwns(1500, 180), "disabled minimaps cannot claim hover input");
     }
 
     auto config_input_test::AllUiVisibility(void) -> bool
     {
+        {
+            hud_runtime runtime;
+            runtime.default_settings_text_ = "[game_hud]\nenabled=1\nshow_player=0\nshow_party=0\nshow_alliance1=0\nshow_alliance2=0\n"
+                "show_compass=0\nshow_clock=0\nshow_chat1=0\nshow_chat2=0\nshow_chatlog=0\n";
+            runtime.LoadSettings(settings_store::FromIniText(""));
+            const auto expected = NativeHudBit(native_hud_element::player) | NativeHudBit(native_hud_element::party) |
+                NativeHudBit(native_hud_element::alliance1) | NativeHudBit(native_hud_element::alliance2) | NativeHudBit(native_hud_element::compass) |
+                NativeHudBit(native_hud_element::clock) | NativeHudBit(native_hud_element::chat1) | NativeHudBit(native_hud_element::chat2) | NativeHudBit(native_hud_element::chatlog);
+            if (!check(runtime.game_hud_.HiddenMask() == expected, "missing native HUD settings inherit the shipped toggle defaults")) return false;
+            runtime.game_hud_.SetAvailable((uint32_t{1} << native_hud_options.size()) - 1);
+            const auto partyOption = static_cast<size_t>(native_hud_element::party) + 1;
+            if (!check(runtime.game_hud_.Option(partyOption).available, "default-hidden native windows retain editable visibility toggles")) return false;
+            runtime.LoadSettings(settings_store::FromIniText("[game_hud]\nshow_party=1\nshow_chat1=1\n"));
+            if (!check(runtime.game_hud_.HiddenMask() == (expected & ~NativeHudBit(native_hud_element::party) & ~NativeHudBit(native_hud_element::chat1)),
+                "explicit native visibility choices override the shipped defaults")) return false;
+            runtime.game_hud_.ResetDefaults(ui::theme::CreateDefault());
+            if (!check(runtime.game_hud_.HiddenMask() == expected, "reset restores the same authored native visibility defaults")) return false;
+            *runtime.game_hud_.Option(0).toggle = false;
+            if (!check(runtime.game_hud_.HiddenMask() == 0, "the native HUD master switch stays authoritative")) return false;
+        }
         module_visibility_source visibilitySource;
         uint8_t eventEnabled{1};
         uintptr_t eventOwner{};

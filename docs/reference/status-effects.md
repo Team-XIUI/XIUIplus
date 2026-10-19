@@ -71,8 +71,9 @@ Controller routes use the configured semantic bindings:
 - Enter Enemy List, then use **Actions** to inspect the focused enemy's visible effects.
 - Use `/xiui focus target`, `/xiui focus buffs` or `/xiui focus debuffs` for direct inspection, or choose an available group in `/xiui focus`.
 - Directions or previous/next tab move between effects. **Cancel** returns to the originating row or releases the standalone inspection surface.
+- On your own Buffs/Debuffs, **Confirm** (normally A) or keyboard **Enter** requests removal of the selected effect when the client marks it cancellable. The effect remains visible until the server reports its removal. Held Confirm does not repeat the request; Cancel/B still leaves inspection.
 
-Inspecting an effect never targets, casts or cancels it. The normal game retains input outside deliberate XIUI focus.
+Hovering and browsing never cancel an effect. Non-cancellable effects and remote party/enemy/target/pet inspection remain read-only. The normal game retains input outside deliberate XIUI focus. Cancellation uses the installed status resource's `CanCancel` flag from the [Ashita SDK](https://github.com/AshitaXI/Ashita-v4beta/blob/main/plugins/sdk/Ashita.h) and the native request used by Ashita's [debuff addon](https://github.com/AshitaXI/Ashita-v4beta/blob/main/addons/debuff/debuff.lua).
 
 ## What the client provides
 

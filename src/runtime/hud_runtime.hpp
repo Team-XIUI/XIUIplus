@@ -4,6 +4,7 @@
 #include "ui/native_ui_assets.hpp"
 #include "ui/game_icon_cache.hpp"
 #include "design_system.hpp"
+#include "settings/layout_viewport.hpp"
 #include "config/config_controls.hpp"
 #include "config/config_session.hpp"
 #include "config/color_picker.hpp"
@@ -341,6 +342,8 @@ namespace xiui
         bool visible_{true};
         bool editing_{false};
         bool layout_initialized_{false};
+        layout_viewport layout_viewport_{};
+        std::optional<settings_store> pending_layout_settings_{};
         bool mouse_block_state_saved_{false};
         bool previous_mouse_blocked_{false};
         bool mouse_captured_{false};
@@ -468,8 +471,9 @@ namespace xiui
         auto HandleTargetMouse(uint32_t message, bool blocked) -> bool;
         auto ChatResizing(void) const -> bool { return this->chat_.Resizing() || this->chat_second_.Resizing(); }
         auto ChatResizeAt(float x, float y) -> bool;
+        auto MinimapPointerOwns(float x, float y) const -> bool;
         auto LoadSettings(void) -> void;
-        auto LoadSettings(const settings_store& store) -> void;
+        auto LoadSettings(const settings_store& store, layout_viewport viewport = {}) -> void;
         auto SaveSettings(void) const -> void;
         auto CaptureSettings(void) const -> settings_store;
         auto DrainSettings(void) const -> bool;

@@ -25,6 +25,39 @@ namespace xiui
 {
     struct actionbars_ui_test
     {
+        static auto GlobalSettings(void) -> void
+        {
+            actionbars_module module; module.ResetDefaults(ui::theme::CreateDefault());
+            module.bars_[0].size = 42; module.bars_[0].state.bounds.x = 123;
+            module.bars_[0].columns = 4;
+            module.bars_[0].keys[0] = {'K', 1}; module.bars_[0].locked = false;
+            module.bars_[0].custom_text = true; module.bars_[0].text[1].style.scale = .7f;
+            module.SelectConfigView(actionbars_module::global_view);
+            Check(module.ConfigView() == actionbars_module::global_view && std::strcmp(module.ConfigViews()[module.ConfigView()], "Global") == 0,
+                "Global is a top-level configuration destination");
+            for (size_t section = 0; section < module.ConfigSections().size(); ++section)
+                Check(!module.ConfigSectionContains(section, actionbars_module::scope) && !module.ConfigSectionContains(section, actionbars_module::enabled),
+                    "Global appearance does not expose bar-specific storage or visibility");
+            module.global_.size = 50; module.global_.columns = 6; module.global_.text[1].style.scale = .9f;
+            module.OnOptionChanged(actionbars_module::size);
+            Check(module.bars_[0].size == 42, "existing independent bars keep their layout until opted in");
+            module.SelectConfigView(0); module.use_global_[0] = true; module.OnOptionChanged(actionbars_module::use_global);
+            Check(module.bars_[0].size == 50 && module.bars_[0].columns == 4 && module.bars_[0].text[1].style.scale == .9f &&
+                module.bars_[0].state.bounds.x == 123 && module.bars_[0].state.enabled && !module.bars_[0].locked && module.bars_[0].keys[0].key == 'K',
+                "linked layout and text preserve position, enabled state, locks and bindings");
+            Check(!module.Option(actionbars_module::size).available && module.Option(actionbars_module::use_global).available && module.Option(actionbars_module::shape).available,
+                "linked bars direct appearance edits to Global");
+            module.SelectConfigView(actionbars_module::global_view); module.global_.size = 16; module.global_.gap = 32; module.OnOptionChanged(actionbars_module::size);
+            Check(module.bars_[0].size == 16 && module.bars_[action_bar_count].size == 32, "Global changes update linked hotbars while crossbar remains independent");
+            const auto settings = settings_store::FromIniText(""); module.Save(settings);
+            actionbars_module restored; restored.ApplyTextDefaults(ui::theme::CreateDefault()); restored.Load(settings);
+            Check(restored.use_global_[0] && restored.bars_[0].size == 16 && restored.bars_[0].gap == 32 && restored.global_.text[1].style.scale == .9f,
+                "Global template, text and inheritance persist");
+            restored.SelectConfigView(0); restored.use_global_[0] = false; restored.OnOptionChanged(actionbars_module::use_global);
+            Check(restored.bars_[0].size == 42 && restored.bars_[0].text[1].style.scale == .7f && restored.bars_[0].state.bounds.x == 123 && restored.bars_[0].keys[0].key == 'K',
+                "unlinking after reload restores saved independent visuals without changing bindings or position");
+        }
+
         static auto SelectedCapabilities(void) -> void
         {
             action_store store; action_executor executor; store.SetContext({15, 0, {}});
@@ -1448,8 +1481,9 @@ namespace xiui
             module.Initialize(nullptr, &runtime->action_store_, &runtime->action_executor_);
             runtime->SelectConfigModule(&module, 7);
             auto page = runtime->ActiveConfigPage();
-            Check(page.SectionCount() == 5 && std::string{page.SectionName(0)} == "Hotbars" && std::string{page.SectionName(1)} == "Crossbar" && page.SectionView(1) == action_bar_count &&
-                std::string{page.SectionName(2)} == "Actions & Macros" && std::string{page.SectionName(3)} == "Action Sets" && std::string{page.SectionName(4)} == "Import",
+            Check(page.SectionCount() == 6 && std::string{page.SectionName(0)} == "Hotbars" && std::string{page.SectionName(1)} == "Crossbar" && page.SectionView(1) == action_bar_count &&
+                std::string{page.SectionName(2)} == "Actions & Macros" && std::string{page.SectionName(3)} == "Action Sets" && std::string{page.SectionName(4)} == "Import" &&
+                std::string{page.SectionName(5)} == "Global" && page.SectionView(5) == actionbars_module::global_view,
                 "action-bar navigation exposes bar settings and three workspace destinations");
             auto selector = module.Option(actionbars_module::bar_selector);
             Check(selector.selector == module_selector::element && selector.choice && selector.choice_count == 10 && *selector.choice == 7,
@@ -1501,6 +1535,11 @@ namespace xiui
 
 auto main(const int argc, char** argv) -> int
 {
+    if (argc == 2 && std::strcmp(argv[1], "--global-only") == 0)
+    {
+        try { xiui::actionbars_ui_test::GlobalSettings(); std::puts("Global hotbar inheritance, independent settings and persistence passed."); return 0; }
+        catch (const std::exception& error) { std::fprintf(stderr, "%s\n", error.what()); return 1; }
+    }
     if (argc == 2 && std::strcmp(argv[1], "--input-ownership-only") == 0)
     {
         try { xiui::actionbars_ui_test::RuntimeOwnership(); xiui::actionbars_ui_test::NativeMacroKeyboardOwnership(); std::puts("Action bar pointer, menu and keyboard ownership checks passed."); return 0; }

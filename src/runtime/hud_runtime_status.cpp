@@ -35,6 +35,21 @@ namespace xiui
         {
             auto& module = this->controller_surface_ == controller_surface::buffs ? this->buffs_ : this->debuffs_;
             if (action == controller_action::cancel) this->ReleaseControllerFocus();
+            else if (action == controller_action::confirm)
+            {
+                const auto effect = module.ControllerEffect();
+                auto* resources = this->core_ != nullptr ? this->core_->GetResourceManager() : nullptr;
+                const auto* memory = this->core_ != nullptr ? this->core_->GetMemoryManager() : nullptr;
+                const auto* player = memory != nullptr ? memory->GetPlayer() : nullptr;
+                const auto* party = memory != nullptr ? memory->GetParty() : nullptr;
+                const auto* icons = player != nullptr ? player->GetStatusIcons() : nullptr;
+                if (icons == nullptr || !LocalStatusSnapshotReady({icons, 32})) icons = player != nullptr ? player->GetBuffs() : nullptr;
+                const bool requested = effect && resources != nullptr && icons != nullptr && party != nullptr &&
+                    module.CancelControllerEffect(this->core_->GetPacketManager(), resources->GetStatusIconByIndex(*effect),
+                        party->GetMemberServerId(0), {icons, 32});
+                this->controller_hint_ = requested ? "Effect cancellation requested." : "This effect cannot be cancelled.";
+                if (requested) this->ui_sounds_.Select(::GetTickCount64());
+            }
             else if (action == controller_action::up || action == controller_action::down)
                 module.MoveControllerBrowse(action == controller_action::up ? -1 : 1);
             else if (action == controller_action::left || action == controller_action::right ||

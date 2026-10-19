@@ -151,6 +151,13 @@ auto RunMinimapChecks(void) -> bool
         Check(IsMinimapNpc(0x02, 0x200) && IsMinimapNpc(0x100, 0x200) && !IsMinimapNpc(0x01, 0x200) &&
             !IsMinimapNpc(0x10, 0x200) && !IsMinimapNpc(0x02, 0) && !IsMinimapNpc(0x02, 0x4200) && !IsMinimapNpc(0x1100, 0x200),
             "NPC markers exclude players, enemies, unloaded/hidden actors and trusts");
+        Check(IsMinimapEnemy(0x10, 0x200, 100) && IsMinimapEnemy(0x10, 0x200, 1) &&
+            !IsMinimapEnemy(0x10, 0x200, 0) && !IsMinimapEnemy(0x10, 0, 100) && !IsMinimapEnemy(0x10, 0x4200, 100) &&
+            !IsMinimapEnemy(0x01, 0x200, 100) && !IsMinimapEnemy(0x02, 0x200, 100) && !IsMinimapEnemy(0x110, 0x200, 100) &&
+            !IsMinimapEnemy(0x1810, 0x200, 100), "enemy dots include living visible monsters and exclude dead, hidden, player, NPC and pet actors");
+        Check(MinimapEnemyColor(0, false) == minimap_enemy_color && MinimapEnemyColor(0x10000, false) == minimap_enemy_color &&
+            MinimapEnemyColor(123, true) == minimap_enemy_color && MinimapEnemyColor(123, false) == other_claim_name_color,
+            "enemy dots stay red for unclaimed and group claims, with purple only for another group's claim");
 
         ui::design_system design;
         minimap_maps maps;
@@ -227,8 +234,21 @@ auto RunMinimapChecks(void) -> bool
         Check(*module.Option(minimap_module::zoom_option).slider == 2, "a new zone starts at its default zoom");
         *module.Option(minimap_module::zoom_option).slider = 5.5f; module.OnOptionChanged(minimap_module::zoom_option);
         *module.Option(minimap_module::shape_option).choice = 2; *module.Option(minimap_module::artwork_option).choice = 0;
+        Check(module.EnemiesEnabled() && module.Option(minimap_module::enemies_option).available &&
+            module.ConfigSectionContains(2, minimap_module::enemies_option), "enemy markers start enabled with a shared Markers toggle");
+        *module.Option(minimap_module::enemies_option).toggle = false;
+        const auto playerIcon = module.Option(minimap_module::player_icon_option);
+        Check(playerIcon.kind == module_option_kind::dropdown && playerIcon.available && playerIcon.choice_count == 2 &&
+            *playerIcon.choice == 0 && module.ConfigSectionContains(2, minimap_module::player_icon_option),
+            "player icon offers Triangle and Dot through the shared Markers dropdown, retaining Triangle by default");
+        *playerIcon.choice = 1;
         auto store = settings_store::FromIniText(""); module.Save(store);
         minimap_module loaded; loaded.ApplyTextDefaults(design.GetTheme()); loaded.SetSource(live, maps); loaded.Load(store);
+        Check(*loaded.Option(minimap_module::player_icon_option).choice == 1, "player Dot choice survives profile save and reload");
+        Check(!loaded.EnemiesEnabled() && !loaded.NpcsEnabled(), "enemy and NPC marker choices persist independently");
+        *loaded.Option(minimap_module::npcs_option).toggle = true;
+        Check(!loaded.EnemiesEnabled() && loaded.NpcsEnabled(), "NPC visibility cannot enable enemy markers");
+        *loaded.Option(minimap_module::npcs_option).toggle = false;
         loaded.Render({}, context);
         for (size_t edge = 0; edge < 4; ++edge)
             Check(loaded.Option(coordinateEdges).button_toggles[edge] == (edge % 2 == 0), "coordinate edges persist independently through settings/profile reloads");
@@ -275,6 +295,8 @@ auto RunMinimapChecks(void) -> bool
         Check(!loaded.ShouldRender({}) && !loaded.PreviewVisible() && !loaded.HandleMouseWheel(WHEEL_DELTA, 200, 280, save),
             "disabled minimaps leave gameplay, wheel input and edit mode");
         loaded.ResetDefaults(design.GetTheme()); loaded.Save(store);
+        Check(loaded.EnemiesEnabled(), "reset restores enemy dots without a profile migration");
+        Check(*loaded.Option(minimap_module::player_icon_option).choice == 0, "reset restores the Triangle player icon");
         module.Load(store); module.Render({}, context);
         Check(*module.Option(minimap_module::zoom_option).slider == 2 && module.State().bounds.x == 123 && module.State().bounds.y == 234,
             "reset clears remembered zoom while preserving the movement anchor");

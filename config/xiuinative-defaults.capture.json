@@ -3,9 +3,13 @@
   "source": "AgentLink confirmed live save",
   "settings_path": "C:\\Games\\PhoenixXI-dev\\PhoenixXI\\config\\xiuinative.ini",
   "theme_path": "C:\\Games\\PhoenixXI-dev\\PhoenixXI\\config\\xiuinative-theme.ini",
-  "sections": 1867,
-  "preferences": 14320,
-  "defaults_sha256": "B1AF8917B028F8AA0E53C447CBFE064B431409DA527E623292FBBA1695363F6D",
+  "sections": 1868,
+  "preferences": 14322,
+  "defaults_sha256": "3C84E54D8E430188742D9EB707CB3AB76009DDA3CB5CDC919EA7DBF2F40A6C9E",
   "theme_sha256": "3F7ACD509C16DA7C8C65F6BB93B3EA9C82BFCFF29D34DC38469543805C2AA5D8",
-  "provenance": "Original October 17 capture; metadata migrated from out/defaults-capture-latest.json during the October 18 cleanup. Baseline files were not recaptured."
+  "provenance": "Original October 17 capture; metadata migrated from out/defaults-capture-latest.json during the October 18 cleanup. Baseline files were not recaptured. Reference viewport metadata added for first-load fitting; captured appearance and layout values are unchanged.",
+  "layout_viewport": {
+    "width": 2560,
+    "height": 1440
+  }
 }

@@ -42,7 +42,11 @@ namespace xiui
         static auto __fastcall Position(void* self, void*, const int x, const int y) -> void
         {
             const std::array<int16_t, 2> coordinates{static_cast<int16_t>(x), static_cast<int16_t>(y)};
-            std::memcpy(static_cast<uint8_t*>(self) + 0x52, coordinates.data(), sizeof(coordinates));
+            auto* bytes = static_cast<uint8_t*>(self);
+            std::array<int16_t, 4> frame{}; std::memcpy(frame.data(), bytes + 0x3A, sizeof(frame));
+            const std::array<int16_t, 4> moved{coordinates[0], coordinates[1], static_cast<int16_t>(x + frame[2] - frame[0]), static_cast<int16_t>(y + frame[3] - frame[1])};
+            std::memcpy(bytes + 0x3A, moved.data(), sizeof(moved));
+            std::memcpy(bytes + 0x52, coordinates.data(), sizeof(coordinates));
             ++calls;
         }
 
@@ -56,6 +60,11 @@ namespace xiui
                 std::array<uint8_t, 0x60> component{};
                 std::array<uint8_t, 32> definition{};
                 uintptr_t definition_pointer{};
+                auto Height(const int16_t height) -> void
+                {
+                    int16_t top{}; std::memcpy(&top, primitive.data() + 0x3C, 2);
+                    const int16_t bottom = top + height; std::memcpy(primitive.data() + 0x40, &bottom, 2);
+                }
                 auto Coordinates(void) const -> std::array<int16_t, 2>
                 {
                     std::array<int16_t, 2> result{}; std::memcpy(result.data(), primitive.data() + 0x52, 4); return result;
@@ -69,6 +78,7 @@ namespace xiui
                 value.definition_pointer = reinterpret_cast<uintptr_t>(value.definition.data());
                 link(value.component, 0x30, &value.definition_pointer); value.definition[0x13] = anchor;
                 std::memcpy(value.resource.data() + 0x46, name, 16);
+                std::memcpy(value.primitive.data() + 0x3A, frame.data(), sizeof(frame));
                 std::memcpy(value.primitive.data() + 0x42, frame.data(), sizeof(frame));
                 std::memcpy(value.primitive.data() + 0x52, frame.data(), 4);
             };
@@ -90,15 +100,13 @@ namespace xiui
             controller.Update({true, 400, 1000, 2560, 1440, true, 200});
             if (!check(command.Coordinates()[1] == 150 && magic.Coordinates()[1] == 150, "top anchoring aligns each panel's own top")) return false;
             const auto magicPointer = reinterpret_cast<uintptr_t>(magic.primitive.data());
-            const int16_t tallBottom = 900;
-            std::memcpy(magic.primitive.data() + 0x48, &tallBottom, 2);
+            magic.Height(500);
             controller.BeforeDraw(magicPointer);
             if (!check(magic.Coordinates()[1] == 150, "growing a top-anchored list preserves its top edge")) return false;
             std::memcpy(magic.resource.data() + 0x46, "menu    ability ", 16); magic.definition[0x13] = 3;
             controller.Update({true, 400, 1000, 2560, 1440});
             if (!check(command.Coordinates()[1] == 582 && magic.Coordinates()[1] == 250, "ability lists with another DAT anchor share the selected bottom edge")) return false;
-            const int16_t shortBottom = 540;
-            std::memcpy(magic.primitive.data() + 0x48, &shortBottom, 2);
+            magic.Height(140);
             controller.BeforeDraw(magicPointer);
             if (!check(magic.Coordinates()[1] == 610, "shrinking a bottom-anchored list preserves its bottom edge")) return false;
             controller.Shutdown();
@@ -117,6 +125,7 @@ namespace xiui
             std::memcpy(owner.data() + 8, &pointer, 4);
             const std::array<int16_t, 2> original{16, 760};
             const std::array<int16_t, 4> frame{16, 760, 128, 928};
+            std::memcpy(primitive.data() + 0x3A, frame.data(), sizeof(frame));
             std::memcpy(primitive.data() + 0x42, frame.data(), sizeof(frame));
             std::memcpy(primitive.data() + 0x52, original.data(), 4);
             controller.reposition_ = reinterpret_cast<uintptr_t>(&Position);
@@ -148,6 +157,7 @@ namespace xiui
             link(component, 0x30, &definitionPointer); definition[0x13] = 2;
             std::memcpy(resource.data() + 0x46, "menu    playermo", 16);
             const std::array<int16_t, 2> resolution{1920, 1080};
+            std::memcpy(primitive.data() + 0x3A, frame.data(), sizeof(frame));
             std::memcpy(primitive.data() + 0x42, frame.data(), sizeof(frame));
             std::memcpy(primitive.data() + 0x52, original.data(), sizeof(original));
             std::memcpy(manager.data() + 0x80, resolution.data(), sizeof(resolution));
@@ -200,6 +210,28 @@ namespace xiui
             auto* calls = static_cast<uint32_t*>(context);
             if (book != 40 || set != 10 || slot != 9 || !alt) return FALSE;
             ++*calls; return TRUE;
+        }
+
+        static auto Fishing(void) -> bool
+        {
+            native_hud_controller controller;
+            std::array<uint8_t, 0x80> owner{}, primitive{};
+            std::array<uintptr_t, 11> table{};
+            const auto ownerPointer = reinterpret_cast<uintptr_t>(owner.data());
+            const auto primitivePointer = reinterpret_cast<uintptr_t>(primitive.data());
+            const auto tablePointer = reinterpret_cast<uintptr_t>(table.data());
+            std::memcpy(owner.data(), &tablePointer, 4); std::memcpy(owner.data() + 8, &primitivePointer, 4);
+            std::memcpy(primitive.data() + 0x0C, &ownerPointer, 4);
+            controller.slots_[static_cast<size_t>(native_hud_element::party)] = reinterpret_cast<uintptr_t>(&ownerPointer);
+            controller.hidden_.store(NativeHudBit(native_hud_element::party));
+            controller.party_draw_ = table[10] = 1234;
+            if (!check(controller.ShouldHide(primitivePointer), "ordinary party rendering remains hidden while casting and waiting for a bite")) return false;
+            owner[0x40] = 1;
+            if (!check(!controller.ShouldHide(primitivePointer), "the verified fish-only renderer retains the hooked-fish HP display")) return false;
+            table[10] = 4321;
+            if (!check(controller.ShouldHide(primitivePointer), "another owner layout cannot use the fish-only exception")) return false;
+            table[10] = 1234; owner[0x40] = 0;
+            return check(controller.ShouldHide(primitivePointer), "party hiding resumes immediately after fish-gauge mode ends");
         }
 
         static auto Macros(void) -> bool
@@ -344,6 +376,11 @@ namespace xiui
 
 int main(int argc, char** argv)
 {
+    if (argc > 1 && std::strcmp(argv[1], "--fishing-only") == 0)
+    {
+        if (!xiui::native_hud_target_test::Fishing()) return 1;
+        std::puts("Native party suppression and fish-only gauge preservation passed."); return 0;
+    }
     if (argc > 1 && std::strcmp(argv[1], "--menus-only") == 0)
     {
         if (!xiui::native_menu_test::Run() || !xiui::native_menu_test::Anchors()) return 1;

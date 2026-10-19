@@ -38,6 +38,10 @@ Keyboard suppression tracks window-message gestures, immediate state and buffere
 
 The configured Cycle Window action follows Chat 1 → Chat 2 → Buffs → Debuffs, skipping unavailable windows/effects. Enter/Confirm expands focused chat history; Cancel returns one layer. Gameplay Up/Down remains native party targeting. Explicit XIUI party browsing highlights members without changing the hard target until activation and yields to native menus/subtargets.
 
+Deliberate controller browsing of Buffs/Debuffs keeps its focus frame and navigation over the combat command menu. This captures navigation only, preserving movement/camera sticks; native text entry and action subtargets still take priority.
+
+Within local Buffs/Debuffs, Confirm/A or Enter requests removal only for a client-marked cancellable effect. Navigation/hover never removes effects, held Confirm does not repeat, and Cancel/B exits browsing. Remote status inspection stays read-only.
+
 ## Chat handoff
 
 Composition, compact focus and expanded history are distinct. Preserve channel, recipient, draft and caret when adopting native slash/tell/Full-keyboard input; opening chat does not send it. Alt+R/Ctrl+R use one reply cycle. Enter sends once and remains owned through release. Native CHAT activation keeps its own initiating Enter release before handoff.
@@ -53,3 +57,5 @@ Controller-only composition still needs verified native software-keyboard, IME a
 [Controller research](../archive/controller-research-2026-10-14.md) and [AgentLink evidence](../archive/controller-agentlink-2026-10-14.md) preserve the native findings. They are not standing authorization for live experiments.
 
 For a changed boundary, choose `controller-input`, `controller-config`, `cursor-ownership`, or the module's focused ownership argument from [the check guide](../../tests/README.md).
+
+Opening native chat with Space transfers even an empty chat session into XIUI, preserving an unsent draft. Up/Down browse the same sent-command history used after opening with `/`; Down past the newest entry restores the current draft. Each newly opened session begins at the latest sent entry. Native search and other text editors keep their own input ownership.

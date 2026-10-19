@@ -28,6 +28,7 @@ namespace xiui
         auto ShouldRender(const hud_snapshot&) const -> bool override { return false; }
         auto Render(const hud_snapshot&, const module_render_context&) -> void override {}
         auto SetAvailable(uint32_t mask) -> void { this->available_ = mask; }
+        auto SetDefaults(const settings_store& store) -> void;
         auto HiddenMask(void) const -> uint32_t { return this->preferences_.HiddenMask(); }
         auto SetShown(std::string_view key, bool shown) -> bool;
         auto HideAll(void) -> void { this->preferences_.enabled = true; this->preferences_.shown.fill(false); }
@@ -36,6 +37,7 @@ namespace xiui
     private:
         module_state state_{};
         native_hud_preferences preferences_{};
+        native_hud_preferences defaults_{};
         uint32_t available_{};
     };
 } // namespace xiui

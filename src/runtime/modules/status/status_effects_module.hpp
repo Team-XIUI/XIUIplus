@@ -34,6 +34,8 @@ namespace xiui
         auto EndControllerBrowse(void) -> void;
         auto ControllerFocused(void) const -> bool;
         auto ControllerBounds(void) const -> ui::rect;
+        auto ControllerEffect(void) const -> std::optional<uint16_t>;
+        auto CancelControllerEffect(IPacketManager* packets, const IStatusIcon* icon, uint32_t localPlayer, std::span<const int16_t> active) const -> bool;
         auto RenderStatusTooltip(const module_render_context& context, IResourceManager* resources, float x, float y, bool controller = false) const -> void;
 
     private:

@@ -67,6 +67,7 @@ Installation and build instructions are in [Development](development.md). For so
 - `/xiui castbar` — configure the independent player spell/item Cast Bar; `castbar status` reports its live source
 - `/xiui castcost` — configure highlighted spell/ability/mount costs and cooldowns; `castcost status` reports native menu support
 - `/readycheck` — start a 30-second party/alliance ready check; `yes|no|close|status` answers or controls it
+- `/xiui layout defaults` — restore default positions fitted to your game window, keeping appearance, sizes, visibility and actions
 - `/xiui readycheck` — configure Ready Check, its text, layout, colors, sound and result announcements
 - `/readycheck volume <0-150>` — set the built-in chime volume; `/readycheck test` previews it
 - `/xiui world` (or `clock` / `weather`) — configure and move Vana'diel time and weather

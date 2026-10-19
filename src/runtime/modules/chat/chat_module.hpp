@@ -29,7 +29,7 @@ namespace xiui
         auto ResetDefaults(const ui::theme& theme) -> void override;
         auto Load(const settings_store& store) -> void override;
         auto Save(const settings_store& store) const -> void override;
-        auto OptionCount(void) const -> size_t override { return this->CollapseOptionStart() + (this->secondary_ ? 4 : 5); }
+        auto OptionCount(void) const -> size_t override { return this->CollapseOptionStart() + 6; }
         auto Option(size_t index) -> module_option override;
         auto ConfigSections(void) const -> std::span<const module_config_section> override;
         auto ConfigSectionContains(size_t section, size_t index) -> bool override;
@@ -77,6 +77,7 @@ namespace xiui
             if (this->native_window_settings_ == settings) return;
             this->native_window_settings_ = settings;
             if (this->collapse_mode_ == 0) this->ResetCollapse();
+            if (this->second_window_ != nullptr && this->second_window_->MatchingWindow1()) this->second_window_->ResetCollapse();
         }
         auto VisualBounds(const ui::design_system& design) const -> ui::rect;
         auto HitTest(const ui::design_system& design, float x, float y) const -> bool;
@@ -112,6 +113,21 @@ namespace xiui
         struct message_motion { float opacity{1}, x{}; };
         struct layout { ui::rect content, log, input, scrollbar, completion, counter; size_t completion_rows{}; float completion_row_height{}; std::array<ui::rect, static_cast<size_t>(chat_tab::count)> tabs; std::array<ui::rect, 3> controller_actions; };
         struct history_layout { ui::rect frame, log, scrollbar, footer; std::array<ui::rect, std::size(chat_history_tabs)> tabs; };
+        struct window_settings
+        {
+            float width{}, height{};
+            ui::container_style container{};
+            module_text_profile text{}, chrome{};
+            float line_spacing{};
+            int message_animation{};
+            float message_animation_speed{};
+            int collapse_mode{};
+            float collapse_delay{}, collapse_min_lines{}, collapse_max_lines{};
+            bool height_limits_lines{};
+            int timestamp_display{};
+            bool timestamp_color_enabled{};
+            D3DCOLOR timestamp_color{};
+        };
         module_state state_{true, {18.0f, -1.0f, 560.0f, 260.0f}, 380.0f, 160.0f};
         ui::container_style container_{};
         module_text_profile text_{};
@@ -133,6 +149,9 @@ namespace xiui
         const chat_model* shared_model_{};
         chat_module* parent_{};
         bool defaults_initialized_{};
+        bool match_window1_{};
+        std::optional<window_settings> independent_settings_{};
+        float matched_width_{}, matched_height_{};
         bool shared_windows_{}, stack_peer_visible_{true};
         static constexpr int game_channel = 9;
         int channel_{game_channel};
@@ -146,6 +165,7 @@ namespace xiui
         std::deque<message_entrance> message_entrances_{};
         int collapse_mode_{};
         float collapse_delay_{5}, collapse_min_lines_{}, collapse_max_lines_{12};
+        bool height_limits_lines_{};
         std::optional<native_chat_window_settings> native_window_settings_{};
         bool layout_editing_{}, collapse_active_{};
         uint64_t collapse_due_{}, collapsed_through_{}, collapse_fade_sequence_{};
@@ -190,6 +210,12 @@ namespace xiui
         auto NativeFiltersStart(void) const -> size_t { return this->TimestampColorOptionStart() + 2; }
         auto AnimationOptionStart(void) const -> size_t { return this->NativeFiltersStart() + (this->native_filters_ != nullptr ? native_chat_filters::option_count : 0); }
         auto CollapseOptionStart(void) const -> size_t { return this->AnimationOptionStart() + 3; }
+        auto MatchWindow1Option(void) const -> size_t { return this->CollapseOptionStart() + 5; }
+        auto MatchingWindow1(void) const -> bool { return this->secondary_ && this->match_window1_ && this->parent_ != nullptr; }
+        auto InheritedWindowOption(size_t index) const -> bool;
+        auto WindowOption(size_t index) -> module_option;
+        auto CaptureWindowSettings(void) const -> window_settings;
+        auto ApplyWindowSettings(const window_settings& settings) -> void;
         auto CollapseSettings(void) const -> std::optional<native_chat_window_settings>;
         auto CollapsePinned(void) const -> bool;
         auto ResetCollapse(void) -> void;

@@ -42,7 +42,12 @@ namespace xiui
     {
         if (!this->visible_ || !this->ControllerSurfaceVisible() || this->ControllerNativeBusy()) return controller_capture_mode::none;
         if (this->editing_) return controller_capture_mode::exclusive;
-        if (this->ControllerNativeMenuOpen()) return controller_capture_mode::none;
+        if (this->ControllerNativeMenuOpen())
+        {
+            const bool statusBrowse = !this->keyboard_window_focus_ &&
+                (this->controller_surface_ == controller_surface::buffs || this->controller_surface_ == controller_surface::debuffs);
+            return statusBrowse ? controller_capture_mode::navigation : controller_capture_mode::none;
+        }
         if (this->ActionBarsInputAvailable() && this->actionbars_.InputFocused()) return controller_capture_mode::exclusive;
         if (this->ChatFocused()) return controller_capture_mode::navigation;
         return this->controller_surface_ != controller_surface::none ? controller_capture_mode::exclusive : controller_capture_mode::none;
@@ -580,7 +585,8 @@ namespace xiui
             this->controller_surface_ == controller_surface::debuffs || this->controller_surface_ == controller_surface::pet_status)
         {
             focus = this->ControllerStatusBounds();
-            prompt = "Directions: status effect   Cancel: back";
+            prompt = this->controller_surface_ == controller_surface::buffs || this->controller_surface_ == controller_surface::debuffs ?
+                "Directions: status effect   Confirm: remove cancellable effect   Cancel: back" : "Directions: status effect   Cancel: back";
         }
         else if (this->controller_surface_ == controller_surface::ready_check)
         {

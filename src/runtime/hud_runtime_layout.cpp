@@ -99,7 +99,8 @@ namespace xiui
     auto hud_runtime::MovementSelectionModule(void) const -> hud_module*
     {
         if (this->config_.module == &this->actionbars_ && this->actionbars_.SelectedBar() > 0)
-            return const_cast<actionbar_module*>(&this->actionbar_children_[this->actionbars_.SelectedBar() - 1]);
+            return this->actionbars_.SelectedBar() <= this->actionbar_children_.size() ?
+                const_cast<actionbar_module*>(&this->actionbar_children_[this->actionbars_.SelectedBar() - 1]) : nullptr;
         if (this->config_.module == &this->world_info_ && this->world_info_.Independent())
             return const_cast<world_info_part_module*>(&this->world_parts_[this->world_info_.SelectedPart()]);
         if (this->config_.module == &this->notifications_ && this->notifications_.SelectedGroup() > 0)

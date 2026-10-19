@@ -252,7 +252,7 @@ namespace xiui
         this->config_.active_color = nullptr; this->config_.active_slider = nullptr;
         this->config_.group = module_option_group::general;
         this->config_.scroll = 0;
-        if (module == &this->actionbars_ && view && *view > action_bar_count)
+        if (module == &this->actionbars_ && view && *view > action_bar_count && *view <= action_bar_count + 3)
             this->FinishActionBarsLaunch();
     }
 

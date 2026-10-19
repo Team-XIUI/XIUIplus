@@ -195,7 +195,7 @@ namespace xiui
         const auto* raw = chat->GetInputTextRaw();
         const auto rawAddress = reinterpret_cast<uintptr_t>(raw);
         std::array<char, 512> buffer{};
-        if (rawAddress < this->raw_offset_ || !ReadText(raw, buffer.data(), buffer.size()) || buffer[0] == '\0' || (!allowText && buffer[0] != '/') ||
+        if (rawAddress < this->raw_offset_ || !ReadText(raw, buffer.data(), buffer.size()) || (!allowText && buffer[0] != '/') ||
             (tellOnly && !IsTellDraft(buffer.data()))) return std::nullopt;
         const auto length = std::strlen(buffer.data());
         const auto caret = std::min<size_t>(chat->GetInputTextRawCaretPosition(), length);

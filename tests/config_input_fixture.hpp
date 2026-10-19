@@ -139,6 +139,7 @@ namespace xiui
         static auto WindowFrame(const char* dat) -> bool;
         static auto NativeWindowBorders(const char* type6Dat, const char* type7Dat, const char* liveLeft) -> bool;
         static auto DefaultProfile(const char* source) -> bool;
+        static auto ViewportLayout(const char* source) -> bool;
         static auto PartyPresets(const char* classicPath = nullptr, const char* xivPath = nullptr) -> bool;
         static auto ThemedButtons(void) -> bool;
         static auto GlobalText(void) -> bool;

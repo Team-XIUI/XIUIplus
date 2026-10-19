@@ -125,6 +125,10 @@ namespace
         native_ui_state native{}; native.menu_available = native.menu_visible = true; native.width = 112; native.height = 400;
         module.Update(native, 1920, 1080);
         Check(module.State().bounds.y == 268 && module.Layout(true).bottom == 668, "a taller command menu retains its saved bottom edge");
+        native.height = 1000; module.Update(native, 1920, 1080);
+        Check(module.State().bounds.y == 0 && module.Layout(true).bottom == 668 && module.Layout(true).enabled,
+            "a menu taller than the space above its anchor clips at the top without pushing the bottom down");
+        native.height = 400; module.Update(native, 1920, 1080);
         *anchor.choice = 0;
         native.height = 90; module.Update(native, 1920, 1080);
         Check(module.State().bounds.y == 268 && module.Layout(true).top == 268 && module.Layout(true).anchor_top,

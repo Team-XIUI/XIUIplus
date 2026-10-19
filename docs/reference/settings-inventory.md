@@ -1,6 +1,6 @@
 # Settings inventory
 
-Generated 2026-10-18. Source: runtime option metadata and shared layout.
+Generated 2026-10-19. Source: runtime option metadata and shared layout.
 Regenerate with `./scripts/update-docs.ps1`. Each bullet is one visual row; [empty] preserves paired controls.
 
 ## Player Bar
@@ -2459,7 +2459,7 @@ Regenerate with `./scripts/update-docs.ps1`. Each bullet is one visual row; [emp
 
 ### Layout
 
-- Bar shape | [empty]
+- Use Global Settings | Bar shape
 - Slot size | Spacing
 - Vertical spacing
 
@@ -2528,7 +2528,7 @@ Regenerate with `./scripts/update-docs.ps1`. Each bullet is one visual row; [emp
 
 ### Layout
 
-- Bar shape | [empty]
+- Use Global Settings | Bar shape
 - Slot size | Spacing
 - Vertical spacing
 
@@ -2597,7 +2597,7 @@ Regenerate with `./scripts/update-docs.ps1`. Each bullet is one visual row; [emp
 
 ### Layout
 
-- Bar shape | [empty]
+- Use Global Settings | Bar shape
 - Slot size | Spacing
 - Vertical spacing
 
@@ -2666,7 +2666,7 @@ Regenerate with `./scripts/update-docs.ps1`. Each bullet is one visual row; [emp
 
 ### Layout
 
-- Bar shape | [empty]
+- Use Global Settings | Bar shape
 - Slot size | Spacing
 - Vertical spacing
 
@@ -2735,7 +2735,7 @@ Regenerate with `./scripts/update-docs.ps1`. Each bullet is one visual row; [emp
 
 ### Layout
 
-- Bar shape | [empty]
+- Use Global Settings | Bar shape
 - Slot size | Spacing
 - Vertical spacing
 
@@ -2804,7 +2804,7 @@ Regenerate with `./scripts/update-docs.ps1`. Each bullet is one visual row; [emp
 
 ### Layout
 
-- Bar shape | [empty]
+- Use Global Settings | Bar shape
 - Slot size | Spacing
 - Vertical spacing
 
@@ -2873,7 +2873,7 @@ Regenerate with `./scripts/update-docs.ps1`. Each bullet is one visual row; [emp
 
 ### Layout
 
-- Bar shape | [empty]
+- Use Global Settings | Bar shape
 - Slot size | Spacing
 - Vertical spacing
 
@@ -2942,7 +2942,7 @@ Regenerate with `./scripts/update-docs.ps1`. Each bullet is one visual row; [emp
 
 ### Layout
 
-- Bar shape | [empty]
+- Use Global Settings | Bar shape
 - Slot size | Spacing
 - Vertical spacing
 
@@ -3011,7 +3011,7 @@ Regenerate with `./scripts/update-docs.ps1`. Each bullet is one visual row; [emp
 
 ### Layout
 
-- Bar shape | [empty]
+- Use Global Settings | Bar shape
 - Slot size | Spacing
 - Vertical spacing
 
@@ -3080,7 +3080,7 @@ Regenerate with `./scripts/update-docs.ps1`. Each bullet is one visual row; [emp
 
 ### Layout
 
-- Bar shape | [empty]
+- Use Global Settings | Bar shape
 - Slot size | Spacing
 - Vertical spacing
 
@@ -3451,6 +3451,57 @@ Regenerate with `./scripts/update-docs.ps1`. Each bullet is one visual row; [emp
 - Action predictions | Skillchain rules
 - Magic Burst HUD
 
+## Action Bars / Global
+
+### Layout
+
+- Slot size | Spacing
+- Vertical spacing
+
+### Display
+
+- Background opacity | Padding
+- Action set caption | Action labels
+- Empty slots | Container background
+- Tooltips
+
+### Slots
+
+- Frame style | Border thickness
+- Icon padding | Icon opacity (%)
+- Icon tint | [empty]
+- Apply design to all bars | Reset this slot design
+
+### Effects
+
+- Unavailable icon tint | [empty]
+- Hover highlight | Hover color
+- Pressed highlight | Pressed color
+- Activation flash | Recast overlay
+- Recast overlay color
+
+### Overlays
+
+- Key / button labels | Item counts and charges
+- Count position | [empty]
+- Count X offset | Count Y offset
+- MP cost | MP cost position
+- MP X offset | MP Y offset
+- Recast display | Recast countdown
+- Recast position | [empty]
+- Recast X offset | Recast Y offset
+
+### Text
+
+- Show text | [empty]
+- Font | Size (px)
+- Alignment | Letter spacing
+- X offset | Y offset
+- Top color | Bottom color
+- Shadow | Shadow color
+- Soft shadow | Stroke
+- Glow
+
 ## Hotbar 2
 
 ### General
@@ -3772,18 +3823,19 @@ Regenerate with `./scripts/update-docs.ps1`. Each bullet is one visual row; [emp
 - Action Bars | Cast Bar
 - Cast Cost | Recast
 - Chat | Chat 2
-- Enemy List | EXP Bar
-- Satchel | Inventory
-- Equipment | Gil
-- Treasure Pool | Minimap
-- Notifications | Party
-- Pet | Player Bar
-- Buffs | Debuffs
-- Target | Compass
-- World Info | Commands
-- Blue Magic Learned | Phantom Roll
-- Ready Check | Magic Burst
-- Target of Target | Subtarget
+- Bubbles | Enemy List
+- EXP Bar | Satchel
+- Inventory | Equipment
+- Gil | Treasure Pool
+- Minimap | Notifications
+- Party | Pet
+- Player Bar | Buffs
+- Debuffs | Target
+- Compass | World Info
+- Commands | Blue Magic Learned
+- Phantom Roll | Ready Check
+- Magic Burst | Target of Target
+- Subtarget
 
 ### Attribution
 
@@ -3853,7 +3905,7 @@ Regenerate with `./scripts/update-docs.ps1`. Each bullet is one visual row; [emp
 
 - Width | Height
 - Line spacing | Reactive window sizing
-- Padding
+- Use window height for maximum | Padding
 
 ### Appearance
 
@@ -3949,7 +4001,7 @@ Regenerate with `./scripts/update-docs.ps1`. Each bullet is one visual row; [emp
 
 ### General
 
-- Enabled
+- Enabled | Match Window 1 settings
 
 ### Messages
 
@@ -3960,7 +4012,7 @@ Regenerate with `./scripts/update-docs.ps1`. Each bullet is one visual row; [emp
 
 - Width | Height
 - Line spacing | Reactive window sizing
-- Padding
+- Use window height for maximum | Padding
 
 ### Appearance
 
@@ -4052,6 +4104,37 @@ Regenerate with `./scripts/update-docs.ps1`. Each bullet is one visual row; [emp
 
 - New messages | Animation speed (%)
 
+## Bubbles
+
+### General
+
+- Enabled | Range
+- Duration
+
+### Channels
+
+- Say | Linkshell 1
+- Linkshell 2 | Party
+- Yell | Shout
+- NPC dialogue
+
+### Appearance
+
+- Maximum width | Head spacing
+- Background opacity | Padding
+- Chat colors
+
+### Text
+
+- Show text | [empty]
+- Font | Size (px)
+- Alignment | Letter spacing
+- X offset | Y offset
+- Top color | Bottom color
+- Shadow | Shadow color
+- Soft shadow | Stroke
+- Glow
+
 ## Compass
 
 ### General
@@ -4087,6 +4170,7 @@ Regenerate with `./scripts/update-docs.ps1`. Each bullet is one visual row; [emp
 
 ### Markers
 
+- Enemies | Player icon
 - Vision cone | Marker size
 - Marker opacity | Party
 - Alliance | Pet
@@ -4339,4 +4423,4 @@ Regenerate with `./scripts/update-docs.ps1`. Each bullet is one visual row; [emp
 
 ## Coverage
 
-70 registered modules, 558 distinct pages, 4386 controls across those pages, and 1908 selector/view combinations.
+71 registered modules, 568 distinct pages, 4484 controls across those pages, and 1925 selector/view combinations.

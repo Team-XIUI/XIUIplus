@@ -47,6 +47,8 @@ namespace xiui
         this->north_ = store.ReadBool("minimap", "north", true);
         this->vision_cone_ = store.ReadBool("minimap", "vision_cone", false);
         this->npcs_ = store.ReadBool("minimap", "npcs", true);
+        this->enemies_ = store.ReadBool("minimap", "enemies", true);
+        this->player_icon_ = std::clamp(store.ReadInt("minimap", "player_icon", 0), 0, 1);
         this->distant_party_ = store.ReadBool("minimap", "distant_party", true);
         static constexpr const char* edgeKeys[]{"coordinate_edge_left", "coordinate_edge_top", "coordinate_edge_right", "coordinate_edge_bottom"};
         for (size_t i = 0; i < this->coordinate_edges_.size(); ++i)
@@ -106,6 +108,8 @@ namespace xiui
         store.WriteBool("minimap", "zoom_readout", this->zoom_readout_);
         store.WriteInt("minimap", "selected_text", this->selected_text_);
         store.WriteBool("minimap", "vision_cone", this->vision_cone_); store.WriteBool("minimap", "npcs", this->npcs_);
+        store.WriteBool("minimap", "enemies", this->enemies_);
+        store.WriteInt("minimap", "player_icon", this->player_icon_);
         store.WriteFloat("minimap", "cone_angle", this->cone_angle_); store.WriteFloat("minimap", "cone_size", this->cone_size_);
         store.WriteFloat("minimap", "cone_opacity", this->cone_opacity_);
         store.WriteInt("minimap", "edge_style", this->edge_style_);
@@ -139,10 +143,9 @@ namespace xiui
         this->zoom_ = this->zoom_zone_ < this->zone_zoom_.size() && this->zone_zoom_[this->zoom_zone_] > 0 ? this->zone_zoom_[this->zoom_zone_] : this->default_zoom_;
     }
 
-    auto minimap_module::HandleMouseWheel(const int delta, const float x, const float y, bool& save) -> bool
+    auto minimap_module::Contains(const float x, const float y) const -> bool
     {
-        save = false;
-        if (!this->state_.enabled || delta == 0) return false;
+        if (!this->state_.enabled) return false;
         const ui::rect view{this->state_.bounds.x, this->state_.bounds.y, this->state_.bounds.width, MinimapHeight(this->state_.bounds.width, this->shape_)};
         if (!MinimapContains(view, this->shape_, {x, y}, 0, this->edge_style_ == 1 ? this->corner_radius_ : 0)) return false;
         if (this->edge_style_ == 2 && this->shape_ != 1 && this->maps_ != nullptr && this->data_ != nullptr && this->data_->available)
@@ -150,6 +153,13 @@ namespace xiui
             const auto image = this->maps_->Acquire(this->data_->zone, this->data_->floor, this->artwork_ == 1);
             if (image.outline && !ui::ContourContains(view, *image.outline, {x, y})) return false;
         }
+        return true;
+    }
+
+    auto minimap_module::HandleMouseWheel(const int delta, const float x, const float y, bool& save) -> bool
+    {
+        save = false;
+        if (delta == 0 || !this->Contains(x, y)) return false;
         this->UpdateZoomZone();
         const auto option = this->Option(zoom_option);
         const float zoom = std::clamp(this->zoom_ + static_cast<float>(delta) / WHEEL_DELTA * option.step, option.minimum, option.maximum);
@@ -167,7 +177,7 @@ namespace xiui
         static constexpr module_config_section sections[]{
             {"General", "Map artwork, shape, zoom and pinned coordinate edges. Enhanced maps use Remapster art (CC BY-SA 4.0).", "general"},
             {"Appearance", "Map dimensions, Straight/Rounded/Burnt edges, drop shadow, background, frame and opacity.", "appearance"},
-            {"Markers", "Facing cone, green NPC dots, party, alliance, pet and selected target.", "markers"},
+            {"Markers", "Facing cone, nearby enemies, green NPC dots, party, alliance, pet and selected target.", "markers"},
             {"Text", "Choose Labels or Zoom to edit visibility, position offsets and text styling independently.", "text"}};
         return sections;
     }
@@ -176,7 +186,7 @@ namespace xiui
     {
         if (index >= this->OptionCount()) return false;
         if (index == coordinate_edges_option) return section == 0;
-        if (index == distant_party_option) return section == 2;
+        if (index == distant_party_option || index == enemies_option || index == player_icon_option) return section == 2;
         if (index >= map_number_option || index == zone_name_option || index == coordinates_option) return section == 3;
         if (index >= edge_style_option) return section == 1;
         if (index >= vision_cone_option) return section == 2;
@@ -204,7 +214,7 @@ namespace xiui
         case background_option: return module_option::Toggle("Background", "Dark backing under map artwork and uncovered map edges.", &this->background_);
         case map_opacity_option: return module_option::Slider("Map opacity", "Map artwork opacity.", &this->map_opacity_, 0, 1, 0.05f);
         case background_opacity_option: return module_option::Slider("Background opacity", "Dark backing opacity.", &this->background_opacity_, 0, 1, 0.05f).VisibleWhen(this->background_);
-        case marker_size_option: return module_option::Slider("Marker size", "Size of map dots and the player arrow.", &this->marker_size_, 2, 12, 0.5f);
+        case marker_size_option: return module_option::Slider("Marker size", "Size of map dots and the player icon.", &this->marker_size_, 2, 12, 0.5f);
         case marker_opacity_option: return module_option::Slider("Marker opacity", "Player arrow and map marker opacity.", &this->marker_opacity_, 0, 1, 0.05f);
         case party_option: return module_option::Toggle("Party", "Show party members on your map and floor.", &this->party_);
         case alliance_option: return module_option::Toggle("Alliance", "Show alliance members on your map and floor.", &this->alliance_);
@@ -222,6 +232,12 @@ namespace xiui
         }
         case cone_opacity_option: return module_option::Slider("Cone opacity", "Strength of the cone, fading toward its outer edge.", &this->cone_opacity_, 0, 1, 0.05f).Ordered(130).VisibleWhen(this->vision_cone_);
         case npcs_option: return module_option::Toggle("NPCs", "Show nearby visible NPCs as green dots on your current map and floor.", &this->npcs_);
+        case enemies_option: return module_option::Toggle("Enemies", "Show nearby living enemies as red dots. Enemies claimed outside your party/alliance are purple.", &this->enemies_).Ordered(static_cast<int>(npcs_option) + 1);
+        case player_icon_option:
+        {
+            static constexpr const char* icons[]{"Triangle", "Dot"};
+            return module_option::Dropdown("Player icon", "Show your position as a facing triangle or a dot. Marker size and opacity apply to both.", &this->player_icon_, icons, std::size(icons)).Ordered(80);
+        }
         case edge_style_option: {
             auto option = module_option::Choice("Edge style", "Straight, Rounded or a burnt parchment outline with transparent cutouts and no coordinate strips. Circle keeps its shape.", &this->edge_style_, edgeStyles, 3).Ordered(120);
             return option.VisibleWhen(this->shape_ != 1);
@@ -364,7 +380,7 @@ namespace xiui
                 {
                     if (marker.kind == minimap_marker_kind::party && !this->party_ || marker.kind == minimap_marker_kind::alliance && !this->alliance_ ||
                         marker.kind == minimap_marker_kind::pet && !this->pet_ || marker.kind == minimap_marker_kind::target && !this->target_ ||
-                        marker.kind == minimap_marker_kind::npc && !this->npcs_) continue;
+                        marker.kind == minimap_marker_kind::npc && !this->npcs_ || marker.kind == minimap_marker_kind::enemy && !this->enemies_) continue;
                     const ui::point point{mapBounds.x + marker.uv.x * size, mapBounds.y + marker.uv.y * size};
                     const float radius = this->marker_size_ * (marker.kind == minimap_marker_kind::target ? 1.25f : 1);
                     if (!MinimapContains(view, this->shape_, point, radius + 2, cornerRadius)) continue;
@@ -389,7 +405,14 @@ namespace xiui
                         center.x - dx * r * 0.6f * scale - dy * r * 0.6f * scale, center.y - dy * r * 0.6f * scale + dx * r * 0.6f * scale,
                         center.x - dx * r * 0.6f * scale + dy * r * 0.6f * scale, center.y - dy * r * 0.6f * scale - dx * r * 0.6f * scale, alpha(color, this->marker_opacity_));
                 };
-                arrow(1.3f, 0xFF000000); arrow(1, 0xFFFFFFFF);
+                if (this->player_icon_ == 0) { arrow(1.3f, 0xFF000000); arrow(1, 0xFFFFFFFF); }
+                else
+                {
+                    const float radius = this->marker_size_ * 1.5f;
+                    const std::array<ui::circle_fill, 2> dot{{{center, radius + 1, alpha(0xFF000000, this->marker_opacity_)},
+                        {center, radius, alpha(0xFFFFFFFF, this->marker_opacity_)}}};
+                    design.FillCircles(dot);
+                }
             }
         }
         if (image.texture != nullptr)

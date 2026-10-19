@@ -48,6 +48,7 @@ namespace xiui
         std::array<uintptr_t, native_hud_options.size()> slots_{};
         std::array<uintptr_t, 4> macro_palette_slots_{};
         uintptr_t chat_input_slot_{};
+        uintptr_t party_draw_{};
         uint32_t available_{};
         std::atomic<uint32_t> hidden_{};
         std::atomic<uint64_t> skipped_{};
@@ -80,7 +81,6 @@ namespace xiui
         auto HideTargetBox(uintptr_t owner, uintptr_t primitive) -> bool;
         auto RestoreTargetBox(void) -> void;
         auto SetClock(bool hidden) -> void;
-        auto IsFishing(void) const -> bool;
         auto LoggedIn(void) const -> bool;
     };
 } // namespace xiui

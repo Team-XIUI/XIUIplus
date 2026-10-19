@@ -20,6 +20,17 @@
 namespace
 {
     auto Check(bool condition, const char* message) -> void { if (!condition) throw std::runtime_error{message}; }
+    class status_packets final : public IPacketManager
+    {
+    public:
+        size_t count{};
+        uint16_t id{};
+        std::vector<uint8_t> bytes;
+        void AddIncomingPacket(uint16_t, uint32_t, uint8_t*) override {}
+        void AddOutgoingPacket(const uint16_t packet, const uint32_t size, uint8_t* data) override
+        { ++this->count; this->id = packet; this->bytes.assign(data, data + size); }
+        bool QueueOutgoingPacket(uint16_t, uint16_t, uint16_t, uint32_t, uint32_t, queuepacketcallback_f, void*) const override { return false; }
+    };
     class chat_manager final : public IChatManager
     {
     public:
@@ -66,6 +77,54 @@ namespace xiui
 {
     struct chat_test
     {
+        static auto StatusCancellation(void) -> void
+        {
+            const keyboard_restore neutral;
+            hud_runtime runtime;
+            auto& player = const_cast<party_member&>(runtime.party_source_.Members()[0]);
+            player.active = player.buffs_known = true; player.id = 50;
+            player.buffs = {33, 33, 999, 2}; player.buff_count = 4;
+            std::array<int16_t, 32> active; active.fill(-1);
+            active[0] = active[1] = 33; active[2] = 999; active[3] = 2;
+            IStatusIcon icon{}; icon.Index = 33; icon.CanCancel = 1;
+            status_packets packets;
+            auto& buffs = runtime.buffs_;
+            Check(!buffs.CancelControllerEffect(&packets, &icon, 50, active), "unfocused inspection never requests cancellation");
+            Check(runtime.BeginControllerFocus(hud_runtime::controller_surface::buffs) && buffs.ControllerEffect() == 33 &&
+                buffs.CancelControllerEffect(&packets, &icon, 50, active) && packets.count == 1 && packets.id == 0x0F1 &&
+                packets.bytes == std::vector<uint8_t>({0xF1, 0x04, 0, 0, 33, 0, 0, 0}) && player.buff_count == 4,
+                "explicit cancellation sends the native effect request without removing a local icon before server confirmation");
+            icon.CanCancel = 0;
+            Check(!buffs.CancelControllerEffect(&packets, &icon, 50, active), "client cancellation flags protect non-removable effects");
+            icon.CanCancel = 1;
+            Check(!buffs.CancelControllerEffect(&packets, &icon, 51, active), "a changed local player cannot cancel a stale selection");
+            Check(buffs.MoveControllerBrowseHorizontal(1) && buffs.ControllerEffect() == 33, "duplicate effects keep their selected occurrence");
+            active[1] = -1;
+            Check(!buffs.CancelControllerEffect(&packets, &icon, 50, active), "a removed native duplicate invalidates cancellation before the HUD updates");
+            Check(buffs.MoveControllerBrowseHorizontal(1) && buffs.ControllerEffect() == 999, "extended effect IDs remain selectable");
+            Check(!buffs.CancelControllerEffect(&packets, &icon, 50, active), "mismatched metadata cannot grant cancellation to another effect");
+            icon.Index = 999;
+            Check(buffs.CancelControllerEffect(&packets, &icon, 50, active) && packets.count == 2 && packets.bytes[4] == 0xE7 && packets.bytes[5] == 3,
+                "extended effect IDs retain both bytes in the cancellation request");
+            active[2] = -1;
+            Check(!buffs.CancelControllerEffect(&packets, &icon, 50, active) && packets.count == 2,
+                "an effect already removed from the client cannot be cancelled from a stale HUD snapshot");
+            Check(runtime.HandleChatKey(VK_RETURN, 0, false, true, false, 0) && runtime.confirmation_key_release_ == VK_RETURN,
+                "keyboard Confirm shares cancellation and owns the Enter gesture");
+            runtime.controller_hint_ = "unchanged";
+            Check(runtime.HandleChatKey(VK_RETURN, 0x40000000, false, true, false, 0) && runtime.controller_hint_ == "unchanged" &&
+                runtime.HandleKey(VK_RETURN, static_cast<LPARAM>(0xC0000000u), false) && runtime.confirmation_key_release_ == 0,
+                "held Confirm cannot repeat cancellation and its release cannot open the native command menu");
+            runtime.controller_hint_ = "unchanged";
+            Check(runtime.HandleController({controller_action::confirm, controller_backend::xinput, 0, true, true, false, 100}) &&
+                runtime.controller_hint_ == "unchanged", "held controller Confirm cannot request a second cancellation");
+            runtime.ReleaseControllerFocus();
+            auto& debuffs = runtime.debuffs_;
+            icon.Index = 2; icon.CanCancel = 0;
+            Check(debuffs.BeginControllerBrowse() && !debuffs.CancelControllerEffect(&packets, &icon, 50, active) && packets.count == 2,
+                "non-cancellable debuffs remain inspection-only");
+        }
+
         static auto Bubbles(void) -> void
         {
             const auto line = [](const uint64_t sequence, const uint32_t mode, const char* text) {
@@ -621,6 +680,10 @@ namespace xiui
             Check(key('F') && second.HistoryFocused() && !chat.HistoryFocused() && runtime.ChatFocused() &&
                 second.history_view_.tab == 3 && second.history_view_.scroll[3] == 7,
                 "F moves compact focus to Window 2 without changing its tab or scroll");
+            runtime.SyncNativeChatInput(nullptr, true, true);
+            runtime.UpdateControllerFocus();
+            Check(second.HistoryFocused() && second.history_view_.tab == 3 && second.history_view_.scroll[3] == 7,
+                "native combat-menu polling retains Window 2 focus between cycle presses");
             Check(key(VK_RETURN) && second.HistoryExpanded() && !chat.HistoryExpanded(), "Enter expands the selected second window");
             Check(key('F') && second.history_view_.tab == 4 && second.HistoryExpanded(), "F cycles tabs inside Window 2's expanded history");
             Check(key(VK_ESCAPE) && second.HistoryFocused() && !second.HistoryExpanded() && !chat.HistoryFocused() && runtime.ChatFocused(),
@@ -683,14 +746,29 @@ namespace xiui
             Check(cycle(controller_action::cycle_window, true) && chat.HistoryFocused(), "held controller cycle cannot change windows");
             Check(cycle(controller_action::cycle_window) && second.HistoryFocused() && !chat.HistoryFocused(),
                 "controller cycle uses the same Window 2 focus handoff");
+            runtime.SyncNativeChatInput(nullptr, true);
+            runtime.UpdateControllerFocus();
+            Check(second.HistoryFocused(), "native combat-menu polling retains controller focus on Window 2");
             Check(cycle(controller_action::confirm) && second.HistoryExpanded(), "controller Confirm expands Window 2");
             Check(cycle(controller_action::cycle_window) && second.HistoryExpanded() && second.history_view_.tab == 5,
                 "controller cycle retains tab navigation inside expanded Window 2");
             cycle(controller_action::cancel);
+            runtime.native_ui_.menu_visible = true;
             Check(cycle(controller_action::cycle_window) && runtime.buffs_.ControllerFocused(), "controller cycle reaches XIUI Buffs after Chat 2");
+            runtime.SyncNativeChatInput(nullptr, true);
+            runtime.UpdateControllerFocus();
+            const auto controllerBuff = runtime.buffs_.ControllerBounds();
+            Check(runtime.ControllerCapture() == controller_capture_mode::navigation && controllerBuff.width > 0 &&
+                cycle(controller_action::right) && runtime.buffs_.ControllerBounds().x > controllerBuff.x,
+                "controller Buffs focus stays visible and navigable over the combat menu without capturing movement sticks");
             Check(cycle(controller_action::cycle_window) && runtime.debuffs_.ControllerFocused(), "controller cycle continues to XIUI Debuffs");
+            runtime.SyncNativeChatInput(nullptr, true);
+            runtime.UpdateControllerFocus();
+            Check(runtime.ControllerCapture() == controller_capture_mode::navigation && runtime.debuffs_.ControllerBounds().width > 0,
+                "controller Debuffs focus retains navigation capture over the combat menu");
             Check(cycle(controller_action::cycle_window) && chat.HistoryFocused() && !second.HistoryFocused(),
                 "controller focus wraps from status effects to Chat 1");
+            runtime.native_ui_.menu_visible = false;
             cycle(controller_action::cancel);
             Check(chat.BeginHistory() && key('F') && second.HistoryFocused() &&
                 !runtime.HandleChatKey('F', 0, false, true, false, 0x11) && !runtime.ChatFocused() &&
@@ -1120,6 +1198,57 @@ namespace xiui
             }
         }
 
+        static auto SentHistory(void) -> void
+        {
+            chat_module module; chat_manager chat;
+            module.editor_.Set("/p first message"); Check(module.Submit(&chat), "remember first sent command");
+            module.editor_.Set("/s latest message"); Check(module.Submit(&chat), "remember latest sent command");
+            native_chat_input input; input.raw_offset_ = 16; input.state_offset_ = 0;
+            input.reset_chat_ = reinterpret_cast<uintptr_t>(&ResetNative);
+            input.close_menu_ = reinterpret_cast<uintptr_t>(&CloseMenu);
+            input.menu_manager_ = reinterpret_cast<uintptr_t>(&input);
+            chat.OpenNative("");
+            auto draft = input.TakeInput(&chat);
+            Check(draft && draft->text.empty() && module.AdoptDraft(std::move(*draft)) && chat.IsInputOpen() == 0,
+                "Space-opened empty native chat transfers to the editor before the first typed character");
+            module.HandleKey(nullptr, VK_UP, 0, false, true);
+            Check(module.editor_.Text() == "/s latest message", "Space-opened chat recalls the latest sent command");
+            module.HandleKey(nullptr, VK_UP, 0, false, true);
+            Check(module.editor_.Text() == "/p first message", "Up traverses older sent commands");
+            module.Focus(false);
+            module.HandleKey(nullptr, VK_OEM_2, 0, false, true);
+            module.HandleKey(nullptr, VK_UP, 0, false, true);
+            Check(module.editor_.Text() == "/s latest message", "slash restarts at the newest entry after dismissing recalled history");
+            module.HandleKey(nullptr, VK_DOWN, 0, false, true);
+            Check(module.editor_.Text() == "/", "Down restores the unsent slash draft without sending it");
+            Check(chat.count == 2, "history browsing never resubmits commands");
+            module.Focus(false); chat.OpenNative("search", 5);
+            Check(!input.TakeInput(&chat), "native search editors retain their own history");
+        }
+
+        static auto ManualHeight(void) -> void
+        {
+            ui::design_system design; chat_module module;
+            module.ApplyTextDefaults(ui::theme::CreateDefault()); module.state_.bounds = {20, 300, 560, 350};
+            module.SetNativeWindowConfig(native_chat_window_settings{true, 0, 2, 5});
+            for (uint64_t i = 1; i <= 30; ++i)
+            {
+                chat_event event{}; event.sequence = i; event.mode = 1; event.windows = 1;
+                strcpy_s(event.text, "Message"); module.Receive(nullptr, event, false);
+            }
+            module.UpdateCompactLayout(design, 1000);
+            Check(module.collapse_visible_rows_ == 2, "unmodified chat follows the native maximum line setting");
+            module.OnOptionChanged(2); module.UpdateCompactLayout(design, 1001);
+            Check(module.height_limits_lines_ && module.collapse_visible_rows_ > 2 && module.collapse_active_,
+                "manual height overrides the native line cap while preserving reactive collapse");
+            const auto store = settings_store::FromIniText(""); module.Save(store);
+            chat_module restored; restored.Load(store);
+            Check(restored.height_limits_lines_, "manual maximum height survives profile reload");
+            module.OnOptionChanged(module.CollapseOptionStart()); module.UpdateCompactLayout(design, 1002);
+            Check(!module.height_limits_lines_ && module.collapse_visible_rows_ == 2,
+                "choosing reactive sizing again restores the explicit native line limit");
+        }
+
         static auto FullKeyboardInputs(void) -> void
         {
             const keyboard_restore neutral;
@@ -1159,7 +1288,9 @@ namespace xiui
             Check(!runtime.ChatFocused() && chat.IsInputOpen() == 0x21 && std::strcmp(chat.GetInputTextRaw(), "native search") == 0,
                 "non-chat native editors retain their own text and ownership");
             chat.OpenNative(""); runtime.SyncNativeChatInput(&chat, false);
-            Check(!runtime.ChatFocused() && chat.IsInputOpen() == 0x11, "an empty native editor does not overwrite a saved draft");
+            Check(runtime.ChatFocused() && chat.IsInputOpen() == 0 && runtime.chat_.editor_.Text() == "test",
+                "an empty native editor opens XIUI input while preserving the saved unsent draft");
+            runtime.ReleaseChatInput();
             for (const uint32_t compact : {1u, 2u})
             {
                 record[2] = compact;
@@ -1798,6 +1929,67 @@ namespace xiui
             std::puts("Native auto-translate cap geometry and texture checks passed.");
         }
 
+        static auto MatchWindowSettings(void) -> void
+        {
+            chat_module first, second{true};
+            first.AttachSecondWindow(second);
+            const auto settings = settings_store::FromIniText(
+                "[chat]\nlayout_version=4\nopacity=0.8\npadding=12\nline_spacing=4\nmessage_animation=2\nmessage_animation_speed=150\n"
+                "collapse_mode=2\ncollapse_delay=8\ncollapse_min_lines=2\ncollapse_max_lines=18\nheight_limits_lines=1\ntimestamp_display=3\n"
+                "[layout.chat]\nx=20\ny=500\nwidth=600\nheight=300\n"
+                "[chat2]\nenabled=1\ndefaults_initialized=1\nlayout_version=4\nopacity=0.3\nline_spacing=1\nsource=1\ntab_window2=1\n"
+                "[layout.chat2]\nx=650\ny=200\nwidth=420\nheight=180\n");
+            first.Load(settings); second.Load(settings);
+            first.text_.style.scale = 1.2f; first.text_.style.top_color = 0xFF123456;
+            first.chrome_.style.scale = 0.7f; second.text_.style.scale = 0.8f;
+            const auto match = second.MatchWindow1Option();
+            auto toggle = second.Option(match);
+            Check(toggle.available && !*toggle.toggle && second.ConfigSectionContains(0, match), "Window 2 exposes an opt-in matching toggle under General");
+            *toggle.toggle = true; second.OnOptionChanged(match);
+            Check(second.State().bounds.x == 650 && second.State().bounds.y == 200 && second.State().bounds.width == 600 &&
+                second.State().bounds.height == 300 && second.state_.enabled && second.source_ == 1 && second.visible_tabs_[1] && !second.visible_tabs_[0],
+                "matching copies dimensions while retaining position, visibility, message source and tabs");
+            Check(second.container_.opacity == 0.8f && second.container_.padding == 12 && second.line_spacing_ == 4 &&
+                second.text_.style.scale == 1.2f && second.text_.style.top_color == 0xFF123456 && second.chrome_.style.scale == 0.7f &&
+                second.message_animation_ == 2 && second.message_animation_speed_ == 150 && second.timestamp_display_ == 3 &&
+                second.height_limits_lines_ && second.CollapseSettings()->maximum_lines == 18,
+                "matching retains complete text profiles and follows appearance, animation, timestamps and reactive sizing");
+            for (size_t index = 0; index < second.OptionCount(); ++index)
+                if (second.InheritedWindowOption(index)) Check(!second.Option(index).available, "inherited controls cannot receive pointer or controller edits");
+            Check(second.Option(0).available && second.Option(7).available && second.Option(8).available && second.Option(9).available &&
+                second.Option(match).available, "visibility, routing, tabs and unlink remain editable");
+            native_chat_filters filters;
+            first.SetNativeFilters(filters); second.SetNativeFilters(filters);
+            Check(!second.InheritedWindowOption(second.NativeFiltersStart()), "native filters remain independent when matching");
+            first.container_.opacity = 0.65f; first.message_animation_speed_ = 200; first.OnOptionChanged(3);
+            Check(second.container_.opacity == 0.65f && second.message_animation_speed_ == 200, "Window 1 edits update the linked window immediately");
+            first.State().bounds.width = 620; second.EnsureWindowDefaults();
+            Check(second.State().bounds.width == 620, "direct resizing of Window 1 reaches the linked window");
+            second.State().bounds.height = 280; second.collapse_due_ = 1234; second.EnsureWindowDefaults();
+            Check(second.State().bounds.height == 280 && second.collapse_due_ == 1234, "viewport clamping does not repeatedly reset linked collapse state");
+            ui::design_system design;
+            Check(second.Grip(design).width == 0, "matched dimensions have no independent resize grip");
+            second.State().bounds.x = 700;
+            auto saved = settings_store::FromIniText(""); first.Save(saved); second.Save(saved);
+            Check(saved.ReadBool("chat2", "match_window1", false) && saved.ReadFloat("chat2", "opacity", 0) == 0.3f &&
+                saved.ReadFloat("layout.chat2", "width", 0) == 420 && saved.ReadFloat("layout.chat2", "x", 0) == 700,
+                "saving retains independent overrides and the current position alongside the link");
+            chat_module reloadedFirst, reloadedSecond{true}; reloadedFirst.AttachSecondWindow(reloadedSecond);
+            reloadedFirst.Load(saved); reloadedSecond.Load(saved);
+            Check(reloadedSecond.MatchingWindow1() && reloadedSecond.container_.opacity == 0.65f && reloadedSecond.text_.style.scale == 1.2f &&
+                reloadedSecond.State().bounds.width == 620 && reloadedSecond.State().bounds.x == 700 && reloadedSecond.source_ == 1,
+                "ordinary profile reload restores the live link without changing its independent routing or position");
+            *reloadedSecond.Option(reloadedSecond.MatchWindow1Option()).toggle = false;
+            reloadedSecond.OnOptionChanged(reloadedSecond.MatchWindow1Option());
+            Check(reloadedSecond.container_.opacity == 0.3f && reloadedSecond.text_.style.scale == 0.8f &&
+                reloadedSecond.State().bounds.width == 420 && reloadedSecond.State().bounds.height == 180 && reloadedSecond.State().bounds.x == 700 &&
+                reloadedSecond.source_ == 1 && reloadedSecond.visible_tabs_[1], "unlink restores prior settings while preserving movement and filters");
+            first.collapse_mode_ = 0; first.SetNativeWindowConfig(native_chat_window_settings{true, 1, 14, 5});
+            second.SetNativeWindowConfig(native_chat_window_settings{true, 2, 6, 10});
+            second.EnsureWindowDefaults();
+            Check(second.CollapseSettings()->maximum_lines == 14, "Follow game uses Window 1's native line settings while matched");
+        }
+
         static auto Run(void) -> void
         {
             chat_module module;
@@ -1997,6 +2189,12 @@ int main(int argc, char** argv)
 {
     try
     {
+        if (argc == 2 && std::strcmp(argv[1], "--match-window-only") == 0)
+        {
+            xiui::chat_test::MatchWindowSettings();
+            std::puts("Chat Window 2 settings inheritance, independent routing, disabled controls and reversible profile persistence passed.");
+            return 0;
+        }
         if (argc == 2 && std::strcmp(argv[1], "--bubbles-only") == 0)
         {
             xiui::chat_test::Bubbles();
@@ -2043,6 +2241,12 @@ int main(int argc, char** argv)
             chat_test::ExpandedHistory();
             chat_test::WrappingWhitespace();
             std::puts("Chat history focus, expansion, channel tabs, wrapped-message/page/wheel scrolling and keyboard ownership passed.");
+            return 0;
+        }
+        if (argc == 2 && std::strcmp(argv[1], "--status-cancel-only") == 0)
+        {
+            chat_test::StatusCancellation();
+            std::puts("Local effect cancellation flags, native requests, stale identities and Confirm gesture ownership passed.");
             return 0;
         }
         if (argc == 2 && std::strcmp(argv[1], "--animation-speed-only") == 0)
@@ -2096,6 +2300,11 @@ int main(int argc, char** argv)
             chat_test::TellInputs();
             std::puts("Command-menu and target-selection slash ownership, hidden command recovery, native input priority and tell handoff checks passed.");
             return 0;
+        }
+        if (argc == 2 && std::strcmp(argv[1], "--sent-history-only") == 0)
+        {
+            chat_test::SentHistory(); chat_test::ManualHeight();
+            std::puts("Space/slash sent history and manual chat height overrides passed."); return 0;
         }
         if (argc == 2 && std::strcmp(argv[1], "--full-keyboard-only") == 0)
         {

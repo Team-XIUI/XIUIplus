@@ -10,7 +10,7 @@ namespace xiui
     public:
         auto Initialize(void) -> void;
         auto Clear(void) -> void;
-        auto Update(IAshitaCore* core, uint64_t now, bool npcs = true, bool distantParty = false) -> void;
+        auto Update(IAshitaCore* core, uint64_t now, bool npcs = true, bool distantParty = false, bool enemies = true) -> void;
         auto HandlePartyPosition(std::span<const uint8_t> packet, uint64_t now) -> void;
         auto State(void) const -> const minimap_state& { return this->state_; }
         auto Available(void) const -> bool { return !this->records_.empty(); }

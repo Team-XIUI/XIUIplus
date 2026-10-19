@@ -6,6 +6,8 @@ Controls native command-menu placement and the XIUI editing placeholder. Native 
 
 **Keep intact:** Keep menu positioning separate from native visibility and input ownership. Placeholder styling must not imply replacement command execution.
 
-**Focused check:** `xiui_native_hud_target_smoke`; layout cases also live in `xiui_world_smoke`.
+Native placement uses the current menu rectangle for height and the creation rectangle for horizontal offsets. Keep bottom anchors fixed when contents grow; a panel taller than the space above its bottom clips at the screen top.
+
+**Focused check:** `xiui_native_hud_target_smoke --menus-only` and `xiui_casting_smoke --commands-only`.
 
 [Shared foundations](../foundations.md) · [Check commands](../../tests/README.md)
