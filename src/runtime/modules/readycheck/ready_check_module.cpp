@@ -1,4 +1,5 @@
 #include "ready_check_module.hpp"
+#include "ui/game_icon_cache.hpp"
 
 #include <charconv>
 #include <cmath>

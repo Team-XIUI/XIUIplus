@@ -157,7 +157,7 @@ namespace xiui
         {
             hud_runtime runtime;
             runtime.editing_ = true;
-            Check(runtime.HandleCommand("debuffs") && runtime.active_module_ == &runtime.debuffs_ && runtime.editing_,
+            Check(runtime.HandleCommand("debuffs") && runtime.config_.module == &runtime.debuffs_ && runtime.editing_,
                 "status command opens the selected native group");
             const auto page = runtime.ActiveConfigPage();
             Check(page.primary == &runtime.buffs_ && page.secondary == &runtime.debuffs_ && page.SectionCount() == 2,
@@ -418,14 +418,14 @@ namespace xiui
             Check(notices.ConfigSections().size() == 5, "notification settings organize events, layout, appearance and animation");
             ownership(notices);
 
-            hud_runtime runtime; runtime.config_bounds_ = {100, 100, 1100, 600}; runtime.active_module_ = &runtime.experience_;
-            runtime.active_config_section_ = 0;
+            hud_runtime runtime; runtime.config_.bounds = {100, 100, 1100, 600}; runtime.config_.module = &runtime.experience_;
+            runtime.config_.section = 0;
             Check(runtime.HasConfigSubmenu() && runtime.GroupOptionCount() == 5, "EXP General groups enabled, mode, live selection and session pause/reset");
             const auto row = runtime.ConfigLayout().OptionRow(1);
             runtime.mouse_x_ = static_cast<int>(row.x + 30); runtime.mouse_y_ = static_cast<int>(row.y + 10);
             Check(runtime.ProcessConfigClick({0, 0, 1600, 900, 0, 1}) && runtime.experience_.Settings().mode == 1,
                 "the actual config input path changes EXP mode");
-            runtime.active_module_ = &runtime.notifications_; runtime.active_config_section_ = 1;
+            runtime.config_.module = &runtime.notifications_; runtime.config_.section = 1;
             Check(runtime.GroupOptionCount() == 8 && runtime.HasConfigSubmenu(), "Notifications Events shows all eight supported event switches");
         }
 

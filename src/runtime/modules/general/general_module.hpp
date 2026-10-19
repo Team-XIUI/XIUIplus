@@ -36,6 +36,7 @@ namespace xiui
         static constexpr size_t grid_section = 3;
         static constexpr size_t input_section = 4;
         static constexpr size_t visibility_section = 5;
+        static constexpr size_t game_hud_section = 6;
         static constexpr size_t grid_option_count = 6;
         static constexpr size_t input_option_count = 7;
         inline static constexpr const char* input_modes[]{"Auto", "Keyboard & Mouse", "Controller"};
@@ -49,6 +50,7 @@ namespace xiui
         auto InventoryEnabled(void) const -> bool { return this->inventory_enabled_; }
         auto InventoryEnabledFlag(void) const -> const bool* { return &this->inventory_enabled_; }
         auto SetPartyModule(hud_module& module) -> void { this->party_module_ = &module; }
+        auto SetGameHudModule(hud_module& module) -> void { this->game_hud_module_ = &module; }
         auto PartyEnabled(void) const -> bool { return this->party_enabled_; }
         auto PartyEnabledFlag(void) const -> const bool* { return &this->party_enabled_; }
         static auto Enabled(hud_module& module) -> bool;
@@ -65,6 +67,7 @@ namespace xiui
         auto HideAllUiOption(void) const -> size_t { return this->IconThemesStart() + 2; }
         auto FeedbackStart(void) const -> size_t { return this->HideAllUiOption() + 1; }
         auto NameplatesOption(void) const -> size_t { return this->FeedbackStart() + health_feedback_settings::option_count; }
+        auto GameHudStart(void) const -> size_t { return this->NameplatesOption() + 1; }
         auto TakeNameplatesRequest(void) -> std::optional<bool> { const auto request = this->nameplates_request_; this->nameplates_request_.reset(); return request; }
         auto HealthFeedback(void) const -> const health_feedback_settings& { return this->health_feedback_; }
         auto StatusIconTheme(void) const -> int { return this->status_icon_theme_; }
@@ -97,7 +100,7 @@ namespace xiui
         }
         auto Grid(void) const -> const ui::layout_grid_settings& { return this->grid_; }
         auto SetClipboardOwner(HWND owner) -> void { this->clipboard_owner_ = owner; }
-        auto OptionCount(void) const -> size_t override { return this->NameplatesOption() + 1; }
+        auto OptionCount(void) const -> size_t override { return this->GameHudStart() + (this->game_hud_module_ != nullptr ? this->game_hud_module_->OptionCount() : 0); }
         auto Option(size_t index) -> module_option override;
         auto ConfigSections(void) const -> std::span<const module_config_section> override;
         auto ConfigSectionContains(size_t section, size_t index) -> bool override;
@@ -130,6 +133,7 @@ namespace xiui
         hud_module* inventory_module_{};
         bool inventory_enabled_{true};
         hud_module* party_module_{};
+        hud_module* game_hud_module_{};
         bool party_enabled_{true};
         HWND clipboard_owner_{};
         size_t copied_credit_{static_cast<size_t>(-1)};

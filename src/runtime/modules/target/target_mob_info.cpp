@@ -1,4 +1,6 @@
 #include "target_mob_info.hpp"
+#include "ui/game_icon_cache.hpp"
+#include "ui/native_ui_assets.hpp"
 #include "target_module.hpp"
 
 #include <algorithm>

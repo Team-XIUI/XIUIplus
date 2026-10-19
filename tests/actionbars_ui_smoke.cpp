@@ -1,6 +1,7 @@
 #include "modules/actionbars/actionbars_module.hpp"
 #include "hud_runtime.hpp"
 #include "modules/pet/pet_lifetimes.hpp"
+#include "resources/custom_action_icons.hpp"
 
 #include <algorithm>
 #include <cmath>
@@ -164,6 +165,68 @@ namespace xiui
         }
         static auto Overlaps(const ui::rect& a, const ui::rect& b) -> bool
         { return std::min(a.x + a.width, b.x + b.width) - std::max(a.x, b.x) > 0.01f && std::min(a.y + a.height, b.y + b.height) - std::max(a.y, b.y) > 0.01f; }
+        static auto CustomMacroIcons(void) -> void
+        {
+            using dialog = actionbars_module::dialog;
+            const auto& icons = resources::custom_action_icons;
+            Check(icons.size() == 220 && std::is_sorted(icons.begin(), icons.end(), [](const auto& a, const auto& b) { return a.key < b.key; }),
+                "the pinned custom icon catalog is complete and sorted for runtime lookup");
+            action_store store; action_executor executor; actionbars_module module;
+            store.SetContext({1, 0, {}}); module.Initialize(nullptr, &store, &executor);
+            module.viewport_ = {0, 0, 1280, 900}; module.ApplyTextDefaults(ui::theme::CreateDefault());
+            auto macro = Command("Icon macro"); macro.kind = action_kind::macro; macro.lines.push_back("/echo second line");
+            Check(store.Assign(action_surface::hotbar, 0, 0, macro), "create macro icon fixture");
+            module.OpenEditor(false, 0, 0);
+            Click(module, ControlBounds(module, "Choose..."));
+            Check(module.dialog_ == dialog::icons && module.WindowIndex() == 2 && module.icon_results_.size() == icons.size() &&
+                module.draft_.lines == macro.lines && store.Resolve(action_surface::hotbar, 0, 0).icon.empty(),
+                "the visual picker preserves the editor draft and makes no live assignment");
+            const auto layout = module.IconPickerLayout();
+            for (size_t row = 0; row < layout.rows; ++row) module.HandleControllerAction(controller_action::down, false);
+            Check(module.icon_scroll_ > 0 && module.focused_control_ >= actionbars_module::icon_first,
+                "controller directions scroll unseen icon rows into view");
+            const auto controls = module.Controls();
+            Check(std::any_of(controls.begin(), controls.end(), [&](const auto& c) { return c.id == module.focused_control_; }),
+                "scrolled icon selection has a visible focus target");
+            module.HandleControllerAction(controller_action::confirm, true);
+            Check(module.dialog_ == dialog::icons, "held Confirm cannot select an icon");
+            module.HandleControllerAction(controller_action::confirm, false);
+            Check(module.dialog_ == dialog::editor && module.draft_.icon.starts_with("vincerno/") && store.Resolve(action_surface::hotbar, 0, 0).icon.empty(),
+                "controller selection changes only the unsaved icon override");
+            const auto previous = module.draft_.icon;
+            module.OpenIconPicker(); module.SetFieldValue(actionbars_module::field_icon_query, "fire clean");
+            Check(!module.icon_results_.empty() && std::all_of(module.icon_results_.begin(), module.icon_results_.end(), [&](const auto index) {
+                return icons[index].key.find("fire") != std::string_view::npos && icons[index].key.find("clean") != std::string_view::npos;
+            }), "icon search matches names and variant folders together");
+            module.SetFieldValue(actionbars_module::field_icon_query, "no matching icon exists");
+            Check(module.icon_results_.empty() && !module.Scrollbar().Visible(), "empty icon searches retain Back without stale scrolling");
+            module.HandleControllerAction(controller_action::cancel, false);
+            Check(module.dialog_ == dialog::editor && module.draft_.icon == previous, "Cancel returns to the draft without changing its icon");
+            module.OpenIconPicker(); module.SetFieldValue(actionbars_module::field_icon_query, "elemental fire");
+            const auto index = module.icon_results_.front();
+            const auto cells = module.Controls();
+            const auto selected = std::find_if(cells.begin(), cells.end(), [&](const auto& c) { return c.id == actionbars_module::icon_first + static_cast<int>(index); });
+            Check(selected != cells.end(), "a filtered icon has a mouse target");
+            Click(module, selected->bounds);
+            Check(module.dialog_ == dialog::editor && module.draft_.icon == icons[index].key, "mouse and controller use the same icon selection");
+            Click(module, ControlBounds(module, "Save action"));
+            const auto savedMacro = store.Resolve(action_surface::hotbar, 0, 0);
+            Check(savedMacro.icon == icons[index].key && savedMacro.lines == macro.lines, "saving changes artwork while preserving macro commands");
+            Check(store.Assign(action_surface::crossbar, 0, 0, savedMacro), "custom icons can be assigned to crossbar macros");
+            auto settings = settings_store::FromIniText(""); store.Save(settings);
+            action_store restored; restored.Load(settings); restored.SetContext(store.Context());
+            Check(restored.Resolve(action_surface::hotbar, 0, 0).icon == savedMacro.icon && restored.Resolve(action_surface::crossbar, 0, 0).icon == savedMacro.icon,
+                "portable icon keys survive hotbar and crossbar persistence");
+            module.OpenEditor(false, 0, 0); module.OpenIconPicker();
+            Click(module, ControlBounds(module, "Default artwork"));
+            Check(module.dialog_ == dialog::editor && module.draft_.icon.empty() && store.Resolve(action_surface::hotbar, 0, 0).icon == savedMacro.icon,
+                "Default artwork clears only the draft until Save");
+            ui::game_icon_cache cache;
+            const auto icon = cache.ActionIcon(savedMacro.icon);
+            const auto normalized = cache.ActionIcon("XIUI\\assets\\hotbar\\" + savedMacro.icon + ".PNG");
+            Check(icon.uv.width == 32.0f / resources::custom_action_icon_width && normalized.uv.x == icon.uv.x && normalized.uv.y == icon.uv.y,
+                "custom icon lookup accepts portable keys and normalized addon-style PNG paths");
+        }
         static auto Ownership(void) -> void
         {
             action_store store; action_executor executor; actionbars_module module;
@@ -936,19 +999,43 @@ namespace xiui
         }
         static auto RuntimeOwnership(void) -> void
         {
+            class mouse final : public IMouse
+            {
+            public:
+                bool blocked{};
+                void AddCallback(const char*, mousecallback_f) override {}
+                void RemoveCallback(const char*) override {}
+                bool GetBlockInput(void) const override { return this->blocked; }
+                void SetBlockInput(bool value) override { this->blocked = value; }
+            } input;
             auto runtime = std::make_unique<hud_runtime>(); auto& module = runtime->actionbars_;
+            runtime->mouse_ = &input;
             module.Initialize(nullptr, &runtime->action_store_, &runtime->action_executor_); module.ApplyTextDefaults(ui::theme::CreateDefault());
             module.viewport_ = {0, 0, 1280, 900}; module.bars_[0].state.bounds.x = 80; module.bars_[0].state.bounds.y = 60;
             module.bars_[0].heading = true; module.Layout(0); const auto bounds = module.PaletteBounds(0);
             Check(runtime->ActionBarsInputAvailable() && !runtime->KeyboardFocused(), "idle action bars keep actual runtime movement ownership clear");
-            runtime->HandleActionBarsMouse(WM_LBUTTONDOWN, 0, bounds.x + bounds.width / 2, bounds.y + bounds.height / 2, false);
-            runtime->HandleActionBarsMouse(WM_LBUTTONUP, 0, bounds.x + bounds.width / 2, bounds.y + bounds.height / 2, false);
+            runtime->SetChatMouseCapture(true);
+            Check(input.blocked, "locked hotbar hover blocks native input before clicking");
+            Check(runtime->HandleActionBarsMouse(WM_LBUTTONDOWN, 0, bounds.x + bounds.width / 2, bounds.y + bounds.height / 2, input.GetBlockInput()) &&
+                runtime->HandleActionBarsMouse(WM_LBUTTONUP, 0, bounds.x + bounds.width / 2, bounds.y + bounds.height / 2, input.GetBlockInput()),
+                "hotbar controls accept their own captured pointer press and release");
             Check(runtime->KeyboardFocused(), "open palette dropdown temporarily owns runtime keyboard input");
             Check(runtime->HandleActionBarsKey(VK_ESCAPE, 0, false) && !runtime->KeyboardFocused(), "Escape closes dropdown and releases actual runtime movement gate");
             Check(runtime->HandleActionBarsKey(VK_ESCAPE, static_cast<LPARAM>(0x80000000u), false) && !runtime->HandleActionBarsKey('W', 0, false), "runtime drains owned Escape release and yields fresh movement");
             runtime->controller_surface_ = hud_runtime::controller_surface::party; module.bars_[0].keys[0] = {'Q', 0};
             Check(!runtime->HandleActionBarsKey('Q', 0, false), "an unrelated controller surface retains its keyboard controls");
             runtime->controller_surface_ = hud_runtime::controller_surface::none;
+            runtime->native_ui_.menu_visible = true;
+            Check(!runtime->ActionBarsInputAvailable() && runtime->ActionBarsInputAvailable(false, true),
+                "native menu keyboard ownership does not disable pointer management");
+            Check(runtime->HandleActionBarsMouse(WM_LBUTTONDOWN, 0, bounds.x + bounds.width / 2, bounds.y + bounds.height / 2, input.GetBlockInput()) &&
+                runtime->HandleActionBarsMouse(WM_LBUTTONUP, 0, bounds.x + bounds.width / 2, bounds.y + bounds.height / 2, input.GetBlockInput()) && runtime->KeyboardFocused(),
+                "mouse-opened hotbar dropdowns retain their keyboard editor over a native menu");
+            runtime->UpdateActionBars(1000);
+            Check(module.InputFocused() && runtime->KeyboardFocused(), "frame updates preserve a pointer-opened hotbar menu");
+            Check(runtime->HandleActionBarsKey(VK_ESCAPE, 0, false) && !runtime->KeyboardFocused(),
+                "dismissing a hotbar popup returns keyboard ownership to the native menu");
+            runtime->HandleActionBarsKey(VK_ESCAPE, static_cast<LPARAM>(0x80000000u), false);
         }
         static auto NativeMacroKeyboardOwnership(void) -> void
         {
@@ -1028,7 +1115,7 @@ namespace xiui
             auto runtime = std::make_unique<hud_runtime>(); auto& module = runtime->actionbars_;
             module.Initialize(nullptr, &runtime->action_store_, &runtime->action_executor_);
             module.viewport_ = {0, 0, 1280, 900}; module.bars_[0].state.bounds.x = 80; module.bars_[0].state.bounds.y = 60;
-            runtime->editing_ = true; runtime->config_bounds_ = {700, 500, 500, 350}; module.Layout(0);
+            runtime->editing_ = true; runtime->config_.bounds = {700, 500, 500, 350}; module.Layout(0);
             Check(runtime->ActionBarsInputAvailable() && !runtime->ActionBarsExecutionAvailable(), "edit mode permits management while action execution stays suspended");
             const auto menu = module.MenuBounds(0);
             Check(runtime->HandleActionBarsMouse(WM_LBUTTONDOWN, 0, menu.x + 8, menu.y + 8, false) &&
@@ -1063,14 +1150,14 @@ namespace xiui
             Check(!runtime->HandleActionBarsMouse(WM_LBUTTONDOWN, 0, slot.x + 8, slot.y + 8, false) && !module.PointerDown(), "slot left-drag remains available for positioning the bar in edit mode");
             module.bars_[0].keys[0] = {'Q', 0};
             Check(!runtime->HandleActionBarsKey('Q', 0, false), "idle edit mode leaves global action bindings to configuration");
-            runtime->config_bounds_ = {menu.x - 20, menu.y - 20, 400, 300};
+            runtime->config_.bounds = {menu.x - 20, menu.y - 20, 400, 300};
             Check(!runtime->HandleActionBarsMouse(WM_LBUTTONDOWN, 0, menu.x + 8, menu.y + 8, false) && !module.DialogOpen(), "configuration takes pointer priority over a bar behind it");
         }
         static auto DependentSettings(void) -> void
         {
             auto runtime = std::make_unique<hud_runtime>(); auto& module = runtime->actionbars_;
             module.Initialize(nullptr, &runtime->action_store_, &runtime->action_executor_);
-            runtime->SelectConfigModule(&module, action_bar_count); runtime->active_config_section_ = 4;
+            runtime->SelectConfigModule(&module, action_bar_count); runtime->config_.section = 4;
             const auto shown = [&](const size_t index) { const auto slots = runtime->GroupOptionSlots(); return std::find(slots.begin(), slots.end(), index) != slots.end(); };
             auto& style = module.bars_[action_bar_count].style;
             style.frame = actionbar_slot_style::window_frame; style.radius = 17;
@@ -1083,12 +1170,12 @@ namespace xiui
             Check(shown(actionbars_module::slot_radius) && shown(actionbars_module::slot_fill) && style.radius == 17,
                 "changing frame style restores custom controls and their saved values");
             const auto radius = module.Option(actionbars_module::slot_radius);
-            runtime->slider_input_.Open(radius); runtime->slider_input_module_ = &module;
-            runtime->slider_input_option_index_ = actionbars_module::slot_radius;
+            runtime->config_.slider_input.Open(radius); runtime->config_.slider_module = &module;
+            runtime->config_.slider_option = actionbars_module::slot_radius;
             style.frame = actionbar_slot_style::window_frame; runtime->NormalizeConfigSelection();
-            Check(!runtime->slider_input_.Focused() && style.radius == 17, "hiding an edited setting cancels its pending numeric input without changing the value");
+            Check(!runtime->config_.slider_input.Focused() && style.radius == 17, "hiding an edited setting cancels its pending numeric input without changing the value");
             runtime->BuildSettingsSearch();
-            Check(std::none_of(runtime->settings_search_entries_.begin(), runtime->settings_search_entries_.end(), [](const auto& entry) {
+            Check(std::none_of(runtime->config_.search_entries.begin(), runtime->config_.search_entries.end(), [](const auto& entry) {
                 return entry.module == "hotbar" && entry.view == action_bar_count && entry.option == actionbars_module::slot_radius;
             }), "settings search excludes options hidden by the captured frame setting");
             module_text_profile profile{}; profile.style.shadow.enabled = false;
@@ -1099,7 +1186,7 @@ namespace xiui
             config_controller_focus focus; focus.id = "removed"; focus.adjusting = true;
             focus.Resolve({{"remaining", {0, 0, 100, 28}, 1, ""}});
             Check(focus.id == "remaining" && !focus.adjusting, "removing a focused setting exits adjustment before choosing another control");
-            runtime->SelectConfigModule(&runtime->general_); runtime->active_config_section_ = general_module::input_section;
+            runtime->SelectConfigModule(&runtime->general_); runtime->config_.section = general_module::input_section;
             const auto diagnostic = runtime->general_.InputStart() + 1;
             Check(shown(diagnostic) && !runtime->general_.Option(diagnostic).available, "unavailable capability diagnostics remain visible");
         }
@@ -1108,7 +1195,7 @@ namespace xiui
             auto runtime = std::make_unique<hud_runtime>(); auto& module = runtime->actionbars_;
             module.Initialize(nullptr, &runtime->action_store_, &runtime->action_executor_);
             module.viewport_ = {0, 0, 1280, 900}; runtime->editing_ = true;
-            runtime->config_bounds_ = {850, 20, 350, 600};
+            runtime->config_.bounds = {850, 20, 350, 600};
             const D3DVIEWPORT8 viewport{0, 0, 1280, 900, 0, 1};
             const auto cursor = [&](const ui::rect& bounds) {
                 runtime->mouse_x_ = static_cast<int>(bounds.x + bounds.width / 2);
@@ -1154,7 +1241,7 @@ namespace xiui
             auto runtime = std::make_unique<hud_runtime>(); auto& module = runtime->actionbars_;
             module.Initialize(nullptr, &runtime->action_store_, &runtime->action_executor_); module.ApplyTextDefaults(ui::theme::CreateDefault());
             module.viewport_ = {0, 0, 1280, 900}; module.bars_[0].state.bounds.x = 80; module.bars_[0].state.bounds.y = 780; module.Layout(0);
-            runtime->editing_ = true; runtime->config_bounds_ = {850, 20, 350, 600};
+            runtime->editing_ = true; runtime->config_.bounds = {850, 20, 350, 600};
             module.OpenLibrary();
             const auto original = module.WindowBounds(); const auto bar = module.bars_[0].state.bounds;
             Check(module.FloatingWindowOpen() && original.width < 1000 && original.height < 800 && !runtime->KeyboardFocused() &&
@@ -1206,7 +1293,7 @@ namespace xiui
             Check(runtime->action_store_.Resolve(action_surface::hotbar, 0, 0).name == "Dragged action" && module.FloatingWindowOpen(),
                 "a library drag reaches an exposed hotbar and keeps the spellbook open");
             source = ControlBounds(module, "Dragged action"); target = module.SlotBounds({action_surface::hotbar, 0, 1});
-            runtime->config_bounds_ = {target.x - 10, target.y - 10, 200, 100};
+            runtime->config_.bounds = {target.x - 10, target.y - 10, 200, 100};
             runtime->HandleActionBarsMouse(WM_LBUTTONDOWN, 0, source.x + 20, source.y + 15, false);
             runtime->HandleActionBarsMouse(WM_MOUSEMOVE, MK_LBUTTON, target.x + 10, target.y + 10, false);
             runtime->HandleActionBarsMouse(WM_LBUTTONUP, 0, target.x + 10, target.y + 10, false);
@@ -1217,7 +1304,7 @@ namespace xiui
         {
             auto runtime = std::make_unique<hud_runtime>(); auto& module = runtime->actionbars_;
             module.Initialize(nullptr, &runtime->action_store_, &runtime->action_executor_);
-            module.viewport_ = {0, 0, 1280, 900}; runtime->editing_ = true; runtime->config_bounds_ = {1000, 20, 250, 600};
+            module.viewport_ = {0, 0, 1280, 900}; runtime->editing_ = true; runtime->config_.bounds = {1000, 20, 250, 600};
             module.OpenLibrary();
             const std::pair<const char*, int> categories[]{{"All actions", 0}, {"Spells", 1}, {"Abilities", 2}, {"Weapon skills", 3}, {"Items", 4},
                 {"Equipment", 5}, {"Pet commands", 6}, {"Macros", 7}, {"Commands", 8}};
@@ -1369,7 +1456,7 @@ namespace xiui
                 "normal bars use shared direct buttons for all ten hotbars");
             *selector.choice = 2; module.OnOptionChanged(actionbars_module::bar_selector);
             Check(module.ConfigView() == 2 && runtime->ActiveConfigPage().SectionView(0) == 2, "the selected normal bar remains the active configuration view");
-            runtime->active_config_section_ = 2;
+            runtime->config_.section = 2;
             Check(runtime->ElementSelector().count == 10 && runtime->ElementSelector().selected == 2 &&
                 !module.ConfigSectionContains(2, actionbars_module::bank), "hotbar layout shows direct hotbar buttons without trigger-bank tabs");
             Check(std::string{module.ConfigSections()[0].name} == "Actions" && std::string{module.ConfigSections()[1].name} == "Keybinds" &&
@@ -1388,7 +1475,7 @@ namespace xiui
             Check(module.dialog_ == actionbars_module::dialog::keybinds && module.selected_.surface == action_surface::crossbar,
                 "activating the crossbar Keybinds topic opens the controller slot list");
             module.CloseDialog();
-            runtime->active_config_section_ = 3;
+            runtime->config_.section = 3;
             Check(runtime->ElementSelector().count == 7, "crossbar layout includes all trigger banks and Shared");
             Check(runtime->ActiveConfigPage().SectionContains(1, &module) && !module.ConfigSectionContains(0, actionbars_module::bar_selector),
                 "crossbar controls keep their surface tab and hide the normal-bar selector");
@@ -1396,17 +1483,17 @@ namespace xiui
                 "workspace destinations are not duplicated as settings rows");
             auto legacy = settings_store::FromIniText("[session.config]\nmodule=hotbar\nview=2\nsection=1\n");
             runtime->LoadConfigSelection(legacy);
-            Check(runtime->active_config_section_ == 2 && std::string{module.ConfigSections()[2].name} == "Layout", "old hotbar topic selections retain their destination");
+            Check(runtime->config_.section == 2 && std::string{module.ConfigSections()[2].name} == "Layout", "old hotbar topic selections retain their destination");
             legacy.WriteInt("session.config", "view", static_cast<int>(action_bar_count));
             legacy.WriteInt("session.config", "section", 2);
             runtime->LoadConfigSelection(legacy);
-            Check(runtime->active_config_section_ == 3 && std::string{module.ConfigSections()[3].name} == "Layout", "old crossbar topic selections retain their destination");
-            runtime->active_config_section_ = 2;
+            Check(runtime->config_.section == 3 && std::string{module.ConfigSections()[3].name} == "Layout", "old crossbar topic selections retain their destination");
+            runtime->config_.section = 2;
             runtime->SaveConfigSelection(legacy);
             legacy.WriteInt("session.config", "section", 8);
             runtime->LoadConfigSelection(legacy);
             Check(legacy.ReadString("session.config", "topic_id") == "keybinds", "topic identity persists independently of its ordinal");
-            Check(runtime->active_config_section_ == 2 && !module.DialogOpen(), "new Keybinds topic selections round trip without reopening transient workspaces");
+            Check(runtime->config_.section == 2 && !module.DialogOpen(), "new Keybinds topic selections round trip without reopening transient workspaces");
         }
         static auto Run(void) -> void { ControllerVisuals(); Ownership(); DirectInteraction(); LibraryPlacement(); BarControlsAndCrossbarGeometry(); EmptyBarEditBounds(); Editing(); KeyboardAndCrossbar(); Persistence(); SlotStylePersistence(); SlotStyleCompatibility(); SlotFrameProfileOverlay(); SlotTextDefaults(); SlotStyleActions(); SlotStyleGeometry(); Keybinds(); ControllerSetup(); RuntimeOwnership(); NativeMacroKeyboardOwnership(); EditModeManagement(); DependentSettings(); WorkspaceCursors(); FloatingWorkspaces(); LibraryCategories(); LibraryLayoutAndSearch(); LibraryGridNavigation(); Configuration(); }
     };
@@ -1414,6 +1501,16 @@ namespace xiui
 
 auto main(const int argc, char** argv) -> int
 {
+    if (argc == 2 && std::strcmp(argv[1], "--input-ownership-only") == 0)
+    {
+        try { xiui::actionbars_ui_test::RuntimeOwnership(); xiui::actionbars_ui_test::NativeMacroKeyboardOwnership(); std::puts("Action bar pointer, menu and keyboard ownership checks passed."); return 0; }
+        catch (const std::exception& error) { std::fprintf(stderr, "Action bar input check failed: %s\n", error.what()); return 1; }
+    }
+    if (argc == 2 && std::strcmp(argv[1], "--custom-icons-only") == 0)
+    {
+        try { xiui::actionbars_ui_test::CustomMacroIcons(); std::puts("Custom macro icons, picker navigation and persistence checks passed."); return 0; }
+        catch (const std::exception& error) { std::fprintf(stderr, "Custom icon check failed: %s\n", error.what()); return 1; }
+    }
     if (argc == 2 && std::strcmp(argv[1], "--migration-capabilities-only") == 0)
     {
         try { xiui::actionbars_ui_test::SelectedCapabilities(); std::puts("Selected migration capability checks passed."); return 0; }

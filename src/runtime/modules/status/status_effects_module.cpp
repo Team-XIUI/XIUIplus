@@ -212,7 +212,7 @@ namespace xiui
                 std::max(measured.y + measured.height, strip.bounds.y + strip.bounds.height) - y};
         }
         this->state_.content_bounds = {measured.x - this->state_.bounds.x, measured.y - this->state_.bounds.y, measured.width, measured.height};
-        if (this->controller_browsing_ && !this->ControllerIndex(effects)) this->EndControllerBrowse();
+        this->RefreshControllerBrowse();
     }
 
     auto status_effects_module::ControllerIndex(const effect_list& effects) const -> std::optional<size_t>
@@ -231,6 +231,7 @@ namespace xiui
         this->controller_browsing_ = true;
         this->controller_player_ = effects.player;
         this->controller_effect_ = effects.entries[index].id;
+        this->controller_index_ = index;
         this->controller_occurrence_ = 0;
         for (size_t previous = 0; previous < index; ++previous)
             if (effects.entries[previous].id == this->controller_effect_) ++this->controller_occurrence_;
@@ -245,6 +246,7 @@ namespace xiui
 
     auto status_effects_module::MoveControllerBrowse(const int direction) -> bool
     {
+        this->RefreshControllerBrowse();
         const auto effects = this->Effects();
         const auto index = this->ControllerIndex(effects);
         if (!index || direction == 0) return false;
@@ -255,6 +257,7 @@ namespace xiui
 
     auto status_effects_module::MoveControllerBrowseHorizontal(const int direction) -> bool
     {
+        this->RefreshControllerBrowse();
         const auto effects = this->Effects();
         const auto index = this->ControllerIndex(effects);
         if (!index || direction == 0) return false;
@@ -264,12 +267,23 @@ namespace xiui
         return this->FocusEffect(effects, static_cast<size_t>(next));
     }
 
+    auto status_effects_module::RefreshControllerBrowse(void) -> void
+    {
+        if (!this->controller_browsing_) return;
+        const auto effects = this->Effects();
+        if (const auto index = this->ControllerIndex(effects)) this->controller_index_ = *index;
+        else if (!this->state_.enabled || effects.player != this->controller_player_ || this->Layout(effects).count == 0)
+            this->EndControllerBrowse();
+        else this->FocusEffect(effects, std::min(this->controller_index_, this->Layout(effects).count - 1));
+    }
+
     auto status_effects_module::EndControllerBrowse(void) -> void
     {
         this->controller_browsing_ = false;
         this->controller_player_ = 0;
         this->controller_effect_ = 0;
         this->controller_occurrence_ = 0;
+        this->controller_index_ = 0;
     }
 
     auto status_effects_module::ControllerFocused(void) const -> bool

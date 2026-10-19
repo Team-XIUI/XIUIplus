@@ -3,6 +3,7 @@
 #include "ui/text_metrics.hpp"
 #include "ui/clipped_quad.hpp"
 #include "ui/rounded_rect.hpp"
+#include "ui/contour.hpp"
 #include "utf8.hpp"
 
 #include <algorithm>
@@ -1056,6 +1057,33 @@ namespace xiui::ui
             AppendClippedQuad(vertices, {center, a, b, b}, this->clip_bounds_);
             const auto c = vertex(RoundedRectPoint(bounds, radius, i), color & 0xFFFFFF), d = vertex(RoundedRectPoint(bounds, radius, next), color & 0xFFFFFF);
             AppendClippedQuad(vertices, {a, b, c, d}, this->clip_bounds_);
+        }
+        if (!vertices.empty()) this->device_->DrawPrimitiveUP(D3DPT_TRIANGLELIST, static_cast<UINT>(vertices.size() / 3), vertices.data(), sizeof(text_vertex));
+    }
+
+    auto design_system::DrawContour(const rect& bounds, const std::span<const point> contour, const contour_style& style, IDirect3DTexture8* texture, const rect& uv) const -> void
+    {
+        if (!this->frame_active_ || this->device_ == nullptr || contour.size() < 3 || bounds.width <= 0 || bounds.height <= 0) return;
+        if (texture != nullptr) this->ConfigureImagePipeline(texture);
+        else this->ConfigureShapePipeline();
+        this->TrackContentBounds(bounds);
+        const auto vertex = [&](const point at, const D3DCOLOR color) -> text_vertex {
+            return {at.x - 0.5f, at.y - 0.5f, 0, 1, color,
+                uv.x + (at.x - bounds.x) / bounds.width * uv.width, uv.y + (at.y - bounds.y) / bounds.height * uv.height};
+        };
+        const auto center = vertex({bounds.x + bounds.width / 2, bounds.y + bounds.height / 2}, style.color);
+        const float feather = std::max(0.0f, style.feather), inner = feather + std::max(0.0f, style.edge_width);
+        std::vector<text_vertex> vertices; vertices.reserve(contour.size() * (style.edge_width > 0 ? 18 : 12));
+        for (size_t i = 0; i < contour.size(); ++i)
+        {
+            const auto next = (i + 1) % contour.size();
+            const auto a = vertex(ContourPoint(bounds, contour[i], inner), style.color), b = vertex(ContourPoint(bounds, contour[next], inner), style.color);
+            AppendClippedQuad(vertices, {center, a, b, b}, this->clip_bounds_);
+            const auto c = vertex(ContourPoint(bounds, contour[i], feather), style.edge_width > 0 ? style.edge_color : style.color);
+            const auto d = vertex(ContourPoint(bounds, contour[next], feather), style.edge_width > 0 ? style.edge_color : style.color);
+            if (style.edge_width > 0) AppendClippedQuad(vertices, {a, b, c, d}, this->clip_bounds_);
+            const auto e = vertex(ContourPoint(bounds, contour[i]), c.color & 0xFFFFFF), f = vertex(ContourPoint(bounds, contour[next]), d.color & 0xFFFFFF);
+            AppendClippedQuad(vertices, {c, d, e, f}, this->clip_bounds_);
         }
         if (!vertices.empty()) this->device_->DrawPrimitiveUP(D3DPT_TRIANGLELIST, static_cast<UINT>(vertices.size() / 3), vertices.data(), sizeof(text_vertex));
     }

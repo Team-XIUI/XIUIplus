@@ -4,6 +4,7 @@
   "format": "WebP",
   "quality": 90,
   "maximumSize": 512,
+  "alpha": "Original transparency; edge-connected black matte fallback for opaque sources",
   "regular": 431,
   "enhanced": 231,
   "source": "Phoenix wiki zone-maps.json; Remapster minimaps/ffxidb"

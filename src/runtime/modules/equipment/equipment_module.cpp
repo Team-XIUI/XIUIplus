@@ -1,4 +1,5 @@
 #include "equipment_module.hpp"
+#include "ui/game_icon_cache.hpp"
 
 #include <algorithm>
 #include <cmath>

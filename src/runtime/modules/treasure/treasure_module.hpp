@@ -7,6 +7,8 @@
 #include "ui/focus_frame.hpp"
 #include <utility>
 
+namespace xiui::ui { struct config_text_settings; }
+
 namespace xiui
 {
     class treasure_module final : public hud_module
@@ -36,16 +38,18 @@ namespace xiui
         auto ResetDefaults(const ui::theme& theme) -> void override;
         auto Load(const settings_store& store) -> void override;
         auto Save(const settings_store& store) const -> void override;
-        auto OptionCount(void) const -> size_t override { return base_options + text_profile_option_count; }
+        auto OptionCount(void) const -> size_t override { return visibility_start + 3; }
         auto Option(size_t index) -> module_option override;
         auto OnOptionChanged(size_t index) -> void override;
         auto ConfigSections(void) const -> std::span<const module_config_section> override;
         auto ConfigSectionContains(size_t section, size_t index) -> bool override;
         auto ShouldRender(const hud_snapshot&) const -> bool override;
         auto Render(const hud_snapshot&, const module_render_context& context) -> void override;
+        auto RenderOverlay(const module_render_context& context, const ui::config_text_settings& text, float mouseX, float mouseY) const -> void;
     private:
         friend struct phoenix_integration_test;
         enum option : size_t { enabled, open, automatic, expanded, width, opacity, padding, selected_text, base_options };
+        static constexpr size_t visibility_start = base_options + text_profile_option_count;
         enum class action : uint8_t { lot, pass, lot_all, pass_all, expand, details, close };
         struct control { ui::rect bounds{}; action kind{}; size_t slot{}; uint64_t generation{}; bool available{}; };
         struct pointer_press { control target{}; std::vector<treasure_action> batch{}; };
@@ -58,7 +62,7 @@ namespace xiui
         size_t focus_{}, selected_{};
         int selected_text_{};
         ui::container_style container_{0.95f, 5, 10, false};
-        std::array<module_text_profile, 4> text_{};
+        std::array<module_text_profile, 5> text_{};
         std::vector<control> controls_{};
         std::optional<pointer_press> pressed_{};
         bool pointer_down_{};

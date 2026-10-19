@@ -1,0 +1,573 @@
+{
+  "checks": [
+    {
+      "name": "startup-wiring",
+      "target": "xiui_config_input_smoke",
+      "arguments": [
+        "--startup-wiring-only"
+      ],
+      "requires_arguments": false
+    },
+    {
+      "name": "cursor-ownership",
+      "target": "xiui_config_input_smoke",
+      "arguments": [
+        "--cursor-ownership-only"
+      ],
+      "requires_arguments": false
+    },
+    {
+      "name": "notification-feedback",
+      "target": "xiui_config_input_smoke",
+      "arguments": [
+        "--notification-feedback-only"
+      ],
+      "requires_arguments": false
+    },
+    {
+      "name": "all-ui-visibility",
+      "target": "xiui_config_input_smoke",
+      "arguments": [
+        "--all-ui-visibility-only"
+      ],
+      "requires_arguments": false
+    },
+    {
+      "name": "settings-search",
+      "target": "xiui_config_input_smoke",
+      "arguments": [
+        "--settings-search-only"
+      ],
+      "requires_arguments": false
+    },
+    {
+      "name": "config-sidebar",
+      "target": "xiui_config_input_smoke",
+      "arguments": [
+        "--config-sidebar-only"
+      ],
+      "requires_arguments": false
+    },
+    {
+      "name": "config-resize",
+      "target": "xiui_config_input_smoke",
+      "arguments": [
+        "--config-resize-only"
+      ],
+      "requires_arguments": false
+    },
+    {
+      "name": "target-ring-state",
+      "target": "xiui_config_input_smoke",
+      "arguments": [
+        "--target-ring-state-only"
+      ],
+      "requires_arguments": false
+    },
+    {
+      "name": "target-rings",
+      "target": "xiui_config_input_smoke",
+      "arguments": [
+        "--target-rings-only"
+      ],
+      "requires_arguments": false
+    },
+    {
+      "name": "heal-prediction",
+      "target": "xiui_config_input_smoke",
+      "arguments": [
+        "--heal-prediction-only"
+      ],
+      "requires_arguments": false
+    },
+    {
+      "name": "profile-delete",
+      "target": "xiui_config_input_smoke",
+      "arguments": [
+        "--profile-delete-only"
+      ],
+      "requires_arguments": false
+    },
+    {
+      "name": "exp-position",
+      "target": "xiui_config_input_smoke",
+      "arguments": [
+        "--exp-position-only"
+      ],
+      "requires_arguments": false
+    },
+    {
+      "name": "config-text",
+      "target": "xiui_config_input_smoke",
+      "arguments": [
+        "--config-text-only"
+      ],
+      "requires_arguments": false
+    },
+    {
+      "name": "input-mode",
+      "target": "xiui_config_input_smoke",
+      "arguments": [
+        "--input-mode-only"
+      ],
+      "requires_arguments": false
+    },
+    {
+      "name": "scrollbar",
+      "target": "xiui_config_input_smoke",
+      "arguments": [
+        "--scrollbar-only"
+      ],
+      "requires_arguments": false
+    },
+    {
+      "name": "party-presets",
+      "target": "xiui_config_input_smoke",
+      "arguments": [
+        "--party-presets-only"
+      ],
+      "requires_arguments": false
+    },
+    {
+      "name": "all-bars",
+      "target": "xiui_config_input_smoke",
+      "arguments": [
+        "--all-bars-only"
+      ],
+      "requires_arguments": false
+    },
+    {
+      "name": "element-tabs",
+      "target": "xiui_config_input_smoke",
+      "arguments": [
+        "--element-tabs-only"
+      ],
+      "requires_arguments": false
+    },
+    {
+      "name": "party-entry",
+      "target": "xiui_config_input_smoke",
+      "arguments": [
+        "--party-entry-only"
+      ],
+      "requires_arguments": false
+    },
+    {
+      "name": "choice-arrows",
+      "target": "xiui_config_input_smoke",
+      "arguments": [
+        "--choice-arrows-only"
+      ],
+      "requires_arguments": false
+    },
+    {
+      "name": "text-rasterization",
+      "target": "xiui_config_input_smoke",
+      "arguments": [
+        "--text-rasterization-only"
+      ],
+      "requires_arguments": false
+    },
+    {
+      "name": "attribution",
+      "target": "xiui_config_input_smoke",
+      "arguments": [
+        "--attribution-only"
+      ],
+      "requires_arguments": false
+    },
+    {
+      "name": "global-text",
+      "target": "xiui_config_input_smoke",
+      "arguments": [
+        "--global-text-only"
+      ],
+      "requires_arguments": false
+    },
+    {
+      "name": "target-recipient",
+      "target": "xiui_config_input_smoke",
+      "arguments": [
+        "--target-recipient-only"
+      ],
+      "requires_arguments": false
+    },
+    {
+      "name": "party-module",
+      "target": "xiui_config_input_smoke",
+      "arguments": [
+        "--party-module-only"
+      ],
+      "requires_arguments": false
+    },
+    {
+      "name": "party-target-settings",
+      "target": "xiui_config_input_smoke",
+      "arguments": [
+        "--party-target-settings-only"
+      ],
+      "requires_arguments": false
+    },
+    {
+      "name": "enabled-modules",
+      "target": "xiui_config_input_smoke",
+      "arguments": [
+        "--enabled-modules-only"
+      ],
+      "requires_arguments": false
+    },
+    {
+      "name": "native-windows-tab",
+      "target": "xiui_config_input_smoke",
+      "arguments": [
+        "--native-windows-tab-only"
+      ],
+      "requires_arguments": false
+    },
+    {
+      "name": "chat-preview",
+      "target": "xiui_config_input_smoke",
+      "arguments": [
+        "--chat-preview-only"
+      ],
+      "requires_arguments": false
+    },
+    {
+      "name": "profile-sharing",
+      "target": "xiui_config_input_smoke",
+      "arguments": [
+        "--profile-sharing-only"
+      ],
+      "requires_arguments": false
+    },
+    {
+      "name": "chat-customization",
+      "target": "xiui_config_input_smoke",
+      "arguments": [
+        "--chat-customization-only"
+      ],
+      "requires_arguments": false
+    },
+    {
+      "name": "chat-alerts",
+      "target": "xiui_config_input_smoke",
+      "arguments": [
+        "--chat-alerts-only"
+      ],
+      "requires_arguments": false
+    },
+    {
+      "name": "collapse",
+      "target": "xiui_config_input_smoke",
+      "arguments": [
+        "--collapse-only"
+      ],
+      "requires_arguments": false
+    },
+    {
+      "name": "close-input",
+      "target": "xiui_config_input_smoke",
+      "arguments": [
+        "--close-input-only"
+      ],
+      "requires_arguments": false
+    },
+    {
+      "name": "character-profiles",
+      "target": "xiui_config_input_smoke",
+      "arguments": [
+        "--character-profiles-only"
+      ],
+      "requires_arguments": false
+    },
+    {
+      "name": "profiles",
+      "target": "xiui_config_input_smoke",
+      "arguments": [
+        "--profiles-only"
+      ],
+      "requires_arguments": false
+    },
+    {
+      "name": "preview-focus",
+      "target": "xiui_config_input_smoke",
+      "arguments": [
+        "--preview-focus-only"
+      ],
+      "requires_arguments": false
+    },
+    {
+      "name": "exp-display",
+      "target": "xiui_config_input_smoke",
+      "arguments": [
+        "--exp-display-only"
+      ],
+      "requires_arguments": false
+    },
+    {
+      "name": "sounds",
+      "target": "xiui_config_input_smoke",
+      "arguments": [
+        "--sounds-only"
+      ],
+      "requires_arguments": false
+    },
+    {
+      "name": "slider-input",
+      "target": "xiui_config_input_smoke",
+      "arguments": [
+        "--slider-input-only"
+      ],
+      "requires_arguments": false
+    },
+    {
+      "name": "pet-hud",
+      "target": "xiui_config_input_smoke",
+      "arguments": [
+        "--pet-hud-only"
+      ],
+      "requires_arguments": false
+    },
+    {
+      "name": "pet-tabs",
+      "target": "xiui_config_input_smoke",
+      "arguments": [
+        "--pet-tabs-only"
+      ],
+      "requires_arguments": false
+    },
+    {
+      "name": "navigation",
+      "target": "xiui_config_input_smoke",
+      "arguments": [
+        "--navigation-only"
+      ],
+      "requires_arguments": false
+    },
+    {
+      "name": "color-picker",
+      "target": "xiui_config_input_smoke",
+      "arguments": [
+        "--color-picker-only"
+      ],
+      "requires_arguments": false
+    },
+    {
+      "name": "resource-target-features",
+      "target": "xiui_config_input_smoke",
+      "arguments": [
+        "--resource-target-features-only"
+      ],
+      "requires_arguments": false
+    },
+    {
+      "name": "minimap",
+      "target": "xiui_config_input_smoke",
+      "arguments": [
+        "--minimap-only"
+      ],
+      "requires_arguments": false
+    },
+    {
+      "name": "skillchain",
+      "target": "xiui_config_input_smoke",
+      "arguments": [
+        "--skillchain-only"
+      ],
+      "requires_arguments": false
+    },
+    {
+      "name": "phoenix",
+      "target": "xiui_config_input_smoke",
+      "arguments": [
+        "--phoenix-only"
+      ],
+      "requires_arguments": false
+    },
+    {
+      "name": "text-visibility",
+      "target": "xiui_config_input_smoke",
+      "arguments": [
+        "--text-visibility-only"
+      ],
+      "requires_arguments": false
+    },
+    {
+      "name": "treasure-input",
+      "target": "xiui_config_input_smoke",
+      "arguments": [
+        "--treasure-input-only"
+      ],
+      "requires_arguments": false
+    },
+    {
+      "name": "player-resources",
+      "target": "xiui_config_input_smoke",
+      "arguments": [
+        "--player-resources-only"
+      ],
+      "requires_arguments": false
+    },
+    {
+      "name": "mp-preview",
+      "target": "xiui_config_input_smoke",
+      "arguments": [
+        "--mp-preview-only"
+      ],
+      "requires_arguments": false
+    },
+    {
+      "name": "new-features",
+      "target": "xiui_config_input_smoke",
+      "arguments": [
+        "--new-features-only"
+      ],
+      "requires_arguments": false
+    },
+    {
+      "name": "icon-themes",
+      "target": "xiui_config_input_smoke",
+      "arguments": [
+        "--icon-themes-only"
+      ],
+      "requires_arguments": false
+    },
+    {
+      "name": "mob-info",
+      "target": "xiui_config_input_smoke",
+      "arguments": [
+        "--mob-info-only"
+      ],
+      "requires_arguments": false
+    },
+    {
+      "name": "party-name-cast",
+      "target": "xiui_config_input_smoke",
+      "arguments": [
+        "--party-name-cast-only"
+      ],
+      "requires_arguments": false
+    },
+    {
+      "name": "settings-presentation",
+      "target": "xiui_config_input_smoke",
+      "arguments": [
+        "--settings-presentation-only"
+      ],
+      "requires_arguments": false
+    },
+    {
+      "name": "defaults",
+      "target": "xiui_config_input_smoke",
+      "arguments": [
+        "--defaults-only",
+        "{root}/config/xiuinative-defaults.ini"
+      ],
+      "requires_arguments": false
+    },
+    {
+      "name": "status-snapshots",
+      "target": "xiui_config_input_smoke",
+      "arguments": [
+        "--status-snapshots-only"
+      ],
+      "requires_arguments": false
+    },
+    {
+      "name": "party",
+      "target": "xiui_config_input_smoke",
+      "arguments": [
+        "--party-only"
+      ],
+      "requires_arguments": false
+    },
+    {
+      "name": "type7-edge",
+      "target": "xiui_config_input_smoke",
+      "arguments": [
+        "--type7-edge-only"
+      ],
+      "requires_arguments": true
+    },
+    {
+      "name": "window-borders",
+      "target": "xiui_config_input_smoke",
+      "arguments": [
+        "--window-borders-only"
+      ],
+      "requires_arguments": true
+    },
+    {
+      "name": "theme-ui",
+      "target": "xiui_config_input_smoke",
+      "arguments": [
+        "--theme-ui"
+      ],
+      "requires_arguments": true
+    },
+    {
+      "name": "backing",
+      "target": "xiui_config_input_smoke",
+      "arguments": [
+        "--backing-only"
+      ],
+      "requires_arguments": false
+    },
+    {
+      "name": "bars",
+      "target": "xiui_config_input_smoke",
+      "arguments": [
+        "--bars-only"
+      ],
+      "requires_arguments": false
+    },
+    {
+      "name": "config-ui",
+      "target": "xiui_config_input_smoke",
+      "arguments": [
+        "--config-ui"
+      ],
+      "requires_arguments": false
+    },
+    {
+      "name": "layout",
+      "target": "xiui_config_input_smoke",
+      "arguments": [
+        "--layout-only"
+      ],
+      "requires_arguments": false
+    },
+    {
+      "name": "drag",
+      "target": "xiui_config_input_smoke",
+      "arguments": [
+        "--drag-only"
+      ],
+      "requires_arguments": false
+    },
+    {
+      "name": "settings",
+      "target": "xiui_settings_smoke",
+      "arguments": [],
+      "requires_arguments": false
+    },
+    {
+      "name": "controller-config",
+      "target": "xiui_controller_smoke",
+      "arguments": ["--config-only"],
+      "requires_arguments": false
+    },
+    {
+      "name": "controller-input",
+      "target": "xiui_controller_input_smoke",
+      "arguments": [],
+      "requires_arguments": false
+    },
+    {
+      "name": "experience-model",
+      "target": "xiui_experience_smoke",
+      "arguments": [],
+      "requires_arguments": false
+    }
+  ]
+}

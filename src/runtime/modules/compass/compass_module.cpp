@@ -1,4 +1,5 @@
 #include "compass_module.hpp"
+#include "ui/native_ui_assets.hpp"
 
 #include <algorithm>
 #include <cstdio>

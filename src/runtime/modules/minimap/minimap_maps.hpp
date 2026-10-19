@@ -2,9 +2,11 @@
 
 #include "Ashita.h"
 #include "resources/menu_texture.hpp"
+#include "design_system.hpp"
 
 #include <condition_variable>
 #include <mutex>
+#include <memory>
 #include <optional>
 #include <span>
 #include <thread>
@@ -12,7 +14,8 @@
 
 namespace xiui
 {
-    struct minimap_image { IDirect3DTexture8* texture{}; bool enhanced{}, known{}, loading{}; };
+    using minimap_outline = std::array<ui::point, 256>;
+    struct minimap_image { IDirect3DTexture8* texture{}; bool enhanced{}, known{}, loading{}; std::shared_ptr<const minimap_outline> outline{}; };
 
     class minimap_maps
     {
@@ -25,9 +28,10 @@ namespace xiui
     private:
         friend struct minimap_checks;
         static auto DecodeImage(std::span<const uint8_t> bytes) -> std::optional<resources::menu_texture>;
+        static auto ExtractOutline(const resources::menu_texture& image) -> std::shared_ptr<const minimap_outline>;
         struct record { uint16_t zone{}; int16_t floor{}; uint8_t style{}; std::span<const uint8_t> bytes{}; };
-        struct entry { size_t record{}; IDirect3DTexture8* texture{}; uint64_t used{}; };
-        struct decoded { size_t record{}; uint64_t generation{}; std::optional<resources::menu_texture> image{}; };
+        struct entry { size_t record{}; IDirect3DTexture8* texture{}; uint64_t used{}; std::shared_ptr<const minimap_outline> outline{}; };
+        struct decoded { size_t record{}; uint64_t generation{}; std::optional<resources::menu_texture> image{}; std::shared_ptr<const minimap_outline> outline{}; };
         struct selection { uint16_t zone{}; int floor{}; bool enhanced{}; size_t record{}; };
         std::optional<selection> selection_{};
         std::vector<record> records_{};

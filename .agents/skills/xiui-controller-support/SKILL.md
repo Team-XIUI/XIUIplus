@@ -7,9 +7,9 @@ description: Design, implement or review controller support for XIUI Native inte
 
 Apply to the XIUI Native repository containing this skill.
 
-Read its `AGENTS.md` and relevant shared foundations. Consult `docs/controller-plan.md` for the researched UX and rollout. That document is a proposal: inspect the current source before assuming its planned adapters, focus system or controller actions exist. A request for research or planning authorizes documentation, not application implementation.
+Read its `AGENTS.md`, relevant shared foundations and `docs/controller-implementation.md` first for implemented commands, semantic actions and native-keyboard/hardware limits. Resolve the ABI from `src/shared/runtime_api.hpp`. Reuse current normalized input, config session and focus foundations.
 
-Read `docs/controller-implementation.md` for the implemented entry commands, ABI, semantic actions and remaining native-keyboard/hardware limits. Reuse the current normalized input and focus foundations when extending features.
+`docs/controller-plan.md` records remaining acceptance and links dated research. Historical proposals are not available APIs or standing authorization for live experiments. A request for research or planning authorizes documentation, not application implementation.
 
 For live diagnostics, consult `docs/controller-agentlink-findings.md`. AgentLink can forward existing Ashita diagnostic commands, but an accepted `QueueButtonData` call does not prove a connected or emulated controller, delivered input or successful navigation. Confirm runtime readiness, device/backend availability and observed callbacks/state transitions first. Honor the task's authorization for experiments and preserve current user work.
 

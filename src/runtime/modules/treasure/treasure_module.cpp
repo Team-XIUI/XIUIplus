@@ -1,5 +1,8 @@
 #include "treasure_module.hpp"
+#include "ui/game_icon_cache.hpp"
 #include "chat/chat_encoding.hpp"
+#include "ui/text_fit.hpp"
+#include "config/config_controls.hpp"
 #include <algorithm>
 #include <cstdio>
 #include <cmath>
@@ -9,14 +12,16 @@ namespace xiui
 {
     namespace
     {
-        constexpr const char* text_sections[]{"text.treasure.title", "text.treasure.item", "text.treasure.details", "text.treasure.controls"};
+        constexpr const char* text_sections[]{"text.treasure.title", "text.treasure.item", "text.treasure.details", "text.treasure.controls", "text.treasure.timers"};
         auto Inside(const ui::rect& rect, float x, float y) -> bool
         { return x >= rect.x && y >= rect.y && x < rect.x + rect.width && y < rect.y + rect.height; }
     }
     auto treasure_module::ApplyTextDefaults(const ui::theme& theme) -> void
     {
-        this->text_ = {module_text_profile{theme.title_text}, module_text_profile{theme.body_text}, module_text_profile{theme.caption_text}, module_text_profile{theme.caption_text}};
-        this->text_[1].style.scale = this->text_[2].style.scale = this->text_[3].style.scale = 0.8f;
+        this->text_ = {module_text_profile{theme.title_text}, module_text_profile{theme.body_text}, module_text_profile{theme.caption_text}, module_text_profile{theme.caption_text}, module_text_profile{theme.caption_text}};
+        this->text_[1].style.scale = this->text_[3].style.scale = 0.8f;
+        this->text_[2].style.scale = this->text_[4].style.scale = 0.7f;
+        this->text_[4].style.alignment = ui::text_alignment::right;
     }
     auto treasure_module::ResetDefaults(const ui::theme& theme) -> void
     {
@@ -32,8 +37,13 @@ namespace xiui
         this->state_.bounds.width = std::clamp(this->state_.bounds.width, 440.0f, 1000.0f);
         this->container_.opacity = std::clamp(store.ReadFloat("treasure", "opacity", 0.95f), 0.0f, 1.0f);
         this->container_.padding = std::clamp(store.ReadFloat("treasure", "padding", 10), 0.0f, 24.0f);
-        this->selected_text_ = std::clamp(store.ReadInt("treasure", "selected_text", 0), 0, 3);
-        for (size_t i = 0; i < this->text_.size(); ++i) this->text_[i] = LoadTextProfile(store, text_sections[i], this->text_[i]);
+        this->selected_text_ = std::clamp(store.ReadInt("treasure", "selected_text", 0), 0, 4);
+        for (size_t i = 0; i < 4; ++i) this->text_[i] = LoadTextProfile(store, text_sections[i], this->text_[i]);
+        if (store.ReadInt("treasure", "presentation_version", 0) < 1 && std::abs(this->text_[2].style.scale - this->text_[1].style.scale) < 0.001f)
+            this->text_[2].style.scale = std::max(ui::text_min_scale, this->text_[2].style.scale * 0.875f);
+        auto timer = this->text_[2]; timer.visible = true; timer.placement = 0; timer.offset_x = timer.offset_y = 0;
+        timer.style.alignment = ui::text_alignment::right;
+        this->text_[4] = LoadTextProfile(store, text_sections[4], timer);
     }
     auto treasure_module::Save(const settings_store& store) const -> void
     {
@@ -41,21 +51,32 @@ namespace xiui
         store.WriteBool("treasure", "expanded", this->expanded_); store.WriteRect("layout.treasure", this->state_.bounds);
         store.WriteFloat("treasure", "opacity", this->container_.opacity); store.WriteFloat("treasure", "padding", this->container_.padding);
         store.WriteInt("treasure", "selected_text", this->selected_text_);
+        store.WriteInt("treasure", "presentation_version", 1);
         for (size_t i = 0; i < this->text_.size(); ++i) SaveTextProfile(store, text_sections[i], this->text_[i]);
     }
     auto treasure_module::ConfigSections(void) const -> std::span<const module_config_section>
     {
-        static constexpr module_config_section sections[]{{"General", "Native treasure items and explicit lot/pass decisions.", "general"}, {"Appearance", "Size and native window styling.", "appearance"}, {"Text", "Independent title, item, details and button profiles.", "text"}};
+        static constexpr module_config_section sections[]{{"General", "Native treasure items and explicit lot/pass decisions.", "general"}, {"Appearance", "Content visibility, size and native window styling.", "appearance"}, {"Text", "Independent title, item, details, timer and button profiles.", "text"}};
         return sections;
     }
     auto treasure_module::ConfigSectionContains(size_t section, size_t index) -> bool
     {
         if (index >= this->OptionCount()) return false;
+        if (index >= visibility_start) return section == 1;
         return section == (index >= selected_text ? 2 : index >= width ? 1 : 0);
     }
     auto treasure_module::Option(size_t index) -> module_option
     {
-        static constexpr const char* profiles[]{"Title", "Items", "Details and timers", "Buttons"};
+        static constexpr const char* profiles[]{"Title", "Items", "Details", "Buttons", "Timers"};
+        if (index >= visibility_start)
+        {
+            switch (index - visibility_start)
+            {
+            case 0: return module_option::Toggle("Show title", "Show the Treasure Pool heading and item count.", &this->text_[0].visible).Ordered(-40);
+            case 1: return module_option::Toggle("Show details", "Show your decision, the leading lot and lot history.", &this->text_[2].visible).Ordered(-39);
+            default: return module_option::Toggle("Show timers", "Show estimated time remaining beneath each item.", &this->text_[4].visible).Ordered(-38);
+            }
+        }
         switch (index)
         {
         case enabled: return module_option::Toggle("Enabled", "Show the Treasure Pool module.", &this->state_.enabled).Ordered(-50);
@@ -65,7 +86,7 @@ namespace xiui
         case width: return ModuleWidthOption(this->state_);
         case opacity: return module_option::Slider("Opacity", "Native window opacity.", &this->container_.opacity, 0, 1, 0.05f);
         case padding: return module_option::Slider("Padding", "Space inside the native window.", &this->container_.padding, 0, 24, 1);
-        case selected_text: return module_option::Element("Selected text", "Choose the text element to style.", &this->selected_text_, profiles, 4);
+        case selected_text: return module_option::Element("Selected text", "Choose the text element to style.", &this->selected_text_, profiles, 5);
         default: return TextProfileOption(index - base_options, this->text_[this->selected_text_]);
         }
     }
@@ -106,7 +127,7 @@ namespace xiui
             for (size_t i = 0; i < this->controls_.size(); ++i)
             {
                 const auto& candidate = this->controls_[i];
-                const float distance = (candidate.bounds.y - current.bounds.y) * delta;
+                const float distance = (candidate.bounds.y + candidate.bounds.height * 0.5f - current.bounds.y - current.bounds.height * 0.5f) * delta;
                 if (!candidate.available || distance <= 0 || distance > nearest) continue;
                 const float candidateScore = (candidate.kind == current.kind ? 0.0f : 10000.0f) +
                     std::abs(candidate.bounds.x + candidate.bounds.width / 2 - current.bounds.x - current.bounds.width / 2);
@@ -118,7 +139,8 @@ namespace xiui
             for (size_t step = 1; step <= this->controls_.size(); ++step)
             {
                 const auto next = static_cast<size_t>((static_cast<int>(this->focus_ + this->controls_.size()) + delta * static_cast<int>(step)) % static_cast<int>(this->controls_.size()));
-                if (this->controls_[next].available && this->controls_[next].bounds.y == current.bounds.y) { this->focus_ = next; break; }
+                const auto& candidate = this->controls_[next];
+                if (candidate.available && std::abs(candidate.bounds.y + candidate.bounds.height * 0.5f - current.bounds.y - current.bounds.height * 0.5f) < 0.5f) { this->focus_ = next; break; }
             }
         this->selected_ = std::min(this->controls_[this->focus_].slot, size_t{9});
     }
@@ -220,30 +242,77 @@ namespace xiui
         const auto& entries = !preview && this->source_ != nullptr ? this->source_->Entries() : previewEntries;
         const auto count = static_cast<size_t>(std::count_if(entries.begin(), entries.end(), [](const auto& item) { return item.item != 0; }));
         const auto& design = context.Design(); const auto now = ::GetTickCount64();
-        const float titleHeight = std::max(28.0f, design.TextHeight(this->text_[0].style) + 6);
-        const float detailLine = std::max(18.0f, design.TextHeight(this->text_[2].style) + 4);
-        const float buttonHeight = std::max(26.0f, design.TextHeight(this->text_[3].style) + 8);
-        const float line = std::max({28.0f, buttonHeight, design.TextHeight(this->text_[1].style) + 4});
-        const float rowHeight = line + (this->expanded_ ? detailLine : 0) + 6;
+        const auto title = "Treasure Pool (" + std::to_string(count) + ")";
+        const float titleHeight = this->text_[0].visible ? std::max(20.0f, design.TextHeight(this->text_[0].style) + 4) : 0;
+        const bool details = this->text_[2].visible, timers = this->text_[4].visible;
+        const bool secondary = this->expanded_ && (details || timers);
+        const float detailLine = std::max(14.0f, std::max(details ? design.TextHeight(this->text_[2].style) : 0,
+            timers ? design.TextHeight(this->text_[4].style) : 0) + 2);
+        const float buttonHeight = std::max(24.0f, design.TextHeight(this->text_[3].style) + 8);
+        const float inset = this->container_.padding + this->container_.edge_size;
+        const float contentWidth = std::max(1.0f, this->state_.bounds.width - inset * 2);
+        const char* headerLabels[]{"Lot all", "Pass all", this->expanded_ ? "Collapse" : "Expand", count == 0 ? "Close" : "Details"};
+        std::array<float, 4> headerWidths{};
+        float toolbarWidth = 18;
+        for (size_t i = 0; i < headerWidths.size(); ++i)
+        {
+            headerWidths[i] = i >= 2 ? buttonHeight : std::min(contentWidth, std::max(44.0f, design.MeasureText(headerLabels[i], this->text_[3].style) + 16));
+            toolbarWidth += headerWidths[i];
+        }
+        const bool inlineHeader = titleHeight == 0 || design.MeasureText(title.c_str(), this->text_[0].style) + toolbarWidth + 8 <= contentWidth;
+        float headerX = inlineHeader ? std::max(0.0f, contentWidth - toolbarWidth) : 0;
+        float headerY = inlineHeader ? std::max(0.0f, (titleHeight - buttonHeight) * 0.5f) : titleHeight + 4;
+        std::array<ui::rect, 4> headerButtons{};
+        for (size_t i = 0; i < headerButtons.size(); ++i)
+        {
+            if (headerX > 0 && headerX + headerWidths[i] > contentWidth + 0.01f)
+            { headerX = 0; headerY += buttonHeight + 4; }
+            headerButtons[i] = {this->state_.bounds.x + inset + headerX, this->state_.bounds.y + inset + headerY, headerWidths[i], buttonHeight};
+            headerX += headerWidths[i] + 6;
+        }
+        const float headerHeight = std::max(titleHeight, headerY + buttonHeight);
+        const ui::rect titleBounds{this->state_.bounds.x + inset,
+            this->state_.bounds.y + inset + (inlineHeader ? std::max(0.0f, (buttonHeight - titleHeight) * 0.5f) : 0),
+            inlineHeader ? std::max(0.0f, contentWidth - toolbarWidth - 8) : contentWidth, titleHeight};
+        const float actionWidth = std::max(48.0f, design.MeasureText("Pass", this->text_[3].style) + 18);
+        const float actionGap = 6, actionsWidth = actionWidth * 2 + actionGap;
+        const float line = std::max({26.0f, buttonHeight, design.TextHeight(this->text_[1].style) + 2});
+        const float rowHeight = line + (secondary ? detailLine : 0) + 6;
         if (count != 0 && entries[this->selected_].item == 0)
             this->selected_ = static_cast<size_t>(std::find_if(entries.begin(), entries.end(), [](const auto& item) { return item.item != 0; }) - entries.begin());
         const size_t historyLines = count != 0 ? std::min(size_t{4}, entries[this->selected_].history.size()) : 0;
         const bool error = !preview && this->source_ != nullptr && !this->source_->Error().empty();
-        const float detailHeight = this->details_ && count != 0 ? 6 + detailLine * (1 + historyLines + (error ? 1 : 0)) : 0;
-        this->state_.bounds.height = this->container_.padding * 2 + titleHeight + 4 + std::max(size_t{1}, count) * rowHeight + buttonHeight + detailHeight;
-        const auto content = context.DrawContainer(this->state_.bounds, this->container_);
-        const auto draw = [&](const std::string& value, const ui::rect& area, size_t profile) { context.DrawText(value.c_str(), area, area, this->text_[profile]); };
-        draw("Treasure Pool (" + std::to_string(count) + ")", {content.x, content.y, content.width, titleHeight}, 0);
+        const bool showHistory = this->details_ && details && count != 0;
+        const float detailHeight = showHistory ? 6 + detailLine * (1 + historyLines + (error ? 1 : 0)) : 0;
+        constexpr float headerGap = 6;
+        this->state_.bounds.height = inset * 2 + headerHeight + headerGap + std::max(size_t{1}, count) * rowHeight + detailHeight;
+        const ui::container_fill headerFill{{this->state_.bounds.x + inset, this->state_.bounds.y + inset - 2, contentWidth, headerHeight + 4},
+            (design.GetTheme().colors.surface_raised & 0xFFFFFF) | 0x40000000};
+        const auto content = context.DrawContainer(this->state_.bounds, this->container_, std::span{&headerFill, 1});
+        const auto draw = [&](const std::string& value, const ui::rect& area, size_t profile) {
+            const auto text = ui::FitText(design, value, area.width, this->text_[profile].style);
+            context.DrawText(text.c_str(), area, area, this->text_[profile]);
+        };
+        draw(title, titleBounds, 0);
         std::optional<control> focused;
         if (this->browse_ && this->focus_ < this->controls_.size()) focused = this->controls_[this->focus_];
         this->controls_.clear();
         const auto button = [&](const char* label, ui::rect bounds, action kind, size_t slot, uint64_t generation, bool available) {
             available = available && this->available_ && !preview;
             auto profile = available ? this->text_[3] : TintTextProfile(this->text_[3], 0xFF888888);
-            context.DrawButton(bounds, label, available && Inside(bounds, this->mouse_x_, this->mouse_y_), profile);
+            const auto tone = kind == action::lot || kind == action::lot_all ? ui::button_tone::positive :
+                kind == action::pass || kind == action::pass_all ? ui::button_tone::danger : ui::button_tone::normal;
+            const bool hovered = available && Inside(bounds, this->mouse_x_, this->mouse_y_);
+            if (kind == action::expand || kind == action::close || (kind == action::details && generation == 0))
+            {
+                const auto icon = kind == action::expand ? (this->expanded_ ? ui::icon_glyph::chevron_up : ui::icon_glyph::chevron_down) :
+                    kind == action::close ? ui::icon_glyph::close : ui::icon_glyph::eye;
+                ui::config_controls{design, nullptr, context.NativeAssets()}.IconButton(bounds, icon, hovered || (kind == action::details && this->details_));
+            }
+            else context.DrawButton(bounds, label, hovered, profile, tone);
             this->controls_.push_back({bounds, kind, slot, generation, available});
         };
-        float y = content.y + titleHeight + 4;
+        float y = content.y + headerHeight + headerGap;
         if (count == 0) draw("The treasure pool is empty.", {content.x, y, content.width, rowHeight}, 2);
         bool lotAll{}, passAll{};
         for (size_t slot = 0; slot < entries.size(); ++slot)
@@ -253,34 +322,41 @@ namespace xiui
             if (auto* resources = this->core_ != nullptr ? this->core_->GetResourceManager() : nullptr)
                 if (const auto* item = resources->GetItemById(entry.item); item != nullptr && item->Name[2] != nullptr) name = FromGameText(item->Name[2]);
             if (entry.count > 1) name += " x" + std::to_string(entry.count);
-            this->controls_.push_back({{content.x, y, content.width - 112, rowHeight}, action::details, slot, entry.generation, !preview && this->available_});
+            const float actionsX = content.x + content.width - actionsWidth;
+            const float textX = content.x + 34, textWidth = content.width - 34;
+            this->controls_.push_back({{textX, y, std::max(1.0f, actionsX - textX - 8), line}, action::details, slot, entry.generation, !preview && this->available_ && details});
             if (context.Icons() != nullptr)
-                if (auto* icon = context.Icons()->Item(entry.item)) design.DrawTexture(icon, {content.x, y, 28, 28});
-            draw(name, {content.x + 34, y, content.width - 146, line}, 1);
+                if (auto* icon = context.Icons()->Item(entry.item)) design.DrawTexture(icon, {content.x, y + (line - 26) * 0.5f, 26, 26});
+            draw(name, {textX, y, std::max(1.0f, actionsX - textX - 8), line}, 1);
             const bool canLot = this->source_ != nullptr && this->source_->Plan(slot, entry.generation, false, now).has_value();
             const bool canPass = this->source_ != nullptr && this->source_->Plan(slot, entry.generation, true, now).has_value();
             lotAll |= canLot; passAll |= canPass;
-            button("Lot", {content.x + content.width - 106, y, 48, buttonHeight}, action::lot, slot, entry.generation, canLot);
-            button("Pass", {content.x + content.width - 54, y, 54, buttonHeight}, action::pass, slot, entry.generation, canPass);
-            if (this->expanded_)
+            const float buttonY = y + (line - buttonHeight) * 0.5f;
+            button("Lot", {actionsX, buttonY, actionWidth, buttonHeight}, action::lot, slot, entry.generation, canLot);
+            button("Pass", {actionsX + actionWidth + actionGap, buttonY, actionWidth, buttonHeight}, action::pass, slot, entry.generation, canPass);
+            if (secondary)
             {
-                auto status = entry.lot == 65535 ? std::string{"Passed"} : entry.lot != 0 ? "Your lot: " + std::to_string(entry.lot) : entry.pending_until > now ? "Awaiting response" : "No decision";
-                if (entry.winning_lot != 0) status += " | " + entry.winner + ": " + std::to_string(entry.winning_lot);
-                if (entry.expires > now) { const auto seconds = (entry.expires - now + 999) / 1000; char time[32]{}; std::snprintf(time, sizeof(time), " | ~%llu:%02llu", seconds / 60, seconds % 60); status += time; }
-                else status += " | Time unknown";
-                draw(status, {content.x + 34, y + line, content.width - 34, detailLine}, 2);
+                std::string timer = "Time unknown";
+                if (entry.expires > now) { const auto seconds = (entry.expires - now + 999) / 1000; char time[32]{}; std::snprintf(time, sizeof(time), "~%llu:%02llu", seconds / 60, seconds % 60); timer = time; }
+                const float timerWidth = timers ? std::min(textWidth, design.MeasureText(timer.c_str(), this->text_[4].style) + 2) : 0;
+                if (details)
+                {
+                    auto status = entry.lot == 65535 ? std::string{"Passed"} : entry.lot != 0 ? "Lot: " + std::to_string(entry.lot) : entry.pending_until > now ? "Pending..." : "Not rolled";
+                    if (entry.winning_lot != 0) status += " | High: " + std::to_string(entry.winning_lot) + " (" + entry.winner + ")";
+                    draw(status, {textX, y + line, std::max(0.0f, textWidth - timerWidth - (timers ? 10 : 0)), detailLine}, 2);
+                }
+                if (timers) draw(timer, {textX + textWidth - timerWidth, y + line, timerWidth, detailLine}, 4);
             }
             y += rowHeight;
         }
         if (count == 0) y += rowHeight;
-        const float buttonWidth = (content.width - 12) / 4;
-        button("Lot all", {content.x, y, buttonWidth, buttonHeight}, action::lot_all, this->selected_, 0, lotAll);
-        button("Pass all", {content.x + buttonWidth + 4, y, buttonWidth, buttonHeight}, action::pass_all, this->selected_, 0, passAll);
-        button(this->expanded_ ? "Collapse" : "Expand", {content.x + (buttonWidth + 4) * 2, y, buttonWidth, buttonHeight}, action::expand, this->selected_, 0, true);
-        button(count == 0 ? "Close" : "Details", {content.x + (buttonWidth + 4) * 3, y, buttonWidth, buttonHeight}, count == 0 ? action::close : action::details, this->selected_, 0, true);
-        if (this->details_ && count != 0)
+        button(headerLabels[0], headerButtons[0], action::lot_all, this->selected_, 0, lotAll);
+        button(headerLabels[1], headerButtons[1], action::pass_all, this->selected_, 0, passAll);
+        button(headerLabels[2], headerButtons[2], action::expand, this->selected_, 0, details || timers);
+        button(headerLabels[3], headerButtons[3], count == 0 ? action::close : action::details, this->selected_, 0, count == 0 || details);
+        if (showHistory)
         {
-            y += buttonHeight + 6; draw("Recent lots / passes (countdowns are estimates)", {content.x, y, content.width, detailLine}, 2);
+            y += 6; draw("Recent lots / passes", {content.x, y, content.width, detailLine}, 2);
             const auto& history = entries[this->selected_].history;
             for (size_t i = history.size() - historyLines; i < history.size(); ++i) { y += detailLine; draw(history[i], {content.x, y, content.width, detailLine}, 2); }
             if (error) draw(this->source_->Error(), {content.x, y + detailLine, content.width, detailLine}, 2);
@@ -294,5 +370,25 @@ namespace xiui
             if (!this->controls_[this->focus_].available) this->MoveFocus(1);
             design.DrawFocusFrame(this->controls_[this->focus_].bounds, this->focus_style_);
         }
+    }
+
+    auto treasure_module::RenderOverlay(const module_render_context& context, const ui::config_text_settings& text, const float mouseX, const float mouseY) const -> void
+    {
+        const control* selected{};
+        for (size_t i = 0; i < this->controls_.size(); ++i)
+        {
+            const auto& control = this->controls_[i];
+            if (!control.available || (control.kind != action::expand && control.kind != action::close && !(control.kind == action::details && control.generation == 0))) continue;
+            if (Inside(control.bounds, mouseX, mouseY)) { selected = &control; break; }
+            if (this->browse_ && i == this->focus_) selected = &control;
+        }
+        if (selected == nullptr) return;
+        const char* help = selected->kind == action::expand ? (this->expanded_ ? "Collapse item details" : "Expand item details") :
+            selected->kind == action::close ? "Close Treasure Pool" : this->details_ ? "Hide lot history" : "Show lot history";
+        const auto bounds = context.Viewport();
+        const D3DVIEWPORT8 viewport{static_cast<DWORD>(std::max(0.0f, bounds.x)), static_cast<DWORD>(std::max(0.0f, bounds.y)),
+            static_cast<DWORD>(std::max(1.0f, bounds.width)), static_cast<DWORD>(std::max(1.0f, bounds.height)), 0, 1};
+        ui::config_controls controls{context.Design(), nullptr, context.NativeAssets()};
+        controls.SetTextSettings(text); controls.Tooltip(help, selected->bounds, viewport);
     }
 }

@@ -2,8 +2,7 @@
 
 #include "design_system.hpp"
 #include "ui/container_renderer.hpp"
-#include "ui/game_icon_cache.hpp"
-#include "ui/native_ui_assets.hpp"
+#include "ui/button_renderer.hpp"
 #include "ui/meter_text_layout.hpp"
 #include "runtime_api.hpp"
 #include "ui/health_feedback.hpp"
@@ -15,7 +14,9 @@
 #include <functional>
 #include <string_view>
 
-namespace xiui::ui { struct tp_meter_colors; }
+#include "ui/selection_style.hpp"
+
+namespace xiui::ui { class game_icon_cache; class native_ui_assets; struct tp_meter_colors; }
 
 namespace xiui
 {
@@ -38,6 +39,7 @@ namespace xiui
         text_input,
         dropdown,
         color_override,
+        toggle_buttons,
     };
 
     enum class module_selector : uint8_t { none, element, scope };
@@ -53,6 +55,7 @@ namespace xiui
         bool available{true};
         bool visible{true};
         bool* toggle{};
+        std::span<bool> button_toggles{};
         D3DCOLOR* color{};
         float* slider{};
         float minimum{};
@@ -91,6 +94,8 @@ namespace xiui
         }
 
         static auto Toggle(const char* label, const char* description, bool* value, module_option_group group = module_option_group::general) -> module_option;
+        static auto ToggleButtons(const char* label, const char* description, std::span<bool> values, std::span<const char* const> labels) -> module_option;
+        auto ToggleButton(size_t index) const -> bool;
         static auto Color(const char* label, const char* description, D3DCOLOR* value, module_option_group group = module_option_group::general) -> module_option;
         static auto Slider(const char* label, const char* description, float* value, float minimum, float maximum, float step, module_option_group group = module_option_group::general) -> module_option;
         static auto Choice(const char* label, const char* description, int* value, const char* const* choices, size_t count, module_option_group group = module_option_group::general) -> module_option;
@@ -108,6 +113,7 @@ namespace xiui
         float offset_x{};
         float offset_y{};
         int placement{};
+        bool visible{true};
     };
 
     struct module_config_section
@@ -170,7 +176,7 @@ namespace xiui
         auto Viewport(void) const -> const ui::rect& { return this->viewport_; }
         auto Icons(void) const -> ui::game_icon_cache* { return this->icons_; }
         auto NativeAssets(void) const -> ui::native_ui_assets* { return this->native_assets_; }
-        auto DrawButton(const ui::rect& bounds, const char* label, bool highlighted, const module_text_profile& profile) const -> void;
+        auto DrawButton(const ui::rect& bounds, const char* label, bool highlighted, const module_text_profile& profile, ui::button_tone tone = ui::button_tone::normal) const -> void;
         auto IsEditing(void) const -> bool { return this->editing_; }
         auto DrawContainer(const ui::rect& bounds, const ui::container_style& style = {}, std::span<const ui::container_fill> fills = {}) const -> ui::rect;
         auto DrawContainerFrame(const ui::rect& bounds, const ui::container_style& style) const -> void;
@@ -196,7 +202,7 @@ namespace xiui
     };
 
     constexpr size_t meter_style_option_count = 30;
-    constexpr size_t text_profile_option_count = 15;
+    constexpr size_t text_profile_option_count = 16;
     using text_settings_visitor = std::function<void(ui::text_style&)>;
 
     inline auto VisitTextProfiles(const text_settings_visitor& visit, const std::span<module_text_profile> profiles) -> void

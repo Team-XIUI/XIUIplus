@@ -394,7 +394,7 @@ namespace xiui
         HMODULE owner{};
         if (!::GetModuleHandleExW(GET_MODULE_HANDLE_EX_FLAG_FROM_ADDRESS|GET_MODULE_HANDLE_EX_FLAG_UNCHANGED_REFCOUNT,
             reinterpret_cast<LPCWSTR>(site),&owner) || owner!=::GetModuleHandleW(L"Ashita.dll"))
-        { this->scene_hook_status_="outer wrapper unavailable"; this->WriteChat("[XIUI] Target ring boundary hook unavailable: device function is not owned by Ashita.dll."); return; }
+        { this->scene_hook_status_="outer wrapper unavailable"; return; }
         const auto initialized=::MH_Initialize();
         if (initialized!=MH_OK && initialized!=MH_ERROR_ALREADY_INITIALIZED)
         { this->scene_hook_status_="initialization failed"; this->WriteChat("[XIUI] Target ring boundary hook initialization failed."); return; }

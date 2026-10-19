@@ -99,8 +99,8 @@ namespace xiui
         {
             hud_runtime runtime;
             runtime.editing_ = true;
-            runtime.config_bounds_ = {40, 40, 1100, 600};
-            runtime.active_module_ = &runtime.player_;
+            runtime.config_.bounds = {40, 40, 1100, 600};
+            runtime.config_.module = &runtime.player_;
             runtime.player_.State().bounds = {1300, 740, 430, 88};
             runtime.player_.State().content_bounds = {-10, -5, 450, 105};
             const D3DVIEWPORT8 viewport{0, 0, 1920, 1080, 0, 1};
@@ -129,7 +129,7 @@ namespace xiui
             const auto after = runtime.MovementToolbar(viewport);
             if (!Check(after && Near(after->bounds.x, dock->bounds.x) && Near(after->bounds.y, dock->bounds.y),
                 "centering or moving the module leaves its screen toolbar in place")) return false;
-            runtime.active_module_ = &runtime.inventory_[1]; runtime.inventory_[1].State().enabled = false;
+            runtime.config_.module = &runtime.inventory_[1]; runtime.inventory_[1].State().enabled = false;
             if (!Check(!runtime.MovementToolbar(viewport), "disabled inventory trackers have no movement toolbar")) return false;
             const auto edge = ui::movement_toolbar::AtTop({0, 0, 1920, 1080});
             return Check(edge.bounds.x >= 0 && edge.bounds.y >= 0 && edge.bounds.x + edge.bounds.width <= 1920 && edge.bounds.y + edge.bounds.height <= 1080,
@@ -140,7 +140,7 @@ namespace xiui
         {
             hud_runtime runtime;
             runtime.editing_ = true;
-            runtime.config_bounds_ = {40, 40, 1100, 600};
+            runtime.config_.bounds = {40, 40, 1100, 600};
             const D3DVIEWPORT8 viewport{0, 0, 1920, 1080, 0, 1};
             const auto send = [&](const uint32_t message, const int x, const int y) {
                 runtime.mouse_x_ = x; runtime.mouse_y_ = y;

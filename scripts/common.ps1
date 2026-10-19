@@ -1,5 +1,24 @@
 Set-StrictMode -Version Latest
 
+function Invoke-XiuiBuild {
+    param([Parameter(Mandatory)][string[]]$Targets, [string]$SdkPath)
+    foreach ($Target in $Targets) {
+        if ($Target -notmatch '^[a-zA-Z0-9_-]+$') { throw "Invalid CMake target: $Target" }
+    }
+    $BuildRoot = Split-Path -Parent $PSScriptRoot
+    $VisualStudio = Resolve-XiuiVisualStudio
+    $CMake = Resolve-XiuiCMake -VisualStudioPath $VisualStudio
+    $Sdk = Resolve-XiuiSdk -PreferredPath $SdkPath
+    $VcVars = Join-Path $VisualStudio 'VC/Auxiliary/Build/vcvarsall.bat'
+    $Command = 'call "' + $VcVars + '" x86 && set "ASHITA4_SDK_PATH=' + $Sdk + '" && "' + $CMake + '" --preset msvc-x86-release && "' + $CMake + '" --build --preset release --target ' + ($Targets -join ' ')
+    Push-Location $BuildRoot
+    try {
+        cmd /d /s /c $Command
+        if ($LASTEXITCODE -ne 0) { throw "Build failed: $($Targets -join ', ')" }
+    }
+    finally { Pop-Location }
+}
+
 function Resolve-XiuiInstallPath {
     param([string]$PreferredPath)
     $Candidate = if (-not [string]::IsNullOrWhiteSpace($PreferredPath)) { $PreferredPath }

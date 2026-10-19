@@ -1,4 +1,5 @@
 #include "actionbars_module.hpp"
+#include "ui/game_icon_cache.hpp"
 #include "config/config_controls.hpp"
 
 #include <algorithm>

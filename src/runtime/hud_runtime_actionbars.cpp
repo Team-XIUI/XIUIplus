@@ -18,20 +18,20 @@ namespace xiui
         return mask | (this->actionbars_.ReplaceNativeMacros() ? native_keyboard_macro_palette : 0);
     }
 
-    auto hud_runtime::ActionBarsInputAvailable(const bool keyboardReplacement) const -> bool
+    auto hud_runtime::ActionBarsInputAvailable(const bool keyboardReplacement, const bool pointer) const -> bool
     {
         return this->visible_ && this->GameWindowFocused() &&
-            !this->ControllerNativeBusy() && (!this->ControllerNativeMenuOpen() || this->ActionBarsNativePaletteOwned(keyboardReplacement)) && !this->satchel_.InputFocused() &&
+            !this->ControllerNativeBusy() && (pointer || !this->ControllerNativeMenuOpen() || this->ActionBarsNativePaletteOwned(keyboardReplacement)) && !this->satchel_.InputFocused() &&
             this->controller_surface_ != controller_surface::picker && !this->controller_pointer_down_ &&
             !this->ChatFocused() && !this->chat_.HistoryExpanded() && !this->chat_second_.HistoryExpanded();
     }
 
     auto hud_runtime::ActionBarsPointerOwns(const float x, const float y) const -> bool
     {
-        if (!this->ActionBarsInputAvailable()) return false;
+        if (!this->ActionBarsInputAvailable(false, true)) return false;
         if (this->actionbars_.PointerDown()) return true;
         if (this->editing_ && (this->mouse_down_ || this->interaction_ != interaction::none || this->profile_name_.Focused() || this->profile_dropdown_ ||
-            this->profile_actions_ || this->choice_input_.Opened() || this->settings_search_open_ || this->input_mode_menu_ || this->active_color_ != nullptr)) return false;
+            this->profile_actions_ || this->config_.choice_input.Opened() || this->config_.search_open || this->config_.input_mode_menu || this->config_.active_color != nullptr)) return false;
         if (this->actionbars_.ModalDialogOpen() || !this->actionbars_.FloatingWindowOpen()) return this->actionbars_.InputFocused();
         return this->actionbars_.PointerOwns(x, y) &&
             (!this->editing_ || this->actionbars_.WindowFocused() || !Contains(this->ConfigVisibleBounds(), x, y));
@@ -119,7 +119,7 @@ namespace xiui
                 this->SuspendActionBarsInput(false);
         }
         // A macro's own subtarget is drained by the executor before its next line.
-        if (!this->ActionBarsInputAvailable())
+        if (!this->ActionBarsInputAvailable(false, true))
         {
             const bool pointer = this->actionbars_.PointerDown();
             if (pointer) this->actionbar_pointer_release_ |= MK_LBUTTON;
@@ -145,7 +145,7 @@ namespace xiui
         if (this->actionbars_.TakeMagicBurstSettingsRequest())
         {
             this->SelectConfigModule(&this->magic_burst_);
-            this->active_config_section_ = 0;
+            this->config_.section = 0;
             this->SetEditing(true);
         }
         const bool presentation = this->actionbars_.TakeSettingsChanged();
@@ -222,7 +222,7 @@ namespace xiui
             return true;
         }
         const bool replacement = !this->editing_ && !this->actionbars_.InputFocused() && this->actionbars_.ReplacesNativeMacroKey(key);
-        if (released || blocked || !this->ActionBarsInputAvailable(replacement)) return false;
+        if (released || blocked || !this->ActionBarsInputAvailable(replacement, this->actionbars_.InputFocused())) return false;
         if (this->editing_ && !this->actionbars_.InputFocused()) return false;
         if (!this->actionbars_.InputFocused() && this->controller_surface_ != controller_surface::none &&
             this->controller_surface_ != controller_surface::hotbar && this->controller_surface_ != controller_surface::crossbar) return false;
@@ -236,20 +236,21 @@ namespace xiui
         return consumed;
     }
 
-    auto hud_runtime::HandleActionBarsMouse(const uint32_t message, const WPARAM buttons, const float x, const float y, const bool blocked) -> bool
+    auto hud_runtime::HandleActionBarsMouse(const uint32_t message, const WPARAM buttons, const float x, const float y, const bool inputBlocked) -> bool
     {
+        const bool blocked = this->PointerInputBlocked(inputBlocked);
         const auto release = message == WM_LBUTTONUP ? MK_LBUTTON : message == WM_RBUTTONUP ? MK_RBUTTON : 0;
-        if (release != 0 && (this->actionbar_pointer_release_ & release) != 0 && (!this->ActionBarsInputAvailable() || !this->actionbars_.PointerDown()))
+        if (release != 0 && (this->actionbar_pointer_release_ & release) != 0 && (!this->ActionBarsInputAvailable(false, true) || !this->actionbars_.PointerDown()))
         {
             this->actionbar_pointer_release_ &= ~release;
             this->ReleasePointerCapture(); this->SetChatMouseCapture(false); return true;
         }
-        if (!this->ActionBarsInputAvailable()) return false;
+        if (!this->ActionBarsInputAvailable(false, true)) return false;
         const bool press = message == WM_LBUTTONDOWN || message == WM_LBUTTONDBLCLK || message == WM_RBUTTONDOWN || message == WM_RBUTTONDBLCLK;
         const bool floating = this->actionbars_.FloatingWindowOpen() && !this->actionbars_.ModalDialogOpen();
         if (!this->actionbars_.PointerDown() && this->editing_ &&
             (this->mouse_down_ || this->interaction_ != interaction::none || this->profile_name_.Focused() || this->profile_dropdown_ ||
-                this->profile_actions_ || this->choice_input_.Opened() || this->settings_search_open_ || this->input_mode_menu_ || this->active_color_ != nullptr))
+                this->profile_actions_ || this->config_.choice_input.Opened() || this->config_.search_open || this->config_.input_mode_menu || this->config_.active_color != nullptr))
         {
             if (press && floating) this->actionbars_.SetWindowFocused(false);
             this->actionbars_.SetHover(-1, -1);
@@ -264,12 +265,12 @@ namespace xiui
         }
         if (this->editing_ && !this->actionbars_.InputFocused() && !this->actionbars_.PointerDown() &&
             (this->mouse_down_ || this->interaction_ != interaction::none || this->profile_name_.Focused() || this->profile_dropdown_ ||
-                this->profile_actions_ || this->choice_input_.Opened() || this->settings_search_open_ || this->input_mode_menu_ ||
-                this->active_color_ != nullptr || Contains(this->ConfigVisibleBounds(), x, y)))
+                this->profile_actions_ || this->config_.choice_input.Opened() || this->config_.search_open || this->config_.input_mode_menu ||
+                this->config_.active_color != nullptr || Contains(this->ConfigVisibleBounds(), x, y)))
         { this->actionbars_.SetHover(-1, -1); return false; }
         if (release == MK_LBUTTON && this->actionbars_.AssignmentDragging() && this->editing_ &&
             (Contains(this->ConfigVisibleBounds(), x, y) || this->profile_name_.Focused() || this->profile_dropdown_ ||
-                this->profile_actions_ || this->choice_input_.Opened() || this->settings_search_open_ || this->active_color_ != nullptr))
+                this->profile_actions_ || this->config_.choice_input.Opened() || this->config_.search_open || this->config_.active_color != nullptr))
         {
             this->actionbars_.CancelPointerGesture();
             this->actionbars_.HandleMouse(message, buttons, x, y, false, this->editing_);

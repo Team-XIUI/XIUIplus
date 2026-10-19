@@ -1,4 +1,5 @@
 #include "recast_module.hpp"
+#include "ui/game_icon_cache.hpp"
 #include "modules/bar_config.hpp"
 #include "ui/recast_icons.hpp"
 

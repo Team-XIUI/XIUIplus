@@ -1,4 +1,5 @@
 #include "pet_module.hpp"
+#include "ui/game_icon_cache.hpp"
 #include "ui/health_colors.hpp"
 #include "modules/bar_config.hpp"
 #include "ui/recast_icons.hpp"

@@ -89,7 +89,7 @@ namespace xiui
         if (properties == nullptr || ::GetForegroundWindow() != properties->GetFinalFantasyHwnd()) return;
         auto* resources = this->core_->GetResourceManager();
         const float x = static_cast<float>(this->mouse_x_), y = static_cast<float>(this->mouse_y_);
-        if (this->ControllerCaptured())
+        if (this->ControllerCaptured() || this->KeyboardStatusFocusBounds().width > 0)
         {
             if (this->controller_surface_ == controller_surface::buffs)
                 this->buffs_.RenderStatusTooltip(context, resources, x, y, true);
@@ -108,10 +108,10 @@ namespace xiui
             }
             return;
         }
-        if (this->ProfileSurface(viewport) || this->choice_input_.Opened() || this->interaction_ != interaction::none ||
+        if (this->ProfileSurface(viewport) || this->config_.choice_input.Opened() || this->interaction_ != interaction::none ||
             this->ChatAt(x, y) != nullptr || this->controller_surface_ == controller_surface::picker) return;
         if (this->editing_ && (Contains(this->ConfigVisibleBounds(), x, y) ||
-            (this->active_color_ != nullptr && Contains(this->ConfigLayout().ColorEditor(viewport), x, y)))) return;
+            (this->config_.active_color != nullptr && Contains(this->ConfigLayout().ColorEditor(viewport), x, y)))) return;
         if (this->TargetStatusVisible()) this->target_.RenderStatusTooltip(context, resources, x, y);
         if (this->ContextVisible(this->pet_) && (this->editing_ ? this->pet_.PreviewVisible() : this->pet_.ShouldRender({})))
             this->pet_.RenderStatusTooltip(context, resources, x, y);

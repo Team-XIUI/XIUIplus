@@ -20,7 +20,7 @@ Drag an item onto a bag in the left menu to transfer it. Double-click targets Sa
 
 Server Sort is separate from display sorting. Optional autosort runs once after an observed Satchel move/split; it does not react to its own sort updates. Item actions are disabled in cached/slip views and when Read only is enabled. Temporary items cannot transfer between bags. Home storage requires observed Mog House access. A runtime first loaded inside a Mog House may require leaving and reentering before home-storage transfers become available.
 
-Actions remain pending until an appropriate inventory/equipment change is observed, or report that no confirming change arrived before timeout. Zoning, character changes, hidden/suspended input and native menu ownership cancel observation. Cancellation cannot undo a packet already submitted.
+Actions remain pending until an appropriate inventory/equipment change is observed, or report that no confirming change arrived before timeout. Zoning, character changes and hidden/suspended input cancel observation. Cancellation cannot undo a packet already submitted.
 
 ## Saved characters and storage slips
 
@@ -36,7 +36,7 @@ Use `/xiui focus satchel` or choose Satchel in `/xiui focus` for controller brow
 
 Ctrl+F focuses search whenever Satchel is open and available for input, without requiring a prior click. It selects the current query for replacement. Escape leaves search and returns movement to the game while retaining the query; Enter explicitly enters keyboard grid browsing. Arrow keys, Enter, Escape, Tab/F6 and Page Up/Down share its operations while browsing.
 
-Mouse clicks use temporary input ownership for an active editor, popup or window gesture. Dismissing or selecting a mouse-opened popup returns movement immediately; clicking bags, items, Help, scrollbars or blank space does not enter keyboard browsing. Clicking away from search releases its text focus. Ending controller browsing closes its transient editors/dialogs, and lost mouse capture cancels an unfinished gesture. Native menus, chat typing, targeting, cutscenes, zoning and lost foreground focus suspend Satchel input. Owned button/key releases are still consumed after dismissal. Search and focus do not activate an item. Held confirmation cannot repeat an item action or accept a newly opened drop confirmation.
+Mouse clicks use temporary input ownership for an active editor, popup or window gesture. Dismissing or selecting a mouse-opened popup returns movement immediately; clicking bags, items, Help, scrollbars or blank space does not enter keyboard browsing. Clicking away from search releases its text focus. Ending controller browsing closes its transient editors/dialogs, and lost mouse capture cancels an unfinished gesture. Mouse controls remain available with the HUD locked or a native game menu open. Unclaimed keyboard/controller navigation stays with the native menu; clicking a Satchel editor or popup gives that control its own keyboard focus until dismissal. Native text entry, chat typing, targeting, cutscenes, zoning and lost foreground focus suspend Satchel input. Owned button/key releases are still consumed after dismissal. Search and focus do not activate an item. Held confirmation cannot repeat an item action or accept a newly opened drop confirmation.
 
 The native `/satchel` and `/satch` aliases are intercepted only when **Override /satchel** is explicitly enabled in Satchel settings.
 

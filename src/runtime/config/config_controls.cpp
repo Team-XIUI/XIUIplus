@@ -226,7 +226,7 @@ namespace xiui::ui
         this->design_.DrawText(text, {bounds.x + 13.0f, bounds.y, std::max(0.0f, bounds.width - 26.0f), bounds.height}, style);
     }
 
-    auto config_controls::Option(const rect& row, const module_option& option, const bool hovered, const bool activeColor, const slider_value_input* input, const text_input* textInput, const bool dropdownOpen) const -> void
+    auto config_controls::Option(const rect& row, const module_option& option, const bool hovered, const bool activeColor, const slider_value_input* input, const text_input* textInput, const bool dropdownOpen, const int hoveredButton) const -> void
     {
         if (!option.visible) return;
         if (option.card && option.kind == module_option_kind::action)
@@ -256,7 +256,19 @@ namespace xiui::ui
             this->Row(row, option.label, option.description, row.width - 8.0f, hovered, this->design_.GetTheme().caption_text);
             return;
         }
-        if (option.kind == module_option_kind::toggle && option.toggle != nullptr && option.submodules != nullptr)
+        if (option.kind == module_option_kind::toggle_buttons)
+        {
+            this->Row(row, option.label, "", row.width - 8, hovered, this->design_.GetTheme().body_text);
+            auto style = this->design_.GetTheme().caption_text;
+            style.scale = 0.62f; style.alignment = text_alignment::center;
+            for (size_t index = 0; index < option.choice_count; ++index)
+            {
+                const bool enabled = option.button_toggles[index];
+                const std::string label = std::string{option.choices[index]} + (enabled ? " ON" : " OFF");
+                this->Button(config_layout::ToggleButton(row, index, option.choice_count), label.c_str(), style, enabled || hoveredButton == static_cast<int>(index));
+            }
+        }
+        else if (option.kind == module_option_kind::toggle && option.toggle != nullptr && option.submodules != nullptr)
             this->ToggleGroupRow(row, option, hovered);
         else if (option.kind == module_option_kind::toggle && option.toggle != nullptr)
             this->ToggleRow(row, option.label, option.description, *option.toggle, hovered);

@@ -1,0 +1,7 @@
+Custom macro artwork by Vincerno: https://github.com/Vincerno/xiui-icons
+Pinned upstream commit: da71da9e137a26cdc9c3f807d0859ba8fbb0a671
+Upstream license: GPL-3.0; the complete text is retained in LICENSE.txt and embedded in the plugin.
+All 220 original PNGs, including clean variants, are retained without modification in sources.zip.
+scripts/build-custom-action-icons.py resizes them to 32 pixels and adds sampling gutters for the embedded atlas.
+Icons are optional macro/action overrides; the original XIUI artwork remains unchanged.
+Final Fantasy artwork belongs to Square Enix. No additional rights to game artwork are asserted.

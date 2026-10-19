@@ -52,6 +52,12 @@ namespace xiui::ui
         texture_style style{};
     };
 
+    struct contour_style
+    {
+        D3DCOLOR color{0xFFFFFFFF}, edge_color{0xFFFFFFFF};
+        float edge_width{}, feather{1};
+    };
+
     struct shadow_effect
     {
         bool enabled{true};
@@ -224,6 +230,7 @@ namespace xiui::ui
         auto DrawTextureQuads(IDirect3DTexture8* texture, std::span<const texture_quad> quads) const -> void;
         auto DrawTextureDisc(IDirect3DTexture8* texture, const rect& bounds, const rect& uv, D3DCOLOR color) const -> void;
         auto DrawTextureRoundedRect(IDirect3DTexture8* texture, const rect& bounds, const rect& uv, float radius, D3DCOLOR color) const -> void;
+        auto DrawContour(const rect& bounds, std::span<const point> contour, const contour_style& style, IDirect3DTexture8* texture = nullptr, const rect& uv = {0, 0, 1, 1}) const -> void;
         auto DrawRing(const rect& bounds, D3DCOLOR color, float thickness = 2) const -> void;
         auto GradientRect(const rect& bounds, D3DCOLOR left, D3DCOLOR right) const -> void;
         auto GradientRect(const rect& bounds, const std::array<D3DCOLOR, 4>& colors) const -> void;

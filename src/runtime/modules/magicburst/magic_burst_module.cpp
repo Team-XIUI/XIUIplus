@@ -1,4 +1,5 @@
 #include "magic_burst_module.hpp"
+#include "ui/game_icon_cache.hpp"
 
 #include <algorithm>
 #include <cmath>

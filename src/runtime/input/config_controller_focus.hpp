@@ -19,6 +19,7 @@ namespace xiui
         ui::rect bounds;
         size_t index{};
         std::string help;
+        size_t part{};
     };
 
     struct config_controller_focus

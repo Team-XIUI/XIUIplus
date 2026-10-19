@@ -1,4 +1,5 @@
 #include "ui/text_fit.hpp"
+#include "ui/game_icon_cache.hpp"
 #include "party_module.hpp"
 #include "ui/health_colors.hpp"
 #include "modules/bar_config.hpp"

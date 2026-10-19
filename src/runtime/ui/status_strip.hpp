@@ -1,6 +1,7 @@
 #pragma once
 
 #include "modules/module.hpp"
+#include "ui/game_icon_cache.hpp"
 #include "combat/combat_source.hpp"
 #include "chat/chat_encoding.hpp"
 

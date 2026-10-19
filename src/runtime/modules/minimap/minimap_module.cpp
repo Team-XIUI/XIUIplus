@@ -1,5 +1,6 @@
 #include "minimap_module.hpp"
 #include "ui/focus_frame.hpp"
+#include "ui/contour.hpp"
 
 #include <algorithm>
 #include <cstdio>
@@ -47,10 +48,13 @@ namespace xiui
         this->vision_cone_ = store.ReadBool("minimap", "vision_cone", false);
         this->npcs_ = store.ReadBool("minimap", "npcs", true);
         this->distant_party_ = store.ReadBool("minimap", "distant_party", true);
+        static constexpr const char* edgeKeys[]{"coordinate_edge_left", "coordinate_edge_top", "coordinate_edge_right", "coordinate_edge_bottom"};
+        for (size_t i = 0; i < this->coordinate_edges_.size(); ++i)
+            this->coordinate_edges_[i] = store.ReadBool("minimap", edgeKeys[i], true);
         this->cone_angle_ = std::clamp(store.ReadFloat("minimap", "cone_angle", 80), 20.0f, 160.0f);
         this->cone_size_ = std::clamp(store.ReadFloat("minimap", "cone_size", 0.9f), 0.2f, 1.0f);
         this->cone_opacity_ = std::clamp(store.ReadFloat("minimap", "cone_opacity", 0.2f), 0.0f, 1.0f);
-        this->rounded_corners_ = store.ReadBool("minimap", "rounded_corners", false);
+        this->edge_style_ = std::clamp(store.ReadInt("minimap", "edge_style", store.ReadBool("minimap", "rounded_corners", false) ? 1 : 0), 0, 2);
         this->shadow_ = store.ReadBool("minimap", "shadow", false);
         const auto read = [&](const char* key, const float fallback, const float minimum, const float maximum) {
             const auto value = store.ReadFloat("minimap", key, fallback);
@@ -86,6 +90,9 @@ namespace xiui
     {
         store.WriteBool("minimap", "enabled", this->state_.enabled); store.WriteRect("layout.minimap", this->state_.bounds);
         store.WriteBool("minimap", "distant_party", this->distant_party_);
+        static constexpr const char* edgeKeys[]{"coordinate_edge_left", "coordinate_edge_top", "coordinate_edge_right", "coordinate_edge_bottom"};
+        for (size_t i = 0; i < this->coordinate_edges_.size(); ++i)
+            store.WriteBool("minimap", edgeKeys[i], this->coordinate_edges_[i]);
         store.WriteInt("minimap", "shape", this->shape_); store.WriteInt("minimap", "artwork", this->artwork_);
         store.WriteFloat("minimap", "zoom", this->default_zoom_);
         store.WriteFloat("minimap", "map_opacity", this->map_opacity_); store.WriteFloat("minimap", "background_opacity", this->background_opacity_);
@@ -101,7 +108,8 @@ namespace xiui
         store.WriteBool("minimap", "vision_cone", this->vision_cone_); store.WriteBool("minimap", "npcs", this->npcs_);
         store.WriteFloat("minimap", "cone_angle", this->cone_angle_); store.WriteFloat("minimap", "cone_size", this->cone_size_);
         store.WriteFloat("minimap", "cone_opacity", this->cone_opacity_);
-        store.WriteBool("minimap", "rounded_corners", this->rounded_corners_); store.WriteBool("minimap", "shadow", this->shadow_);
+        store.WriteInt("minimap", "edge_style", this->edge_style_);
+        store.WriteBool("minimap", "rounded_corners", this->edge_style_ == 1); store.WriteBool("minimap", "shadow", this->shadow_);
         store.WriteFloat("minimap", "corner_radius", this->corner_radius_);
         store.WriteFloat("minimap", "shadow_opacity", this->shadow_opacity_); store.WriteFloat("minimap", "shadow_softness", this->shadow_softness_);
         store.WriteFloat("minimap", "shadow_x", this->shadow_x_); store.WriteFloat("minimap", "shadow_y", this->shadow_y_);
@@ -117,7 +125,7 @@ namespace xiui
 
     auto minimap_module::OnOptionChanged(const size_t index) -> void
     {
-        if (index == 4)
+        if (index == zoom_option)
         {
             if (this->zoom_zone_ > 0 && this->zoom_zone_ < this->zone_zoom_.size()) this->zone_zoom_[this->zoom_zone_] = this->zoom_;
             else this->default_zoom_ = this->zoom_;
@@ -136,14 +144,19 @@ namespace xiui
         save = false;
         if (!this->state_.enabled || delta == 0) return false;
         const ui::rect view{this->state_.bounds.x, this->state_.bounds.y, this->state_.bounds.width, MinimapHeight(this->state_.bounds.width, this->shape_)};
-        if (!MinimapContains(view, this->shape_, {x, y}, 0, this->rounded_corners_ ? this->corner_radius_ : 0)) return false;
+        if (!MinimapContains(view, this->shape_, {x, y}, 0, this->edge_style_ == 1 ? this->corner_radius_ : 0)) return false;
+        if (this->edge_style_ == 2 && this->shape_ != 1 && this->maps_ != nullptr && this->data_ != nullptr && this->data_->available)
+        {
+            const auto image = this->maps_->Acquire(this->data_->zone, this->data_->floor, this->artwork_ == 1);
+            if (image.outline && !ui::ContourContains(view, *image.outline, {x, y})) return false;
+        }
         this->UpdateZoomZone();
-        const auto option = this->Option(4);
+        const auto option = this->Option(zoom_option);
         const float zoom = std::clamp(this->zoom_ + static_cast<float>(delta) / WHEEL_DELTA * option.step, option.minimum, option.maximum);
         if (zoom != this->zoom_)
         {
             this->zoom_ = zoom;
-            this->OnOptionChanged(4);
+            this->OnOptionChanged(zoom_option);
             save = true;
         }
         return true;
@@ -152,8 +165,8 @@ namespace xiui
     auto minimap_module::ConfigSections(void) const -> std::span<const module_config_section>
     {
         static constexpr module_config_section sections[]{
-            {"General", "Map artwork, shape and zoom. Enhanced maps use Remapster art (CC BY-SA 4.0).", "general"},
-            {"Appearance", "Map dimensions, rounded corners, drop shadow, background, frame and opacity.", "appearance"},
+            {"General", "Map artwork, shape, zoom and pinned coordinate edges. Enhanced maps use Remapster art (CC BY-SA 4.0).", "general"},
+            {"Appearance", "Map dimensions, Straight/Rounded/Burnt edges, drop shadow, background, frame and opacity.", "appearance"},
             {"Markers", "Facing cone, green NPC dots, party, alliance, pet and selected target.", "markers"},
             {"Text", "Choose Labels or Zoom to edit visibility, position offsets and text styling independently.", "text"}};
         return sections;
@@ -162,12 +175,13 @@ namespace xiui
     auto minimap_module::ConfigSectionContains(const size_t section, const size_t index) -> bool
     {
         if (index >= this->OptionCount()) return false;
-        if (index == 34 + text_profile_option_count) return section == 2;
-        if (index >= 31 || index == 15 || index == 16) return section == 3;
-        if (index >= 24) return section == 1;
-        if (index >= 19) return section == 2;
-        if (index >= 9 && index <= 14 || index == 17) return section == 2;
-        if (index == 3 || index >= 5 && index <= 8 || index == 18) return section == 1;
+        if (index == coordinate_edges_option) return section == 0;
+        if (index == distant_party_option) return section == 2;
+        if (index >= map_number_option || index == zone_name_option || index == coordinates_option) return section == 3;
+        if (index >= edge_style_option) return section == 1;
+        if (index >= vision_cone_option) return section == 2;
+        if (index >= marker_size_option && index <= target_option || index == north_option) return section == 2;
+        if (index == width_option || index >= frame_option && index <= background_opacity_option || index == frame_opacity_option) return section == 1;
         return section == 0;
     }
 
@@ -176,67 +190,71 @@ namespace xiui
         static constexpr const char* shapes[]{"Square", "Circle", "Wide (16:9)"};
         static constexpr const char* artwork[]{"Regular", "Enhanced (Remapster)"};
         static constexpr const char* textElements[]{"Labels", "Zoom"};
+        static constexpr const char* edgeNames[]{"Left", "Top", "Right", "Bottom"};
+        static constexpr const char* edgeStyles[]{"Straight", "Rounded", "Burnt"};
+        const bool burnt = this->edge_style_ == 2 && this->shape_ != 1;
         switch (index)
         {
-        case 0: return module_option::Toggle("Enabled", "Show an independent minimap centered on your position.", &this->state_.enabled).Ordered(-50);
-        case 1: return module_option::Choice("Shape", "Choose Square, Circle or a wide 16:9 map. Artwork keeps its proportions.", &this->shape_, shapes, 3);
-        case 2: return module_option::Choice("Map artwork", "Enhanced uses Remapster maps, with Regular art where no enhanced map is available.", &this->artwork_, artwork, 2);
-        case 3: return module_option::Slider("Width", "Map width; height follows the selected shape.", &this->state_.bounds.width, 120, 600, 1).Ordered(110);
-        case 4: return module_option::Slider("Zoom", "Magnification remembered separately for each zone. Scroll over the map to zoom.", &this->zoom_, 1, 8, 0.25f);
-        case 5: return module_option::Toggle("Frame", "Native window frame, or a matching rim for Circle and rounded maps.", &this->frame_);
-        case 6: return module_option::Toggle("Background", "Dark backing under map artwork and uncovered map edges.", &this->background_);
-        case 7: return module_option::Slider("Map opacity", "Map artwork opacity.", &this->map_opacity_, 0, 1, 0.05f);
-        case 8: return module_option::Slider("Background opacity", "Dark backing opacity.", &this->background_opacity_, 0, 1, 0.05f).VisibleWhen(this->background_);
-        case 9: return module_option::Slider("Marker size", "Size of map dots and the player arrow.", &this->marker_size_, 2, 12, 0.5f);
-        case 10: return module_option::Slider("Marker opacity", "Player arrow and map marker opacity.", &this->marker_opacity_, 0, 1, 0.05f);
-        case 11: return module_option::Toggle("Party", "Show party members on your map and floor.", &this->party_);
-        case 12: return module_option::Toggle("Alliance", "Show alliance members on your map and floor.", &this->alliance_);
-        case 13: return module_option::Toggle("Pet", "Show your pet on your map and floor.", &this->pet_);
-        case 14: return module_option::Toggle("Target", "Show the current target on your map and floor.", &this->target_);
-        case 15: return module_option::Toggle("Zone name", "Show the zone name below the map.", &this->zone_name_).VisibleWhen(this->selected_text_ == 0);
-        case 16: return module_option::Toggle("Coordinates", "Show your map grid in parentheses, for example (G-8).", &this->coordinates_).VisibleWhen(this->selected_text_ == 0);
-        case 17: return module_option::Toggle("North indicator", "Show N at the top of this north-up map.", &this->north_);
-        case 18: return module_option::Slider("Frame opacity", "Frame or circle rim opacity.", &this->frame_opacity_, 0, 1, 0.05f).VisibleWhen(this->frame_);
-        case 19: return module_option::Toggle("Vision cone", "Show a fading cone in the direction your character faces.", &this->vision_cone_).Ordered(100);
-        case 20: return module_option::Slider("Cone angle", "Opening angle in degrees.", &this->cone_angle_, 20, 160, 5).Ordered(110).VisibleWhen(this->vision_cone_);
-        case 21: {
+        case enabled_option: return module_option::Toggle("Enabled", "Show an independent minimap centered on your position.", &this->state_.enabled).Ordered(-50);
+        case shape_option: return module_option::Choice("Shape", "Choose Square, Circle or a wide 16:9 map. Artwork keeps its proportions.", &this->shape_, shapes, 3);
+        case artwork_option: return module_option::Choice("Map artwork", "Enhanced uses Remapster maps, with Regular art where no enhanced map is available.", &this->artwork_, artwork, 2);
+        case width_option: return module_option::Slider("Width", "Map width; height follows the selected shape.", &this->state_.bounds.width, 120, 600, 1).Ordered(110);
+        case zoom_option: return module_option::Slider("Zoom", "Magnification remembered separately for each zone. Scroll over the map to zoom.", &this->zoom_, 1, 8, 0.25f);
+        case frame_option: return module_option::Toggle("Frame", "Native window frame, or a matching rim for Circle and rounded maps.", &this->frame_).VisibleWhen(!burnt);
+        case background_option: return module_option::Toggle("Background", "Dark backing under map artwork and uncovered map edges.", &this->background_);
+        case map_opacity_option: return module_option::Slider("Map opacity", "Map artwork opacity.", &this->map_opacity_, 0, 1, 0.05f);
+        case background_opacity_option: return module_option::Slider("Background opacity", "Dark backing opacity.", &this->background_opacity_, 0, 1, 0.05f).VisibleWhen(this->background_);
+        case marker_size_option: return module_option::Slider("Marker size", "Size of map dots and the player arrow.", &this->marker_size_, 2, 12, 0.5f);
+        case marker_opacity_option: return module_option::Slider("Marker opacity", "Player arrow and map marker opacity.", &this->marker_opacity_, 0, 1, 0.05f);
+        case party_option: return module_option::Toggle("Party", "Show party members on your map and floor.", &this->party_);
+        case alliance_option: return module_option::Toggle("Alliance", "Show alliance members on your map and floor.", &this->alliance_);
+        case pet_option: return module_option::Toggle("Pet", "Show your pet on your map and floor.", &this->pet_);
+        case target_option: return module_option::Toggle("Target", "Show the current target on your map and floor.", &this->target_);
+        case zone_name_option: return module_option::Toggle("Zone name", "Show the zone name below the map.", &this->zone_name_).VisibleWhen(this->selected_text_ == 0);
+        case coordinates_option: return module_option::Toggle("Coordinates", "Show your map grid in parentheses, for example (G-8).", &this->coordinates_).VisibleWhen(this->selected_text_ == 0);
+        case north_option: return module_option::Toggle("North indicator", "Show N at the top of this north-up map.", &this->north_);
+        case frame_opacity_option: return module_option::Slider("Frame opacity", "Frame or circle rim opacity.", &this->frame_opacity_, 0, 1, 0.05f).VisibleWhen(this->frame_ && !burnt);
+        case vision_cone_option: return module_option::Toggle("Vision cone", "Show a fading cone in the direction your character faces.", &this->vision_cone_).Ordered(100);
+        case cone_angle_option: return module_option::Slider("Cone angle", "Opening angle in degrees.", &this->cone_angle_, 20, 160, 5).Ordered(110).VisibleWhen(this->vision_cone_);
+        case cone_size_option: {
             auto option = module_option::Slider("Cone size (%)", "Size of the cone inside the map.", &this->cone_size_, 0.2f, 1, 0.05f).Ordered(120);
             option.display_scale = 100; return option.VisibleWhen(this->vision_cone_);
         }
-        case 22: return module_option::Slider("Cone opacity", "Strength of the cone, fading toward its outer edge.", &this->cone_opacity_, 0, 1, 0.05f).Ordered(130).VisibleWhen(this->vision_cone_);
-        case 23: return module_option::Toggle("NPCs", "Show nearby visible NPCs as green dots on your current map and floor.", &this->npcs_);
-        case 24: {
-            auto option = module_option::Toggle("Rounded corners", "Round Square and Wide maps. Circle keeps its circular shape.", &this->rounded_corners_).Ordered(120);
+        case cone_opacity_option: return module_option::Slider("Cone opacity", "Strength of the cone, fading toward its outer edge.", &this->cone_opacity_, 0, 1, 0.05f).Ordered(130).VisibleWhen(this->vision_cone_);
+        case npcs_option: return module_option::Toggle("NPCs", "Show nearby visible NPCs as green dots on your current map and floor.", &this->npcs_);
+        case edge_style_option: {
+            auto option = module_option::Choice("Edge style", "Straight, Rounded or a burnt parchment outline with transparent cutouts and no coordinate strips. Circle keeps its shape.", &this->edge_style_, edgeStyles, 3).Ordered(120);
             return option.VisibleWhen(this->shape_ != 1);
         }
-        case 25: {
+        case corner_radius_option: {
             auto option = module_option::Slider("Corner radius", "Corner rounding in pixels for the image, backing and frame.", &this->corner_radius_, 1, 48, 1).Ordered(130);
-            return option.VisibleWhen(this->rounded_corners_ && this->shape_ != 1);
+            return option.VisibleWhen(this->edge_style_ == 1 && this->shape_ != 1);
         }
-        case 26: return module_option::Toggle("Drop shadow", "Draw a soft shadow following the map shape.", &this->shadow_).Ordered(300);
-        case 27: {
+        case shadow_option: return module_option::Toggle("Drop shadow", "Draw a soft shadow following the map shape.", &this->shadow_).Ordered(300);
+        case shadow_opacity_option: {
             auto option = module_option::Slider("Shadow opacity", "Darkness of the map shadow.", &this->shadow_opacity_, 0, 1, 0.05f).Ordered(330);
             return option.VisibleWhen(this->shadow_);
         }
-        case 28: {
+        case shadow_softness_option: {
             auto option = module_option::Slider("Shadow softness", "Softness of the shadow edge in pixels.", &this->shadow_softness_, 0, 20, 1).Ordered(320);
             return option.VisibleWhen(this->shadow_);
         }
-        case 29: {
+        case shadow_x_option: {
             auto option = module_option::Slider("Shadow X", "Horizontal shadow offset.", &this->shadow_x_, -20, 20, 1).Ordered(310, true);
             return option.VisibleWhen(this->shadow_);
         }
-        case 30: {
+        case shadow_y_option: {
             auto option = module_option::Slider("Shadow Y", "Vertical shadow offset.", &this->shadow_y_, -20, 20, 1).Ordered(311);
             return option.VisibleWhen(this->shadow_);
         }
-        case 31: return module_option::Toggle("Map number", "Show the native map label below the map, for example Map 1.", &this->map_number_).VisibleWhen(this->selected_text_ == 0);
-        case 32 + text_profile_option_count: return module_option::Element("Selected text", "Choose map labels or the independently positioned zoom readout.", &this->selected_text_, textElements, 2);
-        case 33 + text_profile_option_count: return module_option::Toggle("Zoom readout", "Show the current magnification. X/Y offsets move it relative to the map's bottom-right corner.", &this->zoom_readout_).Ordered(90).VisibleWhen(this->selected_text_ == 1);
-        case 34 + text_profile_option_count: return module_option::Toggle("Distant party markers", "Refresh missing same-zone party/alliance map positions every ten seconds. Snapshots expire after twenty seconds.", &this->distant_party_);
+        case map_number_option: return module_option::Toggle("Map number", "Show the native map label below the map, for example Map 1.", &this->map_number_).VisibleWhen(this->selected_text_ == 0);
+        case text_selector_option: return module_option::Element("Selected text", "Choose map labels or the independently positioned zoom readout.", &this->selected_text_, textElements, 2);
+        case zoom_readout_option: return module_option::Toggle("Zoom readout", "Show the current magnification. X/Y offsets move it relative to the map's bottom-right corner.", &this->zoom_readout_).Ordered(90).VisibleWhen(this->selected_text_ == 1);
+        case distant_party_option: return module_option::Toggle("Distant party markers", "Refresh missing same-zone party/alliance map positions every ten seconds. Snapshots expire after twenty seconds.", &this->distant_party_);
+        case coordinate_edges_option: return module_option::ToggleButtons("Coordinate edges", "Toggle Left, Top, Right and Bottom independently. Edges stay aligned and scaled with map zoom.", this->coordinate_edges_, edgeNames).Ordered(100).VisibleWhen(!burnt);
         default: {
-            auto option = TextProfileOption(index - 32, this->selected_text_ == 1 ? this->zoom_text_ : this->text_);
-            if (this->selected_text_ == 1 && (index == 34 || index == 35)) { option.minimum = -600; option.maximum = 600; }
+            auto option = TextProfileOption(index - text_profile_begin, this->selected_text_ == 1 ? this->zoom_text_ : this->text_);
+            if (this->selected_text_ == 1 && (index == text_x_option || index == text_y_option)) { option.minimum = -600; option.maximum = 600; }
             return option.VisibleWhen(this->selected_text_ == 0 || this->zoom_readout_);
         }
         }
@@ -252,9 +270,22 @@ namespace xiui
         this->state_.bounds.height = height + ((this->zone_name_ || this->coordinates_ || this->map_number_) ? lineHeight : 0);
         const ui::rect view{this->state_.bounds.x, this->state_.bounds.y, width, height};
         const ui::point center{view.x + width / 2, view.y + height / 2};
-        const float cornerRadius = MinimapCornerRadius(view, this->shape_, this->rounded_corners_ ? this->corner_radius_ : 0);
+        const uint16_t zone = live ? this->data_->zone : 100;
+        const int floor = live ? this->data_->floor : 0;
+        const auto image = this->maps_ != nullptr && (live || context.IsEditing()) ? this->maps_->Acquire(zone, floor, this->artwork_ == 1) : minimap_image{};
+        const bool burntStyle = this->edge_style_ == 2 && this->shape_ != 1;
+        const bool burnt = burntStyle && image.texture != nullptr && image.outline != nullptr;
+        const auto coordinateEdges = burntStyle ? std::array<bool, 4>{} : this->coordinate_edges_;
+        const bool drawFrame = this->frame_ && !burntStyle;
+        const float cornerRadius = MinimapCornerRadius(view, this->shape_, this->edge_style_ == 1 ? this->corner_radius_ : 0);
         const auto alpha = [](const uint32_t color, const float opacity) { return (color & 0xFFFFFF) | (static_cast<uint32_t>((color >> 24) * opacity) << 24); };
-        if (this->shadow_ && this->shadow_opacity_ > 0)
+        if (this->shadow_ && this->shadow_opacity_ > 0 && burnt)
+        {
+            const float spread = this->shadow_softness_;
+            const ui::rect shadow{view.x + this->shadow_x_ - spread, view.y + this->shadow_y_ - spread, width + spread * 2, height + spread * 2};
+            design.DrawContour(shadow, *image.outline, {alpha(0xFF000000, this->shadow_opacity_), 0, 0, std::max(1.0f, spread)});
+        }
+        else if (this->shadow_ && this->shadow_opacity_ > 0)
         {
             ui::focus_frame_style shadow{};
             shadow.color = 0; shadow.glow = false; shadow.padding = 0; shadow.thickness = 4; shadow.radius = cornerRadius;
@@ -262,73 +293,129 @@ namespace xiui
             shadow.shadow_size = this->shadow_softness_; shadow.shadow_x = this->shadow_x_; shadow.shadow_y = this->shadow_y_;
             design.DrawFocusFrame(view, shadow);
         }
-        if (this->background_)
-        {
-            design.FillRoundedRect(view, alpha(0xFF10121C, this->background_opacity_), cornerRadius);
-        }
-        const uint16_t zone = live ? this->data_->zone : 100;
-        const int floor = live ? this->data_->floor : 0;
-        const auto image = this->maps_ != nullptr && (live || context.IsEditing()) ? this->maps_->Acquire(zone, floor, this->artwork_ == 1) : minimap_image{};
         const auto player = live ? this->data_->player : ui::point{0.5f, 0.5f};
         const float size = std::min(width, height) * this->zoom_;
         const ui::rect mapBounds{center.x - player.x * size, center.y - player.y * size, size, size};
+        const float edgeInset = size * minimap_coordinate_band + (drawFrame ? 4 : 0);
+        const ui::rect mapContent{view.x + (coordinateEdges[0] ? edgeInset : 0), view.y + (coordinateEdges[1] ? edgeInset : 0),
+            width - (coordinateEdges[0] + coordinateEdges[2]) * edgeInset,
+            height - (coordinateEdges[1] + coordinateEdges[3]) * edgeInset};
+        const auto drawMap = [&](const ui::rect& contour, const ui::rect& uv, const float radius) {
+            const auto tint = alpha(0xFFFFFFFF, this->map_opacity_);
+            if (burnt) design.DrawContour(contour, *image.outline, {tint, alpha(0xFF482717, this->map_opacity_), 2, 1}, image.texture, uv);
+            else if (this->shape_ == 1) design.DrawTextureDisc(image.texture, contour, uv, tint);
+            else if (radius > 0) design.DrawTextureRoundedRect(image.texture, contour, uv, radius, tint);
+            else design.DrawTexture(image.texture, contour, tint, uv);
+        };
+        {
+            const auto clipContent = design.Clip(image.texture != nullptr ? mapContent : view);
+            if (this->background_)
+            {
+                const auto color = alpha(0xFF10121C, this->background_opacity_);
+                if (burnt) design.DrawContour(view, *image.outline, {color});
+                else
+                {
+                    const auto backing = image.texture != nullptr ? mapContent : view;
+                    design.FillRoundedRect(backing, color, MinimapCornerRadius(backing, this->shape_, cornerRadius));
+                }
+            }
+            if (image.texture != nullptr)
+            {
+                const auto clipView = design.Clip(view);
+                const float band = size * minimap_coordinate_band;
+                const auto crop = burntStyle ? std::array<bool, 4>{true, true, true, true} : coordinateEdges;
+                const ui::rect artworkBounds{mapBounds.x + (crop[0] ? band : 0), mapBounds.y + (crop[1] ? band : 0),
+                    size - (crop[0] + crop[2]) * band, size - (crop[1] + crop[3]) * band};
+                const auto clipImage = design.Clip(artworkBounds);
+                const ui::rect uv{(view.x - mapBounds.x) / size, (view.y - mapBounds.y) / size, width / size, height / size};
+                drawMap(view, uv, cornerRadius);
+            }
+            if (image.texture == nullptr)
+            {
+                const ui::rect message{view.x + 8, center.y - lineHeight / 2, width - 16, lineHeight};
+                context.DrawText(image.loading ? "Loading map..." : "Map unavailable", message, message, this->text_);
+            }
+            if (this->vision_cone_ && image.texture != nullptr && (live || context.IsEditing()))
+            {
+                auto arc = MinimapVisionArc(view, live ? this->data_->heading : -1.570796327f, this->cone_size_, this->cone_angle_);
+                if (burnt)
+                    for (auto& point : arc)
+                        if (!ui::ContourContains(view, *image.outline, point, 2))
+                        {
+                            float low{}, high{1};
+                            for (int step = 0; step < 10; ++step)
+                            {
+                                const float middle = (low + high) / 2;
+                                const ui::point at{center.x + (point.x - center.x) * middle, center.y + (point.y - center.y) * middle};
+                                if (ui::ContourContains(view, *image.outline, at, 2)) low = middle; else high = middle;
+                            }
+                            point = {center.x + (point.x - center.x) * low, center.y + (point.y - center.y) * low};
+                        }
+                design.DrawTriangleFan(center, arc, alpha(0xFFB5DCFF, this->cone_opacity_), 0x00B5DCFF);
+            }
+            if (image.texture != nullptr && live && this->marker_opacity_ > 0)
+            {
+                std::array<ui::circle_fill, 64> dots;
+                size_t dotCount{};
+                const auto flushDots = [&] {
+                    design.FillCircles(std::span{dots}.first(dotCount)); dotCount = 0;
+                };
+                for (const auto& marker : this->data_->markers)
+                {
+                    if (marker.kind == minimap_marker_kind::party && !this->party_ || marker.kind == minimap_marker_kind::alliance && !this->alliance_ ||
+                        marker.kind == minimap_marker_kind::pet && !this->pet_ || marker.kind == minimap_marker_kind::target && !this->target_ ||
+                        marker.kind == minimap_marker_kind::npc && !this->npcs_) continue;
+                    const ui::point point{mapBounds.x + marker.uv.x * size, mapBounds.y + marker.uv.y * size};
+                    const float radius = this->marker_size_ * (marker.kind == minimap_marker_kind::target ? 1.25f : 1);
+                    if (!MinimapContains(view, this->shape_, point, radius + 2, cornerRadius)) continue;
+                    if (burnt && !ui::ContourContains(view, *image.outline, point, radius + 3)) continue;
+                    if (marker.kind == minimap_marker_kind::target)
+                    {
+                        flushDots();
+                        design.DrawRing({point.x - radius - 2, point.y - radius - 2, radius * 2 + 4, radius * 2 + 4}, alpha(colors.text, this->marker_opacity_), 1);
+                    }
+                    dots[dotCount++] = {point, radius, alpha(0xFF000000, this->marker_opacity_)};
+                    dots[dotCount++] = {point, radius - 1, alpha(marker.color, this->marker_opacity_)};
+                    if (dotCount == dots.size()) flushDots();
+                }
+                flushDots();
+            }
+            if (image.texture != nullptr && (live || context.IsEditing()))
+            {
+                const float heading = live ? this->data_->heading : -1.570796327f;
+                const float dx = std::cos(heading), dy = std::sin(heading), r = this->marker_size_ * 2;
+                const auto arrow = [&](const float scale, const uint32_t color) {
+                    design.DrawTriangle(center.x + dx * r * scale, center.y + dy * r * scale,
+                        center.x - dx * r * 0.6f * scale - dy * r * 0.6f * scale, center.y - dy * r * 0.6f * scale + dx * r * 0.6f * scale,
+                        center.x - dx * r * 0.6f * scale + dy * r * 0.6f * scale, center.y - dy * r * 0.6f * scale - dx * r * 0.6f * scale, alpha(color, this->marker_opacity_));
+                };
+                arrow(1.3f, 0xFF000000); arrow(1, 0xFFFFFFFF);
+            }
+        }
         if (image.texture != nullptr)
         {
-            const auto clipView = design.Clip(view);
-            const auto clipImage = design.Clip(mapBounds);
-            const ui::rect uv{(view.x - mapBounds.x) / size, (view.y - mapBounds.y) / size, width / size, height / size};
-            if (this->shape_ == 1) design.DrawTextureDisc(image.texture, view, uv, alpha(0xFFFFFFFF, this->map_opacity_));
-            else if (cornerRadius > 0) design.DrawTextureRoundedRect(image.texture, view, uv, cornerRadius, alpha(0xFFFFFFFF, this->map_opacity_));
-            else design.DrawTexture(image.texture, view, alpha(0xFFFFFFFF, this->map_opacity_), uv);
-        }
-        if (image.texture == nullptr)
-        {
-            const ui::rect message{view.x + 8, center.y - lineHeight / 2, width - 16, lineHeight};
-            context.DrawText(image.loading ? "Loading map..." : "Map unavailable", message, message, this->text_);
-        }
-        if (this->vision_cone_ && image.texture != nullptr && (live || context.IsEditing()))
-        {
-            const auto arc = MinimapVisionArc(view, live ? this->data_->heading : -1.570796327f, this->cone_size_, this->cone_angle_);
-            design.DrawTriangleFan(center, arc, alpha(0xFFB5DCFF, this->cone_opacity_), 0x00B5DCFF);
-        }
-        if (image.texture != nullptr && live && this->marker_opacity_ > 0)
-        {
-            std::array<ui::circle_fill, 64> dots;
-            size_t dotCount{};
-            const auto flushDots = [&] {
-                design.FillCircles(std::span{dots}.first(dotCount)); dotCount = 0;
-            };
-            for (const auto& marker : this->data_->markers)
+            const float inset = drawFrame ? 4.0f : 0.0f;
+            const ui::rect edgeView{view.x + inset, view.y + inset, width - inset * 2, height - inset * 2};
+            const float band = size * minimap_coordinate_band;
+            // Horizontal strips own the corners so adjacent coordinate labels never overlap.
+            for (const size_t edge : {size_t{1}, size_t{3}, size_t{0}, size_t{2}})
             {
-                if (marker.kind == minimap_marker_kind::party && !this->party_ || marker.kind == minimap_marker_kind::alliance && !this->alliance_ ||
-                    marker.kind == minimap_marker_kind::pet && !this->pet_ || marker.kind == minimap_marker_kind::target && !this->target_ ||
-                    marker.kind == minimap_marker_kind::npc && !this->npcs_) continue;
-                const ui::point point{mapBounds.x + marker.uv.x * size, mapBounds.y + marker.uv.y * size};
-                const float radius = this->marker_size_ * (marker.kind == minimap_marker_kind::target ? 1.25f : 1);
-                if (!MinimapContains(view, this->shape_, point, radius + 2, cornerRadius)) continue;
-                if (marker.kind == minimap_marker_kind::target)
+                if (!coordinateEdges[edge]) continue;
+                auto stripView = edgeView;
+                if (edge == 0 || edge == 2)
                 {
-                    flushDots();
-                    design.DrawRing({point.x - radius - 2, point.y - radius - 2, radius * 2 + 4, radius * 2 + 4}, alpha(colors.text, this->marker_opacity_), 1);
+                    stripView.y += coordinateEdges[1] ? band : 0;
+                    stripView.height -= (coordinateEdges[1] + coordinateEdges[3]) * band;
                 }
-                dots[dotCount++] = {point, radius, alpha(0xFF000000, this->marker_opacity_)};
-                dots[dotCount++] = {point, radius - 1, alpha(marker.color, this->marker_opacity_)};
-                if (dotCount == dots.size()) flushDots();
+                const auto strip = MinimapCoordinateStrip(stripView, mapBounds, static_cast<minimap_coordinate_edge>(edge));
+                if (strip.bounds.width <= 0 || strip.bounds.height <= 0) continue;
+                const auto clip = design.Clip(strip.bounds);
+                const ui::rect uv{strip.uv.x - (strip.bounds.x - edgeView.x) / size, strip.uv.y - (strip.bounds.y - edgeView.y) / size,
+                    edgeView.width / size, edgeView.height / size};
+                drawMap(edgeView, uv, std::max(0.0f, cornerRadius - inset));
             }
-            flushDots();
         }
-        if (image.texture != nullptr && (live || context.IsEditing()))
-        {
-            const float heading = live ? this->data_->heading : -1.570796327f;
-            const float dx = std::cos(heading), dy = std::sin(heading), r = this->marker_size_ * 2;
-            const auto arrow = [&](const float scale, const uint32_t color) {
-                design.DrawTriangle(center.x + dx * r * scale, center.y + dy * r * scale,
-                    center.x - dx * r * 0.6f * scale - dy * r * 0.6f * scale, center.y - dy * r * 0.6f * scale + dx * r * 0.6f * scale,
-                    center.x - dx * r * 0.6f * scale + dy * r * 0.6f * scale, center.y - dy * r * 0.6f * scale - dx * r * 0.6f * scale, alpha(color, this->marker_opacity_));
-            };
-            arrow(1.3f, 0xFF000000); arrow(1, 0xFFFFFFFF);
-        }
-        if (this->frame_)
+        if (drawFrame)
         {
             if (this->shape_ == 1)
             {
@@ -347,7 +434,8 @@ namespace xiui
         }
         if (this->north_)
         {
-            const ui::rect north{center.x - 12, view.y + 5, 24, lineHeight};
+            const float inset = burntStyle ? std::min(width, height) * minimap_coordinate_band + 4 : 0;
+            const ui::rect north{center.x - 12, view.y + (coordinateEdges[1] ? edgeInset : inset) + 5, 24, lineHeight};
             context.DrawText("N", north, north, this->text_);
         }
         if (this->zoom_readout_)
@@ -356,11 +444,14 @@ namespace xiui
             std::snprintf(zoom, sizeof(zoom), "%.2fx", this->zoom_);
             auto profile = this->zoom_text_;
             profile.style.tabular_numbers = true;
-            const float inset = 6 + cornerRadius * (1 - 0.70710678f);
+            const float inset = burntStyle ? std::min(width, height) * minimap_coordinate_band + 6 : 6 + cornerRadius * (1 - 0.70710678f);
+            const float bandInset = edgeInset + 2;
+            const float insetX = coordinateEdges[2] ? std::max(inset, bandInset) : inset;
+            const float insetY = coordinateEdges[3] ? std::max(inset, bandInset) : inset;
             const float textHeight = std::max(20.0f, design.TextHeight(profile.style) + 4);
-            const float textWidth = std::min(design.MeasureText(zoom, profile.style) + 1, width - inset * 2);
-            const ui::rect label{view.x + width - inset - textWidth, view.y + height - inset - textHeight, textWidth, textHeight};
-            const ui::rect anchor{view.x + inset, label.y, width - inset * 2, textHeight};
+            const float textWidth = std::min(design.MeasureText(zoom, profile.style) + 1, width - insetX * 2);
+            const ui::rect label{view.x + width - insetX - textWidth, view.y + height - insetY - textHeight, textWidth, textHeight};
+            const ui::rect anchor{view.x + insetX, label.y, width - insetX * 2, textHeight};
             context.DrawText(zoom, label, anchor, profile);
         }
         if (this->zone_name_ || this->coordinates_ || this->map_number_)

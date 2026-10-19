@@ -69,14 +69,14 @@ namespace xiui
         this->actionbars_.UpdateControllerStatus(status);
         if ((status.suspended || (status.connection_known && !status.connected)) && this->actionbars_.SuspendCrossbarInput())
             this->action_executor_.Cancel();
-        if (this->controller_config_.resizing && this->controller_config_.resize_keyboard)
+        if (this->config_.focus.resizing && this->config_.focus.resize_keyboard)
         {
             if (!this->visible_ || !this->editing_ || this->ControllerNativeBusy()) this->ReleaseControllerFocus(!this->GameWindowFocused());
             return;
         }
-        if (status.suspended || (status.connection_known && !status.connected) || status.enumeration_disabled ||
-            (status.configuration_known && !status.gamepad_enabled))
-            if (this->controller_surface_ != controller_surface::none || this->controller_config_.active) this->ReleaseControllerFocus(!this->GameWindowFocused());
+        if (!this->keyboard_window_focus_ && (status.suspended || (status.connection_known && !status.connected) || status.enumeration_disabled ||
+            (status.configuration_known && !status.gamepad_enabled)))
+            if (this->controller_surface_ != controller_surface::none || this->config_.focus.active) this->ReleaseControllerFocus(!this->GameWindowFocused());
     }
 
     auto hud_runtime::ReleaseControllerFocus(const bool preserveExpandedHistory) -> void
@@ -94,10 +94,11 @@ namespace xiui
         this->pet_.EndControllerStatus();
         this->controller_status_details_ = false;
         this->controller_surface_ = controller_surface::none;
+        this->keyboard_window_focus_ = false;
         this->controller_notification_id_ = 0;
         this->controller_hint_.clear();
         this->ResetControllerConfigFocus();
-        this->input_mode_menu_ = false;
+        this->config_.input_mode_menu = false;
     }
 
     auto hud_runtime::ControllerSurfaces(void) const -> std::vector<controller_surface>
@@ -170,7 +171,7 @@ namespace xiui
             break;
         case controller_surface::config:
             if (!this->SetEditing(true)) return false;
-            this->controller_config_.active = true;
+            this->config_.focus.active = true;
             break;
         case controller_surface::chat:
             if (!this->chat_.BeginControllerHistory()) return false;
@@ -240,6 +241,8 @@ namespace xiui
         if (this->controller_surface_ == controller_surface::notifications && !this->notifications_.Detail(this->controller_notification_id_))
             this->controller_notification_id_ = this->notifications_.FirstDetail();
         if (this->controller_surface_ == controller_surface::none) return;
+        if (this->controller_surface_ == controller_surface::buffs) this->buffs_.RefreshControllerBrowse();
+        if (this->controller_surface_ == controller_surface::debuffs) this->debuffs_.RefreshControllerBrowse();
         if (!this->visible_ || !this->ControllerSurfaceVisible() || this->ControllerNativeBusy()) { this->ReleaseControllerFocus(!this->GameWindowFocused()); return; }
         if (this->controller_surface_ == controller_surface::config && !this->editing_) this->ReleaseControllerFocus();
         if (this->controller_surface_ == controller_surface::party)
@@ -258,8 +261,8 @@ namespace xiui
         if ((this->controller_surface_ == controller_surface::target_status || this->controller_surface_ == controller_surface::buffs ||
             this->controller_surface_ == controller_surface::debuffs || this->controller_surface_ == controller_surface::pet_status) && this->ControllerStatusBounds().width <= 0) this->ReleaseControllerFocus();
         if (this->controller_status_details_ && this->ControllerStatusBounds().width <= 0) this->controller_status_details_ = false;
-        if (this->controller_surface_ == controller_surface::chat && !this->chat_.HistoryFocused() && !this->chat_.Focused()) this->controller_surface_ = controller_surface::none;
-        if (this->controller_surface_ == controller_surface::chat2 && !this->chat_second_.HistoryFocused() && !this->chat_.Focused()) this->controller_surface_ = controller_surface::none;
+        if ((this->controller_surface_ == controller_surface::chat && !this->chat_.HistoryFocused() && !this->chat_.Focused()) ||
+            (this->controller_surface_ == controller_surface::chat2 && !this->chat_second_.HistoryFocused() && !this->chat_.Focused())) this->ReleaseControllerFocus();
     }
 
     auto hud_runtime::HandleController(const controller_event& event) -> bool
@@ -276,6 +279,7 @@ namespace xiui
         }
         if (!this->visible_ || this->ControllerNativeBusy()) { this->ReleaseControllerFocus(!this->GameWindowFocused()); return false; }
         if (!event.pressed || event.action == controller_action::none) return captured;
+        if (event.backend != controller_backend::none) this->keyboard_window_focus_ = false;
         if (event.repeated && event.action != controller_action::up && event.action != controller_action::down &&
             event.action != controller_action::left && event.action != controller_action::right) return captured;
         if (this->ActionBarsInputAvailable() && this->actionbars_.InputFocused())
@@ -430,7 +434,7 @@ namespace xiui
         {
             if (!this->BeginControllerFocus(controller_surface::config)) return true;
             this->SelectConfigModule(&this->general_);
-            this->active_config_section_ = general_module::input_section;
+            this->config_.section = general_module::input_section;
             return true;
         }
         if (command != "focus" && !command.starts_with("focus ")) return false;
@@ -498,8 +502,32 @@ namespace xiui
         return true;
     }
 
+    auto hud_runtime::ChatFocusBounds(void) const -> rect
+    {
+        if (!this->visible_ || this->editing_ || this->chat_.Focused() || !this->GameWindowFocused()) return {};
+        if (this->ContextVisible(this->chat_second_) && this->chat_second_.HistoryFocused()) return this->chat_second_.ControllerBounds(this->design_system_);
+        if (this->ContextVisible(this->chat_) && this->chat_.HistoryFocused()) return this->chat_.ControllerBounds(this->design_system_);
+        return {};
+    }
+
+    auto hud_runtime::KeyboardStatusFocusBounds(void) const -> rect
+    {
+        if (!this->keyboard_window_focus_ || !this->visible_ || this->editing_ || this->ControllerNativeBusy() ||
+            !this->ControllerSurfaceVisible()) return {};
+        return this->controller_surface_ == controller_surface::buffs || this->controller_surface_ == controller_surface::debuffs ?
+            this->ControllerStatusBounds() : rect{};
+    }
+
     auto hud_runtime::DrawControllerOverlay(const D3DVIEWPORT8& viewport, const module_render_context& context) -> void
     {
+        const auto chatFocus = this->ChatFocusBounds();
+        if (chatFocus.width > 0 && chatFocus.height > 0) this->design_system_.DrawFocusFrame(chatFocus, this->general_.FocusStyle());
+        const auto statusFocus = this->KeyboardStatusFocusBounds();
+        if (statusFocus.width > 0 && statusFocus.height > 0)
+        {
+            this->design_system_.DrawFocusFrame(statusFocus, this->general_.FocusStyle());
+            return;
+        }
         if (!this->ControllerCaptured()) return;
         const auto& theme = this->design_system_.GetTheme();
         if (this->controller_surface_ == controller_surface::picker)
@@ -538,8 +566,6 @@ namespace xiui
         if (this->controller_surface_ == controller_surface::chat || this->controller_surface_ == controller_surface::chat2 ||
             this->chat_.HistoryFocused() || this->chat_second_.HistoryFocused())
         {
-            const auto& chat = this->controller_surface_ == controller_surface::chat2 || this->chat_second_.HistoryFocused() ? this->chat_second_ : this->chat_;
-            this->design_system_.DrawFocusFrame(chat.ControllerBounds(this->design_system_), this->general_.FocusStyle());
             return;
         }
         rect focus{};

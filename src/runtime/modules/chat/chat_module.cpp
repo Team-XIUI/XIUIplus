@@ -22,9 +22,8 @@ namespace
         return progress * progress * (3 - 2 * progress);
     }
 
-    constexpr const char* channels[]{"/s", "/p", "/l", "/l2", "/sh", "/y", "/u", "/t", "/r"};
-    constexpr const char* commands[]{"/say ", "/party ", "/linkshell ", "/linkshell2 ", "/shout ", "/yell ", "/unity ", "/tell ", "/reply "};
-    constexpr uint32_t channelModes[]{1, 5, 6, 213, 2, 3, 211, 4, 4};
+    constexpr const char* channels[]{"/s", "/p", "/l", "/l2", "/sh", "/y", "/u", "/t", "/r", "Game"};
+    constexpr const char* commands[]{"/say ", "/party ", "/linkshell ", "/linkshell2 ", "/shout ", "/yell ", "/unity ", "/tell ", "/reply ", ""};
     auto SoundOption(const char* label, const char* description, int* selection) -> xiui::module_option
     {
         auto option = xiui::module_option::Dropdown(label, description, selection, xiui::chat_sound_names, std::size(xiui::chat_sound_names));
@@ -186,7 +185,7 @@ namespace xiui
         this->container_ = {};
         this->text_ = {};
         this->ApplyTextDefaults(theme);
-        this->channel_ = 0;
+        this->channel_ = game_channel;
         this->source_ = this->secondary_ ? 1 : 0;
         this->active_tab_ = static_cast<int>(this->secondary_ ? chat_tab::window2 : chat_tab::window1);
         this->visible_tabs_ = {};
@@ -230,7 +229,8 @@ namespace xiui
         this->active_tab_ = static_cast<int>(this->source_ == 0 ? chat_tab::window1 : this->source_ == 1 ? chat_tab::window2 : chat_tab::all);
         this->visible_tabs_[0] = !legacy && store.ReadBool(this->Id(), "tab_window1", false);
         this->visible_tabs_[1] = !legacy && store.ReadBool(this->Id(), "tab_window2", false);
-        this->channel_ = std::clamp(store.ReadInt(this->Id(), "channel", 0), 0, static_cast<int>(std::size(channels)) - 1);
+        this->channel_ = std::clamp(store.ReadInt(this->Id(), "channel", game_channel), 0, static_cast<int>(std::size(channels)) - 1);
+        if (store.ReadInt(this->Id(), "channel_version", 0) < 1 && this->channel_ == 0) this->channel_ = game_channel;
         this->text_ = LoadTextProfile(store, this->secondary_ ? "chat2.text" : "chat.text", this->text_);
         this->chrome_ = LoadTextProfile(store, this->secondary_ ? "chat2.chrome" : "chat.chrome", this->chrome_);
         this->cache_revision_ = UINT64_MAX;
@@ -279,6 +279,7 @@ namespace xiui
         store.WriteInt(this->Id(), "layout_version", 4);
         if (this->secondary_) store.WriteBool(this->Id(), "defaults_initialized", this->defaults_initialized_);
         store.WriteInt(this->Id(), "channel", this->channel_);
+        store.WriteInt(this->Id(), "channel_version", 1);
         SaveTextProfile(store, this->secondary_ ? "chat2.text" : "chat.text", this->text_);
         SaveTextProfile(store, this->secondary_ ? "chat2.chrome" : "chat.chrome", this->chrome_);
     }
@@ -393,7 +394,7 @@ namespace xiui
         default: break;
         }
         if (!this->secondary_ && index == 7)
-            return module_option::Choice("Send channel", "Default channel. /t takes a player name before the message.", &this->channel_, channels, std::size(channels));
+            return module_option::Choice("Send channel", "Game follows the native chat menu's selected channel. Other choices override it for ordinary messages; typed /commands always take priority.", &this->channel_, channels, std::size(channels));
         constexpr static const char* sources[]{"Window 1", "Window 2", "All"};
         const size_t first = this->secondary_ ? 7 : 8;
         switch (index - first)
@@ -707,21 +708,11 @@ namespace xiui
         if (!editing)
             for (size_t index = 0; index < layout.tabs.size(); ++index)
                 if (Contains(layout.tabs[index], x, y)) return static_cast<uint32_t>(index + 1);
-        if (!this->secondary_ && Contains(layout.channel, x, y)) return 10;
         if (!this->secondary_ && Contains(layout.input, x, y)) return 11;
         if (this->ControllerComposing())
             for (size_t index = 0; index < layout.controller_actions.size(); ++index)
                 if (Contains(layout.controller_actions[index], x, y)) return static_cast<uint32_t>(20 + index);
         return 0;
-    }
-
-    auto chat_module::ChannelProfile(void) const -> module_text_profile
-    {
-        auto profile = this->text_;
-        profile.style.scale *= 0.8f;
-        profile.placement = 0; profile.offset_x = profile.offset_y = 0;
-        profile.style.alignment = ui::text_alignment::center;
-        return profile;
     }
 
     auto chat_module::Layout(const ui::design_system& design) const -> layout
@@ -740,10 +731,6 @@ namespace xiui
         }
         const float inputHeight = this->secondary_ || (!this->Focused() && this->input_reveal_ == 0) ? 0 : std::max(26.0f, design.TextHeight(this->text_.style) + 6.0f);
         result.input = {result.content.x, result.content.y + result.content.height - inputHeight, result.content.width, inputHeight};
-        const bool command = !this->editor_.Text().empty() && this->editor_.Text().front() == '/';
-        const float prefixWidth = command || inputHeight == 0 ? 0.0f : std::max(28.0f, design.MeasureText(channels[this->channel_], this->ChannelProfile().style) + 10.0f);
-        result.channel = {result.input.x, result.input.y, prefixWidth, inputHeight};
-        result.input.x += prefixWidth; result.input.width = std::max(1.0f, result.input.width - prefixWidth);
         const float counterHeight = inputHeight > 0 && this->input_counter_ ? design.TextHeight(this->chrome_.style) + 3 : 0;
         if (counterHeight > 0)
         {
@@ -853,7 +840,7 @@ namespace xiui
             }
             return true;
         }
-        if (editing && (!down || this->secondary_ || (!Contains(layout.input, x, y) && !Contains(layout.channel, x, y))))
+        if (editing && (!down || this->secondary_ || !Contains(layout.input, x, y)))
         {
             if (down) this->Focus(false);
             return false;
@@ -871,7 +858,6 @@ namespace xiui
                 return true;
             }
         if (this->secondary_) return true;
-        if (Contains(layout.channel, x, y)) { this->channel_ = (this->channel_ + 1) % std::size(channels); save = true; return true; }
         if (Contains(layout.input, x, y))
         {
             this->Focus(true);
@@ -1054,7 +1040,8 @@ namespace xiui
         std::string encoded;
         if (!ToGameText(command, encoded)) { this->error_ = "This text contains characters the game cannot send."; return false; }
         if (encoded.size() > this->input_limit_) { this->error_ = "Message exceeds the game's input limit."; return false; }
-        chat->QueueCommand(-1, encoded.c_str());
+        const auto mode = this->channel_ == game_channel && command.front() != '/' ? Ashita::CommandMode::Typed : Ashita::CommandMode::AshitaParse;
+        chat->QueueCommand(static_cast<int32_t>(mode), encoded.c_str());
         if (this->sounds_ != nullptr) this->sounds_->Play(ui::native_ui_sound::chat_send);
         this->editor_.Set(command);
         this->editor_.Remember();
@@ -1583,16 +1570,7 @@ namespace xiui
         {
             const float reveal = this->input_reveal_ * this->input_reveal_ * (3 - 2 * this->input_reveal_);
             const float slide = 4 * (1 - reveal);
-            const ui::rect inputRow{layout.channel.x, layout.input.y, layout.channel.width + layout.input.width, layout.input.height};
-            context.Design().FillRect(inputRow, FadeColor(0x60000000, reveal));
-            if (layout.channel.width > 0.0f)
-            {
-                const auto nativeColor = snapshot.chat_colors.modes[channelModes[this->channel_]];
-                const auto color = this->Colors().Resolve(channelModes[this->channel_], nativeColor != 0 ? nativeColor : theme.colors.text);
-                const auto prefix = FadeText(TintTextProfile(this->ChannelProfile(), color), reveal);
-                const ui::rect prefixBounds{layout.channel.x + 2.0f, layout.channel.y + 2.0f + slide, layout.channel.width - 4.0f, layout.channel.height - 4.0f};
-                context.DrawText(channels[this->channel_], prefixBounds, prefixBounds, prefix);
-            }
+            context.Design().FillRect(layout.input, FadeColor(0x60000000, reveal));
             const ui::rect input{layout.input.x + 5.0f, layout.input.y + 2.0f + slide, layout.input.width - 10.0f, layout.input.height - 4.0f};
             auto profile = FadeText(this->text_, reveal); profile.placement = 0; profile.offset_x = profile.offset_y = 0.0f; profile.style.alignment = ui::text_alignment::left;
             const auto& text = this->editor_.Text();
@@ -1606,7 +1584,7 @@ namespace xiui
                 const auto right = MeasureChatText(context.Design(), this->DisplayDraft(text.substr(start, selectionEnd - start)), profile.style);
                 context.Design().FillRect({input.x + std::min(left, input.width), input.y, std::max(0.0f, std::min(right, input.width) - left), input.height}, FadeColor(theme.colors.selected, reveal));
             }
-            if (text.empty()) context.DrawText(this->channel_ == 7 ? "Player message" : "Message", input, input, FadeText(this->chrome_, reveal));
+            if (text.empty()) context.DrawText(this->channel_ == 7 ? "Player message" : "Message", input, input, FadeText(this->chrome_, reveal * 0.4f));
             else
             {
                 const auto commandEnd = text.find(' ');

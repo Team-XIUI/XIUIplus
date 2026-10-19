@@ -39,7 +39,7 @@ namespace xiui::ui
         static auto IconId(const char* id) -> icon_glyph;
         auto Icon(const rect& bounds, const char* id, D3DCOLOR color) const -> void;
         auto Tooltip(const char* text, const rect& anchor, const D3DVIEWPORT8& viewport) const -> void;
-        auto Option(const rect& row, const module_option& option, bool hovered, bool activeColor, const slider_value_input* input = nullptr, const text_input* textInput = nullptr, bool dropdownOpen = false) const -> void;
+        auto Option(const rect& row, const module_option& option, bool hovered, bool activeColor, const slider_value_input* input = nullptr, const text_input* textInput = nullptr, bool dropdownOpen = false, int hoveredButton = -1) const -> void;
 
     private:
         const design_system& design_;

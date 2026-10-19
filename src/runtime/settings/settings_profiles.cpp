@@ -14,6 +14,9 @@ namespace xiui
     auto OverlayProfilePreferences(const settings_store& target, const settings_store& source) -> void
     {
         target.OverlayPreferences(source);
+        for (const auto* section : {"chat", "chat2"})
+            if (!source.ReadString(section, "channel").empty())
+                target.WriteInt(section, "channel_version", source.ReadInt(section, "channel_version", 0));
         const int frameVersion = source.ReadInt("actionbars", "slot_frame_version", 0);
         // A replaced legacy section must not inherit the snapshot's migration marker.
         source.VisitPreferences([&](const std::string_view section, const std::string_view key, const std::string_view) {

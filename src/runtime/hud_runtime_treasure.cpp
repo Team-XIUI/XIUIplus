@@ -2,10 +2,10 @@
 
 namespace xiui
 {
-    auto hud_runtime::TreasureInputAvailable(void) const -> bool
+    auto hud_runtime::TreasureInputAvailable(const bool pointer) const -> bool
     {
         return this->visible_ && !this->editing_ && this->ContextVisible(this->treasure_) &&
-            this->treasure_.ShouldRender({}) && !this->ControllerNativeBusy() && !this->ControllerNativeMenuOpen() &&
+            this->treasure_.ShouldRender({}) && !this->ControllerNativeBusy() && (pointer || !this->ControllerNativeMenuOpen()) &&
             !this->chat_.HistoryExpanded() && !this->chat_second_.HistoryExpanded();
     }
 
@@ -13,7 +13,7 @@ namespace xiui
     {
         this->treasure_source_.Update(this->core_, now);
         this->treasure_.SetFocusStyle(this->general_.FocusStyle());
-        this->treasure_.Update(this->core_, this->TreasureInputAvailable());
+        this->treasure_.Update(this->core_, this->TreasureInputAvailable(true));
         if (this->treasure_.TakeSettingsChanged()) this->SaveSettings();
     }
 
@@ -44,10 +44,11 @@ namespace xiui
         return true;
     }
 
-    auto hud_runtime::HandleTreasureMouse(const uint32_t message, const float x, const float y, const bool blocked) -> bool
+    auto hud_runtime::HandleTreasureMouse(const uint32_t message, const float x, const float y, const bool inputBlocked) -> bool
     {
+        const bool blocked = this->PointerInputBlocked(inputBlocked);
         const bool owned = this->treasure_.PointerDown();
-        const bool available = !blocked && this->TreasureInputAvailable();
+        const bool available = !blocked && this->TreasureInputAvailable(true);
         if (!owned && (!available || !this->treasure_.Contains(x, y))) return false;
         if (!available)
         {

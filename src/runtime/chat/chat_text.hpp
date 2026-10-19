@@ -2,6 +2,7 @@
 
 #include "chat_token.hpp"
 #include "modules/module.hpp"
+#include "ui/native_ui_assets.hpp"
 
 #include <algorithm>
 
@@ -49,6 +50,7 @@ namespace xiui
 
     inline auto DrawChatText(const module_render_context& context, const std::string_view text, const ui::rect& bounds, const module_text_profile& profile) -> void
     {
+        if (!profile.visible) return;
         if (text.find(chat_cap_open) == std::string_view::npos && text.find(chat_cap_close) == std::string_view::npos)
         { context.DrawText(std::string{text}.c_str(), bounds, bounds, profile); return; }
         auto box = bounds;

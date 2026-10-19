@@ -400,7 +400,17 @@ namespace xiui
 
         static auto RuntimeOwnership(void) -> void
         {
+            class mouse final : public IMouse
+            {
+            public:
+                bool blocked{};
+                void AddCallback(const char*, mousecallback_f) override {}
+                void RemoveCallback(const char*) override {}
+                bool GetBlockInput(void) const override { return this->blocked; }
+                void SetBlockInput(bool value) override { this->blocked = value; }
+            } input;
             auto runtime = std::make_unique<hud_runtime>();
+            runtime->mouse_ = &input;
             runtime->inventory_source_.state_.available = true; satchel_data_test::Set(runtime->satchel_source_, Fixture());
             auto& module = runtime->satchel_; module.Initialize(nullptr, &runtime->satchel_source_, &runtime->satchel_cache_, &runtime->satchel_actions_);
             module.ApplyTextDefaults(ui::theme::CreateDefault()); module.state_.bounds.x = 80; module.state_.bounds.y = 60;
@@ -408,8 +418,11 @@ namespace xiui
             Check(runtime->SatchelInputAvailable() && !runtime->KeyboardFocused(), "idle visible Satchel leaves the runtime keyboard gate open");
             const auto click = [&](const ui::rect& at) {
                 const auto x = at.x + at.width * 0.5f, y = at.y + at.height * 0.5f;
-                runtime->HandleSatchelMouse(WM_LBUTTONDOWN, 0, x, y, false); runtime->HandleSatchelMouse(WM_LBUTTONUP, 0, x, y, false);
+                Check(runtime->HandleSatchelMouse(WM_LBUTTONDOWN, 0, x, y, input.GetBlockInput()), "Satchel owns its pointer press");
+                Check(runtime->HandleSatchelMouse(WM_LBUTTONUP, 0, x, y, input.GetBlockInput()), "Satchel owns its pointer release");
             };
+            runtime->SetChatMouseCapture(true);
+            Check(input.GetBlockInput(), "hover capture blocks native mouse input before the first click");
             click(module.CharacterBounds()); Check(runtime->KeyboardFocused(), "runtime keyboard gate follows an open profile popup");
             click({4, 4, 1, 1}); Check(!runtime->KeyboardFocused(), "popup dismissal releases the actual runtime movement gate");
             click(module.SearchBounds()); Check(runtime->KeyboardFocused(), "search typing owns the runtime keyboard gate");
@@ -426,6 +439,38 @@ namespace xiui
             runtime->satchel_pointer_release_ = MK_LBUTTON;
             Check(!runtime->HandleMouseMessage(WM_LBUTTONDOWN, 0, MAKELPARAM(4, 4), false) && runtime->satchel_pointer_release_ == 0 &&
                 !runtime->HandleMouseMessage(WM_LBUTTONUP, 0, MAKELPARAM(4, 4), false), "fresh native pointer presses clear a stale Satchel release drain");
+            runtime->native_ui_.menu_visible = true;
+            Check(!runtime->SatchelInputAvailable() && runtime->SatchelInputAvailable(true) &&
+                !runtime->HandleSatchelKey(VK_DOWN, 0, false), "native menus retain unclaimed keyboard navigation while Satchel accepts pointer input");
+            runtime->SetChatMouseCapture(true);
+            click(module.CharacterBounds());
+            runtime->UpdateVisibilityContext();
+            Check(module.dialog_ == satchel_module::dialog::characters && runtime->KeyboardFocused() &&
+                runtime->ControllerCapture() == controller_capture_mode::none,
+                "mouse-opened popups persist over native menus without entering controller browsing");
+            Check(runtime->HandleSatchelKey(VK_ESCAPE, 0, false) && !runtime->KeyboardFocused(),
+                "an explicitly opened popup handles Escape and returns keyboard ownership to the native menu");
+            runtime->HandleSatchelKey(VK_ESCAPE, static_cast<LPARAM>(0x80000000u), false);
+            click(module.SearchBounds());
+            runtime->UpdateVisibilityContext();
+            Check(module.KeyboardFocused() && runtime->KeyboardFocused(), "clicked search retains typing focus over a native menu");
+            runtime->HandleSatchelKey(VK_ESCAPE, 0, false);
+            runtime->HandleSatchelKey(VK_ESCAPE, static_cast<LPARAM>(0x80000000u), false);
+            runtime->SetChatMouseCapture(false);
+            input.blocked = true;
+            runtime->SetChatMouseCapture(true);
+            const auto profile = module.CharacterBounds();
+            Check(runtime->PointerInputBlocked(true) && !runtime->HandleSatchelMouse(WM_LBUTTONDOWN, 0, profile.x + 2, profile.y + 2, true) &&
+                module.dialog_ == satchel_module::dialog::none, "mouse capture preserves an input block that existed before XIUI acquired it");
+            runtime->SetChatMouseCapture(false);
+            Check(input.blocked, "releasing XIUI capture restores the previous external block");
+            input.blocked = false;
+            runtime->native_ui_.menu_visible = false;
+            runtime->mouse_block_state_saved_ = runtime->mouse_captured_ = true;
+            Check(!runtime->PointerInputBlocked(true), "configuration's own mouse capture does not block its controls");
+            runtime->previous_mouse_blocked_ = true;
+            Check(runtime->PointerInputBlocked(true), "configuration capture retains a preexisting external block");
+            runtime->mouse_block_state_saved_ = runtime->mouse_captured_ = false;
         }
 
         static auto Run(void) -> void
@@ -554,8 +599,13 @@ namespace xiui
     };
 }
 
-auto main(void) -> int
+auto main(const int argc, char** argv) -> int
 {
+    if (argc == 2 && std::strcmp(argv[1], "--input-ownership-only") == 0)
+    {
+        try { xiui::satchel_ui_test::RuntimeOwnership(); std::puts("Satchel pointer, menu and keyboard ownership checks passed."); return 0; }
+        catch (const std::exception& error) { std::fprintf(stderr, "Satchel input check failed: %s\n", error.what()); return 1; }
+    }
     try { xiui::satchel_ui_test::Run(); std::puts("Satchel UI checks passed."); return 0; }
     catch (const std::exception& error) { std::fprintf(stderr, "Satchel UI check failed: %s\n", error.what()); return 1; }
 }

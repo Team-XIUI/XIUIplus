@@ -485,9 +485,32 @@ namespace xiui
             const auto firstBuff = runtime.buffs_.ControllerBounds();
             Check(key(VK_RIGHT) && runtime.buffs_.ControllerBounds().x > firstBuff.x,
                 "keyboard arrows move between the actual XIUI effect icons");
+            controller_status unavailable{}; unavailable.suspended = unavailable.enumeration_disabled = true;
+            unavailable.connection_known = unavailable.configuration_known = true;
+            runtime.UpdateControllerStatus(unavailable);
+            runtime.native_ui_.menu_visible = true;
+            runtime.UpdateControllerFocus();
+            Check(runtime.buffs_.ControllerFocused() && runtime.KeyboardStatusFocusBounds().width > 0 &&
+                !runtime.ControllerCaptured() && key(VK_LEFT) && runtime.buffs_.ControllerBounds().x == firstBuff.x,
+                "keyboard status selection and arrows survive frame updates without controller capture");
+            runtime.native_ui_.menu_visible = false;
+            player.buffs = {40, 2}; player.buff_count = 2;
+            runtime.UpdateControllerFocus();
+            Check(runtime.buffs_.ControllerFocused() && runtime.KeyboardStatusFocusBounds().x == firstBuff.x,
+                "an expired selected buff transfers focus to the remaining icon instead of restarting the window cycle");
+            player.buffs = {33, 40, 2}; player.buff_count = 3;
+            runtime.UpdateControllerFocus();
+            Check(runtime.buffs_.ControllerBounds().x > firstBuff.x,
+                "the replacement selection follows its effect when the list changes again");
+            runtime.UpdateControllerStatus({});
             Check(key('F', 0x40000000) && runtime.buffs_.ControllerFocused(), "held F cannot skip a status group");
             Check(key('F') && runtime.debuffs_.ControllerFocused() && !runtime.buffs_.ControllerFocused(),
                 "F continues from XIUI Buffs to XIUI Debuffs");
+            runtime.UpdateControllerStatus(unavailable);
+            runtime.UpdateControllerFocus();
+            Check(runtime.debuffs_.ControllerFocused() && runtime.KeyboardStatusFocusBounds().width > 0,
+                "keyboard Debuffs focus survives the same unavailable-gamepad frame updates");
+            runtime.UpdateControllerStatus({});
             Check(key(VK_ESCAPE) && !runtime.ControllerCaptured() && !runtime.ChatFocused(), "Escape releases keyboard status inspection");
             second.State().enabled = false;
             Check(chat.BeginHistory() && chat.HistoryFocused() && key('F') && runtime.buffs_.ControllerFocused(),
@@ -967,6 +990,7 @@ namespace xiui
             Check(runtime.ChatFocused() && runtime.chat_.editor_.Text() == "f" && runtime.chat_.editor_.Caret() == 1 &&
                 runtime.chat_.Layout(runtime.design_system_).input.height > 0 && chat.IsInputOpen() == 0 && chat.count == 0,
                 "the first native character opens visible XIUI input and transfers once without sending");
+            Check(runtime.ChatFocusBounds().width == 0, "typing a message does not outline the chat history window");
             runtime.SyncNativeChatInput(&chat, false);
             Check(runtime.chat_.editor_.Text() == "f" && chat.input_updates == 0 && chat.count == 0,
                 "frame synchronization cannot duplicate or rewrite transferred input");
@@ -977,6 +1001,7 @@ namespace xiui
             runtime.chat_activation_enter_down_ = false; runtime.SyncNativeChatInput(&chat, false);
             Check(runtime.ChatFocused() && runtime.chat_.editor_.Text() == "test" && runtime.chat_.editor_.Caret() == 4 && chat.count == 0,
                 "ordinary native text becomes visible with its full body and caret intact");
+            Check(runtime.ChatFocusBounds().width == 0, "native chat composition keeps its caret without a history focus ring");
             runtime.ReleaseChatInput(); chat.OpenNative("native search", 5);
             runtime.SyncNativeChatInput(&chat, false);
             Check(!runtime.ChatFocused() && chat.IsInputOpen() == 0x21 && std::strcmp(chat.GetInputTextRaw(), "native search") == 0,
@@ -989,7 +1014,34 @@ namespace xiui
                 Check(runtime.window_config_.FullKeyboard() == false &&
                     runtime.HandleChatKey('F', 0, false, true, false, 0) && runtime.chat_.HistoryFocused(),
                     "both Compact layouts retain F-to-focus without opening the message editor");
+                Check(runtime.keyboard_window_focus_ && runtime.controller_surface_ == hud_runtime::controller_surface::chat &&
+                    runtime.ChatFocusBounds().width > 0 && !runtime.KeyboardFocused(),
+                    "F establishes visible chat browsing without capturing typing or movement");
+                controller_status unavailable{}; unavailable.suspended = unavailable.enumeration_disabled = true;
+                unavailable.configuration_known = unavailable.connection_known = true;
+                runtime.UpdateControllerStatus(unavailable);
+                Check(runtime.chat_.HistoryFocused() && runtime.ChatFocusBounds().width > 0,
+                    "disabled or disconnected gamepads cannot clear keyboard chat focus");
+                runtime.native_ui_.menu_visible = true;
+                Check(!runtime.ControllerCaptured() && runtime.ChatFocusBounds().width > 0,
+                    "visual chat focus follows the active log independently of controller capture");
+                runtime.native_ui_.menu_visible = false;
+                Check(runtime.HandleChatKey('F', 0x40000000, false, true, false, 0) && runtime.chat_.HistoryFocused(),
+                    "holding F cannot skip over a focused window");
+                runtime.chat_second_.State().enabled = true;
+                Check(runtime.HandleChatKey('F', 0, false, true, false, 0) && runtime.chat_second_.HistoryFocused() &&
+                    runtime.controller_surface_ == hud_runtime::controller_surface::chat2 &&
+                    runtime.ChatFocusBounds().y == runtime.chat_second_.ControllerBounds(runtime.design_system_).y,
+                    "F hands the shared focus and outline to Window 2");
+                Check(runtime.HandleChatKey(VK_ESCAPE, 0, false, true, false, 0) && runtime.ChatFocusBounds().width == 0 &&
+                    runtime.controller_surface_ == hud_runtime::controller_surface::none && !runtime.keyboard_window_focus_,
+                    "Escape immediately releases the outline and keyboard browsing owner");
+                runtime.native_ui_.menu_visible = true;
+                Check(!runtime.HandleChatKey('F', 0, false, true, false, 0), "unfocused F yields to native menus");
+                runtime.native_ui_.menu_visible = false;
+                Check(!runtime.HandleChatKey('F', 0, false, true, true, 0), "unfocused F yields to native action targeting");
                 runtime.ReleaseChatInput();
+                runtime.UpdateControllerStatus({});
             }
             record[2] = 3;
             Check(!runtime.window_config_.FullKeyboard().has_value(), "unknown native keyboard layouts remain unavailable");
@@ -1024,6 +1076,9 @@ namespace xiui
                 runtime.HandleActionBarsKey('Q', static_cast<LPARAM>(0x80000000u), false) && !runtime.HandleActionBarsKey('Q', 0, false),
                 "changing to Full mode drains an owned key before yielding a fresh text press");
             runtime.actionbars_.OpenEditor();
+            keys[VK_CONTROL] = keys[VK_LCONTROL] = 0x80; Check(::SetKeyboardState(keys) != FALSE, "hold search modifier");
+            Check(runtime.HandleActionBarsKey('F', 0, false) && runtime.HandleActionBarsKey('F', static_cast<LPARAM>(0x80000000u), false), "explicitly focus the action search field");
+            keys[VK_CONTROL] = keys[VK_LCONTROL] = 0; Check(::SetKeyboardState(keys) != FALSE, "release search modifier");
             Check(runtime.HandleActionBarsKey('Q', 0, false) && runtime.HandleActionBarsKey('Q', static_cast<LPARAM>(0x80000000u), false),
                 "an explicitly opened action editor retains its text input in Full mode");
             runtime.actionbars_.SuspendInput();
@@ -1173,11 +1228,49 @@ namespace xiui
                 "received reply history remains bounded to the eight most recent distinct senders");
         }
 
+        static auto ReplyKeyboardOwnership(void) -> void
+        {
+            for (const bool nativeMenu : {false, true})
+                for (const bool targeting : {false, true})
+                {
+                    hud_runtime runtime;
+                    chat_manager chat;
+                    runtime.native_ui_.menu_visible = nativeMenu;
+                    runtime.chat_.ObserveTeller("Alice");
+                    Check(runtime.HandleChatKey('R', 0x20000000, false, true, targeting, 0) && runtime.ChatFocused(),
+                        "Alt+R explicitly opens a reply over native menus and targeting");
+                    runtime.SyncNativeChatInput(&chat, nativeMenu, targeting);
+                    Check(runtime.ChatFocused() && runtime.chat_.editor_.Text() == "/t Alice ",
+                        "native menu synchronization retains an explicitly opened reply");
+                    runtime.chat_.editor_.Set("/t Alice reply body");
+                    Check(runtime.HandleChatKey(VK_RETURN, 0, false, true, targeting, 0),
+                        "the reply editor owns its send key");
+                    Check(runtime.chat_.Submit(&chat) && chat.count == 1 && chat.sent == "/t Alice reply body" &&
+                        !runtime.ChatFocused() && runtime.KeyboardFocused(),
+                        "sending a reply retains keyboard capture until the send key is released");
+                    runtime.chat_activation_enter_down_ = true;
+                    Check(runtime.HandleKey(VK_RETURN, 0x40000000, false) && runtime.KeyboardFocused() && chat.count == 1,
+                        "held send cannot reach another input owner or submit twice");
+                    Check(runtime.HandleKey(VK_RETURN, static_cast<LPARAM>(0xC0000000u), false) &&
+                        !runtime.KeyboardFocused() && !runtime.chat_activation_enter_down_ && chat.count == 1,
+                        "the send release is consumed and cannot activate native chat or commands");
+                    Check(!runtime.HandleKey(VK_RETURN, 0, false), "a new Enter gesture returns to native gameplay");
+                }
+            hud_runtime runtime;
+            runtime.chat_.Focus(true);
+            runtime.chat_.editor_.Set({});
+            Check(runtime.HandleChatKey(VK_RETURN, 0, false, true, false, 0) && !runtime.ChatFocused() && runtime.KeyboardFocused(),
+                "closing an empty chat also drains its Enter gesture");
+            runtime.SetVisible(false); runtime.SetVisible(true);
+            Check(!runtime.KeyboardFocused(), "hiding XIUI clears pending chat keyboard capture");
+        }
+
         static auto TellInputs(void) -> void
         {
             const keyboard_restore neutral;
             ReplyCycling();
             IncomingReplyOrder();
+            ReplyKeyboardOwnership();
             constexpr LPARAM alt = 0x20000000, repeated = 0x60000000;
             const std::array<std::string, 1> alice{"Alice"}, bob{"Bob"}, carol{"Carol"};
             chat_module module;
@@ -1314,10 +1407,57 @@ namespace xiui
             Check(source.Read().modes[11] == ChatColor(0x80603070), "native color setting changes refresh without reusing the duplicate entry");
         }
 
+        static auto NativeSendChannel(void) -> void
+        {
+            chat_module module; chat_manager chat; ui::design_system design;
+            module.ApplyTextDefaults(ui::theme::CreateDefault());
+            Check(module.channel_ == chat_module::game_channel && std::strcmp(module.Option(7).choices[module.channel_], "Game") == 0,
+                "new chat instances follow the native chat channel by default");
+            module.Load(settings_store::FromIniText("[chat]\nchannel=0\n"));
+            Check(module.channel_ == chat_module::game_channel, "the old default Say channel migrates to Game");
+            auto snapshot = settings_store::FromIniText(""); module.Save(snapshot);
+            OverlayProfilePreferences(snapshot, settings_store::FromIniText("[chat]\nchannel=0\n[chat2]\nchannel=0\n"));
+            module.Load(snapshot);
+            Check(module.channel_ == chat_module::game_channel && snapshot.ReadInt("chat2", "channel_version", -1) == 0,
+                "legacy character profiles cannot inherit a snapshot marker that skips native-channel migration");
+            OverlayProfilePreferences(snapshot, settings_store::FromIniText("[chat]\nchannel=0\nchannel_version=1\n"));
+            module.Load(snapshot);
+            Check(module.channel_ == 0, "modern character profiles preserve deliberate Say overrides");
+            module.Load(settings_store::FromIniText("[chat]\nchannel=1\n"));
+            Check(module.channel_ == 1, "an existing non-default channel override is preserved");
+            module.channel_ = 0;
+            auto saved = settings_store::FromIniText(""); module.Save(saved);
+            chat_module restored; restored.Load(saved);
+            Check(restored.channel_ == 0, "an explicit Say override survives later saves without repeating migration");
+            module.ResetDefaults(ui::theme::CreateDefault());
+            module.Focus(true); module.editor_.Set("hello native channel");
+            const auto ordinary = module.Layout(design);
+            Check(ordinary.input.x == ordinary.content.x && ordinary.input.width == ordinary.content.width,
+                "ordinary messages use the entire input row without a channel prefix");
+            Check(module.Submit(&chat) && chat.mode == static_cast<int32_t>(Ashita::CommandMode::Typed) && chat.sent == "hello native channel" && chat.count == 1,
+                "default messages reach the native typed-chat path once without forcing a channel or recipient");
+            module.Focus(true); module.editor_.Set("/l explicit linkshell");
+            const auto command = module.Layout(design);
+            Check(command.input.x == ordinary.input.x && command.input.width == ordinary.input.width,
+                "starting a slash command does not shift the input or caret area");
+            Check(module.Submit(&chat) && chat.mode == static_cast<int32_t>(Ashita::CommandMode::AshitaParse) && chat.sent == "/l explicit linkshell" && chat.count == 2,
+                "explicit slash commands retain their original parser route and destination");
+            chat.input_limit = 18; module.SetInputContext(&chat); module.Focus(true);
+            module.editor_.Set({}); module.editor_.Insert(std::string(100, 'x'));
+            Check(module.editor_.Text().size() == 18 && module.InputUsage(module.editor_.Text()) == std::pair<size_t, size_t>{18, 18},
+                "native default input counts actual text without reserving a hidden Say prefix");
+            bool save{}; const auto input = module.Layout(design).input;
+            module.HandleMouse(WM_LBUTTONDOWN, MK_LBUTTON, input.x + 2, input.y + 4, false, design, {0, 0, 1280, 720}, save);
+            module.HandleMouse(WM_LBUTTONUP, 0, input.x + 2, input.y + 4, false, design, {0, 0, 1280, 720}, save);
+            Check(module.channel_ == chat_module::game_channel && !save, "clicking the input start cannot cycle an invisible channel prefix");
+            module.Save(saved); restored.Load(saved);
+            Check(restored.channel_ == chat_module::game_channel, "native channel following persists normally");
+        }
+
         static auto InputLimits(void) -> void
         {
             chat_manager chat; chat.input_limit = 18;
-            chat_module module; module.SetInputContext(&chat);
+            chat_module module; module.channel_ = 0; module.SetInputContext(&chat);
             module.editor_.Insert(std::string(100, 'a'));
             Check(module.editor_.Text() == std::string(13, 'a') && module.InputUsage(module.editor_.Text()) == std::pair<size_t, size_t>{13, 13},
                 "typing and paste stop at the native budget after accounting for the selected channel");
@@ -1434,7 +1574,8 @@ namespace xiui
             module.HandleKey(nullptr, VK_RETURN, 0, false, true);
             Check(module.Focused() && module.editor_.Completions().empty() && module.editor_.Text() == south && module.error_.empty(), "Enter chooses a phrase without sending or leaving input");
             chat_manager chat;
-            Check(module.Submit(&chat) && chat.sent == "/say " + south, "selected phrases send their native token rather than quoted text");
+            Check(module.Submit(&chat) && chat.sent == south && chat.mode == static_cast<int32_t>(Ashita::CommandMode::Typed),
+                "selected phrases retain their native token and the game's selected send channel");
             module.Focus(true); module.editor_.Set("south"); module.editor_.CompleteCandidates(choices, false);
             layout = module.Layout(design); bool save{};
             const ui::rect viewport{0, 0, 1280, 720};
@@ -1582,14 +1723,11 @@ namespace xiui
                 "resize keeps optional tabs on screen and bottom edge anchored");
             module.state_.bounds = {20, 350, 660, 310};
             module.active_tab_ = 0; module.source_ = 2;
-            const auto prefix = module.ChannelProfile();
-            Check(prefix.style.scale < module.text_.style.scale && prefix.style.alignment == ui::text_alignment::center &&
-                prefix.style.shadow.enabled == module.text_.style.shadow.enabled, "compact centered channel retains text effects");
             Check(layout.scrollbar.width == 6 && layout.scrollbar.x > layout.log.x + layout.log.width &&
                 layout.scrollbar.x + layout.scrollbar.width <= layout.content.x + layout.content.width, "contrasting scrollbar has reserved space");
             Check(module.chrome_.style.scale >= 0.85f && module.chrome_.style.stroke.enabled == theme.meter_text.stroke.enabled, "tab labels use readable shared meter text");
             module.editor_.Set("/tell");
-            Check(module.Layout(design).channel.width == 0, "explicit commands retain full borderless input width");
+            Check(module.Layout(design).input.width == module.Layout(design).content.width, "explicit commands retain full borderless input width");
             hud_snapshot snapshot{};
             for (uint64_t sequence = 1; sequence <= 1024; ++sequence)
             {
@@ -1707,6 +1845,14 @@ int main(int argc, char** argv)
 {
     try
     {
+        if (argc == 2 && std::strcmp(argv[1], "--native-channel-only") == 0)
+        {
+            xiui::chat_test::NativeSendChannel();
+            xiui::chat_test::InputLimits();
+            xiui::chat_test::AutoTranslateCommands();
+            std::puts("Native default send channel, explicit overrides, prefix-free input and encoded limits passed.");
+            return 0;
+        }
         if (argc == 2 && std::strcmp(argv[1], "--input-limit-only") == 0)
         {
             xiui::chat_test::InputLimits();

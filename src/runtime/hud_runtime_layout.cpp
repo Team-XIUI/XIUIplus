@@ -9,18 +9,18 @@ namespace xiui
 {
     auto hud_runtime::ConfigScrollbar(void) const -> ui::config_scrollbar
     {
-        if (!this->editing_ || this->config_collapsed_ || this->active_module_ == nullptr) return {};
+        if (!this->editing_ || this->config_.collapsed || this->config_.module == nullptr) return {};
         const auto layout = this->ConfigLayout();
         if (!layout.HasScrollbar()) return {};
         auto track = layout.ScrollbarTrack();
         if (this->IsXIUIContributors())
         {
             const int page = std::max(1, static_cast<int>(track.height / 22));
-            return {track, page + ui::contributor_list_layout{layout}.MaximumScroll(), page, this->option_scroll_};
+            return {track, page + ui::contributor_list_layout{layout}.MaximumScroll(), page, this->config_.scroll};
         }
         const int page = layout.VisibleRows();
         track.height = std::min(track.height, layout.RowsHeight(page));
-        return {track, layout.RowForSlot(layout.MaximumScroll(static_cast<int>(this->GroupOptionCount()))) + page, page, layout.RowForSlot(this->option_scroll_)};
+        return {track, layout.RowForSlot(layout.MaximumScroll(static_cast<int>(this->GroupOptionCount()))) + page, page, layout.RowForSlot(this->config_.scroll)};
     }
 
     auto hud_runtime::ProcessConfigScrollbarClick(void) -> bool
@@ -29,16 +29,16 @@ namespace xiui
         const float x = static_cast<float>(this->mouse_x_), y = static_cast<float>(this->mouse_y_);
         if (!scrollbar.Visible() || !Contains(scrollbar.track, x, y)) return false;
         this->FinishConfigInput(true, false);
-        this->active_color_ = nullptr;
-        this->active_slider_ = nullptr;
+        this->config_.active_color = nullptr;
+        this->config_.active_slider = nullptr;
         if (Contains(scrollbar.Thumb(), x, y))
         {
-            this->scrollbar_grab_offset_ = y - scrollbar.Thumb().y;
+            this->config_.scrollbar_grab = y - scrollbar.Thumb().y;
             this->interaction_ = interaction::option_scrollbar;
         }
         else
         {
-            this->option_scroll_ = scrollbar.PageAt(y) * (this->IsXIUIContributors() ? 1 : this->ConfigLayout().Columns());
+            this->config_.scroll = scrollbar.PageAt(y) * (this->IsXIUIContributors() ? 1 : this->ConfigLayout().Columns());
             this->ClampOptionScroll();
         }
         return true;
@@ -48,7 +48,7 @@ namespace xiui
     {
         const auto scrollbar = this->ConfigScrollbar();
         if (!scrollbar.Visible()) return;
-        this->option_scroll_ = scrollbar.PositionAt(static_cast<float>(this->mouse_y_), this->scrollbar_grab_offset_) * (this->IsXIUIContributors() ? 1 : this->ConfigLayout().Columns());
+        this->config_.scroll = scrollbar.PositionAt(static_cast<float>(this->mouse_y_), this->config_.scrollbar_grab) * (this->IsXIUIContributors() ? 1 : this->ConfigLayout().Columns());
         this->ClampOptionScroll();
     }
 
@@ -56,8 +56,8 @@ namespace xiui
     {
         const auto scrollbar = this->ConfigScrollbar();
         const bool dragging = this->interaction_ == interaction::option_scrollbar;
-        const bool hovered = this->interaction_ == interaction::none && !this->choice_input_.Opened() && !this->profile_name_.Focused() &&
-            !this->profile_dropdown_ && !this->profile_actions_ && !this->input_mode_menu_ &&
+        const bool hovered = this->interaction_ == interaction::none && !this->config_.choice_input.Opened() && !this->profile_name_.Focused() &&
+            !this->profile_dropdown_ && !this->profile_actions_ && !this->config_.input_mode_menu &&
             Contains(scrollbar.track, static_cast<float>(this->mouse_x_), static_cast<float>(this->mouse_y_));
         this->config_controls_.Scrollbar(scrollbar, hovered, dragging);
     }
@@ -98,15 +98,15 @@ namespace xiui
 
     auto hud_runtime::MovementSelectionModule(void) const -> hud_module*
     {
-        if (this->active_module_ == &this->actionbars_ && this->actionbars_.SelectedBar() > 0)
+        if (this->config_.module == &this->actionbars_ && this->actionbars_.SelectedBar() > 0)
             return const_cast<actionbar_module*>(&this->actionbar_children_[this->actionbars_.SelectedBar() - 1]);
-        if (this->active_module_ == &this->world_info_ && this->world_info_.Independent())
+        if (this->config_.module == &this->world_info_ && this->world_info_.Independent())
             return const_cast<world_info_part_module*>(&this->world_parts_[this->world_info_.SelectedPart()]);
-        if (this->active_module_ == &this->notifications_ && this->notifications_.SelectedGroup() > 0)
+        if (this->config_.module == &this->notifications_ && this->notifications_.SelectedGroup() > 0)
             return const_cast<notification_group_module*>(&this->notification_groups_[this->notifications_.SelectedGroup() - 1]);
-        if (this->active_module_ == &this->target_ && this->target_.ConfigView() == 0 && this->active_config_section_ == 9 && this->target_cast_.HasEditableBounds())
+        if (this->config_.module == &this->target_ && this->target_.ConfigView() == 0 && this->config_.section == 9 && this->target_cast_.HasEditableBounds())
             return const_cast<target_cast_module*>(&this->target_cast_);
-        if (this->active_module_ == &this->target_ && this->target_.ConfigView() == 0 && this->active_config_section_ == 11)
+        if (this->config_.module == &this->target_ && this->target_.ConfigView() == 0 && this->config_.section == 11)
         {
             const auto group = this->target_.Settings().mob_info.selected_group;
             if (group > 0 && static_cast<size_t>(group) <= this->mob_info_groups_.size())
@@ -115,7 +115,7 @@ namespace xiui
                 if (module->HasEditableBounds()) return module;
             }
         }
-        return this->active_module_;
+        return this->config_.module;
     }
 
     auto hud_runtime::MovementToolbar(const D3DVIEWPORT8& viewport) const -> std::optional<ui::movement_toolbar>
@@ -174,8 +174,8 @@ namespace xiui
         {
             const auto button = toolbar->Button(index);
             const bool hovered = this->interaction_ == interaction::none && !Contains(this->ConfigVisibleBounds(), static_cast<float>(this->mouse_x_), static_cast<float>(this->mouse_y_)) &&
-                !this->ProfileSurface(viewport) && !this->choice_input_.Opened() &&
-                (this->active_color_ == nullptr || !Contains(this->ConfigLayout().ColorEditor(viewport), static_cast<float>(this->mouse_x_), static_cast<float>(this->mouse_y_))) &&
+                !this->ProfileSurface(viewport) && !this->config_.choice_input.Opened() &&
+                (this->config_.active_color == nullptr || !Contains(this->ConfigLayout().ColorEditor(viewport), static_cast<float>(this->mouse_x_), static_cast<float>(this->mouse_y_))) &&
                 Contains(button, static_cast<float>(this->mouse_x_), static_cast<float>(this->mouse_y_));
             this->config_controls_.IconButton(button, index == 0 ? ui::icon_glyph::center_x : ui::icon_glyph::center_y, hovered);
             if (hovered) { tooltip = index == 0 ? "Center horizontally" : "Center vertically"; tooltipAnchor = button; }

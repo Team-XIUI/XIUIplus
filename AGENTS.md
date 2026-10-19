@@ -12,6 +12,8 @@
 
 For HUD changes, follow [the shared foundations](docs/foundations.md), especially **HUD text**. Reuse the theme roles, module text profiles, rendering, controls, and persistence. Compact sizing must retain normal text effects. Apply game-state colors with `TintTextProfile` so gradients and effects survive. Plain configuration text is a separate presentation.
 
-For interactive feature changes, apply [the controller support skill](.agents/skills/xiui-controller-support/SKILL.md) and consult [the controller plan](docs/controller-plan.md). Check [implementation status](docs/controller-implementation.md) before assuming a planned capability is available.
+Start with [developer navigation](docs/README.md) for task-to-file routes, [development](docs/development.md) for build/install/default capture, and [focused checks](tests/README.md) for proportional validation. Generated documentation is refreshed with `scripts/update-docs.ps1`; assets have a [generator index](assets/README.md).
+
+For interactive feature changes, apply [the controller support skill](.agents/skills/xiui-controller-support/SKILL.md) and read [current implementation](docs/controller-implementation.md) first. [The controller plan](docs/controller-plan.md) records remaining acceptance and links dated research; proposed capabilities are not automatically available.
 
 For releases, use the `xiui-native-release` skill and `scripts/package.ps1`. Ship one `dist/xiuinative.dll`; the host/runtime DLL pair is for development hot reload.

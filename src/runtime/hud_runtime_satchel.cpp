@@ -5,11 +5,11 @@
 
 namespace xiui
 {
-    auto hud_runtime::SatchelInputAvailable(void) const -> bool
+    auto hud_runtime::SatchelInputAvailable(const bool pointer) const -> bool
     {
         return this->visible_ && !this->editing_ && this->satchel_.ShouldRender({}) && this->ContextVisible(this->satchel_) &&
             this->inventory_source_.State().available && this->GameWindowFocused() && !this->ControllerNativeBusy() &&
-            !this->ControllerNativeMenuOpen() && this->controller_surface_ != controller_surface::picker && !this->controller_pointer_down_ &&
+            (pointer || !this->ControllerNativeMenuOpen()) && this->controller_surface_ != controller_surface::picker && !this->controller_pointer_down_ &&
             !this->actionbars_.InputFocused() && !this->ChatFocused() && !this->chat_.HistoryExpanded() && !this->chat_second_.HistoryExpanded();
     }
 
@@ -34,7 +34,7 @@ namespace xiui
             if (window != nullptr && (::GetCapture() != window || (::GetAsyncKeyState(VK_LBUTTON) & 0x8000) == 0))
                 this->SuspendSatchelInput();
         }
-        if (!this->SatchelInputAvailable()) this->SuspendSatchelInput();
+        if (!this->SatchelInputAvailable(true)) this->SuspendSatchelInput();
         this->satchel_actions_.Update(this->core_, this->satchel_source_.Snapshot(), now);
         this->satchel_.SetFocusStyle(this->general_.FocusStyle());
         this->satchel_.SetConfigText(&this->general_.ConfigText());
@@ -99,7 +99,7 @@ namespace xiui
         const bool released = (static_cast<uint32_t>(flags) & 0x80000000u) != 0;
         if (key < this->satchel_key_release_.size() && this->satchel_key_release_[key] && released)
         { this->satchel_key_release_[key] = false; return true; }
-        if (released || blocked || !this->SatchelInputAvailable()) return false;
+        if (released || blocked || !this->SatchelInputAvailable(this->satchel_.InputFocused())) return false;
         const bool focused = this->satchel_.InputFocused();
         const bool consumed = this->satchel_.HandleKey(key, flags);
         if (consumed && !focused) this->ReleaseControllerFocus();
@@ -107,17 +107,18 @@ namespace xiui
         return consumed;
     }
 
-    auto hud_runtime::HandleSatchelMouse(const uint32_t message, const WPARAM buttons, const float x, const float y, const bool blocked) -> bool
+    auto hud_runtime::HandleSatchelMouse(const uint32_t message, const WPARAM buttons, const float x, const float y, const bool inputBlocked) -> bool
     {
+        const bool blocked = this->PointerInputBlocked(inputBlocked);
         const auto release = message == WM_LBUTTONUP ? MK_LBUTTON : message == WM_RBUTTONUP ? MK_RBUTTON : 0;
-        if (release != 0 && (this->satchel_pointer_release_ & release) != 0 && (!this->SatchelInputAvailable() || !this->satchel_.PointerDown()))
+        if (release != 0 && (this->satchel_pointer_release_ & release) != 0 && (!this->SatchelInputAvailable(true) || !this->satchel_.PointerDown()))
         {
             this->satchel_pointer_release_ &= ~release;
             this->ReleasePointerCapture();
             this->SetChatMouseCapture(false);
             return true;
         }
-        if (!this->SatchelInputAvailable()) return false;
+        if (!this->SatchelInputAvailable(true)) return false;
         this->satchel_.SetHover(x, y);
         const bool owned = this->satchel_.PointerDown();
         if (!this->satchel_.HandleMouse(message, buttons, x, y, blocked))

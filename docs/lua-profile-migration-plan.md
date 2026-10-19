@@ -1,5 +1,7 @@
 # XIUI Lua setup migration plan
 
+This is a task-scoped migration record. Its historical scope selections are not standing authorization for unrelated additions or live probes. Current behavior is documented in the feature guides linked from [the index](README.md).
+
 Updated October 17, 2026. Capability audit complete; the user selected the action/macro, palette/crossbar, action-bar, pet, song-duration and manual Fast Cast gaps for implementation. Other gaps are deferred. See the [migration capability audit](lua-profile-migration-audit.md) for the concrete differences and suggested priorities.
 
 ## Scope

@@ -1,4 +1,5 @@
 #include "blue_magic_module.hpp"
+#include "ui/game_icon_cache.hpp"
 
 #include <cmath>
 

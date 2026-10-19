@@ -45,7 +45,8 @@ int main(const int argc, char** argv)
         struct fixture { uint16_t id; const char* path; };
         for (const auto& item : {fixture{101, "assets/cursors/pointer.bgra"}, fixture{201, "assets/jobs/xivparty.bgra"},
             fixture{205, "assets/recast/recast.bgra"}, fixture{701, "assets/mobs/phoenix_mobs.bin"},
-            fixture{800, "assets/icon-themes/status-hd.bgra"}, fixture{1100, "assets/actionbars/actions.bgra"}})
+            fixture{800, "assets/icon-themes/status-hd.bgra"}, fixture{1100, "assets/actionbars/actions.bgra"},
+            fixture{1102, "assets/actionbars/vincerno/icons.bgra"}})
         {
             std::ifstream file{root / item.path, std::ios::binary};
             const std::vector<uint8_t> original{std::istreambuf_iterator<char>{file}, {}};
@@ -84,7 +85,7 @@ int main(const int argc, char** argv)
                 "regular and enhanced maps use WebP");
             const auto image = xiui::minimap_checks::Decode(imageBytes);
             Check(image && image->width == 512 && image->height == 512 && image->pixels.size() == 512 * 512 &&
-                image->pixels[0] >> 24 == 255 && image->pixels[0] != image->pixels[128 * 512 + 128],
+                image->pixels[0] >> 24 == 0 && image->pixels[128 * 512 + 128] >> 24 == 255,
                 "the statically linked x86 decoder loads map pixels without a Windows WebP codec");
             ++decoded;
         }

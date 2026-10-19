@@ -7,6 +7,7 @@
 #include "modules/treasure/treasure_module.hpp"
 #include "ui/status_strip.hpp"
 #include <cstdio>
+#include <cmath>
 #include <cstring>
 #include <limits>
 #include <stdexcept>
@@ -26,20 +27,77 @@ namespace xiui
 {
     struct phoenix_integration_test
     {
+        static auto TextVisibility(void) -> void
+        {
+            const auto theme = ui::theme::CreateDefault();
+            module_text_profile profile{theme.caption_text};
+            const auto toggle = TextProfileOption(text_profile_option_count - 1, profile);
+            Check(profile.visible && toggle.toggle == &profile.visible, "text roles start visible and expose a shared toggle");
+            *toggle.toggle = false; profile.offset_x = 9; profile.style.glow.enabled = true;
+            auto store = settings_store::FromIniText(""); SaveTextProfile(store, "text.test", profile);
+            const auto loaded = LoadTextProfile(store, "text.test", module_text_profile{theme.caption_text});
+            const auto tinted = TintTextProfile(loaded, 0xFF80FFFF);
+            Check(!loaded.visible && !tinted.visible && loaded.offset_x == 9 && loaded.style.glow.enabled,
+                "hidden text retains its style and visibility through saving and tinting");
+            Check(LoadTextProfile(store, "text.legacy", {}).visible, "old profiles keep visible text");
+            ui::design_system design; const module_render_context context{design, nullptr, true};
+            Check(context.TextBounds("Hidden", {0, 0, 100, 30}, {0, 0, 100, 30}, loaded).width == 0,
+                "hidden text has no hit bounds");
+
+            treasure_module pool; pool.ApplyTextDefaults(theme); pool.State().bounds = {10, 20, 440, 200};
+            pool.Render({}, context);
+            const float fullHeight = pool.State().bounds.height;
+            for (size_t row = 0; row < 3; ++row)
+            {
+                const auto& name = pool.controls_[row * 3].bounds;
+                const auto& lot = pool.controls_[row * 3 + 1].bounds;
+                const auto& pass = pool.controls_[row * 3 + 2].bounds;
+                Check(lot.width == pass.width && lot.y == pass.y && lot.x + lot.width < pass.x &&
+                    std::abs(name.y + name.height / 2 - lot.y - lot.height / 2) < 0.01f,
+                    "Lot and Pass have equal sizes and share the item row's center");
+            }
+            const auto content = ui::container_renderer::ContentBounds(pool.State().bounds, pool.container_);
+            for (size_t i = 9; i < pool.controls_.size(); ++i)
+            {
+                const auto header = pool.controls_[i].bounds;
+                Check(header.x >= content.x && header.x + header.width <= content.x + content.width + 0.01f &&
+                    header.y + header.height <= pool.controls_[0].bounds.y, "all four actions fit in the title bar above the items");
+                if (i >= 11) Check(header.width == header.height, "Collapse and Details use square icon buttons");
+            }
+            pool.text_[0].visible = false; pool.Render({}, context);
+            Check(pool.State().bounds.height <= fullHeight && pool.controls_.size() == 13, "hidden title retains the header actions");
+            const float noTitle = pool.State().bounds.height;
+            pool.text_[2].visible = false; pool.Render({}, context);
+            Check(pool.State().bounds.height == noTitle && pool.text_[4].visible, "timers remain independently visible without details");
+            pool.text_[4].visible = false; pool.Render({}, context);
+            Check(pool.State().bounds.height < noTitle, "hidden secondary content releases its row");
+            pool.text_[3].style.scale = 3; pool.Render({}, context);
+            for (size_t i = 9; i < pool.controls_.size(); ++i)
+                Check(pool.controls_[i].bounds.x >= content.x && pool.controls_[i].bounds.x + pool.controls_[i].bounds.width <= content.x + content.width + 0.01f &&
+                    pool.controls_[i].bounds.y + pool.controls_[i].bounds.height <= pool.controls_[0].bounds.y, "large header controls wrap inside the window");
+            pool.Save(store); treasure_module restored; restored.ApplyTextDefaults(theme); restored.Load(store);
+            Check(!restored.text_[0].visible && !restored.text_[2].visible && !restored.text_[4].visible &&
+                restored.State().bounds.x == 10 && restored.State().bounds.y == 20, "pool toggles and anchor survive reload");
+            auto legacy = settings_store::FromIniText("[text.treasure.item]\nscale=0.8\n[text.treasure.details]\nscale=0.8\n");
+            restored.Load(legacy); restored.Save(legacy); const float subtextScale = restored.text_[2].style.scale;
+            restored.Load(legacy);
+            Check(std::abs(subtextScale - 0.7f) < 0.001f && restored.text_[2].style.scale == subtextScale,
+                "old uniform subtext becomes smaller once without repeated migration");
+        }
         static auto TreasureController(treasure_source& source) -> void
         {
             treasure_module module; module.SetSource(&source); module.Update(nullptr, true);
             using action = treasure_module::action;
             module.controls_ = {
-                {{0, 0, 100, 30}, action::details, 0, 1, true}, {{110, 0, 40, 30}, action::lot, 0, 1, true}, {{160, 0, 40, 30}, action::pass, 0, 1, true},
-                {{0, 40, 100, 30}, action::details, 1, 2, true}, {{110, 40, 40, 30}, action::lot, 1, 2, false}, {{160, 40, 40, 30}, action::pass, 1, 2, true},
-                {{0, 80, 100, 30}, action::lot_all, 0, 0, true}, {{110, 80, 90, 30}, action::expand, 0, 0, true}};
+                {{0, 40, 100, 30}, action::details, 0, 1, true}, {{110, 43, 40, 24}, action::lot, 0, 1, true}, {{160, 43, 40, 24}, action::pass, 0, 1, true},
+                {{0, 80, 100, 30}, action::details, 1, 2, true}, {{110, 83, 40, 24}, action::lot, 1, 2, false}, {{160, 83, 40, 24}, action::pass, 1, 2, true},
+                {{0, 0, 100, 30}, action::lot_all, 0, 0, true}, {{110, 0, 90, 30}, action::expand, 0, 0, true}};
             Check(module.BeginBrowse() && module.focus_ == 0, "treasure enters on the first item without activating it");
             module.HandleControllerAction(controller_action::right, false); Check(module.focus_ == 1, "Right selects Lot in the current row");
             module.HandleControllerAction(controller_action::down, false); Check(module.focus_ == 5, "Down changes rows and skips an unavailable Lot");
             module.HandleControllerAction(controller_action::up, false); Check(module.focus_ == 2, "Up retains the Pass action when available");
-            module.HandleControllerAction(controller_action::down, true); module.HandleControllerAction(controller_action::down, true);
-            Check(module.focus_ == 7, "direction repeats reach the footer without activating a batch action");
+            module.HandleControllerAction(controller_action::up, true);
+            Check(module.focus_ == 7, "Up reaches title-bar controls without activating a batch action");
             const auto expanded = module.expanded_;
             module.HandleControllerAction(controller_action::confirm, true); Check(module.expanded_ == expanded, "held Confirm cannot activate treasure controls");
             module.HandleControllerAction(controller_action::confirm, false); Check(module.expanded_ != expanded, "fresh Confirm activates the selected control once");
@@ -153,8 +211,14 @@ auto RunPhoenixIntegrationChecks(void) -> bool
         auto store = settings_store::FromIniText("[treasure]\nexpanded=0\n[layout.treasure]\nx=123\ny=234\n");
         treasure_module module; module.ApplyTextDefaults(ui::theme::CreateDefault()); module.SetSource(&pool); module.Load(store); module.Save(store);
         Check(module.State().bounds.x == 123 && !store.ReadBool("treasure", "expanded", true), "pool presentation persists without changing its anchor");
-        size_t textProfiles{}; module.VisitTextSettings([&](ui::text_style&) { ++textProfiles; }); Check(textProfiles == 4, "all pool text follows global typography");
+        size_t textProfiles{}; module.VisitTextSettings([&](ui::text_style&) { ++textProfiles; }); Check(textProfiles == 5, "all pool text follows global typography");
         std::puts("Phoenix integration and Treasure Pool checks passed."); return true;
     }
     catch (const std::exception& error) { std::fprintf(stderr, "Phoenix integration: %s\n", error.what()); return false; }
+}
+
+auto RunTextVisibilityChecks(void) -> bool
+{
+    try { xiui::phoenix_integration_test::TextVisibility(); return true; }
+    catch (const std::exception& error) { std::fprintf(stderr, "Text visibility and Treasure Pool: %s\n", error.what()); return false; }
 }

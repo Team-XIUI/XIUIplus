@@ -15,6 +15,10 @@ The October 15 audit covers 45 registered objects: the existing 35 modules and 1
 
 ## Group changes
 
+**General → Game HUD** is a left-side settings topic containing the existing native-window visibility switches and bulk actions. It shares the original Game HUD settings and callbacks; the command shortcut and saved navigation open this destination.
+
+**Inventory → Treasure Pool** contains the pool's visibility, lot/pass controls and appearance settings. Appearance separately toggles the title, details and timers. Text offers independent item, detail, timer and button profiles, including each profile's shared Show text control. A shaded title bar matches Satchel and holds Lot all, Pass all, a Collapse/Expand chevron and a Details eye icon; controls wrap when needed. Icon help follows hover and controller focus. Hiding the title frees header width while retaining its actions; hiding both details and timers releases secondary rows. Equal-width Lot/Pass buttons use centered labels; smaller detail text fits the available width beside a separately aligned countdown. It uses the shared configuration navigation and retains its existing saved settings independently of the storage trackers.
+
 **Pet → each pet type → Portrait** groups image visibility, background visibility, base size/scale, Inline/Overlay positioning, paired X/Y offsets, opacity and clipping. Avatar / spirit adds an image selector with independent settings per avatar or spirit. Overlay moves only the artwork; Layout retains a second entry for the shared Show background setting.
 
 **Party → General** includes Classic and XIV preset boxes below its regular controls, side by side when space permits and stacked in a narrow configuration window. Their descriptions stay visible, the entire card is clickable, and the shared confirmation applies the style to all three lists while retaining each position. See [Party presets](presets.md).

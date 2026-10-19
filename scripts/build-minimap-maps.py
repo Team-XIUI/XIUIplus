@@ -8,9 +8,25 @@ import struct
 import time
 import urllib.request
 
-from PIL import Image
+from PIL import Image, ImageChops, ImageDraw
 
 ROOT = Path(__file__).resolve().parents[1]
+
+
+def restore_edge_alpha(image):
+    red, green, blue, _ = image.split()
+    brightness = ImageChops.lighter(ImageChops.lighter(red, green), blue)
+    outside = brightness.point(lambda value: 255 if value < 96 else 0)
+    band = max(1, image.width // 32)
+    ImageDraw.Draw(outside).rectangle((band, band, image.width - band - 1, image.height - band - 1), fill=0)
+    for position in range(image.width):
+        for point in ((position, 0), (position, image.height - 1), (0, position), (image.width - 1, position)):
+            if outside.getpixel(point) == 255:
+                ImageDraw.floodfill(outside, point, 128)
+    connected = outside.point(lambda value: 255 if value == 128 else 0)
+    alpha = brightness.point(lambda value: max(0, min(255, (value - 16) * 255 // 80)))
+    image.putalpha(Image.composite(alpha, image.getchannel("A"), connected))
+    return image
 
 
 def fetch(url, path):
@@ -75,16 +91,19 @@ def main():
         zone, floor, style, url = job
         original = cache / f"{zone}_{floor}_{style}.source"
         raw = original.read_bytes() if url is None else fetch(url, original)
-        target = cache / f"{zone}_{floor}_{style}-512-webp-q90-m4.webp"
+        target = cache / f"{zone}_{floor}_{style}-512-webp-q90-m4-alpha.webp"
         if not target.exists() or target.stat().st_mtime_ns < original.stat().st_mtime_ns:
             with Image.open(io.BytesIO(raw)) as source:
                 image = source.convert("RGBA")
+                opaque = image.getchannel("A").getextrema() == (255, 255)
                 if image.width != image.height:
                     raise ValueError(f"Non-square source: {url}")
                 size = 512
                 if image.width > size:
                     image = image.resize((size, size), Image.Resampling.LANCZOS)
-                image.convert("RGB").save(target, format="WEBP", quality=90, method=4)
+                if opaque:
+                    image = restore_edge_alpha(image)
+                image.save(target, format="WEBP", quality=90, method=4)
         return zone, floor, style, target.read_bytes()
 
     records = []
@@ -106,6 +125,7 @@ def main():
     (output / "catalog.json").write_text(json.dumps({
         "schema": 2, "remapsterCommit": commit,
         "format": "WebP", "quality": 90, "maximumSize": 512,
+        "alpha": "Original transparency; edge-connected black matte fallback for opaque sources",
         "regular": sum(row[2] == 0 for row in records),
         "enhanced": sum(row[2] == 1 for row in records),
         "source": "Phoenix wiki zone-maps.json; Remapster minimaps/ffxidb",

@@ -17,6 +17,26 @@ namespace
 
 namespace xiui
 {
+    auto minimap_maps::ExtractOutline(const resources::menu_texture& image) -> std::shared_ptr<const minimap_outline>
+    {
+        auto outline = std::make_shared<minimap_outline>();
+        for (size_t i = 0; i < outline->size(); ++i)
+        {
+            const float along = static_cast<float>(i % 64) / 64;
+            const ui::point outer = i < 64 ? ui::point{along, 0} : i < 128 ? ui::point{1, along} : i < 192 ? ui::point{1 - along, 1} : ui::point{0, 1 - along};
+            ui::point at = outer;
+            for (uint32_t depth = 0; depth <= image.width / 8; ++depth)
+            {
+                const float amount = static_cast<float>(depth) * 2 / image.width;
+                at = {outer.x + (0.5f - outer.x) * amount, outer.y + (0.5f - outer.y) * amount};
+                const auto x = static_cast<uint32_t>(at.x * (image.width - 1)), y = static_cast<uint32_t>(at.y * (image.height - 1));
+                if ((image.pixels[size_t{y} * image.width + x] >> 24) >= 128) break;
+            }
+            (*outline)[i] = at;
+        }
+        return outline;
+    }
+
     auto minimap_maps::DecodeImage(const std::span<const uint8_t> bytes) -> std::optional<resources::menu_texture>
     {
         if (bytes.size() >= 12 && std::memcmp(bytes.data(), "RIFF", 4) == 0 && std::memcmp(bytes.data() + 8, "WEBP", 4) == 0)
@@ -118,11 +138,12 @@ namespace xiui
             const auto request = *this->requested_; const auto bytes = this->records_[request.first].bytes;
             lock.unlock();
             std::optional<resources::menu_texture> image{};
-            try { if (SUCCEEDED(com)) image = DecodeImage(bytes); } catch (...) {}
+            std::shared_ptr<const minimap_outline> outline{};
+            try { if (SUCCEEDED(com)) { image = DecodeImage(bytes); if (image) outline = ExtractOutline(*image); } } catch (...) {}
             lock.lock();
             if (this->requested_ == request)
             {
-                this->completed_ = decoded{request.first, request.second, std::move(image)};
+                this->completed_ = decoded{request.first, request.second, std::move(image), std::move(outline)};
                 this->requested_.reset();
             }
         }
@@ -148,7 +169,7 @@ namespace xiui
         if (this->device_ == nullptr) return result;
         ++this->tick_;
         for (auto& entry : this->textures_)
-            if (entry.record == index) { entry.used = this->tick_; result.texture = entry.texture; result.loading = false; return result; }
+            if (entry.record == index) { entry.used = this->tick_; result.texture = entry.texture; result.outline = entry.outline; result.loading = false; return result; }
         std::lock_guard lock{this->mutex_};
         if (this->completed_ && this->completed_->record == index && this->completed_->generation == this->generation_)
         {
@@ -173,7 +194,8 @@ namespace xiui
                 const auto oldest = std::min_element(this->textures_.begin(), this->textures_.end(), [](const auto& a, const auto& b) { return a.used < b.used; });
                 if (oldest->texture != nullptr) oldest->texture->Release(); this->textures_.erase(oldest);
             }
-            this->textures_.push_back({index, texture, this->tick_}); this->completed_.reset();
+            result.outline = this->completed_->outline;
+            this->textures_.push_back({index, texture, this->tick_, result.outline}); this->completed_.reset();
             result.texture = texture; result.loading = false; return result;
         }
         const auto request = std::pair{index, this->generation_};

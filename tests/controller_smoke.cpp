@@ -151,6 +151,12 @@ namespace xiui
 
 int main(const int argc, char** argv)
 {
+    if (argc == 2 && std::strcmp(argv[1], "--config-only") == 0)
+    {
+        if (!xiui::RunControllerConfigChecks()) return 1;
+        std::puts("Controller configuration focus, shared actions, editors and input ownership passed.");
+        return 0;
+    }
     if (argc == 2 && std::strcmp(argv[1], "--party-input-only") == 0)
     {
         if (!xiui::controller_runtime_test::PartyInput()) return 1;

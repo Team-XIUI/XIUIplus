@@ -3,6 +3,7 @@
 #include "resources/item_icon.hpp"
 #include "resources/recast_icons.hpp"
 #include "resources/action_icons.hpp"
+#include "resources/custom_action_icons.hpp"
 
 #include <algorithm>
 #include <cctype>
@@ -64,6 +65,16 @@ namespace xiui::ui
         std::transform(normalized.begin(), normalized.end(), normalized.begin(), [](unsigned char c) { return c == '\\' ? '/' : static_cast<char>(std::tolower(c)); });
         if (normalized.ends_with(".png")) normalized.resize(normalized.size() - 4);
         if (const auto prefix = normalized.find("assets/hotbar/"); prefix != std::string::npos) normalized.erase(0, prefix + 14);
+        if (normalized.starts_with("vincerno/"))
+        {
+            const auto& icons = resources::custom_action_icons;
+            const auto found = std::lower_bound(icons.begin(), icons.end(), std::string_view{normalized}, [](const auto& icon, std::string_view value) { return icon.key < value; });
+            if (found == icons.end() || found->key != normalized) return {};
+            constexpr auto columns = resources::custom_action_icon_columns, cell = resources::custom_action_icon_cell;
+            constexpr auto width = resources::custom_action_icon_width, height = resources::custom_action_icon_height;
+            return {this->Atlas(1102, width, height), {static_cast<float>((found->index % columns) * cell + 2) / width,
+                static_cast<float>((found->index / columns) * cell + 2) / height, 32.0f / width, 32.0f / height}};
+        }
         const auto& icons = resources::action_icons;
         const auto found = std::lower_bound(icons.begin(), icons.end(), std::string_view{normalized}, [](const auto& icon, std::string_view value) { return icon.key < value; });
         if (found == icons.end() || found->key != normalized) return {};

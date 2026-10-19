@@ -1,4 +1,5 @@
 #include "general_module.hpp"
+#include "ui/icon_themes.hpp"
 #include "config/clipboard.hpp"
 #include <shellapi.h>
 
@@ -77,6 +78,7 @@ namespace xiui
 
     auto general_module::Option(const size_t index) -> module_option
     {
+        if (index >= this->GameHudStart()) return this->game_hud_module_ != nullptr ? this->game_hud_module_->Option(index - this->GameHudStart()) : module_option{};
         if (index == this->NameplatesOption())
             return module_option::Toggle("Hide overhead names", "Hide native names above players, NPCs and enemies. Turn off to show them again. Uses the game's name-display setting.", &this->hide_nameplates_).Ordered(-90);
         if (index >= this->FeedbackStart() && index < this->NameplatesOption()) return this->health_feedback_.Option(index - this->FeedbackStart());
@@ -188,6 +190,8 @@ namespace xiui
 
     auto general_module::OnOptionChanged(const size_t index) -> void
     {
+        if (index >= this->GameHudStart() && this->game_hud_module_ != nullptr)
+        { this->game_hud_module_->OnOptionChanged(index - this->GameHudStart()); return; }
         if (index == this->NameplatesOption()) this->nameplates_request_ = this->hide_nameplates_;
         else if (index == window_theme_option) this->RequestWindowType(this->window_type_);
         else if (index >= this->GlobalTextStart() && index < this->ConfigTextStart())
@@ -234,13 +238,15 @@ namespace xiui
             {"Attribution", "Project credits, Ashita and the original XIUI contributors.", "attribution"},
             {"Grid", "Edit-mode grid and shared edge/center snapping for every movable HUD element. Existing positions stay in place until dragged.", "grid"},
             {"Input", "Controller presentation, input readiness and navigation help. Device and gamepad configuration remain unchanged.", "input"},
-            {"Visibility", "Shared and per-module event/menu hiding. Temporary hiding preserves enabled modules and saved layouts; edit mode shows their previews.", "visibility"}};
-        return sections;
+            {"Visibility", "Shared and per-module event/menu hiding. Temporary hiding preserves enabled modules and saved layouts; edit mode shows their previews.", "visibility"},
+            {"Game HUD", "Choose which native game windows are visible.", "game-hud"}};
+        return std::span{sections}.first(this->game_hud_module_ != nullptr ? std::size(sections) : game_hud_section);
     }
 
     auto general_module::ConfigSectionContains(const size_t section, const size_t index) -> bool
     {
         if (index >= this->OptionCount()) return false;
+        if (index >= this->GameHudStart()) return section == game_hud_section;
         if (section == visibility_section) return (index >= this->VisibilityStart() && index < this->IconThemesStart()) || index == this->HideAllUiOption() || index == this->NameplatesOption();
         if (section == input_section) return index >= this->InputStart() && index < this->FocusStart();
         if (section == grid_section) return index >= this->GridStart() && index < this->ContributorsStart();

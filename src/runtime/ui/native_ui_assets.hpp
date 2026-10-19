@@ -5,17 +5,10 @@
 #include "resources/menu_sprite.hpp"
 #include "meter_skin.hpp"
 #include "nine_slice.hpp"
+#include "selection_style.hpp"
 
 namespace xiui::ui
 {
-    struct selection_style
-    {
-        D3DCOLOR target_color{0xFF69BFFF}, subtarget_color{0xFFFFAC58};
-        float background_opacity{0.12f};
-        float padding_x{6}, padding_y{4};
-        bool arrow{true};
-    };
-
     enum class native_ui_image : size_t { button, compass, fire, earth, water, wind, ice, lightning, light, dark, directions, marker, auto_translate_green, auto_translate_red,
         gauge, gauge_center, gauge_fill, selection_frame, selection_arrow, count };
 

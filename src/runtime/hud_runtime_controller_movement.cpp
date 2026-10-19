@@ -28,7 +28,7 @@ namespace xiui
 
     auto hud_runtime::FinishControllerMove(const bool apply) -> void
     {
-        auto& focus = this->controller_config_;
+        auto& focus = this->config_.focus;
         if (!focus.moving) return;
         auto* module = static_cast<hud_module*>(nullptr);
         for (auto* candidate : this->modules_.All())
@@ -38,7 +38,7 @@ namespace xiui
             if (!apply) module->State().bounds = focus.move_original;
             module->OnPositionChanged();
         }
-        this->config_collapsed_ = focus.move_collapsed;
+        this->config_.collapsed = focus.move_collapsed;
         focus.moving = false; focus.fine = false;
         focus.region = region::movement; focus.id = focus.moving_id; focus.moving_id.clear();
         this->layout_snap_ = {}; this->layout_snap_targets_.clear();
@@ -47,7 +47,7 @@ namespace xiui
 
     auto hud_runtime::HandleControllerMove(const controller_action value, const bool repeated) -> bool
     {
-        auto& focus = this->controller_config_;
+        auto& focus = this->config_.focus;
         const auto modules = this->ControllerMovableModules();
         const auto found = std::find_if(modules.begin(), modules.end(), [&](const auto* module) { return focus.moving_id == module->Id(); });
         if (found == modules.end()) { this->FinishControllerMove(false); return true; }
@@ -93,13 +93,13 @@ namespace xiui
 
     auto hud_runtime::DrawControllerMovement(const D3DVIEWPORT8& viewport) -> void
     {
-        auto& focus = this->controller_config_;
+        auto& focus = this->config_.focus;
         const auto& theme = this->design_system_.GetTheme();
         const auto modules = this->ControllerMovableModules();
         auto text = theme.caption_text; text.scale = 0.72f; text.alignment = ui::text_alignment::left;
         if (!focus.moving)
         {
-            const controller_movement_layout bounds{this->config_bounds_, viewport, modules.size()};
+            const controller_movement_layout bounds{this->config_.bounds, viewport, modules.size()};
             this->config_controls_.Panel(bounds.bounds);
             this->config_controls_.Text("MOVEMENT PREVIEW", {bounds.bounds.x + 10, bounds.bounds.y + 5, bounds.bounds.width - 20, 24}, text);
             for (int row = 0; row < bounds.rows; ++row)
@@ -130,7 +130,7 @@ namespace xiui
         auto caption = text; caption.scale = 0.66f;
         this->config_controls_.Text("D-pad: move   Actions: fine step   Next tab: Center X   Previous tab: Center Y", {panel.x + 12, panel.y + 32, panel.width - 24, 20}, caption);
         this->config_controls_.Text("Confirm: save position   Cancel: restore position", {panel.x + 12, panel.y + 55, panel.width - 24, 20}, caption);
-        this->config_tooltip_.clear();
+        this->config_.tooltip.clear();
         this->design_system_.DrawFocusFrame(visual, this->general_.FocusStyle());
     }
 

@@ -189,7 +189,7 @@ namespace xiui
             runtime.recast_.ResetDefaults(theme);
             const auto casting = runtime.ConfigPages()[1];
             Check(casting.SectionCount() == 3 && casting.SectionModule(2) == &runtime.recast_, "Casting includes Recast beside Cast Bar and Cast Cost");
-            Check(runtime.HandleCommand("recast") && runtime.active_module_ == &runtime.recast_, "the Recast command opens its settings");
+            Check(runtime.HandleCommand("recast") && runtime.config_.module == &runtime.recast_, "the Recast command opens its settings");
             auto& module = runtime.recast_;
             for (size_t index = 0; index < module.OptionCount(); ++index)
             {

@@ -1,0 +1,11 @@
+{
+  "captured_at": "2026-10-17T23:58:29-07:00",
+  "source": "AgentLink confirmed live save",
+  "settings_path": "C:\\Games\\PhoenixXI-dev\\PhoenixXI\\config\\xiuinative.ini",
+  "theme_path": "C:\\Games\\PhoenixXI-dev\\PhoenixXI\\config\\xiuinative-theme.ini",
+  "sections": 1867,
+  "preferences": 14320,
+  "defaults_sha256": "B1AF8917B028F8AA0E53C447CBFE064B431409DA527E623292FBBA1695363F6D",
+  "theme_sha256": "3F7ACD509C16DA7C8C65F6BB93B3EA9C82BFCFF29D34DC38469543805C2AA5D8",
+  "provenance": "Original October 17 capture; metadata migrated from out/defaults-capture-latest.json during the October 18 cleanup. Baseline files were not recaptured."
+}

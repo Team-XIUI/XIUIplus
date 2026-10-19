@@ -48,6 +48,30 @@ namespace xiui
 
     inline auto MinimapHeight(const float width, const int shape) -> float { return shape == 2 ? width * 9 / 16 : width; }
 
+    inline constexpr float minimap_coordinate_band = 16.0f / 512;
+    enum class minimap_coordinate_edge : uint8_t { left, top, right, bottom };
+    struct minimap_coordinate_strip { ui::rect bounds{}, uv{}; };
+
+    inline auto MinimapCoordinateStrip(const ui::rect& view, const ui::rect& map, const minimap_coordinate_edge edge) -> minimap_coordinate_strip
+    {
+        if (map.width <= 0 || view.width <= 0 || view.height <= 0) return {};
+        const float size = map.width, thickness = size * minimap_coordinate_band;
+        const bool horizontal = edge == minimap_coordinate_edge::top || edge == minimap_coordinate_edge::bottom;
+        if (horizontal)
+        {
+            const float left = std::max(view.x, map.x), right = std::min(view.x + view.width, map.x + size);
+            if (right <= left) return {};
+            const bool bottom = edge == minimap_coordinate_edge::bottom;
+            return {{left, bottom ? view.y + view.height - thickness : view.y, right - left, thickness},
+                {(left - map.x) / size, bottom ? 1 - minimap_coordinate_band : 0, (right - left) / size, minimap_coordinate_band}};
+        }
+        const float top = std::max(view.y, map.y), bottom = std::min(view.y + view.height, map.y + size);
+        if (bottom <= top) return {};
+        const bool right = edge == minimap_coordinate_edge::right;
+        return {{right ? view.x + view.width - thickness : view.x, top, thickness, bottom - top},
+            {right ? 1 - minimap_coordinate_band : 0, (top - map.y) / size, minimap_coordinate_band, (bottom - top) / size}};
+    }
+
     inline auto MinimapCornerRadius(const ui::rect& view, const int shape, const float radius) -> float
     {
         const float limit = std::max(0.0f, std::min(view.width, view.height) / 2);

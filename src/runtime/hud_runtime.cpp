@@ -70,8 +70,9 @@ namespace
 
 namespace xiui
 {
-    hud_runtime::hud_runtime(void) : active_module_(&this->general_)
+    hud_runtime::hud_runtime(void)
     {
+        this->config_.module = &this->general_;
         this->config_controls_.SetTextSettings(this->general_.ConfigText());
         this->modules_.Add(this->player_);
         this->cast_bar_.SetSource(&this->player_cast_source_);
@@ -127,6 +128,7 @@ namespace xiui
         this->inventory_config_members_[6] = &this->satchel_;
         this->inventory_config_members_[7] = &this->equipment_;
         this->inventory_config_members_[8] = &this->gil_;
+        this->inventory_config_members_[9] = &this->treasure_;
         this->modules_.Add(this->notifications_);
         for (auto& group : this->notification_groups_) this->modules_.Add(group);
         this->blue_magic_.SetSource(&this->party_source_);
@@ -153,7 +155,7 @@ namespace xiui
         this->modules_.Add(this->world_info_);
         for (auto& part : this->world_parts_) this->modules_.Add(part);
         this->modules_.Add(this->commands_);
-        this->extras_pages_ = {&this->compass_, &this->world_info_, &this->commands_, &this->game_hud_, &this->blue_magic_, &this->phantom_roll_, &this->ready_check_, &this->magic_burst_, &this->treasure_};
+        this->extras_pages_ = {&this->compass_, &this->world_info_, &this->commands_, &this->blue_magic_, &this->phantom_roll_, &this->ready_check_, &this->magic_burst_};
         this->ready_check_.SetSource(&this->party_source_);
         this->ready_check_.SetSounds(&this->ui_sounds_);
         this->modules_.Add(this->ready_check_);
@@ -165,6 +167,7 @@ namespace xiui
         this->debuffs_.SetBuffsModule(&this->buffs_);
         this->general_.SetInventoryModule(this->inventory_[0]);
         this->general_.SetPartyModule(this->party_);
+        this->general_.SetGameHudModule(this->game_hud_);
         this->party_.SetPresetAlliances(this->alliance_first_, this->alliance_second_);
         std::vector<hud_module*> configurable;
         for (const auto& page : this->ConfigPages())
@@ -277,15 +280,15 @@ namespace xiui
         this->general_.ResetDefaults(this->design_system_.GetTheme());
         this->game_hud_.ResetDefaults(this->design_system_.GetTheme());
         this->notification_source_.Reset(::GetTickCount64());
-        this->active_module_ = &this->general_;
+        this->config_.module = &this->general_;
         this->interaction_module_ = nullptr;
-        this->config_bounds_ = {-1.0f, 20.0f, ui::config_layout::default_width, ui::config_layout::default_height};
-        this->active_color_ = nullptr;
-        this->active_slider_ = nullptr;
+        this->config_.bounds = {-1.0f, 20.0f, ui::config_layout::default_width, ui::config_layout::default_height};
+        this->config_.active_color = nullptr;
+        this->config_.active_slider = nullptr;
         this->FinishConfigInput(false);
-        this->active_option_group_ = module_option_group::general;
-        this->active_config_section_ = 0;
-        this->option_scroll_ = 0;
+        this->config_.group = module_option_group::general;
+        this->config_.section = 0;
+        this->config_.scroll = 0;
         this->layout_initialized_ = false;
         phase.Mark("native sources and defaults");
 
@@ -324,6 +327,8 @@ namespace xiui
         SeedEmbeddedFile(1001, notices + "\\XIUI-Minimap.txt");
         SeedEmbeddedFile(1002, notices + "\\Remapster-CC-BY-SA-4.0.txt");
         SeedEmbeddedFile(1101, notices + "\\XIUI-Action-Bar-Artwork.txt");
+        SeedEmbeddedFile(1103, notices + "\\Vincerno-Macro-Icons.txt");
+        SeedEmbeddedFile(1104, notices + "\\Vincerno-GPL-3.0.txt");
         SeedEmbeddedFile(1201, notices + "\\XIUI-Skillchains-Magic-Burst.txt");
         SeedEmbeddedFile(1202, notices + "\\Phoenix-Rules-Data.txt");
         SeedEmbeddedFile(1203, notices + "\\Phoenix-GPL-3.0.txt");
@@ -367,7 +372,7 @@ namespace xiui
         this->skillchain_source_.Clear();
         this->treasure_source_.Clear(); this->treasure_.EndInput();
         this->game_icons_.Shutdown();
-        this->color_picker_.Shutdown();
+        this->config_.color_picker.Shutdown();
         this->native_assets_.Shutdown();
         this->container_renderer_.Shutdown();
         this->design_system_.Shutdown();
@@ -388,7 +393,7 @@ namespace xiui
         this->game_icons_.SetDevice(device);
         this->minimap_maps_.SetDevice(device);
         this->native_assets_.SetDevice(device);
-        this->color_picker_.SetDevice(device);
+        this->config_.color_picker.SetDevice(device);
         return designReady && cursorReady && containersReady;
     }
 
@@ -429,8 +434,9 @@ namespace xiui
         return true;
     }
 
-    auto hud_runtime::HandleMouseMessage(const uint32_t message, const WPARAM wParam, const LPARAM lParam, const bool blocked) -> bool
+    auto hud_runtime::HandleMouseMessage(const uint32_t message, const WPARAM wParam, const LPARAM lParam, const bool inputBlocked) -> bool
     {
+        const bool blocked = this->PointerInputBlocked(inputBlocked);
         this->UpdateVisibilityContext();
         if (!this->satchel_.PointerDown())
         {
@@ -512,7 +518,7 @@ namespace xiui
             this->FinishControllerMove(false);
             this->FinishConfigResize(false);
             this->controller_presented_ = false;
-            this->controller_config_.active = false;
+            this->config_.focus.active = false;
             if (this->editing_) this->controller_surface_ = controller_surface::none;
             if (!this->editing_ && this->controller_surface_ != controller_surface::chat && this->controller_surface_ != controller_surface::chat2)
                 this->ReleaseControllerFocus();
@@ -530,18 +536,18 @@ namespace xiui
                 return true;
             }
         }
-        if ((message == WM_LBUTTONDOWN || message == WM_LBUTTONDBLCLK) && this->slider_input_.Focused() &&
-            !Contains(this->slider_input_bounds_, static_cast<float>(cursor.x), static_cast<float>(cursor.y))) this->FinishConfigInput(true, false);
-        if ((message == WM_LBUTTONDOWN || message == WM_LBUTTONDBLCLK) && this->option_text_input_.Focused() &&
-            !Contains(this->text_input_bounds_, static_cast<float>(cursor.x), static_cast<float>(cursor.y))) this->FinishConfigInput(true, false);
+        if ((message == WM_LBUTTONDOWN || message == WM_LBUTTONDBLCLK) && this->config_.slider_input.Focused() &&
+            !Contains(this->config_.slider_bounds, static_cast<float>(cursor.x), static_cast<float>(cursor.y))) this->FinishConfigInput(true, false);
+        if ((message == WM_LBUTTONDOWN || message == WM_LBUTTONDBLCLK) && this->config_.text_input.Focused() &&
+            !Contains(this->config_.text_bounds, static_cast<float>(cursor.x), static_cast<float>(cursor.y))) this->FinishConfigInput(true, false);
         if (!this->editing_ && this->hud_target_pressed_) return this->HandleTargetMouse(message, blocked);
         auto* chat = this->chat_pointer_ != nullptr ? this->chat_pointer_ : this->ChatAt(static_cast<float>(cursor.x), static_cast<float>(cursor.y));
-        const bool overConfig = this->editing_ && (this->ProfileSurface(viewport) || this->choice_input_.Opened() || this->input_mode_menu_ || this->settings_search_open_ ||
+        const bool overConfig = this->editing_ && (this->ProfileSurface(viewport) || this->config_.choice_input.Opened() || this->config_.input_mode_menu || this->config_.search_open ||
             (this->mouse_captured_ && this->mouse_buttons_ != 0) || Contains(this->ConfigVisibleBounds(), static_cast<float>(cursor.x), static_cast<float>(cursor.y)) ||
-            (this->active_color_ != nullptr && Contains(this->ConfigLayout().ColorEditor(viewport), static_cast<float>(cursor.x), static_cast<float>(cursor.y))));
+            (this->config_.active_color != nullptr && Contains(this->ConfigLayout().ColorEditor(viewport), static_cast<float>(cursor.x), static_cast<float>(cursor.y))));
         if ((message == WM_LBUTTONDOWN || message == WM_LBUTTONDBLCLK) &&
             (chat == nullptr || overConfig)) this->chat_.Focus(false);
-        if (chat != nullptr && (!blocked || this->chat_mouse_block_saved_ || this->ChatResizing()) &&
+        if (chat != nullptr && (!blocked || this->chat_pointer_ != nullptr || this->ChatResizing()) &&
             (!overConfig || this->ChatResizing()))
         {
             bool save{};
@@ -589,26 +595,26 @@ namespace xiui
         if (this->mouse_buttons_ == 0)
             this->ReleasePointerCapture();
 
-        if (message == WM_MOUSEWHEEL && captured && (this->choice_input_.Opened() || this->profile_name_.Focused() || Contains(this->ConfigVisibleBounds(), static_cast<float>(this->mouse_x_), static_cast<float>(this->mouse_y_))))
+        if (message == WM_MOUSEWHEEL && captured && (this->config_.choice_input.Opened() || this->profile_name_.Focused() || Contains(this->ConfigVisibleBounds(), static_cast<float>(this->mouse_x_), static_cast<float>(this->mouse_y_))))
         {
-            if (this->settings_search_open_)
+            if (this->config_.search_open)
             {
                 this->MoveSettingsSearch(-static_cast<short>((wParam >> 16) & 0xFFFF) / WHEEL_DELTA * 3);
                 return true;
             }
-            if (this->choice_input_.Opened())
+            if (this->config_.choice_input.Opened())
             {
-                this->choice_input_.Scroll(-static_cast<short>((wParam >> 16) & 0xFFFF) / WHEEL_DELTA);
+                this->config_.choice_input.Scroll(-static_cast<short>((wParam >> 16) & 0xFFFF) / WHEEL_DELTA);
                 return true;
             }
-            if (this->config_collapsed_) return captured;
+            if (this->config_.collapsed) return captured;
             this->FinishConfigInput(true, false);
             const short delta = static_cast<short>((wParam >> 16) & 0xFFFF);
             if (this->profile_name_.Focused())
             {
                 if (this->profile_dialog_ == profile_dialog::share || this->profile_dialog_ == profile_dialog::import_profile)
                 {
-                    const ui::profile_dialog_layout dialog{this->config_bounds_, viewport, true};
+                    const ui::profile_dialog_layout dialog{this->config_.bounds, viewport, true};
                     if (Contains(dialog.Key(), static_cast<float>(this->mouse_x_), static_cast<float>(this->mouse_y_)))
                         this->profile_key_view_.Scroll(-(delta / WHEEL_DELTA) * 3);
                 }
@@ -622,9 +628,9 @@ namespace xiui
             }
             if (this->IsExperienceDisplay() && this->experience_display_.Scroll(this->experience_, this->ConfigLayout(),
                 static_cast<float>(this->mouse_x_), static_cast<float>(this->mouse_y_), delta / WHEEL_DELTA)) return captured;
-            this->option_scroll_ -= (delta / WHEEL_DELTA) * this->ConfigLayout().Columns();
+            this->config_.scroll -= (delta / WHEEL_DELTA) * this->ConfigLayout().Columns();
             this->ClampOptionScroll();
-            this->active_color_ = nullptr;
+            this->config_.active_color = nullptr;
         }
 
         return captured;
@@ -643,6 +649,15 @@ namespace xiui
         if (this->chat_.HistoryExpanded()) return false;
         const auto* chat = this->ChatAt(x, y);
         return chat != nullptr && Contains(chat->Grip(this->design_system_), x, y);
+    }
+
+    auto hud_runtime::PointerInputBlocked(const bool blocked) const -> bool
+    {
+        if (!blocked) return false;
+        // Unwrap XIUI's capture while retaining the mouse state it replaced.
+        bool previous = this->chat_mouse_block_saved_ ? this->previous_chat_mouse_blocked_ : blocked;
+        if (this->mouse_block_state_saved_ && this->mouse_captured_) previous = this->previous_mouse_blocked_;
+        return previous;
     }
 
     auto hud_runtime::SetChatMouseCapture(const bool capture) -> void
@@ -666,6 +681,11 @@ namespace xiui
 
     auto hud_runtime::ReleaseChatInput(const bool preserveExpandedHistory) -> void
     {
+        if (!this->visible_ || !this->GameWindowFocused())
+        {
+            this->confirmation_key_release_ = 0;
+            this->chat_activation_enter_down_ = false;
+        }
         this->ready_check_.CancelPointer();
         this->chat_.Focus(false, preserveExpandedHistory);
         this->chat_second_.Focus(false, preserveExpandedHistory);
@@ -676,41 +696,43 @@ namespace xiui
         this->chat_pointer_ = nullptr;
         this->SetChatMouseCapture(false);
         if (!this->editing_) this->ReleasePointerCapture();
+        if (this->controller_surface_ == controller_surface::chat || this->controller_surface_ == controller_surface::chat2)
+            this->ReleaseControllerFocus(preserveExpandedHistory);
     }
 
     auto hud_runtime::FinishConfigInput(const bool apply, const bool keepInvalid) -> bool
     {
         this->CloseSettingsSearch();
         this->CloseChoiceInput();
-        if (this->option_text_input_.Focused())
+        if (this->config_.text_input.Focused())
         {
             bool changed{};
-            auto* module = this->text_input_module_;
-            const auto index = this->text_input_option_index_;
-            if (apply && module != nullptr && module == this->active_module_ && index < module->OptionCount())
+            auto* module = this->config_.text_module;
+            const auto index = this->config_.text_option;
+            if (apply && module != nullptr && module == this->config_.module && index < module->OptionCount())
             {
                 const auto option = module->Option(index);
-                if (option.available && option.text != nullptr && option.text == this->text_input_value_)
+                if (option.available && option.text != nullptr && option.text == this->config_.text_value)
                 {
-                    changed = *option.text != this->option_text_input_.Editor().Text();
-                    if (changed) { *option.text = this->option_text_input_.Editor().Text(); module->OnOptionChanged(index); }
+                    changed = *option.text != this->config_.text_input.Editor().Text();
+                    if (changed) { *option.text = this->config_.text_input.Editor().Text(); module->OnOptionChanged(index); }
                 }
             }
-            this->option_text_input_.Cancel();
-            this->text_input_module_ = nullptr;
-            this->text_input_value_ = nullptr;
+            this->config_.text_input.Cancel();
+            this->config_.text_module = nullptr;
+            this->config_.text_value = nullptr;
             if (changed) this->SaveSettings();
         }
-        if (!this->slider_input_.Focused()) return true;
+        if (!this->config_.slider_input.Focused()) return true;
         bool changed = false;
-        auto* module = this->slider_input_module_;
-        const auto index = this->slider_input_option_index_;
-        if (apply && module != nullptr && module == this->active_module_ && index < module->OptionCount())
+        auto* module = this->config_.slider_module;
+        const auto index = this->config_.slider_option;
+        if (apply && module != nullptr && module == this->config_.module && index < module->OptionCount())
         {
             const auto option = module->Option(index);
-            if (option.available && option.slider == this->slider_input_.Option().slider)
+            if (option.available && option.slider == this->config_.slider_input.Option().slider)
             {
-                if (const auto value = this->slider_input_.Value())
+                if (const auto value = this->config_.slider_input.Value())
                 {
                     changed = *option.slider != *value;
                     if (changed) { *option.slider = *value; module->OnOptionChanged(index); }
@@ -718,15 +740,15 @@ namespace xiui
                 else if (keepInvalid) return false;
             }
         }
-        this->slider_input_.Cancel();
-        this->slider_input_module_ = nullptr;
+        this->config_.slider_input.Cancel();
+        this->config_.slider_module = nullptr;
         if (changed) this->SaveSettings();
         return true;
     }
 
     auto hud_runtime::HandleConfigInputKey(const WPARAM key, const LPARAM flags) -> bool
     {
-        if (!this->slider_input_.Focused() && !this->option_text_input_.Focused()) return false;
+        if (!this->config_.slider_input.Focused() && !this->config_.text_input.Focused()) return false;
         if ((static_cast<uint32_t>(flags) & 0x80000000u) != 0) return true;
         if (key == VK_ESCAPE) this->FinishConfigInput(false);
         else if (key == VK_RETURN || key == VK_TAB)
@@ -738,8 +760,8 @@ namespace xiui
         {
             const auto* properties = this->core_ != nullptr ? this->core_->GetProperties() : nullptr;
             const auto window = properties != nullptr ? properties->GetFinalFantasyHwnd() : nullptr;
-            if (this->option_text_input_.Focused()) this->option_text_input_.HandleKey(key, flags, window);
-            else this->slider_input_.HandleKey(key, flags, window);
+            if (this->config_.text_input.Focused()) this->config_.text_input.HandleKey(key, flags, window);
+            else this->config_.slider_input.HandleKey(key, flags, window);
         }
         return true;
     }
@@ -759,7 +781,7 @@ namespace xiui
     auto hud_runtime::SyncNativeChatInput(IChatManager* manager, const bool nativeMenu, const bool targeting) -> void
     {
         if (!this->ContextVisible(this->chat_)) return;
-        if (this->slider_input_.Focused() || this->option_text_input_.Focused() || this->choice_input_.Opened()) return;
+        if (this->config_.slider_input.Focused() || this->config_.text_input.Focused() || this->config_.choice_input.Opened()) return;
         if (this->chat_.HistoryFocused())
         {
             if (manager != nullptr && manager->IsInputOpen() != 0) this->ReleaseChatInput();
@@ -793,14 +815,18 @@ namespace xiui
     auto hud_runtime::HandleKey(const WPARAM key, const LPARAM flags, const bool blocked) -> bool
     {
         this->UpdateVisibilityContext();
+        if (this->confirmation_key_release_ == key && key != 0)
+        {
+            if ((static_cast<uint32_t>(flags) & 0x80000000u) != 0)
+            {
+                this->confirmation_key_release_ = 0;
+                if (key == VK_RETURN) this->chat_activation_enter_down_ = false;
+            }
+            return true;
+        }
         if (this->HandleActionBarsKey(key, flags, blocked)) return true;
         if (this->HandleSatchelKey(key, flags, blocked)) return true;
         if (this->HandleTreasureKey(key, flags, blocked)) return true;
-        if (this->confirmation_key_release_ == key && key != 0)
-        {
-            if ((static_cast<uint32_t>(flags) & 0x80000000u) != 0) this->confirmation_key_release_ = 0;
-            return true;
-        }
         if (this->controller_surface_ == controller_surface::picker && (!this->visible_ || this->ControllerNativeBusy()))
             this->ReleaseControllerFocus();
         if (this->controller_surface_ == controller_surface::picker)
@@ -823,23 +849,23 @@ namespace xiui
         { this->ReleaseChatInput(true); this->FinishConfigInput(false); return false; }
         if (this->editing_ && !blocked && key == 'F' && (::GetKeyState(VK_CONTROL) & 0x8000) != 0 &&
             (static_cast<uint32_t>(flags) & 0x80000000u) == 0 && !this->profile_name_.Focused() &&
-            !this->slider_input_.Focused() && !this->option_text_input_.Focused() && !this->ControllerNativeBusy())
+            !this->config_.slider_input.Focused() && !this->config_.text_input.Focused() && !this->ControllerNativeBusy())
         { this->BeginSettingsSearch(); return true; }
-        if (this->settings_search_open_)
+        if (this->config_.search_open)
         {
             if (this->ControllerNativeBusy()) { this->CloseSettingsSearch(); return false; }
             return this->HandleSettingsSearchKey(key, flags, properties->GetFinalFantasyHwnd());
         }
-        if (this->editing_ && !blocked && (this->controller_config_.resizing ||
+        if (this->editing_ && !blocked && (this->config_.focus.resizing ||
             (key == VK_F8 && (static_cast<uint32_t>(flags) & 0x20000000u) != 0)))
         {
             const bool released = (static_cast<uint32_t>(flags) & 0x80000000u) != 0;
             const bool repeated = (static_cast<uint32_t>(flags) & 0x40000000u) != 0;
             if (released) return true;
-            if (!this->controller_config_.resizing)
+            if (!this->config_.focus.resizing)
             {
-                if (!repeated && !this->profile_name_.Focused() && !this->slider_input_.Focused() &&
-                    !this->option_text_input_.Focused() && !this->choice_input_.Opened() && !this->ControllerNativeBusy())
+                if (!repeated && !this->profile_name_.Focused() && !this->config_.slider_input.Focused() &&
+                    !this->config_.text_input.Focused() && !this->config_.choice_input.Opened() && !this->ControllerNativeBusy())
                     this->BeginConfigResize(true);
                 return true;
             }
@@ -858,12 +884,12 @@ namespace xiui
         const auto* memory = this->core_->GetMemoryManager();
         const auto* target = memory != nullptr ? memory->GetTarget() : nullptr;
         const bool targeting = target != nullptr && (target->GetIsSubTargetActive() != 0 || target->GetActionTargetActive() != 0);
-        if (this->slider_input_.Focused() || this->option_text_input_.Focused())
+        if (this->config_.slider_input.Focused() || this->config_.text_input.Focused())
         {
             this->NormalizeConfigSelection();
             if (!this->editing_ || targeting || (manager != nullptr && manager->IsInputOpen() != 0))
             { this->FinishConfigInput(false); return false; }
-            if (this->slider_input_.Focused() || this->option_text_input_.Focused()) return this->HandleConfigInputKey(key, flags);
+            if (this->config_.slider_input.Focused() || this->config_.text_input.Focused()) return this->HandleConfigInputKey(key, flags);
         }
         if (key == VK_RETURN && this->chat_activation_enter_down_ && this->native_ui_.menu_visible && !this->chat_.Focused() && !targeting)
         {
@@ -887,6 +913,7 @@ namespace xiui
         const bool statusFocused = this->controller_surface_ == controller_surface::buffs || this->controller_surface_ == controller_surface::debuffs;
         const bool compactKeyboard = KeyboardAllowsCharacterShortcuts(this->window_config_.FullKeyboard());
         if (!this->editing_ && !blocked && key == 'F' && (keyFlags & 0x80000000u) == 0 &&
+            (history.HistoryFocused() || statusFocused || (!targeting && !this->native_ui_.menu_visible)) &&
             (compactKeyboard || history.HistoryFocused() || statusFocused) &&
             !this->chat_.Focused() && !history.HistoryExpanded() && (replacement || history.HistoryFocused() || statusFocused) &&
             (::GetKeyState(VK_CONTROL) & 0x8000) == 0 && (::GetKeyState(VK_MENU) & 0x8000) == 0 &&
@@ -907,22 +934,32 @@ namespace xiui
                 key == VK_ESCAPE ? controller_action::cancel : key == VK_RETURN ? controller_action::confirm :
                 key == VK_TAB ? ((::GetKeyState(VK_SHIFT) & 0x8000) != 0 ? controller_action::previous_tab : controller_action::next_tab) : controller_action::none;
             if (action == controller_action::none) return false;
-            const bool consumed = this->HandleController({action, controller_backend::none, 0, true,
-                (keyFlags & 0x40000000u) != 0, false, ::GetTickCount64()});
+            if (this->ControllerNativeBusy()) { this->ReleaseControllerFocus(); return false; }
+            this->keyboard_window_focus_ = true;
+            const bool consumed = this->HandleControllerStatus(action);
+            this->UpdateControllerFocus();
             this->controller_presented_ = false;
             return consumed;
         }
         if (!this->editing_ && history.HistoryFocused() && this->ContextVisible(history) && history.HandleHistoryKey(key, flags, blocked, replacement, this->design_system_))
         {
             this->chat_native_context_suspended_ = targeting || this->native_ui_.menu_visible;
+            if (!history.HistoryFocused() && !this->chat_.Focused()) this->ReleaseControllerFocus();
+            else
+            {
+                this->controller_surface_ = &history == &this->chat_second_ ? controller_surface::chat2 : controller_surface::chat;
+                this->keyboard_window_focus_ = true; this->controller_presented_ = false;
+            }
             return true;
         }
         if (!this->editing_ && history.HistoryFocused()) return false;
         if (!this->ContextVisible(this->chat_)) return false;
+        const bool reply = key == 'R' && ((keyFlags & 0x20000000u) != 0 ||
+            (::GetKeyState(VK_MENU) & 0x8000) != 0 || (::GetKeyState(VK_CONTROL) & 0x8000) != 0);
         if ((targeting || this->native_ui_.menu_visible) && !this->chat_native_context_suspended_)
         {
-            if (!this->chat_.Focused() && (key == VK_OEM_2 || key == VK_DIVIDE) &&
-                this->chat_.HandleKey(this->core_, key, flags, blocked, replacement))
+            if (!this->chat_.Focused() && (key == VK_OEM_2 || key == VK_DIVIDE || reply) &&
+                this->chat_.HandleKey(this->core_, key, flags, blocked, replacement, reply ? this->chat_input_.ReplyTargets() : std::vector<std::string>{}))
             {
                 this->chat_native_context_suspended_ = true;
                 return true;
@@ -930,9 +967,14 @@ namespace xiui
             this->ReleaseChatInput();
             return false;
         }
-        const bool reply = key == 'R' && (((static_cast<uint32_t>(flags) & 0x20000000u) != 0) ||
-            (::GetKeyState(VK_MENU) & 0x8000) != 0 || (::GetKeyState(VK_CONTROL) & 0x8000) != 0);
-        return this->chat_.HandleKey(this->core_, key, flags, blocked, replacement, reply ? this->chat_input_.ReplyTargets() : std::vector<std::string>{});
+        const bool consumed = this->chat_.HandleKey(this->core_, key, flags, blocked, replacement,
+            reply ? this->chat_input_.ReplyTargets() : std::vector<std::string>{});
+        if (consumed && key == VK_RETURN && (keyFlags & 0x80000000u) == 0)
+        {
+            this->confirmation_key_release_ = key;
+            this->chat_activation_enter_down_ = false;
+        }
+        return consumed;
     }
 
     auto hud_runtime::CycleWindowFocus(const bool controller) -> bool
@@ -953,8 +995,10 @@ namespace xiui
                 this->ReleaseChatInput();
                 auto& window = surface == controller_surface::chat ? this->chat_ : this->chat_second_;
                 if (!window.BeginHistory()) continue;
+                this->controller_surface_ = surface;
             }
             else if (!this->BeginControllerFocus(surface)) continue;
+            this->keyboard_window_focus_ = !controller;
             this->controller_presented_ = controller;
             return true;
         }
@@ -1040,11 +1084,11 @@ namespace xiui
         }
         if (::_stricmp(command, "casting") == 0 || ::_stricmp(command, "castbar") == 0 || ::_stricmp(command, "castcost") == 0 || ::_stricmp(command, "recast") == 0)
         {
-            this->active_module_ = ::_stricmp(command, "recast") == 0 ? static_cast<hud_module*>(&this->recast_) :
+            this->config_.module = ::_stricmp(command, "recast") == 0 ? static_cast<hud_module*>(&this->recast_) :
                 ::_stricmp(command, "castcost") == 0 ? static_cast<hud_module*>(&this->cast_cost_) : &this->cast_bar_;
-            this->active_option_group_ = module_option_group::general;
-            this->active_config_section_ = 0;
-            this->active_color_ = nullptr; this->option_scroll_ = 0;
+            this->config_.group = module_option_group::general;
+            this->config_.section = 0;
+            this->config_.active_color = nullptr; this->config_.scroll = 0;
             this->SetVisible(true); this->SetEditing(true);
             return true;
         }
@@ -1090,10 +1134,10 @@ namespace xiui
         }
         else if (::_stricmp(command, "readycheck") == 0)
         {
-            this->active_module_ = &this->ready_check_;
-            this->active_option_group_ = module_option_group::general;
-            this->active_config_section_ = 0;
-            this->active_color_ = nullptr; this->option_scroll_ = 0;
+            this->config_.module = &this->ready_check_;
+            this->config_.group = module_option_group::general;
+            this->config_.section = 0;
+            this->config_.active_color = nullptr; this->config_.scroll = 0;
             this->SetVisible(true); this->SetEditing(true);
             return true;
         }
@@ -1105,6 +1149,12 @@ namespace xiui
             if (action.starts_with("volume ")) this->SaveSettings();
             return true;
         }
+        else if (::_stricmp(command, "save sync") == 0)
+        {
+            this->FinishInteraction();
+            try { this->FlushSettings(); message = "[XIUI] Current settings saved."; }
+            catch (const std::exception&) { message = "[XIUI] Settings save failed; pending settings were retained."; }
+        }
         else if (::_stricmp(command, "save") == 0)
         {
             this->FinishInteraction();
@@ -1113,10 +1163,10 @@ namespace xiui
         }
         else if (::_stricmp(command, "general") == 0 || ::_stricmp(command, "theme") == 0)
         {
-            this->active_module_ = &this->general_;
-            this->active_option_group_ = module_option_group::appearance;
-            this->active_config_section_ = 0;
-            this->active_color_ = nullptr; this->option_scroll_ = 0;
+            this->config_.module = &this->general_;
+            this->config_.group = module_option_group::appearance;
+            this->config_.section = 0;
+            this->config_.active_color = nullptr; this->config_.scroll = 0;
             this->SetVisible(true); this->SetEditing(true);
             return true;
         }
@@ -1128,10 +1178,10 @@ namespace xiui
         }
         else if (::_stricmp(command, "party") == 0 || ::_stricmp(command, "alliance1") == 0 || ::_stricmp(command, "alliance2") == 0)
         {
-            this->active_module_ = ::_stricmp(command, "party") == 0 ? &this->party_ : ::_stricmp(command, "alliance1") == 0 ? &this->alliance_first_ : &this->alliance_second_;
-            this->active_option_group_ = module_option_group::general;
-            this->active_config_section_ = 0;
-            this->active_color_ = nullptr; this->option_scroll_ = 0;
+            this->config_.module = ::_stricmp(command, "party") == 0 ? &this->party_ : ::_stricmp(command, "alliance1") == 0 ? &this->alliance_first_ : &this->alliance_second_;
+            this->config_.group = module_option_group::general;
+            this->config_.section = 0;
+            this->config_.active_color = nullptr; this->config_.scroll = 0;
             this->SetVisible(true); this->SetEditing(true);
             return true;
         }
@@ -1198,7 +1248,7 @@ namespace xiui
             if (::_stricmp(command, "skillchain") == 0)
             {
                 this->SelectConfigModule(&this->actionbars_);
-                this->active_config_section_ = this->actionbars_.ConfigSections().size() - 1;
+                this->config_.section = this->actionbars_.ConfigSections().size() - 1;
             }
             else this->SelectConfigModule(&this->magic_burst_);
             this->SetVisible(true); this->SetEditing(true); return true;
@@ -1219,11 +1269,11 @@ namespace xiui
         }
         else if (::_stricmp(command, "commands") == 0 || ::_stricmp(command, "menu") == 0 || ::_stricmp(command, "compass") == 0 || ::_stricmp(command, "world") == 0 || ::_stricmp(command, "weather") == 0 || ::_stricmp(command, "clock") == 0)
         {
-            this->active_module_ = ::_stricmp(command, "commands") == 0 || ::_stricmp(command, "menu") == 0 ? static_cast<hud_module*>(&this->commands_) :
+            this->config_.module = ::_stricmp(command, "commands") == 0 || ::_stricmp(command, "menu") == 0 ? static_cast<hud_module*>(&this->commands_) :
                 ::_stricmp(command, "compass") == 0 ? static_cast<hud_module*>(&this->compass_) : &this->world_info_;
-            this->active_option_group_ = module_option_group::general;
-            this->active_color_ = nullptr;
-            this->option_scroll_ = 0;
+            this->config_.group = module_option_group::general;
+            this->config_.active_color = nullptr;
+            this->config_.scroll = 0;
             this->SetVisible(true); this->SetEditing(true);
             return true;
         }
@@ -1250,21 +1300,21 @@ namespace xiui
         else if (::_stricmp(command, "statuses") == 0 || ::_stricmp(command, "effects") == 0 ||
             ::_stricmp(command, "buffs") == 0 || ::_stricmp(command, "debuffs") == 0)
         {
-            this->active_module_ = ::_stricmp(command, "debuffs") == 0 ? &this->debuffs_ : &this->buffs_;
-            this->active_config_section_ = 0;
-            this->option_scroll_ = 0;
-            this->active_option_group_ = module_option_group::general;
-            this->active_color_ = nullptr;
+            this->config_.module = ::_stricmp(command, "debuffs") == 0 ? &this->debuffs_ : &this->buffs_;
+            this->config_.section = 0;
+            this->config_.scroll = 0;
+            this->config_.group = module_option_group::general;
+            this->config_.active_color = nullptr;
             this->SetVisible(true);
             this->SetEditing(true);
             return true;
         }
         else if (::_stricmp(command, "chat") == 0)
         {
-            this->active_module_ = &this->chat_;
-            this->active_option_group_ = module_option_group::general;
-            this->active_color_ = nullptr;
-            this->option_scroll_ = 0;
+            this->config_.module = &this->chat_;
+            this->config_.group = module_option_group::general;
+            this->config_.active_color = nullptr;
+            this->config_.scroll = 0;
             this->SetVisible(true);
             this->SetEditing(true);
             return true;
@@ -1288,25 +1338,25 @@ namespace xiui
         }
         else if (::_stricmp(command, "exp") == 0 || ::_stricmp(command, "experience") == 0 || ::_stricmp(command, "notifications") == 0)
         {
-            this->active_module_ = ::_stricmp(command, "notifications") == 0 ? static_cast<hud_module*>(&this->notifications_) : &this->experience_;
-            this->active_config_section_ = 0;
-            this->active_option_group_ = module_option_group::general;
-            this->option_scroll_ = 0;
-            this->active_color_ = nullptr;
-            this->active_slider_ = nullptr;
+            this->config_.module = ::_stricmp(command, "notifications") == 0 ? static_cast<hud_module*>(&this->notifications_) : &this->experience_;
+            this->config_.section = 0;
+            this->config_.group = module_option_group::general;
+            this->config_.scroll = 0;
+            this->config_.active_color = nullptr;
+            this->config_.active_slider = nullptr;
             this->SetVisible(true);
             this->SetEditing(true);
             return true;
         }
         else if (::_stricmp(command, "gil") == 0 || ::_stricmp(command, "equipment") == 0 || ::_stricmp(command, "gear") == 0 || ::_stricmp(command, "extras") == 0)
         {
-            this->active_module_ = ::_stricmp(command, "gil") == 0 ? static_cast<hud_module*>(&this->gil_) :
+            this->config_.module = ::_stricmp(command, "gil") == 0 ? static_cast<hud_module*>(&this->gil_) :
                 ::_stricmp(command, "extras") == 0 ? static_cast<hud_module*>(&this->compass_) : &this->equipment_;
-            this->active_config_section_ = 0;
-            this->active_option_group_ = module_option_group::general;
-            this->option_scroll_ = 0;
-            this->active_color_ = nullptr;
-            this->active_slider_ = nullptr;
+            this->config_.section = 0;
+            this->config_.group = module_option_group::general;
+            this->config_.scroll = 0;
+            this->config_.active_color = nullptr;
+            this->config_.active_slider = nullptr;
             this->SetVisible(true);
             this->SetEditing(true);
             return true;
@@ -1355,12 +1405,12 @@ namespace xiui
         }
         else if (::_stricmp(command, "inventory") == 0)
         {
-            this->active_module_ = &this->inventory_[0];
-            this->active_config_section_ = 0;
-            this->active_option_group_ = module_option_group::general;
-            this->option_scroll_ = 0;
-            this->active_color_ = nullptr;
-            this->active_slider_ = nullptr;
+            this->config_.module = &this->inventory_[0];
+            this->config_.section = 0;
+            this->config_.group = module_option_group::general;
+            this->config_.scroll = 0;
+            this->config_.active_color = nullptr;
+            this->config_.active_slider = nullptr;
             this->SetVisible(true);
             this->SetEditing(true);
             return true;
@@ -1423,10 +1473,10 @@ namespace xiui
         }
         else if (::_stricmp(command, "enemylist") == 0)
         {
-            this->active_module_ = &this->enemy_list_;
-            this->active_option_group_ = module_option_group::general;
-            this->active_color_ = nullptr;
-            this->option_scroll_ = 0;
+            this->config_.module = &this->enemy_list_;
+            this->config_.group = module_option_group::general;
+            this->config_.active_color = nullptr;
+            this->config_.scroll = 0;
             this->SetVisible(true);
             this->SetEditing(true);
             return true;
@@ -1448,11 +1498,7 @@ namespace xiui
             args >> action >> key;
             if (action.empty())
             {
-                this->active_module_ = &this->game_hud_;
-                this->active_option_group_ = module_option_group::general;
-                this->active_config_section_ = 0;
-                this->active_color_ = nullptr;
-                this->option_scroll_ = 0;
+                this->SelectConfigModule(&this->game_hud_);
                 this->SetVisible(true);
                 this->SetEditing(true);
                 return true;
@@ -1570,18 +1616,18 @@ namespace xiui
             module->ApplyMeterDefaults(this->design_system_.GetTheme().meter);
             module->ApplyTextDefaults(this->design_system_.GetTheme());
         }
-        this->active_module_ = &this->general_;
+        this->config_.module = &this->general_;
         this->interaction_module_ = nullptr;
         this->interaction_ = interaction::none;
-        this->config_collapsed_ = false;
-        this->input_mode_menu_ = false;
-        this->config_bounds_ = {-1.0f, 20.0f, ui::config_layout::default_width, ui::config_layout::default_height};
-        this->config_sidebar_collapsed_ = false;
-        this->active_color_ = nullptr;
-        this->active_slider_ = nullptr;
-        this->active_option_group_ = module_option_group::general;
-        this->active_config_section_ = 0;
-        this->option_scroll_ = 0;
+        this->config_.collapsed = false;
+        this->config_.input_mode_menu = false;
+        this->config_.bounds = {-1.0f, 20.0f, ui::config_layout::default_width, ui::config_layout::default_height};
+        this->config_.sidebar_collapsed = false;
+        this->config_.active_color = nullptr;
+        this->config_.active_slider = nullptr;
+        this->config_.group = module_option_group::general;
+        this->config_.section = 0;
+        this->config_.scroll = 0;
         this->layout_initialized_ = false;
         if (!this->default_settings_text_.empty())
             this->LoadSettings(settings_store::FromIniText(this->default_settings_text_));
@@ -1626,12 +1672,12 @@ namespace xiui
 
         this->CloseProfileControls();
 
-        this->config_collapsed_ = false;
+        this->config_.collapsed = false;
         this->interaction_ = interaction::none;
         this->hud_target_pressed_ = false;
         this->interaction_module_ = nullptr;
-        this->active_color_ = nullptr;
-        this->active_slider_ = nullptr;
+        this->config_.active_color = nullptr;
+        this->config_.active_slider = nullptr;
         this->mouse_down_ = false;
         this->ReleasePointerCapture();
         this->mouse_captured_ = false;
@@ -1683,8 +1729,8 @@ namespace xiui
         this->action_executor_.Cancel();
         this->action_store_.Load(store);
         this->SuspendSatchelInput();
-        this->settings_search_revealed_module_ = nullptr;
-        this->settings_search_highlight_module_ = nullptr;
+        this->config_.search_revealed_module = nullptr;
+        this->config_.search_highlight_module = nullptr;
         this->CloseSettingsSearch();
         this->heal_prediction_source_.Load(store);
         this->CloseProfileControls();
@@ -1692,19 +1738,19 @@ namespace xiui
         this->ReleaseControllerFocus();
         for (auto* module : this->modules_.All())
             module->Load(store);
-        this->config_bounds_ = store.ReadRect("layout.config", {-1.0f, 20.0f, ui::config_layout::default_width, ui::config_layout::default_height});
-        this->config_sidebar_collapsed_ = store.ReadBool("layout.config", "sidebar_collapsed", false);
-        if (!store.ReadBool("layout.config", "sidebar_labels", false) && this->config_bounds_.width == 680.0f)
-            this->config_bounds_.width = ui::config_layout::default_width;
-        if (store.ReadInt("layout.config", "width_version", 0) < 1 && this->config_bounds_.width <= 820.0f)
-            this->config_bounds_.width = ui::config_layout::default_width;
-        if (store.ReadInt("layout.config", "height_version", 0) < 1 && this->config_bounds_.height == 430.0f)
-            this->config_bounds_.height = ui::config_layout::default_height;
-        this->active_color_ = nullptr;
-        this->active_slider_ = nullptr;
-        this->active_option_group_ = module_option_group::general;
-        this->active_config_section_ = 0;
-        this->option_scroll_ = 0;
+        this->config_.bounds = store.ReadRect("layout.config", {-1.0f, 20.0f, ui::config_layout::default_width, ui::config_layout::default_height});
+        this->config_.sidebar_collapsed = store.ReadBool("layout.config", "sidebar_collapsed", false);
+        if (!store.ReadBool("layout.config", "sidebar_labels", false) && this->config_.bounds.width == 680.0f)
+            this->config_.bounds.width = ui::config_layout::default_width;
+        if (store.ReadInt("layout.config", "width_version", 0) < 1 && this->config_.bounds.width <= 820.0f)
+            this->config_.bounds.width = ui::config_layout::default_width;
+        if (store.ReadInt("layout.config", "height_version", 0) < 1 && this->config_.bounds.height == 430.0f)
+            this->config_.bounds.height = ui::config_layout::default_height;
+        this->config_.active_color = nullptr;
+        this->config_.active_slider = nullptr;
+        this->config_.group = module_option_group::general;
+        this->config_.section = 0;
+        this->config_.scroll = 0;
         this->layout_initialized_ = false;
         this->LoadConfigSelection(store);
     }
@@ -1717,13 +1763,13 @@ namespace xiui
         for (const auto* module : this->modules_.All())
             module->Save(store);
         this->combat_settings_.Save(store);
-        if (this->controller_config_.moving)
-            store.WriteRect((std::string{"layout."} + this->controller_config_.moving_id).c_str(), this->controller_config_.move_original);
-        store.WriteRect("layout.config", this->config_bounds_);
-        if (this->controller_config_.resizing)
-            store.WriteRect("layout.config", this->controller_config_.resize_original);
+        if (this->config_.focus.moving)
+            store.WriteRect((std::string{"layout."} + this->config_.focus.moving_id).c_str(), this->config_.focus.move_original);
+        store.WriteRect("layout.config", this->config_.bounds);
+        if (this->config_.focus.resizing)
+            store.WriteRect("layout.config", this->config_.focus.resize_original);
         store.WriteBool("layout.config", "sidebar_labels", true);
-        store.WriteBool("layout.config", "sidebar_collapsed", this->config_sidebar_collapsed_);
+        store.WriteBool("layout.config", "sidebar_collapsed", this->config_.sidebar_collapsed);
         store.WriteInt("layout.config", "width_version", 1);
         store.WriteInt("layout.config", "height_version", 1);
         this->SaveConfigSelection(store);
@@ -1755,8 +1801,8 @@ namespace xiui
     {
         if (!this->layout_initialized_)
         {
-            if (this->config_bounds_.x < 0.0f)
-                this->config_bounds_.x = std::max(8.0f, static_cast<float>(viewport.Width) - this->config_bounds_.width - 20.0f);
+            if (this->config_.bounds.x < 0.0f)
+                this->config_.bounds.x = std::max(8.0f, static_cast<float>(viewport.Width) - this->config_.bounds.width - 20.0f);
             if (this->chat_.State().bounds.y < 0.0f)
                 this->chat_.State().bounds.y = std::max(0.0f, static_cast<float>(viewport.Height) - this->chat_.State().bounds.height - 18.0f);
             if (this->compass_.State().bounds.x < 0) this->compass_.State().bounds.x = std::max(0.0f, viewport.Width - this->compass_.State().bounds.width - 24.0f);
@@ -1857,160 +1903,17 @@ namespace xiui
         }
         auto visibleConfig = this->ConfigVisibleBounds();
         clampRect(visibleConfig, std::min(this->ConfigLayout().MinimumWidth(), static_cast<float>(viewport.Width)),
-            std::min(this->config_collapsed_ ? 32.0f : this->ConfigLayout().MinimumHeight(), static_cast<float>(viewport.Height)));
-        this->config_bounds_.x = visibleConfig.x; this->config_bounds_.y = visibleConfig.y;
-        this->config_bounds_.width = visibleConfig.width;
-        if (!this->config_collapsed_) this->config_bounds_.height = visibleConfig.height;
-    }
-
-    auto hud_runtime::ToggleConfigSidebar(const D3DVIEWPORT8& viewport) -> void
-    {
-        this->FinishConfigInput(true, false);
-        this->FinishConfigResize(false);
-        this->CloseProfileControls();
-        this->active_color_ = nullptr; this->active_slider_ = nullptr;
-        const auto firstOption = this->GroupOptionIndex(static_cast<size_t>(std::max(0, this->option_scroll_)));
-        this->config_sidebar_collapsed_ = !this->config_sidebar_collapsed_;
-        const auto layout = this->ConfigLayout();
-        if (!this->config_collapsed_ && viewport.Width != 0 && viewport.Height != 0)
-            this->config_bounds_ = ui::ResizeConfigWindow(this->config_bounds_, ui::resize_bottom, 0, 0, layout.MinimumWidth(), layout.MinimumHeight(), viewport);
-        if (!this->IsXIUIContributors())
-        {
-            const auto slots = this->GroupOptionSlots();
-            const auto found = std::find(slots.begin(), slots.end(), firstOption);
-            if (found != slots.end()) this->option_scroll_ = static_cast<int>(found - slots.begin());
-        }
-        this->ClampOptionScroll();
-        if (this->controller_config_.active) this->RefreshControllerConfigFocus();
-        this->config_tooltip_.clear();
-        this->SaveSettings();
-    }
-
-    auto hud_runtime::ConfigResizeEdges(const float x, const float y) const -> uint8_t
-    {
-        if (!this->editing_ || this->config_collapsed_ || this->profile_name_.Focused() || this->profile_dropdown_ ||
-            this->profile_actions_ || this->choice_input_.Opened() || this->input_mode_menu_) return 0;
-        const auto& bounds = this->config_bounds_;
-        if (!Contains(bounds, x, y)) return 0;
-        if (this->active_color_ != nullptr && Contains(this->ConfigLayout().ColorEditor(this->controller_config_.viewport), x, y)) return 0;
-        if (Contains(this->ConfigLayout().ResizeGrip(), x, y)) return ui::resize_right | ui::resize_bottom;
-        constexpr float edge = 5;
-        uint8_t result{};
-        if (x < bounds.x + edge) result |= ui::resize_left;
-        else if (x >= bounds.x + bounds.width - edge) result |= ui::resize_right;
-        if (y < bounds.y + edge) result |= ui::resize_top;
-        else if (y >= bounds.y + bounds.height - edge) result |= ui::resize_bottom;
-        return result;
-    }
-
-    auto hud_runtime::ApplyConfigResize(const rect& original, const uint8_t edges, const float dx, const float dy,
-        const D3DVIEWPORT8& viewport) -> void
-    {
-        const auto layout = this->ConfigLayout();
-        const auto before = this->config_bounds_;
-        const auto firstOption = this->GroupOptionIndex(static_cast<size_t>(std::max(0, this->option_scroll_)));
-        this->config_bounds_ = ui::ResizeConfigWindow(original, edges, dx, dy, layout.MinimumWidth(), layout.MinimumHeight(), viewport);
-        if (before.x == this->config_bounds_.x && before.y == this->config_bounds_.y &&
-            before.width == this->config_bounds_.width && before.height == this->config_bounds_.height) return;
-        if (layout.Columns() != this->ConfigLayout().Columns() && !this->IsXIUIContributors())
-        {
-            const auto slots = this->GroupOptionSlots();
-            const auto found = std::find(slots.begin(), slots.end(), firstOption);
-            if (found != slots.end()) this->option_scroll_ = static_cast<int>(found - slots.begin());
-        }
-        this->ClampOptionScroll();
-        if (this->controller_config_.active) this->RefreshControllerConfigFocus();
-        this->config_tooltip_.clear();
-    }
-
-    auto hud_runtime::ConfigSoundTarget(const D3DVIEWPORT8& viewport) -> uint64_t
-    {
-        if (!this->visible_ || !this->editing_) return 0;
-        if (const auto target = this->SettingsSearchTarget(viewport); target != 0 || this->settings_search_open_) return target;
-        this->NormalizeConfigSelection();
-        if (this->choice_input_.Opened()) return this->ChoiceSoundTarget(viewport);
-        if (const auto target = this->ProfileSoundTarget(viewport)) return target;
-        if (this->ProfileSurface(viewport)) return 0;
-        this->NormalizeConfigSelection();
-        const auto x = static_cast<float>(this->mouse_x_), y = static_cast<float>(this->mouse_y_);
-        const auto layout = this->ConfigLayout();
-        if (this->active_color_ != nullptr && Contains(layout.ColorEditor(viewport), x, y))
-        {
-            const auto part = ui::color_picker::HitTest(layout.ColorEditor(viewport), x, y);
-            return part == ui::color_picker::part::none ? 0 : 0x10000 + static_cast<uint64_t>(part);
-        }
-        if (!Contains(this->ConfigVisibleBounds(), x, y)) return this->MovementToolbarTarget(viewport);
-        if (Contains(layout.CloseButton(), x, y)) return 1;
-        if (Contains(layout.HeaderAction(), x, y)) return 3;
-        if (Contains(layout.HeaderAction(1), x, y)) return 4;
-        if (Contains(layout.SidebarToggle(), x, y)) return 6;
-        if (this->ConfigResizeEdges(x, y) != 0) return 5;
-        if (const auto input = this->InputModeControlTarget(viewport); input != 0) return input;
-        if (this->config_collapsed_) return 0;
-        const size_t pageCount = this->VisibleConfigPages().size();
-        for (size_t index = 0; index < pageCount; ++index)
-            if (Contains(layout.ModuleTab(index), x, y)) return 0x100 + index;
-
-        const auto page = this->ActiveConfigPage();
-        if (this->HasConfigSections())
-            for (size_t index = 0; index < page.SectionCount(); ++index)
-                if (Contains(layout.Section(index, page.SectionCount()), x, y))
-                    return (static_cast<uint64_t>(reinterpret_cast<uintptr_t>(page.primary)) << 32) | (0x200 + index);
-        if (this->active_module_ == nullptr) return 0;
-        const auto key = static_cast<uint64_t>(reinterpret_cast<uintptr_t>(this->active_module_)) << 32;
-        if (this->IsInventorySettings())
-            for (size_t index = 0; index < this->inventory_pages_.size(); ++index)
-                if (Contains(ui::config_controls::Segment(layout.ContentTabs(), index, this->inventory_pages_.size()), x, y))
-                    return (static_cast<uint64_t>(reinterpret_cast<uintptr_t>(this->inventory_pages_[0])) << 32) | (0x42000 + index);
-        const auto topics = this->active_module_->ConfigSections();
-        if (!topics.empty())
-        {
-            for (size_t index = 0; index < topics.size(); ++index)
-                if (Contains(layout.Submenu(index, topics.size()), x, y)) return key | (0x300 + index);
-        }
-        else
-        {
-            const auto categories = this->ConfigCategories();
-            for (size_t index = 0; index < categories.count; ++index)
-                if (Contains(layout.Category(index, categories.count), x, y)) return key | (0x400 + index);
-        }
-        if (this->IsExperienceDisplay())
-            if (const auto target = this->experience_display_.Target(this->experience_, layout, x, y)) return key | (0x20000 + target);
-        if (this->IsAttribution())
-            for (size_t index = 0; index < std::size(ui::attribution_views); ++index)
-                if (Contains(ui::config_controls::Segment(layout.ContentTabs(), index, std::size(ui::attribution_views)), x, y)) return key | (0x40000 + index);
-        if (this->IsGeneralAppearance())
-            for (size_t index = 0; index < std::size(general_module::appearance_tabs); ++index)
-                if (Contains(ui::config_controls::Segment(layout.ContentTabs(), index, std::size(general_module::appearance_tabs)), x, y)) return key | (0x44000 + index);
-        if (this->IsXIUIContributors())
-        {
-            const auto member = ui::contributor_list_layout{layout, this->option_scroll_}.MemberAt(x, y);
-            return member ? key | (0x1000 + this->general_.ContributorsStart() + *member) : 0;
-        }
-        if (const auto target = this->ElementSelectorTarget()) return target;
-        for (int index = 0; index < layout.VisibleSlots(); ++index)
-        {
-            if (!Contains(layout.OptionRow(index), x, y)) continue;
-            const auto optionIndex = this->GroupOptionIndex(static_cast<size_t>(this->option_scroll_ + index));
-            if (optionIndex >= this->active_module_->OptionCount()) return 0;
-            const auto option = this->active_module_->Option(optionIndex);
-            if (option.available && option.kind == module_option_kind::choice && option.choice_count > 1)
-            {
-                const auto row = layout.OptionRow(index);
-                const uint64_t part = Contains(ui::config_layout::ChoicePrevious(row), x, y) ? 0 :
-                    Contains(ui::config_layout::ChoiceNext(row), x, y) ? 2 : 1;
-                return key | (0x50000 + optionIndex * 3 + part);
-            }
-            return option.available ? key | (0x1000 + optionIndex) : 0;
-        }
-        return 0;
+            std::min(this->config_.collapsed ? 32.0f : this->ConfigLayout().MinimumHeight(), static_cast<float>(viewport.Height)));
+        this->config_.bounds.x = visibleConfig.x; this->config_.bounds.y = visibleConfig.y;
+        this->config_.bounds.width = visibleConfig.width;
+        if (!this->config_.collapsed) this->config_.bounds.height = visibleConfig.height;
     }
 
     auto hud_runtime::HudSoundTarget(void) -> uint64_t
     {
         if (!this->visible_) return 0;
         const auto x = static_cast<float>(this->mouse_x_), y = static_cast<float>(this->mouse_y_);
-        if (this->TreasureInputAvailable())
+        if (this->TreasureInputAvailable(true))
             if (const auto target = this->treasure_.SoundTarget(x, y)) return 0x500000000ULL | target;
         if (!this->editing_ && this->ContextVisible(this->ready_check_) && !this->chat_.HistoryExpanded() && this->ready_check_.Contains(x, y))
         {
@@ -2046,8 +1949,8 @@ namespace xiui
         if (active)
         {
             const auto x = static_cast<float>(this->mouse_x_), y = static_cast<float>(this->mouse_y_);
-            const bool config = this->editing_ && (this->ProfileSurface(viewport) || this->choice_input_.Opened() || Contains(this->ConfigVisibleBounds(), x, y) ||
-                (this->active_color_ != nullptr && Contains(this->ConfigLayout().ColorEditor(viewport), x, y)));
+            const bool config = this->editing_ && (this->ProfileSurface(viewport) || this->config_.choice_input.Opened() || Contains(this->ConfigVisibleBounds(), x, y) ||
+                (this->config_.active_color != nullptr && Contains(this->ConfigLayout().ColorEditor(viewport), x, y)));
             if (!config)
                 if (auto* chat = this->ChatAt(x, y); chat != nullptr) chat->SetHovered(Contains(chat->State().bounds, x, y));
             target = config ? this->ConfigSoundTarget(viewport) : this->HudSoundTarget();
@@ -2072,15 +1975,15 @@ namespace xiui
             const bool active = gameWindow != nullptr && ::GetForegroundWindow() == gameWindow &&
                 ::GetCursorPos(&cursor) != FALSE && ::ScreenToClient(gameWindow, &cursor) != FALSE;
             if (active) { this->mouse_x_ = cursor.x; this->mouse_y_ = cursor.y; }
-            const bool satchel = active && this->SatchelInputAvailable();
-            const bool actionbars = active && this->ActionBarsInputAvailable();
+            const bool satchel = active && this->SatchelInputAvailable(true);
+            const bool actionbars = active && this->ActionBarsInputAvailable(false, true);
             this->actionbars_.SetHover(actionbars ? static_cast<float>(cursor.x) : -1, actionbars ? static_cast<float>(cursor.y) : -1);
             this->satchel_.SetHover(satchel ? static_cast<float>(cursor.x) : -1, satchel ? static_cast<float>(cursor.y) : -1);
             if (!active || !this->ContextVisible(this->ready_check_)) this->ready_check_.CancelPointer();
             if (this->ContextVisible(this->ready_check_)) this->ready_check_.SetHover(static_cast<float>(cursor.x), static_cast<float>(cursor.y));
             this->SetChatMouseCapture(active && ((satchel && this->satchel_.PointerOwns(static_cast<float>(cursor.x), static_cast<float>(cursor.y))) ||
                 (actionbars && this->actionbars_.PointerOwns(static_cast<float>(cursor.x), static_cast<float>(cursor.y))) ||
-                this->treasure_.PointerDown() || (this->TreasureInputAvailable() && this->treasure_.Contains(static_cast<float>(cursor.x), static_cast<float>(cursor.y))) ||
+                this->treasure_.PointerDown() || (this->TreasureInputAvailable(true) && this->treasure_.Contains(static_cast<float>(cursor.x), static_cast<float>(cursor.y))) ||
                 (this->ContextVisible(this->ready_check_) && (this->ready_check_.PointerDown() || this->ready_check_.Contains(static_cast<float>(cursor.x), static_cast<float>(cursor.y)))) ||
                 this->ChatResizing() || this->chat_pointer_ != nullptr || this->ChatAt(static_cast<float>(cursor.x), static_cast<float>(cursor.y)) != nullptr));
             this->cursor_renderer_.SetNativeCursorHidden(this->chat_mouse_block_saved_);
@@ -2090,7 +1993,7 @@ namespace xiui
         if (gameWindow == nullptr || ::GetForegroundWindow() != gameWindow ||
             (this->mouse_capture_window_ != nullptr && ::GetCapture() != this->mouse_capture_window_))
         {
-            this->input_mode_menu_ = false;
+            this->config_.input_mode_menu = false;
             this->FinishConfigInput(false);
             this->FinishInteraction();
             this->mouse_down_ = false;
@@ -2125,7 +2028,7 @@ namespace xiui
     auto hud_runtime::ProcessPointerMessage(const uint32_t message, const uint32_t buttons, const D3DVIEWPORT8& viewport) -> bool
     {
         const bool captured = this->UpdateMouseCapture(viewport, buttons);
-        if (this->choice_input_.HandleScrollPointer(message, static_cast<float>(this->mouse_x_), static_cast<float>(this->mouse_y_), viewport))
+        if (this->config_.choice_input.HandleScrollPointer(message, static_cast<float>(this->mouse_x_), static_cast<float>(this->mouse_y_), viewport))
         {
             if (message == WM_LBUTTONDOWN || message == WM_LBUTTONDBLCLK) this->mouse_down_ = true;
             else if (message == WM_LBUTTONUP) { this->mouse_down_ = false; this->FinishInteraction(); }
@@ -2134,21 +2037,21 @@ namespace xiui
         // Window messages own button transitions; frame polling must never create clicks.
         if ((message == WM_LBUTTONDOWN || message == WM_LBUTTONDBLCLK) && !this->mouse_down_)
         {
-            const bool preview = this->choice_input_.Opened() && this->choice_input_.PreviewAt(static_cast<float>(this->mouse_x_), static_cast<float>(this->mouse_y_), viewport);
+            const bool preview = this->config_.choice_input.Opened() && this->config_.choice_input.PreviewAt(static_cast<float>(this->mouse_x_), static_cast<float>(this->mouse_y_), viewport);
             if (captured && !preview && this->ConfigSoundTarget(viewport) != 0) this->ui_sounds_.Select(::GetTickCount64());
             this->mouse_down_ = true;
             if (this->ProcessSettingsSearchClick(viewport)) return captured;
             if (this->ProcessChoiceClick(viewport)) return captured;
-            if (this->slider_input_.Focused() && Contains(this->slider_input_bounds_, static_cast<float>(this->mouse_x_), static_cast<float>(this->mouse_y_)))
-            { this->slider_input_.SelectAll(); return captured; }
-            if (this->option_text_input_.Focused() && Contains(this->text_input_bounds_, static_cast<float>(this->mouse_x_), static_cast<float>(this->mouse_y_)))
-            { this->option_text_input_.SelectAll(); return captured; }
+            if (this->config_.slider_input.Focused() && Contains(this->config_.slider_bounds, static_cast<float>(this->mouse_x_), static_cast<float>(this->mouse_y_)))
+            { this->config_.slider_input.SelectAll(); return captured; }
+            if (this->config_.text_input.Focused() && Contains(this->config_.text_bounds, static_cast<float>(this->mouse_x_), static_cast<float>(this->mouse_y_)))
+            { this->config_.text_input.SelectAll(); return captured; }
             this->FinishConfigInput(true, false);
             if (captured && !this->ProcessConfigClick(viewport))
                 this->BeginPanelInteraction(viewport);
             else if (!captured)
             {
-                this->active_color_ = nullptr;
+                this->config_.active_color = nullptr;
             }
         }
 
@@ -2168,12 +2071,12 @@ namespace xiui
     auto hud_runtime::FinishInteraction(void) -> void
     {
         const auto completed = this->interaction_;
-        if (completed == interaction::color_pick) this->color_picker_.EndDrag();
+        if (completed == interaction::color_pick) this->config_.color_picker.EndDrag();
         if (completed == interaction::drag_module && this->interaction_module_ != nullptr)
             this->interaction_module_->OnPositionChanged();
         this->interaction_ = interaction::none;
         this->interaction_module_ = nullptr;
-        this->active_slider_ = nullptr;
+        this->config_.active_slider = nullptr;
         this->layout_snap_ = {};
         this->layout_snap_targets_.clear();
         if (completed != interaction::none && completed != interaction::close_config && completed != interaction::option_scrollbar)
@@ -2198,8 +2101,8 @@ namespace xiui
             const float x = static_cast<float>(this->mouse_x_);
             const float y = static_cast<float>(this->mouse_y_);
             this->mouse_captured_ = this->ActionBarsPointerOwns(x, y) ||
-                this->ProfileSurface(viewport) || this->choice_input_.Opened() || this->input_mode_menu_ || this->settings_search_open_ || this->interaction_ != interaction::none || Contains(this->ConfigVisibleBounds(), x, y) ||
-                (this->active_color_ != nullptr && Contains(this->ConfigLayout().ColorEditor(viewport), x, y));
+                this->ProfileSurface(viewport) || this->config_.choice_input.Opened() || this->config_.input_mode_menu || this->config_.search_open || this->interaction_ != interaction::none || Contains(this->ConfigVisibleBounds(), x, y) ||
+                (this->config_.active_color != nullptr && Contains(this->ConfigLayout().ColorEditor(viewport), x, y));
             if (const auto toolbar = this->MovementToolbar(viewport); toolbar && Contains(toolbar->bounds, x, y)) this->mouse_captured_ = true;
             for (const auto* module : this->modules_.All())
                 this->mouse_captured_ = this->mouse_captured_ || (module->HasEditableBounds() && module->PreviewVisible() && Contains(module->State().EditBounds(), x, y));
@@ -2208,359 +2111,6 @@ namespace xiui
         if (this->mouse_ != nullptr && this->mouse_block_state_saved_)
             this->mouse_->SetBlockInput(this->previous_mouse_blocked_ || this->mouse_captured_);
         return this->mouse_captured_;
-    }
-
-    auto hud_runtime::ProcessConfigClick(const D3DVIEWPORT8& viewport) -> bool
-    {
-        if (this->ProcessInputModeClick(viewport)) return true;
-        if (this->ProcessProfileClick(viewport)) return true;
-        this->NormalizeConfigSelection();
-        const float x = static_cast<float>(this->mouse_x_);
-        const float y = static_cast<float>(this->mouse_y_);
-
-        if (this->active_color_ != nullptr)
-        {
-            const auto editor = this->ConfigLayout().ColorEditor(viewport);
-            if (Contains(editor, x, y))
-            {
-                const auto part = ui::color_picker::HitTest(editor, x, y);
-                if (part == ui::color_picker::part::close) this->active_color_ = nullptr;
-                else if (part == ui::color_picker::part::restore)
-                {
-                    this->color_picker_.Restore();
-                    this->ApplyPickedColor();
-                    this->SaveSettings();
-                }
-                else if (part == ui::color_picker::part::copy)
-                {
-                    const auto* properties = this->core_ != nullptr ? this->core_->GetProperties() : nullptr;
-                    this->color_picker_.CopyHex(properties != nullptr ? properties->GetFinalFantasyHwnd() : nullptr);
-                }
-                else if (part == ui::color_picker::part::wheel || part == ui::color_picker::part::value || part == ui::color_picker::part::alpha)
-                {
-                    this->color_picker_.BeginDrag(part);
-                    this->interaction_ = interaction::color_pick;
-                }
-                this->UpdateInteraction(viewport);
-                return true;
-            }
-            this->active_color_ = nullptr;
-        }
-
-        const auto config = this->ConfigVisibleBounds();
-        if (!Contains(config, x, y))
-        {
-            this->active_color_ = nullptr;
-            return this->ProcessMovementToolbarClick(viewport);
-        }
-
-        if (const auto edges = this->ConfigResizeEdges(x, y); edges != 0)
-        {
-            this->CloseProfileControls(); this->CloseChoiceInput(); this->input_mode_menu_ = false;
-            this->active_color_ = nullptr; this->active_slider_ = nullptr;
-            this->interaction_ = interaction::resize_config;
-            this->config_resize_edges_ = edges;
-            this->config_resize_original_ = this->config_bounds_;
-            this->config_resize_pointer_ = {x, y};
-            return true;
-        }
-
-        if (Contains(this->ConfigLayout().SidebarToggle(), x, y))
-        {
-            this->ToggleConfigSidebar(viewport);
-            return true;
-        }
-
-        if (Contains(this->ConfigLayout().HeaderAction(1), x, y))
-        {
-            this->FinishConfigInput(true, false);
-            this->CloseProfileControls(); this->CloseChoiceInput(); this->ReleaseChatInput();
-            this->active_color_ = nullptr; this->active_slider_ = nullptr;
-            this->config_collapsed_ = !this->config_collapsed_;
-            this->ClampLayout(viewport);
-            return true;
-        }
-
-        if (Contains(this->ConfigLayout().HeaderAction(), x, y))
-        {
-            this->config_collapsed_ = false;
-            this->FinishConfigInput(true, false);
-            this->ReleaseChatInput();
-            this->active_module_ = &this->general_;
-            this->active_config_section_ = general_module::attribution_section;
-            this->general_.SelectAttributionView(0);
-            this->active_color_ = nullptr; this->active_slider_ = nullptr;
-            this->option_scroll_ = 0;
-            return true;
-        }
-
-        const rect close = this->ConfigLayout().CloseButton();
-        if (Contains(close, x, y))
-        {
-            this->interaction_ = interaction::close_config;
-            return true;
-        }
-
-        if (this->config_collapsed_) return false;
-
-        if (this->ProcessConfigScrollbarClick()) return true;
-
-        const auto pages = this->VisibleConfigPages();
-        for (size_t index = 0; index < pages.size(); ++index)
-        {
-            const rect tab = this->ConfigLayout().ModuleTab(index);
-            if (Contains(tab, x, y))
-            {
-                this->active_module_ = pages[index].SectionModule(0);
-                this->active_module_->SelectConfigView(0);
-                this->active_color_ = nullptr;
-                this->active_option_group_ = module_option_group::general;
-                this->active_config_section_ = 0;
-                this->option_scroll_ = 0;
-                return true;
-            }
-        }
-
-        const auto page = this->ActiveConfigPage();
-        if (page.SectionCount() > 1)
-            for (size_t index = 0; index < page.SectionCount(); ++index)
-                if (Contains(this->ConfigLayout().Section(index, page.SectionCount()), x, y))
-                {
-                    this->SelectConfigModule(page.SectionModule(index), page.SectionView(index));
-                    return true;
-                }
-
-        if (this->IsInventorySettings())
-            for (size_t index = 0; index < this->inventory_pages_.size(); ++index)
-                if (Contains(ui::config_controls::Segment(this->ConfigLayout().ContentTabs(), index, this->inventory_pages_.size()), x, y))
-                {
-                    this->SelectConfigModule(this->inventory_pages_[index]);
-                    return true;
-                }
-
-        const auto topics = this->active_module_ != nullptr ? this->active_module_->ConfigSections() : std::span<const module_config_section>{};
-        if (!topics.empty())
-        {
-            for (size_t index = 0; index < topics.size(); ++index)
-                if (Contains(this->ConfigLayout().Submenu(index, topics.size()), x, y))
-                {
-                    this->SelectConfigTopic(index);
-                    return true;
-                }
-        }
-        else
-        {
-            const auto categories = this->ConfigCategories();
-            for (size_t index = 0; index < categories.count; ++index)
-            {
-                if (Contains(this->ConfigLayout().Category(index, categories.count), x, y))
-                {
-                    this->active_option_group_ = categories.groups[index];
-                    this->active_color_ = nullptr;
-                    this->option_scroll_ = 0;
-                    return true;
-                }
-            }
-        }
-
-        if (this->IsExperienceDisplay())
-        {
-            const auto previous = this->experience_display_.View();
-            const auto result = this->experience_display_.Click(this->experience_, this->ConfigLayout(), x, y);
-            if (result != ui::experience_display_editor::result::none)
-            {
-                if (previous != this->experience_display_.View()) { this->option_scroll_ = 0; this->active_color_ = nullptr; }
-                if (result == ui::experience_display_editor::result::changed) this->SaveSettings();
-                return true;
-            }
-        }
-
-        if (this->IsAttribution())
-            for (size_t index = 0; index < std::size(ui::attribution_views); ++index)
-                if (Contains(ui::config_controls::Segment(this->ConfigLayout().ContentTabs(), index, std::size(ui::attribution_views)), x, y))
-                {
-                    this->general_.SelectAttributionView(index);
-                    this->option_scroll_ = 0; this->active_color_ = nullptr; this->active_slider_ = nullptr;
-                    return true;
-                }
-
-        if (this->IsGeneralAppearance())
-            for (size_t index = 0; index < std::size(general_module::appearance_tabs); ++index)
-                if (Contains(ui::config_controls::Segment(this->ConfigLayout().ContentTabs(), index, std::size(general_module::appearance_tabs)), x, y))
-                {
-                    this->general_.SelectAppearanceTab(index);
-                    this->option_scroll_ = 0; this->active_color_ = nullptr; this->active_slider_ = nullptr;
-                    return true;
-                }
-
-        if (this->IsXIUIContributors())
-        {
-            if (const auto member = ui::contributor_list_layout{this->ConfigLayout(), this->option_scroll_}.MemberAt(x, y))
-                this->general_.OnOptionChanged(this->general_.ContributorsStart() + *member);
-            return true;
-        }
-
-        if (this->ProcessElementSelectorClick()) return true;
-
-        if (y < config.y + 28.0f)
-            return false;
-
-        const int visibleOptions = this->ConfigLayout().VisibleSlots();
-        int visibleIndex = -1;
-        for (int index = 0; index < visibleOptions; ++index)
-        {
-            if (Contains(this->ConfigLayout().OptionRow(index), x, y))
-            {
-                visibleIndex = index;
-                break;
-            }
-        }
-        if (visibleIndex < 0)
-            return true;
-
-        const size_t optionIndex = this->GroupOptionIndex(static_cast<size_t>(this->option_scroll_ + visibleIndex));
-        if (this->active_module_ == nullptr || optionIndex >= this->active_module_->OptionCount())
-            return true;
-        const module_option option = this->active_module_->Option(optionIndex);
-        if (!option.available)
-            return true;
-        this->active_option_index_ = optionIndex;
-        if (option.kind == module_option_kind::toggle && option.toggle != nullptr)
-        {
-            *option.toggle = !*option.toggle;
-            this->active_module_->OnOptionChanged(optionIndex);
-        }
-        else if (option.kind == module_option_kind::color_override && option.color != nullptr && option.toggle != nullptr)
-        {
-            const auto row = this->ConfigLayout().OptionRow(visibleIndex);
-            if (Contains(ui::config_layout::OverrideSwatch(row), x, y))
-            {
-                *option.toggle = true;
-                this->active_color_ = option.color;
-                this->color_picker_.Open(*option.color);
-                this->active_module_->OnOptionChanged(optionIndex);
-                this->SaveSettings();
-                return true;
-            }
-            *option.toggle = !*option.toggle;
-            this->active_module_->OnOptionChanged(optionIndex);
-        }
-        else if (option.kind == module_option_kind::color && option.color != nullptr)
-        {
-            this->active_color_ = option.color;
-            this->color_picker_.Open(*option.color);
-            return true;
-        }
-        else if (option.kind == module_option_kind::slider && option.slider != nullptr)
-        {
-            this->active_color_ = nullptr;
-            const auto row = this->ConfigLayout().OptionRow(visibleIndex);
-            if (Contains(ui::config_layout::SliderValue(row), x, y))
-            {
-                this->ReleaseChatInput();
-                this->slider_input_.Open(option);
-                this->slider_input_module_ = this->active_module_;
-                this->slider_input_option_index_ = optionIndex;
-                this->slider_input_bounds_ = ui::config_layout::SliderValue(row);
-                return true;
-            }
-            this->active_slider_ = option.slider;
-            this->active_slider_minimum_ = option.minimum;
-            this->active_slider_maximum_ = option.maximum;
-            this->active_slider_step_ = option.step;
-            this->active_slider_row_ = row;
-            this->interaction_ = interaction::option_slider;
-            this->SetActiveSliderFromMouse();
-            return true;
-        }
-        else if (option.kind == module_option_kind::dropdown && option.choice != nullptr && option.choice_count > 0)
-        {
-            this->active_color_ = nullptr;
-            this->ReleaseChatInput();
-            this->choice_input_.Open(option, ui::config_layout::ChoiceButton(this->ConfigLayout().OptionRow(visibleIndex)));
-            this->choice_input_module_ = this->active_module_;
-            this->choice_input_option_index_ = optionIndex;
-            return true;
-        }
-        else if (option.kind == module_option_kind::choice && option.choice != nullptr && option.choice_count > 0)
-        {
-            const int count = static_cast<int>(option.choice_count);
-            const int direction = Contains(ui::config_layout::ChoicePrevious(this->ConfigLayout().OptionRow(visibleIndex)), x, y) ? -1 : 1;
-            *option.choice = (std::clamp(*option.choice, 0, count - 1) + direction + count) % count;
-            this->active_color_ = nullptr;
-            this->active_module_->OnOptionChanged(optionIndex);
-        }
-        else if (option.kind == module_option_kind::text_input && option.text != nullptr)
-        {
-            this->active_color_ = nullptr;
-            this->ReleaseChatInput();
-            this->option_text_input_.Open(*option.text, option.text_limit);
-            this->text_input_module_ = this->active_module_;
-            this->text_input_option_index_ = optionIndex;
-            this->text_input_value_ = option.text;
-            this->text_input_bounds_ = ui::config_layout::TextValue(this->ConfigLayout().OptionRow(visibleIndex));
-            return true;
-        }
-        else if (option.kind == module_option_kind::action)
-            return this->ActivateConfigAction(*this->active_module_, optionIndex);
-        else
-            return false;
-
-        this->SaveSettings();
-        return true;
-    }
-
-    auto hud_runtime::FocusModuleConfig(hud_module& module) -> void
-    {
-        for (size_t i = 0; i < this->actionbar_children_.size(); ++i)
-            if (&module == &this->actionbar_children_[i])
-            {
-                this->FocusModuleConfig(this->actionbars_);
-                this->actionbars_.SelectConfigView(i + 1);
-                return;
-            }
-        for (size_t i = 0; i < this->world_parts_.size(); ++i)
-            if (&module == &this->world_parts_[i])
-            {
-                this->FocusModuleConfig(this->world_info_);
-                this->world_info_.SelectPart(i);
-                this->active_config_section_ = 1;
-                return;
-            }
-        if (&module == &this->notifications_) this->notifications_.SelectGroup(0);
-        for (auto& group : this->notification_groups_)
-            if (&module == &group)
-            {
-                this->FocusModuleConfig(this->notifications_);
-                this->notifications_.SelectGroup(group.Index());
-                this->active_config_section_ = 2;
-                return;
-            }
-        if (&module == &this->target_cast_)
-        {
-            this->FocusModuleConfig(this->target_);
-            this->target_.SelectConfigView(0);
-            this->active_config_section_ = 9;
-            return;
-        }
-        for (size_t i = 0; i < this->mob_info_groups_.size(); ++i)
-            if (&module == &this->mob_info_groups_[i])
-            {
-                this->FocusModuleConfig(this->target_);
-                this->target_.SelectConfigView(0);
-                this->target_.Settings().mob_info.selected_group = static_cast<int>(i + 1);
-                this->active_config_section_ = 11;
-                return;
-            }
-        if (!this->editing_ || (this->active_module_ == &module && module.ConfigView() == 0)) return;
-        this->FinishConfigInput(false);
-        module.SelectConfigView(0);
-        this->active_module_ = &module;
-        this->active_config_section_ = 0;
-        this->active_option_group_ = module_option_group::general;
-        this->option_scroll_ = 0;
-        this->active_color_ = nullptr;
-        this->active_slider_ = nullptr;
     }
 
     auto hud_runtime::BeginPanelInteraction(const D3DVIEWPORT8& viewport) -> void
@@ -2590,7 +2140,7 @@ namespace xiui
             return false;
         };
 
-        if (tryPanel(this->config_bounds_, nullptr))
+        if (tryPanel(this->config_.bounds, nullptr))
             return;
         auto& modules = this->modules_.All();
         for (auto module = modules.rbegin(); module != modules.rend(); ++module)
@@ -2636,7 +2186,7 @@ namespace xiui
         {
             if (this->mouse_down_)
             {
-                this->color_picker_.Update(this->ConfigLayout().ColorEditor(viewport), static_cast<float>(this->mouse_x_), static_cast<float>(this->mouse_y_));
+                this->config_.color_picker.Update(this->ConfigLayout().ColorEditor(viewport), static_cast<float>(this->mouse_x_), static_cast<float>(this->mouse_y_));
                 this->ApplyPickedColor();
             }
             return;
@@ -2649,7 +2199,7 @@ namespace xiui
             bounds = this->interaction_module_ != nullptr ? &this->interaction_module_->State().bounds : nullptr;
             break;
         case interaction::drag_config:
-            bounds = &this->config_bounds_;
+            bounds = &this->config_.bounds;
             break;
         default:
             return;
@@ -2855,7 +2405,7 @@ namespace xiui
         }
         if (this->ContextVisible(this->equipment_) && this->equipment_.ShouldRender(snapshot) && !this->ProfileSurface(viewport) && properties != nullptr && ::GetForegroundWindow() == properties->GetFinalFantasyHwnd() &&
             (!this->editing_ || (!Contains(this->ConfigVisibleBounds(), static_cast<float>(this->mouse_x_), static_cast<float>(this->mouse_y_)) &&
-                (this->active_color_ == nullptr || !Contains(this->ConfigLayout().ColorEditor(viewport), static_cast<float>(this->mouse_x_), static_cast<float>(this->mouse_y_))))))
+                (this->config_.active_color == nullptr || !Contains(this->ConfigLayout().ColorEditor(viewport), static_cast<float>(this->mouse_x_), static_cast<float>(this->mouse_y_))))))
             this->equipment_.RenderTooltip(context, static_cast<float>(this->mouse_x_), static_cast<float>(this->mouse_y_));
         if (!this->editing_ && this->ContextVisible(this->chat_)) this->chat_.RenderHistory(snapshot, context);
         if (!this->editing_ && this->ContextVisible(this->chat_second_)) this->chat_second_.RenderHistory(snapshot, context);
@@ -2864,7 +2414,6 @@ namespace xiui
             this->DrawControllerConfig(viewport);
             this->DrawConfigTooltip(viewport);
         }
-        this->DrawControllerOverlay(viewport, context);
         if (!this->editing_ && this->ContextVisible(this->notifications_) && this->controller_surface_ == controller_surface::none &&
             !this->ControllerNativeBusy() && !this->chat_.HistoryExpanded() && !this->chat_second_.HistoryExpanded() &&
             this->ChatAt(static_cast<float>(this->mouse_x_), static_cast<float>(this->mouse_y_)) == nullptr)
@@ -2872,417 +2421,11 @@ namespace xiui
                 this->config_controls_.Tooltip(this->notifications_.Details(detail->id).c_str(), detail->bounds, viewport);
         this->DrawStatusTooltips(viewport, context);
         if (!this->editing_ && this->ContextVisible(this->satchel_) && this->satchel_.ShouldRender(snapshot)) this->satchel_.Render(snapshot, context);
-        if (this->SatchelInputAvailable()) this->satchel_.RenderOverlay(context);
-        if (!floatingActions && (this->ActionBarsInputAvailable() || this->actionbars_.FloatingWindowOpen())) this->actionbars_.RenderOverlay(context);
+        this->DrawControllerOverlay(viewport, context);
+        if (this->SatchelInputAvailable(true)) this->satchel_.RenderOverlay(context);
+        if (!floatingActions && (this->ActionBarsInputAvailable(false, true) || this->actionbars_.FloatingWindowOpen())) this->actionbars_.RenderOverlay(context);
+        if (this->TreasureInputAvailable(true)) this->treasure_.RenderOverlay(context, this->general_.ConfigText(), static_cast<float>(this->mouse_x_), static_cast<float>(this->mouse_y_));
         if (this->editing_ || this->chat_mouse_block_saved_) this->DrawCursor(viewport);
-    }
-
-    auto hud_runtime::ConfigPages(void) -> std::array<config_page, config_page_count>
-    {
-        return {{{"general", "General", &this->general_},
-            {"hotbar", "Action Bars", &this->actionbars_, nullptr, nullptr, this->actionbar_members_, 1, "Hotbars", 0, action_bar_count},
-            {"casting", "Casting", &this->cast_bar_, &this->cast_cost_, &this->recast_},
-            {"chat", "Chat", &this->chat_, &this->chat_second_},
-            {"enemylist", this->enemy_list_.DisplayName(), &this->enemy_list_},
-            {"experience", this->experience_.DisplayName(), &this->experience_},
-            {"inventory", "Inventory", &this->inventory_[0], &this->satchel_, &this->equipment_, this->inventory_config_members_, this->inventory_.size(), "Dots", 1},
-            {"minimap", "Minimap", &this->minimap_},
-            {"notifications", this->notifications_.DisplayName(), &this->notifications_},
-            {"party", "Party", &this->party_, &this->alliance_first_, &this->alliance_second_},
-            {"pet", "Pet", &this->pet_, &this->pet_target_, nullptr, this->pet_config_members_},
-            {"player", this->player_.DisplayName(), &this->player_},
-            {"statuses", "Status Effects", &this->buffs_, &this->debuffs_},
-            {"target", this->target_.DisplayName(), &this->target_, &this->target_recipient_, &this->subtarget_},
-            {"extras", "Extras", &this->compass_, &this->world_info_, &this->commands_, this->extras_pages_}}};
-    }
-
-    auto hud_runtime::ConfigPageVisible(const config_page& page) const -> bool
-    {
-        if (this->settings_search_revealed_module_ == this->active_module_ && page.Contains(this->settings_search_revealed_module_)) return true;
-        if (page.primary == &this->general_) return true;
-        if (page.primary == &this->actionbars_) return true;
-        if (page.primary == &this->party_) return this->general_.PartyEnabled();
-        if (page.primary == &this->target_) return general_module::Enabled(*page.primary) ||
-            general_module::Enabled(*page.secondary) || general_module::Enabled(*page.tertiary);
-        for (size_t index = 0; index < page.SectionCount(); ++index)
-            if (auto* module = page.SectionModule(index); module != nullptr &&
-                (module == &this->inventory_[0] ? this->general_.InventoryEnabled() : general_module::Enabled(*module))) return true;
-        return false;
-    }
-
-    auto hud_runtime::VisibleConfigPages(void) const -> std::vector<config_page>
-    {
-        std::vector<config_page> visible;
-        visible.reserve(config_page_count);
-        for (const auto& page : const_cast<hud_runtime*>(this)->ConfigPages())
-            if (this->ConfigPageVisible(page)) visible.push_back(page);
-        return visible;
-    }
-
-    auto hud_runtime::ActiveConfigPage(void) -> config_page
-    {
-        for (const auto& page : this->ConfigPages())
-            if (page.Contains(this->active_module_)) return page;
-        return {};
-    }
-
-    auto hud_runtime::SaveConfigSelection(const settings_store& store) const -> void
-    {
-        store.WriteString("session.config", "module", this->active_module_ != nullptr ? this->active_module_->Id() : "general");
-        store.WriteInt("session.config", "view", this->active_module_ != nullptr ? static_cast<int>(this->active_module_->ConfigView()) : 0);
-        store.WriteInt("session.config", "section", static_cast<int>(this->active_config_section_));
-        const auto sections = this->active_module_ != nullptr ? this->active_module_->ConfigSections() : std::span<const module_config_section>{};
-        store.WriteString("session.config", "topic_id", this->active_config_section_ < sections.size() ? std::string{sections[this->active_config_section_].Id()} : "");
-        store.WriteInt("session.config", "party_presets_general", 1);
-        store.WriteInt("session.config", "party_presets_location", 2);
-        store.WriteInt("session.config", "actionbar_keybinds_topic", 1);
-        store.WriteInt("session.config", "appearance_tab", static_cast<int>(this->general_.AppearanceTab()));
-    }
-
-    auto hud_runtime::LoadConfigSelection(const settings_store& store) -> void
-    {
-        this->active_module_ = &this->general_;
-        const auto id = store.ReadString("session.config", "module", "general");
-        for (auto* module : this->modules_.All())
-            if (id == module->Id()) { this->active_module_ = module; break; }
-        const auto views = this->active_module_->ConfigViews();
-        const auto view = static_cast<size_t>(std::max(0, store.ReadInt("session.config", "view", 0)));
-        this->active_module_->SelectConfigView(views.empty() ? 0 : std::min(view, views.size() - 1));
-        auto section = static_cast<size_t>(std::max(0, store.ReadInt("session.config", "section", 0)));
-        const auto topic = store.ReadString("session.config", "topic_id");
-        if (topic.empty())
-        {
-            if (store.ReadInt("session.config", "party_presets_general", 0) == 0 &&
-                (this->active_module_ == &this->party_ || this->active_module_ == &this->alliance_first_ || this->active_module_ == &this->alliance_second_))
-            {
-                if (section == 12) { this->active_module_ = &this->party_; section = 0; }
-                else if (section == 13) section = 12;
-            }
-            if (this->active_module_ == &this->general_ && section == 6 && store.ReadInt("session.config", "party_presets_location", 0) < 2)
-            { this->active_module_ = &this->party_; section = 0; }
-            if (this->active_module_ == &this->actionbars_ && store.ReadInt("session.config", "actionbar_keybinds_topic", 0) == 0)
-            {
-                const size_t firstMoved = this->actionbars_.ConfigView() == action_bar_count ? 2 : 1;
-                if (section >= firstMoved) ++section;
-            }
-        }
-        const auto sections = this->active_module_->ConfigSections();
-        if (!topic.empty())
-        {
-            const auto found = std::find_if(sections.begin(), sections.end(), [&](const auto& item) { return item.Id() == topic; });
-            section = found != sections.end() ? static_cast<size_t>(found - sections.begin()) : 0;
-        }
-        this->active_config_section_ = section < sections.size() ? section : 0;
-        this->general_.SelectAppearanceTab(static_cast<size_t>(std::max(0, store.ReadInt("session.config", "appearance_tab", 0))));
-        this->NormalizeConfigSelection();
-    }
-
-    auto hud_runtime::SelectConfigTopic(const size_t index) -> void
-    {
-        this->active_config_section_ = index;
-        this->active_color_ = nullptr;
-        this->option_scroll_ = 0;
-        if (this->active_module_ == &this->actionbars_ && this->actionbars_.OpenKeybindsSection(index))
-            this->FinishActionBarsLaunch();
-    }
-
-    auto hud_runtime::SelectConfigModule(hud_module* module, const std::optional<size_t> view) -> void
-    {
-        const auto previousTopics = this->active_module_ != nullptr ? this->active_module_->ConfigSections() : std::span<const module_config_section>{};
-        const auto previousTopic = this->active_config_section_ < previousTopics.size() ? std::string{previousTopics[this->active_config_section_].Id()} : std::string{};
-        if (view && !module->ConfigViews().empty()) module->SelectConfigView(*view);
-        this->active_module_ = module;
-        const auto nextTopics = module->ConfigSections();
-        this->active_config_section_ = 0;
-        for (size_t topic = 0; !previousTopic.empty() && topic < nextTopics.size(); ++topic)
-            if (previousTopic == nextTopics[topic].Id()) { this->active_config_section_ = topic; break; }
-        this->active_color_ = nullptr; this->active_slider_ = nullptr;
-        this->active_option_group_ = module_option_group::general;
-        this->option_scroll_ = 0;
-        if (module == &this->actionbars_ && view && *view > action_bar_count)
-            this->FinishActionBarsLaunch();
-    }
-
-    auto hud_runtime::DrawConfig(const D3DVIEWPORT8& viewport) -> void
-    {
-        this->NormalizeConfigSelection();
-        this->ClampOptionScroll();
-        const auto layout = this->ConfigLayout();
-        this->config_tooltip_.clear();
-        const auto panel = this->ConfigVisibleBounds();
-        const auto& theme = this->design_system_.GetTheme();
-        const std::array<ui::container_fill, 4> fills{{
-            {layout.HeaderBackground(), 0xD0000000 | ((theme.colors.chrome & 0xFEFEFE) >> 1)},
-            {layout.SidebarBackground(), (theme.colors.surface_raised & 0xFFFFFF) | 0x60000000},
-            {layout.SubmenuBackground(), (theme.colors.surface_raised & 0xFFFFFF) | 0x30000000},
-            {layout.SectionBackground(), (theme.colors.surface_raised & 0xFFFFFF) | 0x30000000}}};
-        this->config_controls_.Panel(panel, std::span{fills}.first(this->config_collapsed_ ? 1 : fills.size()));
-        auto headerStyle = theme.accent_text;
-        headerStyle.scale = 0.82f;
-        this->config_controls_.Text("CONFIGURATION", layout.HeaderTitle(), headerStyle);
-        const auto sidebarToggle = layout.SidebarToggle();
-        const bool sidebarHovered = Contains(sidebarToggle, static_cast<float>(this->mouse_x_), static_cast<float>(this->mouse_y_));
-        this->config_controls_.IconButton(sidebarToggle, this->config_sidebar_collapsed_ ? ui::icon_glyph::arrow_right : ui::icon_glyph::arrow_left, sidebarHovered);
-        const rect close = layout.CloseButton();
-        const bool closeHovered = Contains(close, static_cast<float>(this->mouse_x_), static_cast<float>(this->mouse_y_));
-        this->config_controls_.IconButton(close, ui::icon_glyph::close, closeHovered);
-
-        const auto attribution = layout.HeaderAction();
-        const bool attributionHovered = Contains(attribution, static_cast<float>(this->mouse_x_), static_cast<float>(this->mouse_y_));
-        this->config_controls_.IconButton(attribution, ui::icon_glyph::attribution, attributionHovered ||
-            (this->active_module_ == &this->general_ && this->active_config_section_ == general_module::attribution_section));
-        const char* tooltip = attributionHovered ? "Attribution" : nullptr;
-        rect tooltipAnchor = attribution;
-        if (sidebarHovered)
-        {
-            tooltip = this->config_sidebar_collapsed_ ? "Expand sidebar" : "Collapse sidebar to icons";
-            tooltipAnchor = sidebarToggle;
-        }
-        const auto eye = layout.HeaderAction(1);
-        const bool eyeHovered = Contains(eye, static_cast<float>(this->mouse_x_), static_cast<float>(this->mouse_y_));
-        this->config_controls_.IconButton(eye, this->config_collapsed_ ? ui::icon_glyph::eye_closed : ui::icon_glyph::eye, eyeHovered || this->config_collapsed_);
-        if (eyeHovered)
-        {
-            tooltip = this->config_collapsed_ ? "Expand configuration" : "Collapse to title bar";
-            tooltipAnchor = eye;
-        }
-        if (this->config_collapsed_)
-        {
-            if (tooltip != nullptr) this->config_controls_.Tooltip(tooltip, tooltipAnchor, viewport);
-            return;
-        }
-        const auto pages = this->VisibleConfigPages();
-        for (size_t index = 0; index < pages.size(); ++index)
-        {
-            const auto& page = pages[index];
-            const rect bounds = layout.ModuleTab(index);
-            const bool active = page.Contains(this->active_module_);
-            const bool hovered = Contains(bounds, static_cast<float>(this->mouse_x_), static_cast<float>(this->mouse_y_));
-            this->config_controls_.NavigationButton(bounds, page.id, page.name, active, hovered, this->config_sidebar_collapsed_);
-            if (this->config_sidebar_collapsed_ && hovered) { tooltip = page.name; tooltipAnchor = bounds; }
-        }
-
-        this->DrawProfileControls();
-
-        const auto page = this->ActiveConfigPage();
-        if (page.SectionCount() > 1)
-        {
-            constexpr const char* chatNames[]{"Window 1", "Window 2"};
-            for (size_t index = 0; index < page.SectionCount(); ++index)
-            {
-                const auto bounds = layout.Section(index, page.SectionCount());
-                const bool active = page.primary == &this->actionbars_ && this->actionbars_.FloatingWindowOpen() && this->actionbars_.WindowFocused() ?
-                    page.SectionView(index) == this->actionbars_.WindowConfigView() : page.SectionContains(index, this->active_module_);
-                const bool highlighted = active || Contains(bounds, static_cast<float>(this->mouse_x_), static_cast<float>(this->mouse_y_));
-                auto style = active ? theme.accent_text : theme.caption_text;
-                style.scale = 0.72f; style.alignment = ui::text_alignment::center;
-                this->config_controls_.Button(bounds, std::strcmp(page.id, "chat") == 0 ? chatNames[index] : page.SectionName(index), style, highlighted);
-            }
-        }
-
-        static constexpr const char* categoryNames[] = {"GENERAL", "APPEARANCE", "EFFECTS", "COLORS", "TEXT"};
-        const auto topics = this->active_module_ != nullptr ? this->active_module_->ConfigSections() : std::span<const module_config_section>{};
-        if (!topics.empty())
-        {
-            this->active_config_section_ = std::min(this->active_config_section_, topics.size() - 1);
-            for (size_t index = 0; index < topics.size(); ++index)
-            {
-                const auto bounds = layout.Submenu(index, topics.size());
-                const bool active = this->active_config_section_ == index;
-                const bool hovered = Contains(bounds, static_cast<float>(this->mouse_x_), static_cast<float>(this->mouse_y_));
-                this->config_controls_.NavigationItem(bounds, topics[index].name, active, hovered);
-            }
-        }
-        else
-        {
-            const auto categories = this->ConfigCategories();
-            for (size_t index = 0; index < categories.count; ++index)
-            {
-                const auto group = categories.groups[index];
-                const rect bounds = layout.Category(index, categories.count);
-                const bool active = this->active_option_group_ == group;
-                const bool hovered = Contains(bounds, static_cast<float>(this->mouse_x_), static_cast<float>(this->mouse_y_));
-                auto style = active ? theme.accent_text : theme.caption_text;
-                style.scale = 0.72f;
-                style.alignment = ui::text_alignment::center;
-                this->config_controls_.Button(bounds, categoryNames[static_cast<size_t>(group)], style, active || hovered);
-            }
-        }
-
-        if (this->active_module_ != nullptr)
-        {
-            if (this->IsInventorySettings())
-            {
-                std::array<const char*, inventory_groups.size()> names{};
-                size_t selected{};
-                for (size_t index = 0; index < names.size(); ++index)
-                {
-                    names[index] = this->inventory_pages_[index]->DisplayName();
-                    if (this->active_module_ == this->inventory_pages_[index]) selected = index;
-                }
-                this->config_controls_.Segmented(layout.ContentTabs(), names, selected,
-                    static_cast<float>(this->mouse_x_), static_cast<float>(this->mouse_y_));
-            }
-            if (this->IsExperienceDisplay()) this->experience_display_.Draw(this->experience_, this->config_controls_, this->design_system_,
-                layout, static_cast<float>(this->mouse_x_), static_cast<float>(this->mouse_y_));
-            if (this->IsAttribution()) this->config_controls_.Segmented(layout.ContentTabs(), ui::attribution_views,
-                this->general_.AttributionView(), static_cast<float>(this->mouse_x_), static_cast<float>(this->mouse_y_));
-            if (this->IsGeneralAppearance()) this->config_controls_.Segmented(layout.ContentTabs(), general_module::appearance_tabs,
-                this->general_.AppearanceTab(), static_cast<float>(this->mouse_x_), static_cast<float>(this->mouse_y_));
-            this->DrawElementSelector();
-            if (this->IsXIUIContributors()) this->DrawContributorList();
-            else
-            {
-                const int visibleOptions = layout.VisibleSlots();
-                const auto slots = this->GroupOptionSlots();
-                for (int visibleIndex = 0; visibleIndex < visibleOptions; ++visibleIndex)
-                {
-                    const auto slot = static_cast<size_t>(this->option_scroll_ + visibleIndex);
-                    if (slot >= slots.size()) break;
-                    const size_t optionIndex = slots[slot];
-                    if (optionIndex >= this->active_module_->OptionCount())
-                        continue;
-                    const module_option option = this->active_module_->Option(optionIndex);
-                    const rect optionRow = layout.OptionRow(visibleIndex);
-                    const bool hovered = Contains(optionRow, static_cast<float>(this->mouse_x_), static_cast<float>(this->mouse_y_));
-                    const bool editingValue = this->slider_input_.Focused() && this->slider_input_module_ == this->active_module_ && this->slider_input_option_index_ == optionIndex;
-                    if (editingValue) this->slider_input_bounds_ = ui::config_layout::SliderValue(optionRow);
-                    const bool editingText = this->option_text_input_.Focused() && this->text_input_module_ == this->active_module_ && this->text_input_option_index_ == optionIndex;
-                    if (editingText) this->text_input_bounds_ = ui::config_layout::TextValue(optionRow);
-                    this->config_controls_.Option(optionRow, option, hovered, this->active_color_ == option.color,
-                        editingValue ? &this->slider_input_ : nullptr, editingText ? &this->option_text_input_ : nullptr,
-                        this->choice_input_.Opened() && this->choice_input_module_ == this->active_module_ && this->choice_input_option_index_ == optionIndex);
-                    if (option.available && option.kind == module_option_kind::choice && option.choice_count > 1 && hovered &&
-                        Contains(ui::config_layout::ChoiceButton(optionRow), static_cast<float>(this->mouse_x_), static_cast<float>(this->mouse_y_)))
-                    {
-                        tooltip = Contains(ui::config_layout::ChoicePrevious(optionRow), static_cast<float>(this->mouse_x_), static_cast<float>(this->mouse_y_))
-                            ? "Previous choice" : "Next choice";
-                        tooltipAnchor = ui::config_layout::ChoiceButton(optionRow);
-                    }
-                    if (option.available && option.kind == module_option_kind::slider && hovered &&
-                        Contains(ui::config_layout::SliderValue(optionRow), static_cast<float>(this->mouse_x_), static_cast<float>(this->mouse_y_)))
-                    {
-                        tooltip = editingValue && this->slider_input_.Invalid() ? "Enter a valid number, or press Escape to cancel." : "Click to type a value. Enter applies; Escape cancels.";
-                        tooltipAnchor = ui::config_layout::SliderValue(optionRow);
-                    }
-                    if (hovered && Contains(ui::config_layout::Description(optionRow), static_cast<float>(this->mouse_x_), static_cast<float>(this->mouse_y_)))
-                    {
-                        tooltip = option.description;
-                        tooltipAnchor = optionRow;
-                    }
-                }
-
-                const int totalOptions = static_cast<int>(slots.size());
-                if (this->IsGeneralAppearance() && this->general_.AppearanceTab() == 1)
-                {
-                    const auto& sample = this->general_.GlobalTextStyle();
-                    auto area = layout.ContentSubtabs();
-                    area.height = 48;
-                    this->design_system_.DrawText("Aa Bb Cc 0123456789 - XIUI", area, sample);
-                }
-                else if (this->IsGeneralAppearance() && this->general_.AppearanceTab() == 3)
-                {
-                    const auto area = layout.ContentSubtabs();
-                    const rect sample{area.x + 16, area.y + 10, std::min(220.0f, area.width - 32), 28};
-                    this->config_controls_.Button(sample, "Controller focus", theme.body_text, false);
-                    this->design_system_.DrawFocusFrame(sample, this->general_.FocusStyle());
-                }
-                if (totalOptions > visibleOptions)
-                {
-                    char scrollText[32]{};
-                    std::snprintf(scrollText, sizeof(scrollText), "%d-%d / %d", this->option_scroll_ + 1, std::min(totalOptions, this->option_scroll_ + visibleOptions), totalOptions);
-                    auto scrollStyle = theme.caption_text;
-                    scrollStyle.scale = 0.68f;
-                    scrollStyle.alignment = ui::text_alignment::center;
-                    this->config_controls_.Text(scrollText, layout.Footer(), scrollStyle);
-                }
-            }
-        }
-
-        this->DrawConfigScrollbar();
-        this->DrawControllerInputStatus();
-        const auto grip = layout.ResizeGrip();
-        const bool resizeHovered = Contains(grip, static_cast<float>(this->mouse_x_), static_cast<float>(this->mouse_y_));
-        const auto gripColor = resizeHovered || this->interaction_ == interaction::resize_config || this->controller_config_.resizing
-            ? theme.colors.control_selected : theme.colors.muted;
-        for (int row = 0; row < 3; ++row)
-            for (int column = 0; column <= row; ++column)
-                this->FillRect({grip.x + grip.width - 5 - column * 4, grip.y + grip.height - 5 - (row - column) * 4, 2, 2}, gripColor);
-        if (resizeHovered)
-        {
-            tooltip = "Drag an edge or corner to resize. Alt+F8: resize with arrow keys.";
-            tooltipAnchor = grip;
-        }
-        if (tooltip != nullptr && this->interaction_ == interaction::none)
-        {
-            this->config_tooltip_ = tooltip;
-            this->config_tooltip_anchor_ = tooltipAnchor;
-        }
-    }
-
-    auto hud_runtime::DrawContributorList(void) -> void
-    {
-        this->ClampOptionScroll();
-        const ui::contributor_list_layout layout{this->ConfigLayout(), this->option_scroll_};
-        const auto& theme = this->design_system_.GetTheme();
-        auto heading = theme.title_text;
-        heading.top_color = heading.bottom_color = theme.colors.gold;
-        heading.scale = 0.9f;
-        heading.alignment = ui::text_alignment::left;
-        for (size_t group = 0; group < std::size(ui::contributor_groups); ++group)
-        {
-            const auto header = layout.Header(group);
-            if (layout.Visible(header)) this->config_controls_.Text(ui::contributor_groups[group], header, heading);
-        }
-        const float x = static_cast<float>(this->mouse_x_), y = static_cast<float>(this->mouse_y_);
-        const auto hovered = layout.MemberAt(x, y);
-        for (size_t index = 0; index < ui::xiui_contributors.size(); ++index)
-        {
-            const auto row = layout.Member(index);
-            if (!layout.Visible(row)) continue;
-            const auto option = this->general_.Option(this->general_.ContributorsStart() + index);
-            this->config_controls_.Option(row, option, hovered && *hovered == index, false);
-            if (Contains(ui::config_layout::Description(row), x, y))
-            {
-                this->config_tooltip_ = option.description;
-                this->config_tooltip_anchor_ = row;
-            }
-        }
-        if (layout.MaximumScroll() > 0)
-        {
-            auto style = theme.caption_text;
-            style.scale = 0.68f; style.alignment = ui::text_alignment::center;
-            this->config_controls_.Text("Scroll for more contributors", this->ConfigLayout().Footer(), style);
-        }
-    }
-
-    auto hud_runtime::DrawConfigTooltip(const D3DVIEWPORT8& viewport) -> void
-    {
-        if (this->settings_search_open_) return;
-        if (!this->config_tooltip_.empty() && this->interaction_ == interaction::none)
-            this->config_controls_.Tooltip(this->config_tooltip_.c_str(), this->config_tooltip_anchor_, viewport);
-    }
-
-    auto hud_runtime::DrawColorEditor(const D3DVIEWPORT8& viewport) -> void
-    {
-        if (this->active_color_ == nullptr) return;
-        const auto panel = this->ConfigLayout().ColorEditor(viewport);
-        const float x = static_cast<float>(this->mouse_x_), y = static_cast<float>(this->mouse_y_);
-        this->color_picker_.Draw(this->design_system_, this->config_controls_, panel, x, y);
-        if (!Contains(panel, x, y)) return;
-        this->config_tooltip_.clear();
-        const auto part = ui::color_picker::HitTest(panel, x, y);
-        const ui::color_picker_layout layout{panel};
-        if (part == ui::color_picker::part::restore)
-        {
-            this->config_tooltip_ = "Restore the color from when this picker opened.";
-            this->config_tooltip_anchor_ = layout.Original();
-        }
-        else if (part == ui::color_picker::part::copy)
-        {
-            this->config_tooltip_ = "Copy this hex color. Transparent colors include the alpha value.";
-            this->config_tooltip_anchor_ = layout.Hex();
-        }
     }
 
     auto hud_runtime::DrawCursor(const D3DVIEWPORT8& viewport) -> void
@@ -3317,286 +2460,6 @@ namespace xiui
     auto hud_runtime::BorderRect(const rect& bounds, const D3DCOLOR color, const float thickness) const -> void
     {
         this->design_system_.BorderRect(bounds, color, thickness);
-    }
-
-    auto hud_runtime::ResolveCursorShape(const D3DVIEWPORT8& viewport) const -> cursor_shape
-    {
-        if (this->ActionBarsPointerOwns(static_cast<float>(this->mouse_x_), static_cast<float>(this->mouse_y_)))
-            return this->actionbars_.PointerCursor(static_cast<float>(this->mouse_x_), static_cast<float>(this->mouse_y_));
-        if (this->SettingsSearchTarget(viewport) != 0) return cursor_shape::hand;
-        if (this->settings_search_open_) return cursor_shape::arrow;
-        if (this->InputModeControlTarget(viewport) != 0) return cursor_shape::hand;
-        if (this->choice_input_.Opened())
-            return this->choice_input_.IndexAt(static_cast<float>(this->mouse_x_), static_cast<float>(this->mouse_y_), viewport) ? cursor_shape::hand : cursor_shape::arrow;
-        if (this->profile_name_.Focused())
-        {
-            return this->ProfileSoundTarget(viewport) != 0 ? cursor_shape::hand : cursor_shape::arrow;
-        }
-        if (this->ProfileSoundTarget(viewport) != 0) return cursor_shape::hand;
-        if (this->profile_dropdown_) return cursor_shape::arrow;
-        switch (this->interaction_)
-        {
-        case interaction::drag_module:
-        case interaction::drag_config:
-            return cursor_shape::move;
-        case interaction::resize_config:
-            return (this->config_resize_edges_ & (ui::resize_left | ui::resize_right)) != 0
-                ? ((this->config_resize_edges_ & (ui::resize_top | ui::resize_bottom)) != 0 ? cursor_shape::resize_diagonal : cursor_shape::resize_horizontal)
-                : cursor_shape::resize_vertical;
-        case interaction::color_pick:
-        case interaction::module_toolbar:
-        case interaction::option_scrollbar:
-            return cursor_shape::hand;
-        case interaction::option_slider:
-            return cursor_shape::resize_horizontal;
-        default:
-            break;
-        }
-
-        const float x = static_cast<float>(this->mouse_x_);
-        const float y = static_cast<float>(this->mouse_y_);
-        if (const auto edges = this->ConfigResizeEdges(x, y); edges != 0)
-            return (edges & (ui::resize_left | ui::resize_right)) != 0
-                ? ((edges & (ui::resize_top | ui::resize_bottom)) != 0 ? cursor_shape::resize_diagonal : cursor_shape::resize_horizontal)
-                : cursor_shape::resize_vertical;
-        const auto previewCursor = [&] {
-            if (const auto toolbar = this->MovementToolbar(viewport); toolbar && Contains(toolbar->bounds, x, y))
-                return this->MovementToolbarTarget(viewport) != 0 ? cursor_shape::hand : cursor_shape::arrow;
-            const auto& modules = this->modules_.All();
-            for (auto module = modules.rbegin(); module != modules.rend(); ++module)
-                if ((*module)->HasEditableBounds() && (*module)->PreviewVisible() && Contains((*module)->State().EditBounds(), x, y))
-                    return cursor_shape::move;
-            return cursor_shape::arrow;
-        };
-        const auto layout = this->ConfigLayout();
-        if (this->config_collapsed_)
-        {
-            if (Contains(layout.CloseButton(), x, y) || Contains(layout.HeaderAction(), x, y) || Contains(layout.HeaderAction(1), x, y) || Contains(layout.SidebarToggle(), x, y)) return cursor_shape::hand;
-            if (Contains(layout.HeaderDragArea(), x, y)) return cursor_shape::move;
-            if (Contains(this->ConfigVisibleBounds(), x, y)) return cursor_shape::arrow;
-            return previewCursor();
-        }
-        if (this->active_color_ != nullptr)
-        {
-            const auto editor = layout.ColorEditor(viewport);
-            if (Contains(editor, x, y))
-                return ui::color_picker::HitTest(editor, x, y) == ui::color_picker::part::none ? cursor_shape::arrow : cursor_shape::hand;
-        }
-
-        const auto scrollbar = this->ConfigScrollbar();
-        if (scrollbar.Visible() && Contains(scrollbar.track, x, y)) return cursor_shape::hand;
-        const rect close = layout.CloseButton();
-        if (Contains(close, x, y) || Contains(layout.HeaderAction(), x, y) || Contains(layout.HeaderAction(1), x, y) || Contains(layout.SidebarToggle(), x, y))
-            return cursor_shape::hand;
-
-        const size_t pageCount = this->VisibleConfigPages().size();
-        for (size_t index = 0; index < pageCount; ++index)
-        {
-            if (Contains(layout.ModuleTab(index), x, y))
-                return cursor_shape::hand;
-        }
-        if (this->HasConfigSections())
-        {
-            const size_t count = const_cast<hud_runtime*>(this)->ActiveConfigPage().SectionCount();
-            for (size_t index = 0; index < count; ++index)
-                if (Contains(layout.Section(index, count), x, y)) return cursor_shape::hand;
-        }
-        if (this->HasConfigSubmenu())
-        {
-            const auto topics = this->active_module_->ConfigSections();
-            for (size_t index = 0; index < topics.size(); ++index)
-                if (Contains(layout.Submenu(index, topics.size()), x, y)) return cursor_shape::hand;
-        }
-        else
-        {
-            const auto categories = this->ConfigCategories();
-            for (size_t index = 0; index < categories.count; ++index)
-                if (Contains(layout.Category(index, categories.count), x, y)) return cursor_shape::hand;
-        }
-
-        if (this->IsInventorySettings())
-            for (size_t index = 0; index < this->inventory_pages_.size(); ++index)
-                if (Contains(ui::config_controls::Segment(layout.ContentTabs(), index, this->inventory_pages_.size()), x, y)) return cursor_shape::hand;
-        if (this->IsExperienceDisplay() && this->experience_display_.Target(this->experience_, layout, x, y) != 0) return cursor_shape::hand;
-        if (this->IsAttribution())
-            for (size_t index = 0; index < std::size(ui::attribution_views); ++index)
-                if (Contains(ui::config_controls::Segment(layout.ContentTabs(), index, std::size(ui::attribution_views)), x, y)) return cursor_shape::hand;
-        if (this->IsGeneralAppearance())
-            for (size_t index = 0; index < std::size(general_module::appearance_tabs); ++index)
-                if (Contains(ui::config_controls::Segment(layout.ContentTabs(), index, std::size(general_module::appearance_tabs)), x, y)) return cursor_shape::hand;
-        if (this->IsXIUIContributors())
-            if (ui::contributor_list_layout{layout, this->option_scroll_}.MemberAt(x, y)) return cursor_shape::hand;
-
-        if (const auto selector = this->ElementSelector(); selector.Enabled() && this->ElementSelectorLayout(selector, layout).IndexAt(x, y))
-            return cursor_shape::hand;
-
-        if (this->active_module_ != nullptr && !this->IsXIUIContributors())
-        {
-            const int visibleOptions = layout.VisibleSlots();
-            const auto slots = this->GroupOptionSlots();
-            for (int visibleIndex = 0; visibleIndex < visibleOptions; ++visibleIndex)
-            {
-                const auto slot = static_cast<size_t>(this->option_scroll_ + visibleIndex);
-                if (slot >= slots.size()) break;
-                const size_t optionIndex = slots[slot];
-                if (optionIndex >= this->active_module_->OptionCount())
-                    continue;
-                const module_option option = this->active_module_->Option(optionIndex);
-                const auto row = layout.OptionRow(visibleIndex);
-                if (Contains(row, x, y))
-                    return !option.available ? cursor_shape::arrow : (option.kind == module_option_kind::slider && !Contains(ui::config_layout::SliderValue(row), x, y) ? cursor_shape::resize_horizontal : cursor_shape::hand);
-            }
-        }
-
-        if (Contains(layout.HeaderDragArea(), x, y))
-            return cursor_shape::move;
-        if (Contains(this->ConfigVisibleBounds(), x, y))
-            return cursor_shape::arrow;
-
-        return previewCursor();
-    }
-
-    auto hud_runtime::ApplyPickedColor(void) -> void
-    {
-        if (this->active_color_ == nullptr || *this->active_color_ == this->color_picker_.Color()) return;
-        *this->active_color_ = this->color_picker_.Color();
-        if (this->active_module_ != nullptr)
-            this->active_module_->OnOptionChanged(this->active_option_index_);
-    }
-
-    auto hud_runtime::SetActiveSliderFromMouse(void) -> void
-    {
-        if (this->active_slider_ == nullptr)
-            return;
-        const rect track = ui::config_layout::SliderTrack(this->active_slider_row_);
-        const float ratio = std::clamp((static_cast<float>(this->mouse_x_) - track.x) / std::max(1.0f, track.width), 0.0f, 1.0f);
-        float value = this->active_slider_minimum_ + (this->active_slider_maximum_ - this->active_slider_minimum_) * ratio;
-        *this->active_slider_ = ui::slider_value_input::Normalize(value, this->active_slider_minimum_, this->active_slider_maximum_, this->active_slider_step_);
-        if (this->active_module_ != nullptr)
-            this->active_module_->OnOptionChanged(this->active_option_index_);
-    }
-
-    auto hud_runtime::ConfigCategories(void) const -> config_categories
-    {
-        config_categories result{};
-        if (this->active_module_ == nullptr || this->HasConfigSubmenu()) return result;
-        std::array<bool, 5> populated{};
-        for (size_t index = 0; index < this->active_module_->OptionCount(); ++index)
-        {
-            const auto option = this->active_module_->Option(index);
-            if (!option.visible) continue;
-            const auto group = static_cast<size_t>(option.group);
-            if (group < populated.size()) populated[group] = true;
-        }
-        for (size_t group = 0; group < populated.size(); ++group)
-            if (populated[group]) result.groups[result.count++] = static_cast<module_option_group>(group);
-        return result;
-    }
-
-    auto hud_runtime::NormalizeConfigSelection(void) -> void
-    {
-        if ((this->active_color_ != nullptr || this->active_slider_ != nullptr) && this->active_module_ != nullptr && this->active_option_index_ < this->active_module_->OptionCount() &&
-            !this->active_module_->Option(this->active_option_index_).visible)
-        {
-            this->active_color_ = nullptr;
-            this->color_picker_.EndDrag();
-            this->active_slider_ = nullptr;
-            if (this->interaction_ == interaction::option_slider || this->interaction_ == interaction::color_pick) this->FinishInteraction();
-        }
-        if (!this->ConfigPageVisible(this->ActiveConfigPage()))
-        {
-            this->FinishConfigInput(false);
-            this->active_module_ = &this->general_;
-            this->active_config_section_ = general_module::enabled_modules_section;
-            this->active_option_group_ = module_option_group::general;
-            this->active_color_ = nullptr;
-            this->active_slider_ = nullptr;
-            this->option_scroll_ = 0;
-        }
-        if (this->choice_input_.Opened() && (this->active_module_ == nullptr || this->choice_input_module_ != this->active_module_ ||
-            this->choice_input_option_index_ >= this->active_module_->OptionCount() || !this->MatchesConfigOption(this->choice_input_option_index_) ||
-            !this->active_module_->Option(this->choice_input_option_index_).available ||
-            this->active_module_->Option(this->choice_input_option_index_).choice != this->choice_input_.Option().choice)) this->CloseChoiceInput();
-        if (this->option_text_input_.Focused() && (this->active_module_ == nullptr || this->text_input_module_ != this->active_module_ ||
-            this->text_input_option_index_ >= this->active_module_->OptionCount() || !this->MatchesConfigOption(this->text_input_option_index_) ||
-            !this->active_module_->Option(this->text_input_option_index_).available ||
-            this->active_module_->Option(this->text_input_option_index_).text != this->text_input_value_)) this->FinishConfigInput(false);
-        if (this->slider_input_.Focused() && (this->active_module_ == nullptr || this->slider_input_module_ != this->active_module_ ||
-            this->slider_input_option_index_ >= this->active_module_->OptionCount() ||
-            !this->MatchesConfigOption(this->slider_input_option_index_) ||
-            !this->active_module_->Option(this->slider_input_option_index_).available ||
-            this->active_module_->Option(this->slider_input_option_index_).slider != this->slider_input_.Option().slider)) this->FinishConfigInput(false);
-        if (this->HasConfigSubmenu())
-        {
-            if (this->active_config_section_ < this->active_module_->ConfigSections().size()) return;
-            this->active_config_section_ = 0;
-        }
-        else
-        {
-            const auto categories = this->ConfigCategories();
-            if (categories.count == 0 || std::find(categories.groups.begin(), categories.groups.begin() + categories.count, this->active_option_group_) != categories.groups.begin() + categories.count)
-                return;
-            this->active_option_group_ = categories.groups[0];
-        }
-        this->active_color_ = nullptr;
-        this->active_slider_ = nullptr;
-        this->option_scroll_ = 0;
-    }
-
-    auto hud_runtime::MatchesConfigOption(const size_t index) const -> bool
-    {
-        if (this->active_module_ == nullptr || index >= this->active_module_->OptionCount() || !this->active_module_->Option(index).visible) return false;
-        if (this->IsExperienceDisplay()) return this->experience_.DisplayOption(this->experience_display_.View(), index);
-        if (this->IsAttribution()) return this->general_.AttributionOption(index);
-        if (this->IsGeneralAppearance()) return this->general_.AppearanceOption(index);
-        return this->HasConfigSubmenu() ? this->active_module_->ConfigSectionContains(this->active_config_section_, index) :
-            this->active_module_->Option(index).group == this->active_option_group_;
-    }
-
-    auto hud_runtime::GroupOptionSlots(void) const -> std::vector<size_t>
-    {
-        if (this->active_module_ == nullptr) return {};
-        std::vector<ui::config_option_entry> entries;
-        for (size_t index = 0; index < this->active_module_->OptionCount(); ++index)
-        {
-            if (!this->MatchesConfigOption(index)) continue;
-            const auto option = this->active_module_->Option(index);
-            if (option.selector == module_selector::none) entries.push_back({index, option.display_order, option.pair_next});
-        }
-        std::vector<ui::config_option_entry> cards;
-        std::erase_if(entries, [&](const auto& entry) {
-            if (!this->active_module_->Option(entry.index).card) return false;
-            cards.push_back(entry); return true;
-        });
-        const auto empty = this->active_module_->OptionCount();
-        const int columns = ui::config_layout{this->config_bounds_, 0, this->HasConfigSections(), this->HasConfigSubmenu(), 0, 0, false, -1, 0, this->config_sidebar_collapsed_}.Columns();
-        auto slots = ui::ArrangeConfigOptions(std::move(entries), empty, columns);
-        if (!cards.empty() && slots.size() % columns != 0) slots.push_back(empty);
-        for (const auto& card : cards) slots.push_back(card.index);
-        return slots;
-    }
-
-    auto hud_runtime::GroupOptionCount(void) const -> size_t
-    {
-        return this->GroupOptionSlots().size();
-    }
-
-    auto hud_runtime::GroupOptionIndex(const size_t filteredIndex) const -> size_t
-    {
-        if (this->active_module_ == nullptr)
-            return 0;
-        const auto slots = this->GroupOptionSlots();
-        return filteredIndex < slots.size() ? slots[filteredIndex] : this->active_module_->OptionCount();
-    }
-
-    auto hud_runtime::ClampOptionScroll(void) -> void
-    {
-        if (this->IsXIUIContributors())
-        {
-            this->option_scroll_ = std::clamp(this->option_scroll_, 0, ui::contributor_list_layout{this->ConfigLayout()}.MaximumScroll());
-            return;
-        }
-        this->option_scroll_ = this->ConfigLayout().AlignScroll(this->option_scroll_, static_cast<int>(this->GroupOptionCount()));
     }
 
     auto hud_runtime::Contains(const rect& bounds, const float x, const float y) -> bool

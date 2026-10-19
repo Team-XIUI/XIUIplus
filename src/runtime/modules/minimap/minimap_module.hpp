@@ -9,6 +9,22 @@ namespace xiui
     class minimap_module final : public hud_module
     {
     public:
+        enum option : size_t
+        {
+            enabled_option, shape_option, artwork_option, width_option, zoom_option,
+            frame_option, background_option, map_opacity_option, background_opacity_option, marker_size_option,
+            marker_opacity_option, party_option, alliance_option, pet_option, target_option,
+            zone_name_option, coordinates_option, north_option, frame_opacity_option, vision_cone_option,
+            cone_angle_option, cone_size_option, cone_opacity_option, npcs_option, edge_style_option,
+            corner_radius_option, shadow_option, shadow_opacity_option, shadow_softness_option, shadow_x_option,
+            shadow_y_option, map_number_option,
+            text_profile_begin,
+            text_selector_option = text_profile_begin + text_profile_option_count,
+            zoom_readout_option, distant_party_option, coordinate_edges_option, option_count,
+            text_alignment_option = text_profile_begin, text_size_option = text_profile_begin + 1,
+            text_font_option = text_profile_begin + 14,
+            text_x_option = text_profile_begin + 2, text_y_option = text_profile_begin + 3,
+        };
         auto Id(void) const -> const char* override { return "minimap"; }
         auto DisplayName(void) const -> const char* override { return "Minimap"; }
         auto State(void) -> module_state& override { return this->state_; }
@@ -19,7 +35,7 @@ namespace xiui
         auto ResetDefaults(const ui::theme& theme) -> void override;
         auto Load(const settings_store& store) -> void override;
         auto Save(const settings_store& store) const -> void override;
-        auto OptionCount(void) const -> size_t override { return 35 + text_profile_option_count; }
+        auto OptionCount(void) const -> size_t override { return option_count; }
         auto NpcsEnabled(void) const -> bool { return this->npcs_; }
         auto DistantPartyEnabled(void) const -> bool { return this->distant_party_; }
         auto Option(size_t index) -> module_option override;
@@ -33,14 +49,15 @@ namespace xiui
         module_state state_{true, {-1, -1, 220, 244}, 120, 80, 600};
         const minimap_state* data_{};
         minimap_maps* maps_{};
-        int shape_{}, artwork_{1}, selected_text_{};
+        int shape_{}, artwork_{1}, selected_text_{}, edge_style_{};
         float zoom_{2}, default_zoom_{2}, map_opacity_{1}, background_opacity_{0.8f}, frame_opacity_{1}, marker_size_{4}, marker_opacity_{1};
         bool frame_{true}, background_{true}, party_{true}, alliance_{true}, pet_{true}, target_{true}, zone_name_{true}, coordinates_{true}, north_{true};
         bool map_number_{true}, zoom_readout_{true};
         bool distant_party_{true};
+        std::array<bool, 4> coordinate_edges_{true, true, true, true};
         bool vision_cone_{}, npcs_{true};
         float cone_angle_{80}, cone_size_{0.9f}, cone_opacity_{0.2f};
-        bool rounded_corners_{}, shadow_{};
+        bool shadow_{};
         float corner_radius_{12}, shadow_opacity_{0.45f}, shadow_softness_{6}, shadow_x_{2}, shadow_y_{3};
         std::array<float, 1024> zone_zoom_{};
         uint16_t zoom_zone_{};

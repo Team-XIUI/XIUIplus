@@ -1,6 +1,7 @@
 # Settings presentation audit
 
-Audited October 15, 2026. Each bullet is one visual row; [empty] is an empty cell kept for a related pair. Disabled controls retain their normal position.
+Generated 2026-10-18. Source: runtime option metadata and shared layout.
+Regenerate with `./scripts/update-docs.ps1`. Each bullet is one visual row; [empty] preserves paired controls.
 
 ## Player Bar
 
@@ -8,9 +9,10 @@ Audited October 15, 2026. Each bullet is one visual row; [empty] is an empty cel
 
 - Enabled | Spell MP cost preview
 - Heal prediction | Healing potency bonus (%)
-- Identity | Labels
-- Values | Auto-hide MP
-- HP values | MP values
+- Overheal prediction | Identity
+- Labels | Values
+- Auto-hide MP | HP values
+- MP values
 
 ### Layout
 
@@ -18,9 +20,7 @@ Audited October 15, 2026. Each bullet is one visual row; [empty] is an empty cel
 
 ### Bar Style
 
-- Bar style | Corner radius
-- Border width | Bookend width
-- Bookends
+- Bar style | Bookends
 
 ### Animation
 
@@ -33,60 +33,60 @@ Audited October 15, 2026. Each bullet is one visual row; [empty] is an empty cel
 - Drop shadow | Shadow strength
 - Shadow radius | [empty]
 - Shadow X offset | Shadow Y offset
-- Outer glow | Glow size
-- Fill glow | Fill glow strength
-- Fill glow radius | TP ready blink
+- Outer glow | Fill glow
+- TP ready blink
 
 ### Colors
 
 - Background opacity | [empty]
 - Fill top | Fill bottom
-- Background top | HP state colors
-- Background bottom | HP warning percent
-- HP critical percent | Tint HP state text
-- Bookend top | Bookend bottom
-- Border color | Heal prediction color
-- HP warning top | Shadow color
-- HP warning bottom | [empty]
-- HP critical top | HP critical bottom
-- Tint ready TP text | Ready TP text
-- Custom TP overlay | [empty]
-- TP overlay top | Glow color
-- TP overlay bottom | TP flash color
+- HP state colors | [empty]
+- Heal prediction color | Overheal color
+- Shadow color | Tint ready TP text
+- Custom TP overlay | TP flash color
 - Sheen color
 
 ### Text
 
+- Show text | [empty]
 - Font | Size (px)
-- Placement | Letter spacing
+- Alignment | Letter spacing
 - X offset | Y offset
 - Top color | Bottom color
 - Shadow | Shadow color
 - Soft shadow | [empty]
 - Stroke | Stroke color
-- Glow | Glow color
+- Glow
+
+### Text / Jobs
+
+- Show text | [empty]
+- Font | Size (px)
+- Alignment | Letter spacing
+- X offset | Y offset
+- Top color | Bottom color
+- Shadow | Shadow color
+- Soft shadow | Stroke
+- Glow
+
+### Text / Attack timing
+
 
 ### Attack Timing
 
-- Auto attack timer | Timer display
-- Timer bar height | Mini bar height
+- Auto attack timer | Mini bar height
 - Attack placement | [empty]
 - Timer X offset | Timer Y offset
-- Timer spacing | Mini bar gap
-- TP goal | Rounds to goal
-- Successful hits | Time to TP goal
-- Timer direction | Almost ready seconds
-- Attack timer color | Almost ready color
-- Mini bar text
+- Mini bar gap | Timer direction
+- Almost ready seconds | Attack timer color
+- Almost ready color | Mini bar text
 
 ### Recovery
 
 - Resting timer | Mini bar height
 - Resting placement | Mini bar gap
-- Last tick gains | Time to recovery goal
-- Hide when full | Recovery goal %
-- Full recovery sound | Tick highlight
-- Separate HP / MP times | Recovery timer color
+- Hide when full | Full recovery sound
+- Tick highlight | Recovery timer color
 - Mini bar text
 
 ## Cast Bar
@@ -95,7 +95,7 @@ Audited October 15, 2026. Each bullet is one visual row; [empty] is an empty cel
 
 - Enabled | Action name
 - Percentage | Item use
-- Interruptions
+- Interruptions | Manual Fast Cast / true progress
 
 ### Layout
 
@@ -103,9 +103,7 @@ Audited October 15, 2026. Each bullet is one visual row; [empty] is an empty cel
 
 ### Bar Style
 
-- Bar style | Corner radius
-- Border width | Bookend width
-- Bookends
+- Bar style | Bookends
 
 ### Animation
 
@@ -118,30 +116,25 @@ Audited October 15, 2026. Each bullet is one visual row; [empty] is an empty cel
 - Drop shadow | Shadow strength
 - Shadow radius | [empty]
 - Shadow X offset | Shadow Y offset
-- Outer glow | Glow size
-- Fill glow | Fill glow strength
-- Fill glow radius
+- Outer glow | Fill glow
 
 ### Colors
 
 - Background opacity | [empty]
 - Fill top | Fill bottom
-- Background top | Background bottom
-- Bookend top | Bookend bottom
-- Border color | Shadow color
-- Glow color | Sheen color
+- Shadow color | Sheen color
 - Interrupted
 
 ### Text
 
+- Show text | [empty]
 - Font | Size (px)
-- Placement | Letter spacing
+- Alignment | Letter spacing
 - X offset | Y offset
 - Top color | Bottom color
 - Shadow | Shadow color
-- Soft shadow | [empty]
-- Stroke | Stroke color
-- Glow | Glow color
+- Soft shadow | Stroke
+- Glow
 
 ## Cast Cost
 
@@ -160,9 +153,7 @@ Audited October 15, 2026. Each bullet is one visual row; [empty] is an empty cel
 
 ### Bar Style
 
-- Bar style | Corner radius
-- Border width | Bookend width
-- Bookends
+- Bar style | Bookends
 
 ### Animation
 
@@ -175,30 +166,25 @@ Audited October 15, 2026. Each bullet is one visual row; [empty] is an empty cel
 - Drop shadow | Shadow strength
 - Shadow radius | [empty]
 - Shadow X offset | Shadow Y offset
-- Outer glow | Glow size
-- Fill glow | Fill glow strength
-- Fill glow radius
+- Outer glow | Fill glow
 
 ### Colors
 
 - Background opacity | [empty]
 - Fill top | Fill bottom
-- Background top | Background bottom
-- Bookend top | Bookend bottom
-- Border color | Shadow color
-- Glow color | Sheen color
+- Shadow color | Sheen color
 - Ready | Insufficient resources
 
 ### Text
 
+- Show text | [empty]
 - Font | Size (px)
-- Placement | Letter spacing
+- Alignment | Letter spacing
 - X offset | Y offset
 - Top color | Bottom color
 - Shadow | Shadow color
-- Soft shadow | [empty]
-- Stroke | Stroke color
-- Glow | Glow color
+- Soft shadow | Stroke
+- Glow
 
 ## Recast
 
@@ -221,48 +207,43 @@ Audited October 15, 2026. Each bullet is one visual row; [empty] is an empty cel
 
 ### Bar Style
 
-- Bar style | Corner radius
-- Border width | Bookend width
-- Bookends
+- Bar style | Bookends
 
 ### Animation
 
 - Animated sheen | [empty]
 - Sheen width | Sheen speed
-- Smooth fill | Fill response
 
 ### Effects
 
 - Drop shadow | Shadow strength
 - Shadow radius | [empty]
 - Shadow X offset | Shadow Y offset
-- Outer glow | Glow size
-- Fill glow | Fill glow strength
-- Fill glow radius
+- Outer glow | Fill glow
 
 ### Colors
 
 - Background opacity | [empty]
 - Cooldown top | Cooldown bottom
-- Approaching top | [empty]
-- Background top | Approaching bottom
-- Background bottom | Ready top
-- Bookend top | Ready bottom
-- Bookend bottom | Border color
-- Shadow color | Glow color
-- Sheen color | Color changes
-- Approaching ready | Nearly ready
+- Approaching top | Approaching bottom
+- Ready top | Ready bottom
+- Shadow color | Sheen color
+- Color changes | Approaching ready
+- Nearly ready
 
 ### Text
 
+- Show text | [empty]
 - Font | Size (px)
-- Placement | Letter spacing
+- Alignment | Letter spacing
 - X offset | Y offset
 - Top color | Bottom color
 - Shadow | Shadow color
-- Soft shadow | [empty]
-- Stroke | Stroke color
-- Glow | Glow color
+- Soft shadow | Stroke
+- Glow
+
+### Text / Heading
+
 
 ## Target / Target
 
@@ -281,9 +262,7 @@ Audited October 15, 2026. Each bullet is one visual row; [empty] is an empty cel
 
 ### Bar Style
 
-- Bar style | Corner radius
-- Border width | Bookend width
-- Bookends
+- Bar style | Bookends
 
 ### Animation
 
@@ -296,35 +275,51 @@ Audited October 15, 2026. Each bullet is one visual row; [empty] is an empty cel
 - Drop shadow | Shadow strength
 - Shadow radius | [empty]
 - Shadow X offset | Shadow Y offset
-- Outer glow | Glow size
-- Fill glow | Fill glow strength
-- Fill glow radius
+- Outer glow | Fill glow
 
 ### Colors
 
 - Background opacity | [empty]
 - Fill top | Fill bottom
-- Background top | Background bottom
-- Bookend top | Bookend bottom
-- Border color | Shadow color
-- Glow color | Sheen color
+- Shadow color | Sheen color
 
 ### Text
 
+- Show text | [empty]
 - Font | Size (px)
-- Placement | Letter spacing
+- Alignment | Letter spacing
+- X offset | Y offset
+- Shadow | Shadow color
+- Soft shadow | [empty]
+- Stroke | Stroke color
+- Glow
+
+### Text / Distance
+
+- Show text | [empty]
+- Font | Size (px)
+- Alignment | Letter spacing
+- X offset | Y offset
+- Top color | Bottom color
+- Shadow | Shadow color
+- Soft shadow | Stroke
+- Glow
+
+### Text / Bar label
+
+- Show text | [empty]
+- Font | Size (px)
+- Alignment | Letter spacing
 - X offset | Y offset
 - Top color | Bottom color
 - Shadow | Shadow color
 - Soft shadow | [empty]
 - Stroke | Stroke color
-- Glow | Glow color
+- Glow
 
 ### Attack Timing
 
-- Enemy attack timer | Attack timer height
-- Text only | Drain
-- Attack timer color | Almost ready color
+- Enemy attack timer
 
 ### Status Effects
 
@@ -334,6 +329,9 @@ Audited October 15, 2026. Each bullet is one visual row; [empty] is an empty cel
 - Status X offset | Status Y offset
 - Status icon spacing | Status row spacing
 - Status icon theme | Status opacity
+- Lullaby | Requiem
+- Elegy | Threnody
+- Nocturne | Virelai
 - Status timers | Crowd-control timers only
 - Unknown timer markers | Timer placement
 - Status timer scale | Status tooltips
@@ -341,45 +339,27 @@ Audited October 15, 2026. Each bullet is one visual row; [empty] is an empty cel
 
 ### Cast Bar
 
-- Bar style | Background opacity
-- Corner radius | Border width
-- Bookend width | Bookends
-- Background top | Background bottom
-- Bookend top | Bookend bottom
-- Border color | [empty]
-- Drop shadow | Shadow color
-- Shadow strength | Shadow radius
-- Shadow X offset | Shadow Y offset
-- Outer glow | Glow color
-- Glow size | Fill glow
-- Fill glow strength | Fill glow radius
-- Animated sheen | Sheen color
-- Sheen width | Sheen speed
-- Smooth fill | Fill response
-- Cast height | Cast spacing
+- Cast position | [empty]
+- Cast width | Cast height
+- Cast spacing | [empty]
+- Cast X offset | Cast Y offset
 - Independent cast style | Custom cast gradient
-- Cast fill top | Cast fill bottom
 
 ### Entity Colors
 
-- Entity HP gradients | HP entity type
-- Entity HP top | Entity HP bottom
-- Custom entity names | Name entity type
-- Entity name color
+- Entity HP gradients | Custom entity names
 
 ### Mob Info
 
-- Mob information | [empty]
+- Mob information | Show text
 - Font | Size (px)
 - Letter spacing | [empty]
 - X offset | Y offset
 - Row spacing | [empty]
 - Top color | Bottom color
 - Shadow | Shadow color
-- Soft shadow | [empty]
-- Stroke | Stroke color
-- Glow | Glow color
-- Mob level
+- Soft shadow | Stroke
+- Glow | Mob level
 
 ### Mob Info / Behavior
 
@@ -387,14 +367,7 @@ Audited October 15, 2026. Each bullet is one visual row; [empty] is an empty cel
 - Width | Icon size
 - Position | [empty]
 - Icon spacing | Wrap row spacing
-- Font | Size (px)
-- Letter spacing | [empty]
 - X offset | Y offset
-- Top color | Bottom color
-- Shadow | Shadow color
-- Soft shadow | [empty]
-- Stroke | Stroke color
-- Glow | Glow color
 
 ### Mob Info / Physical damage
 
@@ -403,14 +376,7 @@ Audited October 15, 2026. Each bullet is one visual row; [empty] is an empty cel
 - Width | Icon size
 - Position | [empty]
 - Icon spacing | Wrap row spacing
-- Font | Size (px)
-- Letter spacing | [empty]
 - X offset | Y offset
-- Top color | Bottom color
-- Shadow | Shadow color
-- Soft shadow | [empty]
-- Stroke | Stroke color
-- Glow | Glow color
 
 ## Target / Target of Target
 
@@ -426,57 +392,50 @@ Audited October 15, 2026. Each bullet is one visual row; [empty] is an empty cel
 ### Layout
 
 - Width | Bar height
-- Arrow size | Cast bar height
-- Position | Bar alignment
+- Arrow size | Position
+- Bar alignment | [empty]
 - X offset | Y offset
 - Arrow X offset | Arrow Y offset
 - Spacing | Arrow gap
 
 ### Bar Style
 
-- Follow target style | Bar style
-- Automatic bar height | Corner radius
-- Border width | Bookend width
-- Bookends
+- Follow target style
 
 ### Animation
 
-- Follow target style | Animated sheen
-- Sheen width | Sheen speed
-- Smooth fill | Fill response
+- Follow target style
 
 ### Effects
 
-- Follow target style | Drop shadow
-- Shadow strength | Shadow radius
-- Shadow X offset | Shadow Y offset
-- Outer glow | Glow size
-- Fill glow | Fill glow strength
-- Fill glow radius
+- Follow target style
 
 ### Colors
 
-- Follow target colors | Background opacity
-- Background top | Background bottom
-- Bookend top | Bookend bottom
-- Border color | Shadow color
-- Glow color | Sheen color
-- Fill top | Fill bottom
-- Arrow color
+- Follow target colors | Arrow color
 
 ### Text
 
-- Follow target text | [empty]
+- Show text | Follow target text
 - Font | Size (px)
-- Name position | Placement
+- Name position | Alignment
+- Letter spacing | [empty]
+- X offset | Y offset
+- Shadow | Shadow color
+- Soft shadow | Stroke
+- Glow | Game name colors
+
+### Text / Distance
+
+- Show text | Follow target text
+- Font | Size (px)
+- Name position | Alignment
 - Letter spacing | [empty]
 - X offset | Y offset
 - Top color | Bottom color
 - Shadow | Shadow color
-- Soft shadow | [empty]
-- Stroke | Stroke color
-- Glow | Glow color
-- Game name colors
+- Soft shadow | Stroke
+- Glow | Game name colors
 
 ## Target / Subtarget
 
@@ -499,9 +458,7 @@ Audited October 15, 2026. Each bullet is one visual row; [empty] is an empty cel
 ### Bar Style
 
 - Follow target style | Bar style
-- Automatic bar height | Corner radius
-- Border width | Bookend width
-- Bookends
+- Automatic bar height | Bookends
 
 ### Animation
 
@@ -514,32 +471,50 @@ Audited October 15, 2026. Each bullet is one visual row; [empty] is an empty cel
 - Follow target style | Drop shadow
 - Shadow strength | Shadow radius
 - Shadow X offset | Shadow Y offset
-- Outer glow | Glow size
-- Fill glow | Fill glow strength
-- Fill glow radius
+- Outer glow | Fill glow
 
 ### Colors
 
 - Follow target colors | Background opacity
-- Background top | Background bottom
-- Bookend top | Bookend bottom
-- Border color | Shadow color
-- Glow color | Sheen color
+- Shadow color | Sheen color
 - Fill top | Fill bottom
 
 ### Text
 
-- Follow target text | [empty]
+- Show text | Follow target text
 - Font | Size (px)
-- Name position | Placement
+- Name position | Alignment
+- Letter spacing | [empty]
+- X offset | Y offset
+- Shadow | Shadow color
+- Soft shadow | [empty]
+- Stroke | Stroke color
+- Glow | Game name colors
+
+### Text / Distance
+
+- Show text | Follow target text
+- Font | Size (px)
+- Name position | Alignment
+- Letter spacing | [empty]
+- X offset | Y offset
+- Top color | Bottom color
+- Shadow | Shadow color
+- Soft shadow | Stroke
+- Glow | Game name colors
+
+### Text / HP label
+
+- Show text | Follow target text
+- Font | Size (px)
+- Name position | Alignment
 - Letter spacing | [empty]
 - X offset | Y offset
 - Top color | Bottom color
 - Shadow | Shadow color
 - Soft shadow | [empty]
 - Stroke | Stroke color
-- Glow | Glow color
-- Game name colors
+- Glow | Game name colors
 
 ### Attack Timing
 
@@ -562,8 +537,8 @@ Audited October 15, 2026. Each bullet is one visual row; [empty] is an empty cel
 ### General
 
 - Enabled | Heal prediction
-- Healing potency bonus (%) | Name
-- HP percent
+- Healing potency bonus (%) | Overheal prediction
+- Name | HP percent
 
 ### Layout
 
@@ -572,9 +547,7 @@ Audited October 15, 2026. Each bullet is one visual row; [empty] is an empty cel
 
 ### Bar Style
 
-- Bar style | Corner radius
-- Border width | Bookend width
-- Bookends
+- Bar style | Bookends
 
 ### Animation
 
@@ -587,36 +560,43 @@ Audited October 15, 2026. Each bullet is one visual row; [empty] is an empty cel
 - Drop shadow | Shadow strength
 - Shadow radius | [empty]
 - Shadow X offset | Shadow Y offset
-- Outer glow | Glow size
-- Fill glow | Fill glow strength
-- Fill glow radius
+- Outer glow | Fill glow
 
 ### Colors
 
 - Follow Target colors | Background opacity
-- Fill top | Fill bottom
-- Background top | Background bottom
-- Bookend top | Bookend bottom
-- Border color | Heal prediction color
-- Shadow color | Glow color
-- Sheen color
+- Heal prediction color | Overheal color
+- Shadow color | Sheen color
 
 ### Text
 
+- Show text | [empty]
 - Font | Size (px)
-- Placement | Letter spacing
+- Alignment | Letter spacing
+- X offset | Y offset
+- Top color | Bottom color
+- Shadow | Shadow color
+- Soft shadow | Stroke
+- Glow
+
+### Text / HP percent
+
+- Show text | [empty]
+- Font | Size (px)
+- Alignment | Letter spacing
 - X offset | Y offset
 - Top color | Bottom color
 - Shadow | Shadow color
 - Soft shadow | [empty]
 - Stroke | Stroke color
-- Glow | Glow color
+- Glow
 
 ## Target / Target Rings
 
 ### General
 
-- Enabled | HP fill
+- Enabled | Show for NPCs
+- Show for players | HP fill
 
 ### Layout
 
@@ -624,7 +604,12 @@ Audited October 15, 2026. Each bullet is one visual row; [empty] is an empty cel
 
 ### Colors
 
-- Ring color
+- Follow target name color | Ring color
+
+## Target Cast Bar
+
+### General
+
 
 ## Target of Target
 
@@ -640,57 +625,50 @@ Audited October 15, 2026. Each bullet is one visual row; [empty] is an empty cel
 ### Layout
 
 - Width | Bar height
-- Arrow size | Cast bar height
-- Position | Bar alignment
+- Arrow size | Position
+- Bar alignment | [empty]
 - X offset | Y offset
 - Arrow X offset | Arrow Y offset
 - Spacing | Arrow gap
 
 ### Bar Style
 
-- Follow target style | Bar style
-- Automatic bar height | Corner radius
-- Border width | Bookend width
-- Bookends
+- Follow target style
 
 ### Animation
 
-- Follow target style | Animated sheen
-- Sheen width | Sheen speed
-- Smooth fill | Fill response
+- Follow target style
 
 ### Effects
 
-- Follow target style | Drop shadow
-- Shadow strength | Shadow radius
-- Shadow X offset | Shadow Y offset
-- Outer glow | Glow size
-- Fill glow | Fill glow strength
-- Fill glow radius
+- Follow target style
 
 ### Colors
 
-- Follow target colors | Background opacity
-- Background top | Background bottom
-- Bookend top | Bookend bottom
-- Border color | Shadow color
-- Glow color | Sheen color
-- Fill top | Fill bottom
-- Arrow color
+- Follow target colors | Arrow color
 
 ### Text
 
-- Follow target text | [empty]
+- Show text | Follow target text
 - Font | Size (px)
-- Name position | Placement
+- Name position | Alignment
+- Letter spacing | [empty]
+- X offset | Y offset
+- Shadow | Shadow color
+- Soft shadow | Stroke
+- Glow | Game name colors
+
+### Text / Distance
+
+- Show text | Follow target text
+- Font | Size (px)
+- Name position | Alignment
 - Letter spacing | [empty]
 - X offset | Y offset
 - Top color | Bottom color
 - Shadow | Shadow color
-- Soft shadow | [empty]
-- Stroke | Stroke color
-- Glow | Glow color
-- Game name colors
+- Soft shadow | Stroke
+- Glow | Game name colors
 
 ## Subtarget
 
@@ -713,9 +691,7 @@ Audited October 15, 2026. Each bullet is one visual row; [empty] is an empty cel
 ### Bar Style
 
 - Follow target style | Bar style
-- Automatic bar height | Corner radius
-- Border width | Bookend width
-- Bookends
+- Automatic bar height | Bookends
 
 ### Animation
 
@@ -728,32 +704,50 @@ Audited October 15, 2026. Each bullet is one visual row; [empty] is an empty cel
 - Follow target style | Drop shadow
 - Shadow strength | Shadow radius
 - Shadow X offset | Shadow Y offset
-- Outer glow | Glow size
-- Fill glow | Fill glow strength
-- Fill glow radius
+- Outer glow | Fill glow
 
 ### Colors
 
 - Follow target colors | Background opacity
-- Background top | Background bottom
-- Bookend top | Bookend bottom
-- Border color | Shadow color
-- Glow color | Sheen color
+- Shadow color | Sheen color
 - Fill top | Fill bottom
 
 ### Text
 
-- Follow target text | [empty]
+- Show text | Follow target text
 - Font | Size (px)
-- Name position | Placement
+- Name position | Alignment
+- Letter spacing | [empty]
+- X offset | Y offset
+- Shadow | Shadow color
+- Soft shadow | [empty]
+- Stroke | Stroke color
+- Glow | Game name colors
+
+### Text / Distance
+
+- Show text | Follow target text
+- Font | Size (px)
+- Name position | Alignment
+- Letter spacing | [empty]
+- X offset | Y offset
+- Top color | Bottom color
+- Shadow | Shadow color
+- Soft shadow | Stroke
+- Glow | Game name colors
+
+### Text / HP label
+
+- Show text | Follow target text
+- Font | Size (px)
+- Name position | Alignment
 - Letter spacing | [empty]
 - X offset | Y offset
 - Top color | Bottom color
 - Shadow | Shadow color
 - Soft shadow | [empty]
 - Stroke | Stroke color
-- Glow | Glow color
-- Game name colors
+- Glow | Game name colors
 
 ### Attack Timing
 
@@ -834,13 +828,11 @@ Audited October 15, 2026. Each bullet is one visual row; [empty] is an empty cel
 
 - Width | Bar height
 - Maximum columns | Rows per column
-- Column spacing | Row spacing
+- Row spacing
 
 ### Bar Style
 
-- Bar style | Corner radius
-- Border width | Bookend width
-- Bookends
+- Bar style | Bookends
 
 ### Animation
 
@@ -853,36 +845,42 @@ Audited October 15, 2026. Each bullet is one visual row; [empty] is an empty cel
 - Drop shadow | Shadow strength
 - Shadow radius | [empty]
 - Shadow X offset | Shadow Y offset
-- Outer glow | Glow size
-- Fill glow | Fill glow strength
-- Fill glow radius
+- Outer glow | Fill glow
 
 ### Colors
 
 - Background opacity | [empty]
 - HP fill top | HP fill bottom
-- Background top | Background bottom
-- Bookend top | Bookend bottom
-- Border color | Shadow color
-- Glow color | Sheen color
+- Shadow color | Sheen color
 - Attacking you | Cast
 
 ### Text
 
+- Show text | [empty]
 - Font | Size (px)
-- Placement | Letter spacing
+- Alignment | Letter spacing
+- X offset | Y offset
+- Shadow | Shadow color
+- Soft shadow | Stroke
+- Glow
+
+### Text / Details
+
+- Show text | [empty]
+- Font | Size (px)
+- Alignment | Letter spacing
 - X offset | Y offset
 - Top color | Bottom color
 - Shadow | Shadow color
-- Soft shadow | [empty]
-- Stroke | Stroke color
-- Glow | Glow color
+- Soft shadow | Stroke
+- Glow
+
+### Text / Attack timing
+
 
 ### Attack Timing
 
-- Enemy attack timer | Attack timer height
-- Text only | Drain
-- Attack timer color | Almost ready color
+- Enemy attack timer
 
 ### Statuses
 
@@ -899,10 +897,7 @@ Audited October 15, 2026. Each bullet is one visual row; [empty] is an empty cel
 
 ### Target Panel
 
-- Separate target panel | Target width
-- Target X offset | Target Y offset
-- Target padding | Target opacity
-- Target borders
+- Separate target panel
 
 ### Appearance
 
@@ -916,22 +911,20 @@ Audited October 15, 2026. Each bullet is one visual row; [empty] is an empty cel
 - Enabled | Show this pet type
 - HP percent | MP percent
 - TP | Distance
-- Job icon fallback | Ability recasts
-- Recasts without pet | Observed elapsed time
-- Container | Pet portrait
-- Lifetime information
+- Ability recasts | Recasts without pet
+- Observed elapsed time
 
 ### Layout
 
+- Show background | [empty]
 - Width | Bar height
 - Opacity | Padding
-- Row spacing | Portrait size
+- Row spacing | Resource width
+- Anchor bottom
 
 ### Bar Style
 
-- Bar style | Corner radius
-- Border width | Bookend width
-- Bookends
+- Bar style | Bookends
 
 ### Animation
 
@@ -944,29 +937,40 @@ Audited October 15, 2026. Each bullet is one visual row; [empty] is an empty cel
 - Drop shadow | Shadow strength
 - Shadow radius | [empty]
 - Shadow X offset | Shadow Y offset
-- Outer glow | Glow size
-- Fill glow | Fill glow strength
-- Fill glow radius
+- Outer glow | Fill glow
 
 ### Colors
 
-- Background opacity | [empty]
-- Background top | Background bottom
-- Bookend top | Bookend bottom
-- Border color | Shadow color
-- Glow color | Sheen color
-- Fill top | Fill bottom
+- Background opacity | Shadow color
+- Sheen color | Fill top
+- Fill bottom
 
 ### Text
 
+- Show text | [empty]
 - Font | Size (px)
-- Placement | Letter spacing
+- Alignment | Letter spacing
 - X offset | Y offset
 - Top color | Bottom color
 - Shadow | Shadow color
 - Soft shadow | [empty]
 - Stroke | Stroke color
-- Glow | Glow color
+- Glow | Independent resource text
+
+### Text / Details
+
+- Show text | [empty]
+- Font | Size (px)
+- Alignment | Letter spacing
+- X offset | Y offset
+- Top color | Bottom color
+- Shadow | Shadow color
+- Soft shadow | Stroke
+- Glow | Independent resource text
+
+### Text / HP values
+
+- Independent resource text
 
 ### Statuses
 
@@ -980,30 +984,57 @@ Audited October 15, 2026. Each bullet is one visual row; [empty] is an empty cel
 - Unknown timer markers | Timer placement
 - Status timer scale | Status tooltips
 - Status overflow count
+
+### Portrait
+
+- Pet portrait | Show background
+- Job icon fallback | Avatar image
+- Portrait size | Image scale
+- Portrait position | [empty]
+- Image offset X | Image offset Y
+- Image opacity | Clip image to window
+
+### Recasts
+
+- Recast X offset | Recast Y offset
+- Ready top | Ready bottom
+- Cooldown top | Cooldown bottom
+- Recast presentation | Show ability
+- Recast width | Ability names
+- Recast timers | Recast alignment
+- Ability spacing | Recast top spacing
 
 ## Pet / Jug pet
 
 ### General
 
 - Enabled | Show this pet type
-- HP percent | MP percent
-- TP | Distance
-- Job icon fallback | Ability recasts
+- HP percent | TP
+- Distance | Ability recasts
 - Recasts without pet | Observed elapsed time
-- Container | Pet portrait
-- Lifetime information
+- Lifetime information | Estimated remaining lifetime
 
 ### Layout
 
+- Show background | [empty]
 - Width | Bar height
 - Opacity | Padding
-- Row spacing | Portrait size
+- Row spacing | Resource width
+- Anchor bottom
+
+### Layout / MP
+
+- Show background | Width
+- Opacity | Padding
+- Row spacing | Resource width
+- Anchor bottom
 
 ### Bar Style
 
-- Bar style | Corner radius
-- Border width | Bookend width
-- Bookends
+- Bar style | Bookends
+
+### Bar Style / MP
+
 
 ### Animation
 
@@ -1011,34 +1042,54 @@ Audited October 15, 2026. Each bullet is one visual row; [empty] is an empty cel
 - Sheen width | Sheen speed
 - Smooth fill | Fill response
 
+### Animation / MP
+
+
 ### Effects
 
 - Drop shadow | Shadow strength
 - Shadow radius | [empty]
 - Shadow X offset | Shadow Y offset
-- Outer glow | Glow size
-- Fill glow | Fill glow strength
-- Fill glow radius
+- Outer glow | Fill glow
+
+### Effects / MP
+
 
 ### Colors
 
-- Background opacity | [empty]
-- Background top | Background bottom
-- Bookend top | Bookend bottom
-- Border color | Shadow color
-- Glow color | Sheen color
-- Fill top | Fill bottom
+- Background opacity | Shadow color
+- Sheen color | Fill top
+- Fill bottom
+
+### Colors / MP
+
 
 ### Text
 
+- Show text | [empty]
 - Font | Size (px)
-- Placement | Letter spacing
+- Alignment | Letter spacing
 - X offset | Y offset
 - Top color | Bottom color
 - Shadow | Shadow color
 - Soft shadow | [empty]
 - Stroke | Stroke color
-- Glow | Glow color
+- Glow | Independent resource text
+
+### Text / Details
+
+- Show text | [empty]
+- Font | Size (px)
+- Alignment | Letter spacing
+- X offset | Y offset
+- Top color | Bottom color
+- Shadow | Shadow color
+- Soft shadow | Stroke
+- Glow | Independent resource text
+
+### Text / HP values
+
+- Independent resource text
 
 ### Statuses
 
@@ -1052,30 +1103,58 @@ Audited October 15, 2026. Each bullet is one visual row; [empty] is an empty cel
 - Unknown timer markers | Timer placement
 - Status timer scale | Status tooltips
 - Status overflow count
+
+### Portrait
+
+- Pet portrait | Show background
+- Job icon fallback | [empty]
+- Portrait size | Image scale
+- Portrait position | [empty]
+- Image offset X | Image offset Y
+- Image opacity | Clip image to window
+
+### Recasts
+
+- Recast X offset | Recast Y offset
+- Ready top | Ready bottom
+- Cooldown top | Cooldown bottom
+- Recast presentation | Show ability
+- Recast width | Ability names
+- Recast timers | Recast alignment
+- Ability spacing | Recast top spacing
 
 ## Pet / Charmed pet
 
 ### General
 
 - Enabled | Show this pet type
-- HP percent | MP percent
-- TP | Distance
-- Job icon fallback | Ability recasts
+- HP percent | TP
+- Distance | Ability recasts
 - Recasts without pet | Observed elapsed time
-- Container | Pet portrait
-- Lifetime information
+- Lifetime information | Estimated remaining lifetime
+- Charm bonus charisma
 
 ### Layout
 
+- Show background | [empty]
 - Width | Bar height
 - Opacity | Padding
-- Row spacing | Portrait size
+- Row spacing | Resource width
+- Anchor bottom
+
+### Layout / MP
+
+- Show background | Width
+- Opacity | Padding
+- Row spacing | Resource width
+- Anchor bottom
 
 ### Bar Style
 
-- Bar style | Corner radius
-- Border width | Bookend width
-- Bookends
+- Bar style | Bookends
+
+### Bar Style / MP
+
 
 ### Animation
 
@@ -1083,34 +1162,54 @@ Audited October 15, 2026. Each bullet is one visual row; [empty] is an empty cel
 - Sheen width | Sheen speed
 - Smooth fill | Fill response
 
+### Animation / MP
+
+
 ### Effects
 
 - Drop shadow | Shadow strength
 - Shadow radius | [empty]
 - Shadow X offset | Shadow Y offset
-- Outer glow | Glow size
-- Fill glow | Fill glow strength
-- Fill glow radius
+- Outer glow | Fill glow
+
+### Effects / MP
+
 
 ### Colors
 
-- Background opacity | [empty]
-- Background top | Background bottom
-- Bookend top | Bookend bottom
-- Border color | Shadow color
-- Glow color | Sheen color
-- Fill top | Fill bottom
+- Background opacity | Shadow color
+- Sheen color | Fill top
+- Fill bottom
+
+### Colors / MP
+
 
 ### Text
 
+- Show text | [empty]
 - Font | Size (px)
-- Placement | Letter spacing
+- Alignment | Letter spacing
 - X offset | Y offset
 - Top color | Bottom color
 - Shadow | Shadow color
 - Soft shadow | [empty]
 - Stroke | Stroke color
-- Glow | Glow color
+- Glow | Independent resource text
+
+### Text / Details
+
+- Show text | [empty]
+- Font | Size (px)
+- Alignment | Letter spacing
+- X offset | Y offset
+- Top color | Bottom color
+- Shadow | Shadow color
+- Soft shadow | Stroke
+- Glow | Independent resource text
+
+### Text / HP values
+
+- Independent resource text
 
 ### Statuses
 
@@ -1124,30 +1223,56 @@ Audited October 15, 2026. Each bullet is one visual row; [empty] is an empty cel
 - Unknown timer markers | Timer placement
 - Status timer scale | Status tooltips
 - Status overflow count
+
+### Portrait
+
+- Pet portrait | Show background
+- Job icon fallback | [empty]
+- Portrait size | Image scale
+- Portrait position | [empty]
+- Image offset X | Image offset Y
+- Image opacity | Clip image to window
+
+### Recasts
+
+- Recast X offset | Recast Y offset
+- Ready top | Ready bottom
+- Cooldown top | Cooldown bottom
+- Recast presentation | Show ability
+- Recast width | Ability names
+- Recast timers | Recast alignment
+- Ability spacing | Recast top spacing
 
 ## Pet / Wyvern
 
 ### General
 
 - Enabled | Show this pet type
-- HP percent | MP percent
-- TP | Distance
-- Job icon fallback | Ability recasts
+- HP percent | TP
+- Distance | Ability recasts
 - Recasts without pet | Observed elapsed time
-- Container | Pet portrait
-- Lifetime information
 
 ### Layout
 
+- Show background | [empty]
 - Width | Bar height
 - Opacity | Padding
-- Row spacing | Portrait size
+- Row spacing | Resource width
+- Anchor bottom
+
+### Layout / MP
+
+- Show background | Width
+- Opacity | Padding
+- Row spacing | Resource width
+- Anchor bottom
 
 ### Bar Style
 
-- Bar style | Corner radius
-- Border width | Bookend width
-- Bookends
+- Bar style | Bookends
+
+### Bar Style / MP
+
 
 ### Animation
 
@@ -1155,34 +1280,54 @@ Audited October 15, 2026. Each bullet is one visual row; [empty] is an empty cel
 - Sheen width | Sheen speed
 - Smooth fill | Fill response
 
+### Animation / MP
+
+
 ### Effects
 
 - Drop shadow | Shadow strength
 - Shadow radius | [empty]
 - Shadow X offset | Shadow Y offset
-- Outer glow | Glow size
-- Fill glow | Fill glow strength
-- Fill glow radius
+- Outer glow | Fill glow
+
+### Effects / MP
+
 
 ### Colors
 
-- Background opacity | [empty]
-- Background top | Background bottom
-- Bookend top | Bookend bottom
-- Border color | Shadow color
-- Glow color | Sheen color
-- Fill top | Fill bottom
+- Background opacity | Shadow color
+- Sheen color | Fill top
+- Fill bottom
+
+### Colors / MP
+
 
 ### Text
 
+- Show text | [empty]
 - Font | Size (px)
-- Placement | Letter spacing
+- Alignment | Letter spacing
 - X offset | Y offset
 - Top color | Bottom color
 - Shadow | Shadow color
 - Soft shadow | [empty]
 - Stroke | Stroke color
-- Glow | Glow color
+- Glow | Independent resource text
+
+### Text / Details
+
+- Show text | [empty]
+- Font | Size (px)
+- Alignment | Letter spacing
+- X offset | Y offset
+- Top color | Bottom color
+- Shadow | Shadow color
+- Soft shadow | Stroke
+- Glow | Independent resource text
+
+### Text / HP values
+
+- Independent resource text
 
 ### Statuses
 
@@ -1196,6 +1341,25 @@ Audited October 15, 2026. Each bullet is one visual row; [empty] is an empty cel
 - Unknown timer markers | Timer placement
 - Status timer scale | Status tooltips
 - Status overflow count
+
+### Portrait
+
+- Pet portrait | Show background
+- Job icon fallback | [empty]
+- Portrait size | Image scale
+- Portrait position | [empty]
+- Image offset X | Image offset Y
+- Image opacity | Clip image to window
+
+### Recasts
+
+- Recast X offset | Recast Y offset
+- Ready top | Ready bottom
+- Cooldown top | Cooldown bottom
+- Recast presentation | Show ability
+- Recast width | Ability names
+- Recast timers | Recast alignment
+- Ability spacing | Recast top spacing
 
 ## Pet / Automaton
 
@@ -1204,22 +1368,20 @@ Audited October 15, 2026. Each bullet is one visual row; [empty] is an empty cel
 - Enabled | Show this pet type
 - HP percent | MP percent
 - TP | Distance
-- Job icon fallback | Ability recasts
-- Recasts without pet | Observed elapsed time
-- Container | Pet portrait
-- Lifetime information
+- Ability recasts | Recasts without pet
+- Observed elapsed time
 
 ### Layout
 
+- Show background | [empty]
 - Width | Bar height
 - Opacity | Padding
-- Row spacing | Portrait size
+- Row spacing | Resource width
+- Anchor bottom
 
 ### Bar Style
 
-- Bar style | Corner radius
-- Border width | Bookend width
-- Bookends
+- Bar style | Bookends
 
 ### Animation
 
@@ -1232,29 +1394,40 @@ Audited October 15, 2026. Each bullet is one visual row; [empty] is an empty cel
 - Drop shadow | Shadow strength
 - Shadow radius | [empty]
 - Shadow X offset | Shadow Y offset
-- Outer glow | Glow size
-- Fill glow | Fill glow strength
-- Fill glow radius
+- Outer glow | Fill glow
 
 ### Colors
 
-- Background opacity | [empty]
-- Background top | Background bottom
-- Bookend top | Bookend bottom
-- Border color | Shadow color
-- Glow color | Sheen color
-- Fill top | Fill bottom
+- Background opacity | Shadow color
+- Sheen color | Fill top
+- Fill bottom
 
 ### Text
 
+- Show text | [empty]
 - Font | Size (px)
-- Placement | Letter spacing
+- Alignment | Letter spacing
 - X offset | Y offset
 - Top color | Bottom color
 - Shadow | Shadow color
 - Soft shadow | [empty]
 - Stroke | Stroke color
-- Glow | Glow color
+- Glow | Independent resource text
+
+### Text / Details
+
+- Show text | [empty]
+- Font | Size (px)
+- Alignment | Letter spacing
+- X offset | Y offset
+- Top color | Bottom color
+- Shadow | Shadow color
+- Soft shadow | Stroke
+- Glow | Independent resource text
+
+### Text / HP values
+
+- Independent resource text
 
 ### Statuses
 
@@ -1268,6 +1441,25 @@ Audited October 15, 2026. Each bullet is one visual row; [empty] is an empty cel
 - Unknown timer markers | Timer placement
 - Status timer scale | Status tooltips
 - Status overflow count
+
+### Portrait
+
+- Pet portrait | Show background
+- Job icon fallback | [empty]
+- Portrait size | Image scale
+- Portrait position | [empty]
+- Image offset X | Image offset Y
+- Image opacity | Clip image to window
+
+### Recasts
+
+- Recast X offset | Recast Y offset
+- Ready top | Ready bottom
+- Cooldown top | Cooldown bottom
+- Recast presentation | Show ability
+- Recast width | Ability names
+- Recast timers | Recast alignment
+- Ability spacing | Recast top spacing
 
 ## Pet / Pet Target
 
@@ -1278,15 +1470,15 @@ Audited October 15, 2026. Each bullet is one visual row; [empty] is an empty cel
 
 ### Layout
 
-- Bar height | Snap to Pet
-- Attached gap | Attached width
+- Show background | Bar height
 - Attached X offset | Attached Y offset
+- Background padding | Background opacity
+- Tint background | Snap to Pet
+- Attached gap | Attached width
 
 ### Bar Style
 
-- Bar style | Corner radius
-- Border width | Bookend width
-- Bookends
+- Bar style | Bookends
 
 ### Animation
 
@@ -1299,29 +1491,36 @@ Audited October 15, 2026. Each bullet is one visual row; [empty] is an empty cel
 - Drop shadow | Shadow strength
 - Shadow radius | [empty]
 - Shadow X offset | Shadow Y offset
-- Outer glow | Glow size
-- Fill glow | Fill glow strength
-- Fill glow radius
+- Outer glow | Fill glow
 
 ### Colors
 
-- Background opacity | [empty]
-- Background top | Background bottom
-- Bookend top | Bookend bottom
-- Border color | Shadow color
-- Glow color | Sheen color
-- Fill top | Fill bottom
+- Background opacity | Shadow color
+- Sheen color | Fill top
+- Fill bottom
 
 ### Text
 
+- Show text | [empty]
 - Font | Size (px)
-- Placement | Letter spacing
+- Alignment | Letter spacing
 - X offset | Y offset
 - Top color | Bottom color
 - Shadow | Shadow color
 - Soft shadow | [empty]
 - Stroke | Stroke color
-- Glow | Glow color
+- Glow
+
+### Text / Distance
+
+- Show text | [empty]
+- Font | Size (px)
+- Alignment | Letter spacing
+- X offset | Y offset
+- Top color | Bottom color
+- Shadow | Shadow color
+- Soft shadow | Stroke
+- Glow
 
 ## Pet Target
 
@@ -1332,15 +1531,15 @@ Audited October 15, 2026. Each bullet is one visual row; [empty] is an empty cel
 
 ### Layout
 
-- Bar height | Snap to Pet
-- Attached gap | Attached width
+- Show background | Bar height
 - Attached X offset | Attached Y offset
+- Background padding | Background opacity
+- Tint background | Snap to Pet
+- Attached gap | Attached width
 
 ### Bar Style
 
-- Bar style | Corner radius
-- Border width | Bookend width
-- Bookends
+- Bar style | Bookends
 
 ### Animation
 
@@ -1353,29 +1552,36 @@ Audited October 15, 2026. Each bullet is one visual row; [empty] is an empty cel
 - Drop shadow | Shadow strength
 - Shadow radius | [empty]
 - Shadow X offset | Shadow Y offset
-- Outer glow | Glow size
-- Fill glow | Fill glow strength
-- Fill glow radius
+- Outer glow | Fill glow
 
 ### Colors
 
-- Background opacity | [empty]
-- Background top | Background bottom
-- Bookend top | Bookend bottom
-- Border color | Shadow color
-- Glow color | Sheen color
-- Fill top | Fill bottom
+- Background opacity | Shadow color
+- Sheen color | Fill top
+- Fill bottom
 
 ### Text
 
+- Show text | [empty]
 - Font | Size (px)
-- Placement | Letter spacing
+- Alignment | Letter spacing
 - X offset | Y offset
 - Top color | Bottom color
 - Shadow | Shadow color
 - Soft shadow | [empty]
 - Stroke | Stroke color
-- Glow | Glow color
+- Glow
+
+### Text / Distance
+
+- Show text | [empty]
+- Font | Size (px)
+- Alignment | Letter spacing
+- X offset | Y offset
+- Top color | Bottom color
+- Shadow | Shadow color
+- Soft shadow | Stroke
+- Glow
 
 ## Party
 
@@ -1410,29 +1616,25 @@ Audited October 15, 2026. Each bullet is one visual row; [empty] is an empty cel
 - Bar X offset | Bar Y offset
 - Cast placement
 
-### Jobs
+### Job Icons
 
-- Job icon size | Job placement
-- Icon follows name | [empty]
+- Job icon size | Icon follows name
 - Job icon X offset | Job icon Y offset
-- Job icons | Job text
-- Main job level | Subjob
-- Subjob level | Master level
+- Job icons
 
 ### Resources
 
 - Spell MP cost preview | Heal prediction
-- Healing potency bonus (%) | TP
-- Flash ready TP | Always show MP
-- Cast bars | HP display
-- MP display | Cast placement
-- TP display
+- Healing potency bonus (%) | Overheal prediction
+- TP | Flash ready TP
+- Always show MP | Cast bars
+- HP display | MP display
+- Cast placement | TP display
 
 ### Bar Style
 
-- Bar style | Corner radius
-- Border width | Bookend width
-- Bookends | Bar labels
+- Bar style | Bookends
+- Bar labels
 
 ### Animation
 
@@ -1445,20 +1647,16 @@ Audited October 15, 2026. Each bullet is one visual row; [empty] is an empty cel
 - Drop shadow | Shadow strength
 - Shadow radius | [empty]
 - Shadow X offset | Shadow Y offset
-- Outer glow | Glow size
-- Fill glow | Fill glow strength
-- Fill glow radius
+- Outer glow | Fill glow
 
 ### Colors
 
 - Background opacity | [empty]
 - Fill top | Fill bottom
-- Background top | Background bottom
-- Bookend top | Bookend bottom
-- Border color | Heal prediction color
-- Shadow color | Glow color
-- Sheen color | Ready TP text
-- Low HP name | Nearby distance
+- Heal prediction color | Overheal color
+- Shadow color | Sheen color
+- Ready TP text | Low HP name
+- Nearby distance
 
 ### Status Effects
 
@@ -1468,8 +1666,7 @@ Audited October 15, 2026. Each bullet is one visual row; [empty] is an empty cel
 - Statuses per row | Status limit
 - Status placement | [empty]
 - Status icon spacing | Status row spacing
-- Status gap | Status container padding
-- Status icon theme | Status container opacity
+- Status gap | Status icon theme
 - Status timers | Status tooltips
 
 ### Status Effects / Split buffs and debuffs
@@ -1482,23 +1679,47 @@ Audited October 15, 2026. Each bullet is one visual row; [empty] is an empty cel
 - Status X offset | Status Y offset
 - Status icon spacing | Status row spacing
 - Status gap | Split row gap
-- Status container padding | Status icon theme
-- Status container opacity | Status opacity
-- Status timers | Crowd-control timers only
-- Unknown timer markers | Timer placement
-- Status timer scale | Status tooltips
+- Status icon theme | Status opacity
+- Status timers | Status tooltips
 - Status overflow count
 
 ### Text
 
+- Show text | [empty]
 - Font | Size (px)
-- Placement | Letter spacing
+- Alignment | Letter spacing
 - X offset | Y offset
 - Top color | Bottom color
 - Shadow | Shadow color
 - Soft shadow | [empty]
 - Stroke | Stroke color
-- Glow | Glow color
+- Glow
+
+### Text / Jobs
+
+- Show job text | Show text
+- Main job level | Subjob
+- Subjob level | Master level
+- Stack job and subjob | [empty]
+- Anchor | Name placement
+- Font | Size (px)
+- Alignment | Letter spacing
+- X offset | Y offset
+- Top color | Bottom color
+- Shadow | Shadow color
+- Soft shadow | Stroke
+- Glow
+
+### Text / Sync
+
+- Show text | [empty]
+- Font | Size (px)
+- Alignment | Letter spacing
+- X offset | Y offset
+- Top color | Bottom color
+- Shadow | Shadow color
+- Soft shadow | Stroke
+- Glow
 
 ### Selection
 
@@ -1513,15 +1734,14 @@ Audited October 15, 2026. Each bullet is one visual row; [empty] is an empty cel
 - Bar height | Top inset
 - Other members | Direction
 - Ticker color | Ready color
-- Hide when full | [empty]
-- Font | Size (px)
-- Placement | Letter spacing
-- X offset | Y offset
-- Top color | Bottom color
-- Shadow | Shadow color
-- Soft shadow | [empty]
-- Stroke | Stroke color
-- Glow | Glow color
+
+### Tickers / Resting
+
+- Show ticker | Display
+- Bar height | Top inset
+- Other members | Direction
+- Ticker color | Ready color
+- Hide when full
 
 ### Window
 
@@ -1563,29 +1783,25 @@ Audited October 15, 2026. Each bullet is one visual row; [empty] is an empty cel
 - Bar X offset | Bar Y offset
 - Cast placement
 
-### Jobs
+### Job Icons
 
-- Job icon size | Job placement
-- Icon follows name | [empty]
+- Job icon size | Icon follows name
 - Job icon X offset | Job icon Y offset
-- Job icons | Job text
-- Main job level | Subjob
-- Subjob level | Master level
+- Job icons
 
 ### Resources
 
 - Spell MP cost preview | Heal prediction
-- Healing potency bonus (%) | TP
-- Flash ready TP | Always show MP
-- Cast bars | HP display
-- MP display | Cast placement
-- TP display
+- Healing potency bonus (%) | Overheal prediction
+- TP | Flash ready TP
+- Always show MP | Cast bars
+- HP display | MP display
+- Cast placement | TP display
 
 ### Bar Style
 
-- Bar style | Corner radius
-- Border width | Bookend width
-- Bookends | Bar labels
+- Bar style | Bookends
+- Bar labels
 
 ### Animation
 
@@ -1598,20 +1814,16 @@ Audited October 15, 2026. Each bullet is one visual row; [empty] is an empty cel
 - Drop shadow | Shadow strength
 - Shadow radius | [empty]
 - Shadow X offset | Shadow Y offset
-- Outer glow | Glow size
-- Fill glow | Fill glow strength
-- Fill glow radius
+- Outer glow | Fill glow
 
 ### Colors
 
 - Background opacity | [empty]
 - Fill top | Fill bottom
-- Background top | Background bottom
-- Bookend top | Bookend bottom
-- Border color | Heal prediction color
-- Shadow color | Glow color
-- Sheen color | Ready TP text
-- Low HP name | Nearby distance
+- Heal prediction color | Overheal color
+- Shadow color | Sheen color
+- Ready TP text | Low HP name
+- Nearby distance
 
 ### Status Effects
 
@@ -1620,8 +1832,7 @@ Audited October 15, 2026. Each bullet is one visual row; [empty] is an empty cel
 - Statuses per row | Status limit
 - Status placement | [empty]
 - Status icon spacing | Status row spacing
-- Status gap | Status container padding
-- Status icon theme | Status container opacity
+- Status gap | Status icon theme
 - Status timers | Status tooltips
 
 ### Status Effects / Split buffs and debuffs
@@ -1634,23 +1845,47 @@ Audited October 15, 2026. Each bullet is one visual row; [empty] is an empty cel
 - Status X offset | Status Y offset
 - Status icon spacing | Status row spacing
 - Status gap | Split row gap
-- Status container padding | Status icon theme
-- Status container opacity | Status opacity
-- Status timers | Crowd-control timers only
-- Unknown timer markers | Timer placement
-- Status timer scale | Status tooltips
+- Status icon theme | Status opacity
+- Status timers | Status tooltips
 - Status overflow count
 
 ### Text
 
+- Show text | [empty]
 - Font | Size (px)
-- Placement | Letter spacing
+- Alignment | Letter spacing
 - X offset | Y offset
 - Top color | Bottom color
 - Shadow | Shadow color
 - Soft shadow | [empty]
 - Stroke | Stroke color
-- Glow | Glow color
+- Glow
+
+### Text / Jobs
+
+- Show job text | Show text
+- Main job level | Subjob
+- Subjob level | Master level
+- Stack job and subjob | [empty]
+- Anchor | Name placement
+- Font | Size (px)
+- Alignment | Letter spacing
+- X offset | Y offset
+- Top color | Bottom color
+- Shadow | Shadow color
+- Soft shadow | Stroke
+- Glow
+
+### Text / Sync
+
+- Show text | [empty]
+- Font | Size (px)
+- Alignment | Letter spacing
+- X offset | Y offset
+- Top color | Bottom color
+- Shadow | Shadow color
+- Soft shadow | Stroke
+- Glow
 
 ### Selection
 
@@ -1665,15 +1900,14 @@ Audited October 15, 2026. Each bullet is one visual row; [empty] is an empty cel
 - Bar height | Top inset
 - Other members | Direction
 - Ticker color | Ready color
-- Hide when full | [empty]
-- Font | Size (px)
-- Placement | Letter spacing
-- X offset | Y offset
-- Top color | Bottom color
-- Shadow | Shadow color
-- Soft shadow | [empty]
-- Stroke | Stroke color
-- Glow | Glow color
+
+### Tickers / Resting
+
+- Show ticker | Display
+- Bar height | Top inset
+- Other members | Direction
+- Ticker color | Ready color
+- Hide when full
 
 ### Window
 
@@ -1715,29 +1949,25 @@ Audited October 15, 2026. Each bullet is one visual row; [empty] is an empty cel
 - Bar X offset | Bar Y offset
 - Cast placement
 
-### Jobs
+### Job Icons
 
-- Job icon size | Job placement
-- Icon follows name | [empty]
+- Job icon size | Icon follows name
 - Job icon X offset | Job icon Y offset
-- Job icons | Job text
-- Main job level | Subjob
-- Subjob level | Master level
+- Job icons
 
 ### Resources
 
 - Spell MP cost preview | Heal prediction
-- Healing potency bonus (%) | TP
-- Flash ready TP | Always show MP
-- Cast bars | HP display
-- MP display | Cast placement
-- TP display
+- Healing potency bonus (%) | Overheal prediction
+- TP | Flash ready TP
+- Always show MP | Cast bars
+- HP display | MP display
+- Cast placement | TP display
 
 ### Bar Style
 
-- Bar style | Corner radius
-- Border width | Bookend width
-- Bookends | Bar labels
+- Bar style | Bookends
+- Bar labels
 
 ### Animation
 
@@ -1750,20 +1980,16 @@ Audited October 15, 2026. Each bullet is one visual row; [empty] is an empty cel
 - Drop shadow | Shadow strength
 - Shadow radius | [empty]
 - Shadow X offset | Shadow Y offset
-- Outer glow | Glow size
-- Fill glow | Fill glow strength
-- Fill glow radius
+- Outer glow | Fill glow
 
 ### Colors
 
 - Background opacity | [empty]
 - Fill top | Fill bottom
-- Background top | Background bottom
-- Bookend top | Bookend bottom
-- Border color | Heal prediction color
-- Shadow color | Glow color
-- Sheen color | Ready TP text
-- Low HP name | Nearby distance
+- Heal prediction color | Overheal color
+- Shadow color | Sheen color
+- Ready TP text | Low HP name
+- Nearby distance
 
 ### Status Effects
 
@@ -1772,8 +1998,7 @@ Audited October 15, 2026. Each bullet is one visual row; [empty] is an empty cel
 - Statuses per row | Status limit
 - Status placement | [empty]
 - Status icon spacing | Status row spacing
-- Status gap | Status container padding
-- Status icon theme | Status container opacity
+- Status gap | Status icon theme
 - Status timers | Status tooltips
 
 ### Status Effects / Split buffs and debuffs
@@ -1786,23 +2011,47 @@ Audited October 15, 2026. Each bullet is one visual row; [empty] is an empty cel
 - Status X offset | Status Y offset
 - Status icon spacing | Status row spacing
 - Status gap | Split row gap
-- Status container padding | Status icon theme
-- Status container opacity | Status opacity
-- Status timers | Crowd-control timers only
-- Unknown timer markers | Timer placement
-- Status timer scale | Status tooltips
+- Status icon theme | Status opacity
+- Status timers | Status tooltips
 - Status overflow count
 
 ### Text
 
+- Show text | [empty]
 - Font | Size (px)
-- Placement | Letter spacing
+- Alignment | Letter spacing
 - X offset | Y offset
 - Top color | Bottom color
 - Shadow | Shadow color
 - Soft shadow | [empty]
 - Stroke | Stroke color
-- Glow | Glow color
+- Glow
+
+### Text / Jobs
+
+- Show job text | Show text
+- Main job level | Subjob
+- Subjob level | Master level
+- Stack job and subjob | [empty]
+- Anchor | Name placement
+- Font | Size (px)
+- Alignment | Letter spacing
+- X offset | Y offset
+- Top color | Bottom color
+- Shadow | Shadow color
+- Soft shadow | Stroke
+- Glow
+
+### Text / Sync
+
+- Show text | [empty]
+- Font | Size (px)
+- Alignment | Letter spacing
+- X offset | Y offset
+- Top color | Bottom color
+- Shadow | Shadow color
+- Soft shadow | Stroke
+- Glow
 
 ### Selection
 
@@ -1817,15 +2066,14 @@ Audited October 15, 2026. Each bullet is one visual row; [empty] is an empty cel
 - Bar height | Top inset
 - Other members | Direction
 - Ticker color | Ready color
-- Hide when full | [empty]
-- Font | Size (px)
-- Placement | Letter spacing
-- X offset | Y offset
-- Top color | Bottom color
-- Shadow | Shadow color
-- Soft shadow | [empty]
-- Stroke | Stroke color
-- Glow | Glow color
+
+### Tickers / Resting
+
+- Show ticker | Display
+- Bar height | Top inset
+- Other members | Direction
+- Ticker color | Ready color
+- Hide when full
 
 ### Window
 
@@ -1865,50 +2113,43 @@ Audited October 15, 2026. Each bullet is one visual row; [empty] is an empty cel
 ### Appearance
 
 - Bar style | Background opacity
-- Corner radius | Border width
-- Bookend width | Bookends
+- Bookends | [empty]
 - Fill top | Fill bottom
-- Background top | Background bottom
-- Bookend top | Bookend bottom
-- Border color | Shadow color
-- Glow color | Sheen color
+- Shadow color | Sheen color
 
 ### Effects
 
 - Drop shadow | Shadow strength
 - Shadow radius | [empty]
 - Shadow X offset | Shadow Y offset
-- Outer glow | Glow size
-- Fill glow | Fill glow strength
-- Fill glow radius | Animated sheen
+- Outer glow | Fill glow
+- Animated sheen | [empty]
 - Sheen width | Sheen speed
 - Smooth fill | Fill response
 
 ### Text
 
+- Show text | [empty]
 - Font | Size (px)
-- Placement | Letter spacing
+- Alignment | Letter spacing
 - X offset | Y offset
 - Top color | Bottom color
 - Shadow | Shadow color
 - Soft shadow | [empty]
 - Stroke | Stroke color
-- Glow | Glow color
-- Stable numbers
+- Glow | Stable numbers
 
 ### Tracking
 
 - Rate window | Rate calculation
 - Recent rewards | Goal
-- Target | Planned sync level
-- Planned population
+- Planned sync level | Planned population
 
 ### Alerts
 
 - Food ended | Dedication ended
 - Chain ending | Merit storage full
-- Goal reached | Alert sound
-- Sound volume | Mute while paused
+- Alert sound | Mute while paused
 - Chain warning | Warning color
 
 ### History
@@ -1925,15 +2166,14 @@ Audited October 15, 2026. Each bullet is one visual row; [empty] is an empty cel
 
 - Enabled | Slot dots
 - Count | Label
-- Separate containers | Fullness text color
-- Count display
+- Fullness text color | Count display
 
 ### Layout
 
 - Dot size | [empty]
 - Columns | Rows per group
 - Text position | Dot spacing
-- Group spacing | Container spacing
+- Group spacing
 
 ### Fullness
 
@@ -1944,19 +2184,18 @@ Audited October 15, 2026. Each bullet is one visual row; [empty] is an empty cel
 
 ### Appearance
 
-- Container | Container padding
-- Container opacity
+- Container
 
 ### Text
 
+- Show text | [empty]
 - Font | Size (px)
-- Placement | Letter spacing
+- Alignment | Letter spacing
 - X offset | Y offset
 - Top color | Bottom color
 - Shadow | Shadow color
-- Soft shadow | [empty]
-- Stroke | Stroke color
-- Glow | Glow color
+- Soft shadow | Stroke
+- Glow
 
 ## Satchel
 
@@ -1964,15 +2203,14 @@ Audited October 15, 2026. Each bullet is one visual row; [empty] is an empty cel
 
 - Enabled | Slot dots
 - Count | Label
-- Separate containers | Fullness text color
-- Count display
+- Fullness text color | Count display
 
 ### Layout
 
 - Dot size | [empty]
 - Columns | Rows per group
 - Text position | Dot spacing
-- Group spacing | Container spacing
+- Group spacing
 
 ### Fullness
 
@@ -1983,19 +2221,18 @@ Audited October 15, 2026. Each bullet is one visual row; [empty] is an empty cel
 
 ### Appearance
 
-- Container | Container padding
-- Container opacity
+- Container
 
 ### Text
 
+- Show text | [empty]
 - Font | Size (px)
-- Placement | Letter spacing
+- Alignment | Letter spacing
 - X offset | Y offset
 - Top color | Bottom color
 - Shadow | Shadow color
-- Soft shadow | [empty]
-- Stroke | Stroke color
-- Glow | Glow color
+- Soft shadow | Stroke
+- Glow
 
 ## Locker
 
@@ -2003,15 +2240,14 @@ Audited October 15, 2026. Each bullet is one visual row; [empty] is an empty cel
 
 - Enabled | Slot dots
 - Count | Label
-- Separate containers | Fullness text color
-- Count display
+- Fullness text color | Count display
 
 ### Layout
 
 - Dot size | [empty]
 - Columns | Rows per group
 - Text position | Dot spacing
-- Group spacing | Container spacing
+- Group spacing
 
 ### Fullness
 
@@ -2022,19 +2258,18 @@ Audited October 15, 2026. Each bullet is one visual row; [empty] is an empty cel
 
 ### Appearance
 
-- Container | Container padding
-- Container opacity
+- Container
 
 ### Text
 
+- Show text | [empty]
 - Font | Size (px)
-- Placement | Letter spacing
+- Alignment | Letter spacing
 - X offset | Y offset
 - Top color | Bottom color
 - Shadow | Shadow color
-- Soft shadow | [empty]
-- Stroke | Stroke color
-- Glow | Glow color
+- Soft shadow | Stroke
+- Glow
 
 ## Safe
 
@@ -2050,7 +2285,7 @@ Audited October 15, 2026. Each bullet is one visual row; [empty] is an empty cel
 - Dot size | [empty]
 - Columns | Rows per group
 - Text position | Dot spacing
-- Group spacing | Container spacing
+- Group spacing
 
 ### Fullness
 
@@ -2061,19 +2296,18 @@ Audited October 15, 2026. Each bullet is one visual row; [empty] is an empty cel
 
 ### Appearance
 
-- Container | Container padding
-- Container opacity
+- Container
 
 ### Text
 
+- Show text | [empty]
 - Font | Size (px)
-- Placement | Letter spacing
+- Alignment | Letter spacing
 - X offset | Y offset
 - Top color | Bottom color
 - Shadow | Shadow color
-- Soft shadow | [empty]
-- Stroke | Stroke color
-- Glow | Glow color
+- Soft shadow | Stroke
+- Glow
 
 ## Storage
 
@@ -2081,15 +2315,14 @@ Audited October 15, 2026. Each bullet is one visual row; [empty] is an empty cel
 
 - Enabled | Slot dots
 - Count | Label
-- Separate containers | Fullness text color
-- Count display
+- Fullness text color | Count display
 
 ### Layout
 
 - Dot size | [empty]
 - Columns | Rows per group
 - Text position | Dot spacing
-- Group spacing | Container spacing
+- Group spacing
 
 ### Fullness
 
@@ -2100,19 +2333,18 @@ Audited October 15, 2026. Each bullet is one visual row; [empty] is an empty cel
 
 ### Appearance
 
-- Container | Container padding
-- Container opacity
+- Container
 
 ### Text
 
+- Show text | [empty]
 - Font | Size (px)
-- Placement | Letter spacing
+- Alignment | Letter spacing
 - X offset | Y offset
 - Top color | Bottom color
 - Shadow | Shadow color
-- Soft shadow | [empty]
-- Stroke | Stroke color
-- Glow | Glow color
+- Soft shadow | Stroke
+- Glow
 
 ## Wardrobes
 
@@ -2128,7 +2360,7 @@ Audited October 15, 2026. Each bullet is one visual row; [empty] is an empty cel
 - Dot size | [empty]
 - Columns | Rows per group
 - Text position | Dot spacing
-- Group spacing | Container spacing
+- Group spacing
 
 ### Fullness
 
@@ -2139,19 +2371,18 @@ Audited October 15, 2026. Each bullet is one visual row; [empty] is an empty cel
 
 ### Appearance
 
-- Container | Container padding
-- Container opacity
+- Container
 
 ### Text
 
+- Show text | [empty]
 - Font | Size (px)
-- Placement | Letter spacing
+- Alignment | Letter spacing
 - X offset | Y offset
 - Top color | Bottom color
 - Shadow | Shadow color
-- Soft shadow | [empty]
-- Stroke | Stroke color
-- Glow | Glow color
+- Soft shadow | Stroke
+- Glow
 
 ## Equipment
 
@@ -2174,14 +2405,1101 @@ Audited October 15, 2026. Each bullet is one visual row; [empty] is an empty cel
 
 ### Text
 
+- Show text | [empty]
 - Font | Size (px)
-- Placement | Letter spacing
+- Alignment | Letter spacing
 - X offset | Y offset
 - Top color | Bottom color
 - Shadow | Shadow color
-- Soft shadow | [empty]
-- Stroke | Stroke color
-- Glow | Glow color
+- Soft shadow | Stroke
+- Glow
+
+## Satchel
+
+### General
+
+- Enabled | Override /satchel
+- Empty slots | Search all bags
+- Item tooltips | Read-only / restricted server
+- Autosort after transfers
+
+### Layout
+
+- Display order | [empty]
+- Columns | Rows
+- Icon size | Slot spacing
+
+### Appearance
+
+- Container | Container padding
+- Container opacity | Slot frames
+
+### Text
+
+- Show text | [empty]
+- Font | Size (px)
+- Alignment | Letter spacing
+- X offset | Y offset
+- Top color | Bottom color
+- Shadow | Shadow color
+- Soft shadow | Stroke
+- Glow
+
+## Action Bars / Hotbar 1
+
+### Actions
+
+- Enabled | Lock slot positions
+- Action storage | Pet-aware assignments
+- Replace native macros
+
+### Keybinds
+
+- Keybinds
+
+### Layout
+
+- Bar shape | [empty]
+- Slot size | Spacing
+- Vertical spacing
+
+### Display
+
+- Background opacity | Padding
+- Action set caption | Action labels
+- Empty slots | Container background
+- Tooltips
+
+### Slots
+
+- Frame style | Border thickness
+- Icon padding | Icon opacity (%)
+- Icon tint | [empty]
+- Apply design to all bars | Reset this slot design
+
+### Effects
+
+- Unavailable icon tint | [empty]
+- Hover highlight | Hover color
+- Pressed highlight | Pressed color
+- Activation flash | Recast overlay
+- Recast overlay color
+
+### Overlays
+
+- Key / button labels | Key label position
+- Key X offset | Key Y offset
+- Item counts and charges | Count position
+- Count X offset | Count Y offset
+- MP cost | MP cost position
+- MP X offset | MP Y offset
+- Recast display | Recast countdown
+- Recast position | [empty]
+- Recast X offset | Recast Y offset
+
+### Text
+
+- Text element | Independent text styles
+- Show text | [empty]
+- Font | Size (px)
+- Alignment | Letter spacing
+- X offset | Y offset
+- Top color | Bottom color
+- Shadow | Shadow color
+- Soft shadow | Stroke
+- Glow
+
+### Skillchains
+
+- Action predictions | Skillchain rules
+- Magic Burst HUD
+
+## Action Bars / Hotbar 2
+
+### Actions
+
+- Enabled | Lock slot positions
+- Action storage | Pet-aware assignments
+- Replace native macros
+
+### Keybinds
+
+- Keybinds
+
+### Layout
+
+- Bar shape | [empty]
+- Slot size | Spacing
+- Vertical spacing
+
+### Display
+
+- Background opacity | Padding
+- Action set caption | Action labels
+- Empty slots | Container background
+- Tooltips
+
+### Slots
+
+- Frame style | Border thickness
+- Icon padding | Icon opacity (%)
+- Icon tint | [empty]
+- Apply design to all bars | Reset this slot design
+
+### Effects
+
+- Unavailable icon tint | [empty]
+- Hover highlight | Hover color
+- Pressed highlight | Pressed color
+- Activation flash | Recast overlay
+- Recast overlay color
+
+### Overlays
+
+- Key / button labels | Key label position
+- Key X offset | Key Y offset
+- Item counts and charges | Count position
+- Count X offset | Count Y offset
+- MP cost | MP cost position
+- MP X offset | MP Y offset
+- Recast display | Recast countdown
+- Recast position | [empty]
+- Recast X offset | Recast Y offset
+
+### Text
+
+- Text element | Independent text styles
+- Show text | [empty]
+- Font | Size (px)
+- Alignment | Letter spacing
+- X offset | Y offset
+- Top color | Bottom color
+- Shadow | Shadow color
+- Soft shadow | Stroke
+- Glow
+
+### Skillchains
+
+- Action predictions | Skillchain rules
+- Magic Burst HUD
+
+## Action Bars / Hotbar 3
+
+### Actions
+
+- Enabled | Lock slot positions
+- Action storage | Pet-aware assignments
+- Replace native macros
+
+### Keybinds
+
+- Keybinds
+
+### Layout
+
+- Bar shape | [empty]
+- Slot size | Spacing
+- Vertical spacing
+
+### Display
+
+- Background opacity | Padding
+- Action set caption | Action labels
+- Empty slots | Container background
+- Tooltips
+
+### Slots
+
+- Frame style | Border thickness
+- Icon padding | Icon opacity (%)
+- Icon tint | [empty]
+- Apply design to all bars | Reset this slot design
+
+### Effects
+
+- Unavailable icon tint | [empty]
+- Hover highlight | Hover color
+- Pressed highlight | Pressed color
+- Activation flash | Recast overlay
+- Recast overlay color
+
+### Overlays
+
+- Key / button labels | Key label position
+- Key X offset | Key Y offset
+- Item counts and charges | Count position
+- Count X offset | Count Y offset
+- MP cost | MP cost position
+- MP X offset | MP Y offset
+- Recast display | Recast countdown
+- Recast position | [empty]
+- Recast X offset | Recast Y offset
+
+### Text
+
+- Text element | Independent text styles
+- Show text | [empty]
+- Font | Size (px)
+- Alignment | Letter spacing
+- X offset | Y offset
+- Top color | Bottom color
+- Shadow | Shadow color
+- Soft shadow | Stroke
+- Glow
+
+### Skillchains
+
+- Action predictions | Skillchain rules
+- Magic Burst HUD
+
+## Action Bars / Hotbar 4
+
+### Actions
+
+- Enabled | Lock slot positions
+- Action storage | Pet-aware assignments
+- Replace native macros
+
+### Keybinds
+
+- Keybinds
+
+### Layout
+
+- Bar shape | [empty]
+- Slot size | Spacing
+- Vertical spacing
+
+### Display
+
+- Background opacity | Padding
+- Action set caption | Action labels
+- Empty slots | Container background
+- Tooltips
+
+### Slots
+
+- Frame style | Border thickness
+- Icon padding | Icon opacity (%)
+- Icon tint | [empty]
+- Apply design to all bars | Reset this slot design
+
+### Effects
+
+- Unavailable icon tint | [empty]
+- Hover highlight | Hover color
+- Pressed highlight | Pressed color
+- Activation flash | Recast overlay
+- Recast overlay color
+
+### Overlays
+
+- Key / button labels | Key label position
+- Key X offset | Key Y offset
+- Item counts and charges | Count position
+- Count X offset | Count Y offset
+- MP cost | MP cost position
+- MP X offset | MP Y offset
+- Recast display | Recast countdown
+- Recast position | [empty]
+- Recast X offset | Recast Y offset
+
+### Text
+
+- Text element | Independent text styles
+- Show text | [empty]
+- Font | Size (px)
+- Alignment | Letter spacing
+- X offset | Y offset
+- Top color | Bottom color
+- Shadow | Shadow color
+- Soft shadow | Stroke
+- Glow
+
+### Skillchains
+
+- Action predictions | Skillchain rules
+- Magic Burst HUD
+
+## Action Bars / Hotbar 5
+
+### Actions
+
+- Enabled | Lock slot positions
+- Action storage | Pet-aware assignments
+- Replace native macros
+
+### Keybinds
+
+- Keybinds
+
+### Layout
+
+- Bar shape | [empty]
+- Slot size | Spacing
+- Vertical spacing
+
+### Display
+
+- Background opacity | Padding
+- Action set caption | Action labels
+- Empty slots | Container background
+- Tooltips
+
+### Slots
+
+- Frame style | Border thickness
+- Icon padding | Icon opacity (%)
+- Icon tint | [empty]
+- Apply design to all bars | Reset this slot design
+
+### Effects
+
+- Unavailable icon tint | [empty]
+- Hover highlight | Hover color
+- Pressed highlight | Pressed color
+- Activation flash | Recast overlay
+- Recast overlay color
+
+### Overlays
+
+- Key / button labels | Key label position
+- Key X offset | Key Y offset
+- Item counts and charges | Count position
+- Count X offset | Count Y offset
+- MP cost | MP cost position
+- MP X offset | MP Y offset
+- Recast display | Recast countdown
+- Recast position | [empty]
+- Recast X offset | Recast Y offset
+
+### Text
+
+- Text element | Independent text styles
+- Show text | [empty]
+- Font | Size (px)
+- Alignment | Letter spacing
+- X offset | Y offset
+- Top color | Bottom color
+- Shadow | Shadow color
+- Soft shadow | Stroke
+- Glow
+
+### Skillchains
+
+- Action predictions | Skillchain rules
+- Magic Burst HUD
+
+## Action Bars / Hotbar 6
+
+### Actions
+
+- Enabled | Lock slot positions
+- Action storage | Pet-aware assignments
+- Replace native macros
+
+### Keybinds
+
+- Keybinds
+
+### Layout
+
+- Bar shape | [empty]
+- Slot size | Spacing
+- Vertical spacing
+
+### Display
+
+- Background opacity | Padding
+- Action set caption | Action labels
+- Empty slots | Container background
+- Tooltips
+
+### Slots
+
+- Frame style | Border thickness
+- Icon padding | Icon opacity (%)
+- Icon tint | [empty]
+- Apply design to all bars | Reset this slot design
+
+### Effects
+
+- Unavailable icon tint | [empty]
+- Hover highlight | Hover color
+- Pressed highlight | Pressed color
+- Activation flash | Recast overlay
+- Recast overlay color
+
+### Overlays
+
+- Key / button labels | Key label position
+- Key X offset | Key Y offset
+- Item counts and charges | Count position
+- Count X offset | Count Y offset
+- MP cost | MP cost position
+- MP X offset | MP Y offset
+- Recast display | Recast countdown
+- Recast position | [empty]
+- Recast X offset | Recast Y offset
+
+### Text
+
+- Text element | Independent text styles
+- Show text | [empty]
+- Font | Size (px)
+- Alignment | Letter spacing
+- X offset | Y offset
+- Top color | Bottom color
+- Shadow | Shadow color
+- Soft shadow | Stroke
+- Glow
+
+### Skillchains
+
+- Action predictions | Skillchain rules
+- Magic Burst HUD
+
+## Action Bars / Hotbar 7
+
+### Actions
+
+- Enabled | Lock slot positions
+- Action storage | Pet-aware assignments
+- Replace native macros
+
+### Keybinds
+
+- Keybinds
+
+### Layout
+
+- Bar shape | [empty]
+- Slot size | Spacing
+- Vertical spacing
+
+### Display
+
+- Background opacity | Padding
+- Action set caption | Action labels
+- Empty slots | Container background
+- Tooltips
+
+### Slots
+
+- Frame style | Border thickness
+- Icon padding | Icon opacity (%)
+- Icon tint | [empty]
+- Apply design to all bars | Reset this slot design
+
+### Effects
+
+- Unavailable icon tint | [empty]
+- Hover highlight | Hover color
+- Pressed highlight | Pressed color
+- Activation flash | Recast overlay
+- Recast overlay color
+
+### Overlays
+
+- Key / button labels | Key label position
+- Key X offset | Key Y offset
+- Item counts and charges | Count position
+- Count X offset | Count Y offset
+- MP cost | MP cost position
+- MP X offset | MP Y offset
+- Recast display | Recast countdown
+- Recast position | [empty]
+- Recast X offset | Recast Y offset
+
+### Text
+
+- Text element | Independent text styles
+- Show text | [empty]
+- Font | Size (px)
+- Alignment | Letter spacing
+- X offset | Y offset
+- Top color | Bottom color
+- Shadow | Shadow color
+- Soft shadow | Stroke
+- Glow
+
+### Skillchains
+
+- Action predictions | Skillchain rules
+- Magic Burst HUD
+
+## Action Bars / Hotbar 8
+
+### Actions
+
+- Enabled | Lock slot positions
+- Action storage | Pet-aware assignments
+- Replace native macros
+
+### Keybinds
+
+- Keybinds
+
+### Layout
+
+- Bar shape | [empty]
+- Slot size | Spacing
+- Vertical spacing
+
+### Display
+
+- Background opacity | Padding
+- Action set caption | Action labels
+- Empty slots | Container background
+- Tooltips
+
+### Slots
+
+- Frame style | Border thickness
+- Icon padding | Icon opacity (%)
+- Icon tint | [empty]
+- Apply design to all bars | Reset this slot design
+
+### Effects
+
+- Unavailable icon tint | [empty]
+- Hover highlight | Hover color
+- Pressed highlight | Pressed color
+- Activation flash | Recast overlay
+- Recast overlay color
+
+### Overlays
+
+- Key / button labels | Key label position
+- Key X offset | Key Y offset
+- Item counts and charges | Count position
+- Count X offset | Count Y offset
+- MP cost | MP cost position
+- MP X offset | MP Y offset
+- Recast display | Recast countdown
+- Recast position | [empty]
+- Recast X offset | Recast Y offset
+
+### Text
+
+- Text element | Independent text styles
+- Show text | [empty]
+- Font | Size (px)
+- Alignment | Letter spacing
+- X offset | Y offset
+- Top color | Bottom color
+- Shadow | Shadow color
+- Soft shadow | Stroke
+- Glow
+
+### Skillchains
+
+- Action predictions | Skillchain rules
+- Magic Burst HUD
+
+## Action Bars / Hotbar 9
+
+### Actions
+
+- Enabled | Lock slot positions
+- Action storage | Pet-aware assignments
+- Replace native macros
+
+### Keybinds
+
+- Keybinds
+
+### Layout
+
+- Bar shape | [empty]
+- Slot size | Spacing
+- Vertical spacing
+
+### Display
+
+- Background opacity | Padding
+- Action set caption | Action labels
+- Empty slots | Container background
+- Tooltips
+
+### Slots
+
+- Frame style | Border thickness
+- Icon padding | Icon opacity (%)
+- Icon tint | [empty]
+- Apply design to all bars | Reset this slot design
+
+### Effects
+
+- Unavailable icon tint | [empty]
+- Hover highlight | Hover color
+- Pressed highlight | Pressed color
+- Activation flash | Recast overlay
+- Recast overlay color
+
+### Overlays
+
+- Key / button labels | Key label position
+- Key X offset | Key Y offset
+- Item counts and charges | Count position
+- Count X offset | Count Y offset
+- MP cost | MP cost position
+- MP X offset | MP Y offset
+- Recast display | Recast countdown
+- Recast position | [empty]
+- Recast X offset | Recast Y offset
+
+### Text
+
+- Text element | Independent text styles
+- Show text | [empty]
+- Font | Size (px)
+- Alignment | Letter spacing
+- X offset | Y offset
+- Top color | Bottom color
+- Shadow | Shadow color
+- Soft shadow | Stroke
+- Glow
+
+### Skillchains
+
+- Action predictions | Skillchain rules
+- Magic Burst HUD
+
+## Action Bars / Hotbar 10
+
+### Actions
+
+- Enabled | Lock slot positions
+- Action storage | Pet-aware assignments
+- Replace native macros
+
+### Keybinds
+
+- Keybinds
+
+### Layout
+
+- Bar shape | [empty]
+- Slot size | Spacing
+- Vertical spacing
+
+### Display
+
+- Background opacity | Padding
+- Action set caption | Action labels
+- Empty slots | Container background
+- Tooltips
+
+### Slots
+
+- Frame style | Border thickness
+- Icon padding | Icon opacity (%)
+- Icon tint | [empty]
+- Apply design to all bars | Reset this slot design
+
+### Effects
+
+- Unavailable icon tint | [empty]
+- Hover highlight | Hover color
+- Pressed highlight | Pressed color
+- Activation flash | Recast overlay
+- Recast overlay color
+
+### Overlays
+
+- Key / button labels | Key label position
+- Key X offset | Key Y offset
+- Item counts and charges | Count position
+- Count X offset | Count Y offset
+- MP cost | MP cost position
+- MP X offset | MP Y offset
+- Recast display | Recast countdown
+- Recast position | [empty]
+- Recast X offset | Recast Y offset
+
+### Text
+
+- Text element | Independent text styles
+- Show text | [empty]
+- Font | Size (px)
+- Alignment | Letter spacing
+- X offset | Y offset
+- Top color | Bottom color
+- Shadow | Shadow color
+- Soft shadow | Stroke
+- Glow
+
+### Skillchains
+
+- Action predictions | Skillchain rules
+- Magic Burst HUD
+
+## Action Bars / Crossbar
+
+### General
+
+- Enabled | Lock slot positions
+- Action storage | Pet-aware assignments
+- Replace native macros
+
+### Controller Setup
+
+- Controller Setup | Use XIUI trigger controls
+- Ordered two-trigger banks | Double-tap banks
+- Shoulder + D-pad palette switching | Show inactive crossbar
+- Controller prompts | Button prompts
+- Timing and mappings | Crossbar animations
+- Shared expanded bank | Button icons
+- Button icon size | Button icon horizontal spacing
+- Button icon vertical spacing | Crossbar visibility
+
+### Keybinds
+
+- Keybinds
+
+### Layout
+
+- Slot size | Spacing
+- Vertical spacing | Diamond spacing
+- Trigger group spacing
+
+### Display
+
+- Background opacity | Padding
+- Action set caption | Action labels
+- Empty slots | Container background
+- Tooltips
+
+### Slots
+
+- Frame style | Border thickness
+- Icon padding | Icon opacity (%)
+- Icon tint | [empty]
+- Apply design to all bars | Reset this slot design
+
+### Effects
+
+- Unavailable icon tint | [empty]
+- Inactive bank tint | Inactive bank opacity (%)
+- Hover highlight | Hover color
+- Pressed highlight | Pressed color
+- Activation flash | Recast overlay
+- Recast overlay color
+
+### Overlays
+
+- Key / button labels | Item counts and charges
+- Count position | [empty]
+- Count X offset | Count Y offset
+- MP cost | MP cost position
+- MP X offset | MP Y offset
+- Recast display | Recast countdown
+- Recast position | [empty]
+- Recast X offset | Recast Y offset
+
+### Text
+
+- Independent text styles | Show text
+- Font | Size (px)
+- Alignment | Letter spacing
+- X offset | Y offset
+- Top color | Bottom color
+- Shadow | Shadow color
+- Soft shadow | Stroke
+- Glow
+
+### Skillchains
+
+- Action predictions | Skillchain rules
+- Magic Burst HUD
+
+## Action Bars / Actions & Macros
+
+### General
+
+- Enabled | Lock slot positions
+- Action storage | Pet-aware assignments
+- Replace native macros
+
+### Controller Setup
+
+- Controller Setup | Use XIUI trigger controls
+- Ordered two-trigger banks | Double-tap banks
+- Shoulder + D-pad palette switching | Show inactive crossbar
+- Controller prompts | Button prompts
+- Timing and mappings | Crossbar animations
+- Shared expanded bank | Button icons
+- Button icon size | Button icon horizontal spacing
+- Button icon vertical spacing | Crossbar visibility
+
+### Keybinds
+
+- Keybinds
+
+### Layout
+
+- Slot size | Spacing
+- Vertical spacing | Diamond spacing
+- Trigger group spacing
+
+### Display
+
+- Background opacity | Padding
+- Action set caption | Action labels
+- Empty slots | Container background
+- Tooltips
+
+### Slots
+
+- Frame style | Border thickness
+- Icon padding | Icon opacity (%)
+- Icon tint | [empty]
+- Apply design to all bars | Reset this slot design
+
+### Effects
+
+- Unavailable icon tint | [empty]
+- Inactive bank tint | Inactive bank opacity (%)
+- Hover highlight | Hover color
+- Pressed highlight | Pressed color
+- Activation flash | Recast overlay
+- Recast overlay color
+
+### Overlays
+
+- Key / button labels | Item counts and charges
+- Count position | [empty]
+- Count X offset | Count Y offset
+- MP cost | MP cost position
+- MP X offset | MP Y offset
+- Recast display | Recast countdown
+- Recast position | [empty]
+- Recast X offset | Recast Y offset
+
+### Text
+
+- Independent text styles | Show text
+- Font | Size (px)
+- Alignment | Letter spacing
+- X offset | Y offset
+- Top color | Bottom color
+- Shadow | Shadow color
+- Soft shadow | Stroke
+- Glow
+
+### Skillchains
+
+- Action predictions | Skillchain rules
+- Magic Burst HUD
+
+## Action Bars / Action Sets
+
+### General
+
+- Enabled | Lock slot positions
+- Action storage | Pet-aware assignments
+- Replace native macros
+
+### Controller Setup
+
+- Controller Setup | Use XIUI trigger controls
+- Ordered two-trigger banks | Double-tap banks
+- Shoulder + D-pad palette switching | Show inactive crossbar
+- Controller prompts | Button prompts
+- Timing and mappings | Crossbar animations
+- Shared expanded bank | Button icons
+- Button icon size | Button icon horizontal spacing
+- Button icon vertical spacing | Crossbar visibility
+
+### Keybinds
+
+- Keybinds
+
+### Layout
+
+- Slot size | Spacing
+- Vertical spacing | Diamond spacing
+- Trigger group spacing
+
+### Display
+
+- Background opacity | Padding
+- Action set caption | Action labels
+- Empty slots | Container background
+- Tooltips
+
+### Slots
+
+- Frame style | Border thickness
+- Icon padding | Icon opacity (%)
+- Icon tint | [empty]
+- Apply design to all bars | Reset this slot design
+
+### Effects
+
+- Unavailable icon tint | [empty]
+- Inactive bank tint | Inactive bank opacity (%)
+- Hover highlight | Hover color
+- Pressed highlight | Pressed color
+- Activation flash | Recast overlay
+- Recast overlay color
+
+### Overlays
+
+- Key / button labels | Item counts and charges
+- Count position | [empty]
+- Count X offset | Count Y offset
+- MP cost | MP cost position
+- MP X offset | MP Y offset
+- Recast display | Recast countdown
+- Recast position | [empty]
+- Recast X offset | Recast Y offset
+
+### Text
+
+- Independent text styles | Show text
+- Font | Size (px)
+- Alignment | Letter spacing
+- X offset | Y offset
+- Top color | Bottom color
+- Shadow | Shadow color
+- Soft shadow | Stroke
+- Glow
+
+### Skillchains
+
+- Action predictions | Skillchain rules
+- Magic Burst HUD
+
+## Action Bars / Import
+
+### General
+
+- Enabled | Lock slot positions
+- Action storage | Pet-aware assignments
+- Replace native macros
+
+### Controller Setup
+
+- Controller Setup | Use XIUI trigger controls
+- Ordered two-trigger banks | Double-tap banks
+- Shoulder + D-pad palette switching | Show inactive crossbar
+- Controller prompts | Button prompts
+- Timing and mappings | Crossbar animations
+- Shared expanded bank | Button icons
+- Button icon size | Button icon horizontal spacing
+- Button icon vertical spacing | Crossbar visibility
+
+### Keybinds
+
+- Keybinds
+
+### Layout
+
+- Slot size | Spacing
+- Vertical spacing | Diamond spacing
+- Trigger group spacing
+
+### Display
+
+- Background opacity | Padding
+- Action set caption | Action labels
+- Empty slots | Container background
+- Tooltips
+
+### Slots
+
+- Frame style | Border thickness
+- Icon padding | Icon opacity (%)
+- Icon tint | [empty]
+- Apply design to all bars | Reset this slot design
+
+### Effects
+
+- Unavailable icon tint | [empty]
+- Inactive bank tint | Inactive bank opacity (%)
+- Hover highlight | Hover color
+- Pressed highlight | Pressed color
+- Activation flash | Recast overlay
+- Recast overlay color
+
+### Overlays
+
+- Key / button labels | Item counts and charges
+- Count position | [empty]
+- Count X offset | Count Y offset
+- MP cost | MP cost position
+- MP X offset | MP Y offset
+- Recast display | Recast countdown
+- Recast position | [empty]
+- Recast X offset | Recast Y offset
+
+### Text
+
+- Independent text styles | Show text
+- Font | Size (px)
+- Alignment | Letter spacing
+- X offset | Y offset
+- Top color | Bottom color
+- Shadow | Shadow color
+- Soft shadow | Stroke
+- Glow
+
+### Skillchains
+
+- Action predictions | Skillchain rules
+- Magic Burst HUD
+
+## Hotbar 2
+
+### General
+
+
+## Hotbar 3
+
+### General
+
+
+## Hotbar 4
+
+### General
+
+
+## Hotbar 5
+
+### General
+
+
+## Hotbar 6
+
+### General
+
+
+## Hotbar 7
+
+### General
+
+
+## Hotbar 8
+
+### General
+
+
+## Hotbar 9
+
+### General
+
+
+## Hotbar 10
+
+### General
+
+
+## Crossbar
+
+### General
+
 
 ## Gil
 
@@ -2198,26 +3516,25 @@ Audited October 15, 2026. Each bullet is one visual row; [empty] is an empty cel
 
 ### Appearance
 
-- Container | Container padding
-- Container opacity | Positive change
+- Container | Positive change
 - Negative change
 
 ### Text
 
+- Show text | [empty]
 - Font | Size (px)
-- Placement | Letter spacing
+- Alignment | Letter spacing
 - X offset | Y offset
 - Top color | Bottom color
 - Shadow | Shadow color
-- Soft shadow | [empty]
-- Stroke | Stroke color
-- Glow | Glow color
+- Soft shadow | Stroke
+- Glow
 
 ## Notifications
 
 ### General
 
-- Enabled
+- Enabled | Group count
 
 ### Events
 
@@ -2225,25 +3542,63 @@ Audited October 15, 2026. Each bullet is one visual row; [empty] is an empty cel
 - Skill gains | Party / alliance invites
 - Trade requests | Key items
 - Gil | Treasure pool
+- Notification type | Assigned group
 
 ### Layout
 
 - Screen anchor | Width
 - Visible rows | Anchored direction
-- Spacing
+- Stack direction | Spacing
 
 ### Appearance
 
-- Container background | [empty]
-- Font | Text size (px)
-- XP color | Item color
-- Skill color | Party invite color
-- Trade request color | Key item color
-- Gil color | Treasure color
+- Container background | XP color
+- Item color | Skill color
+- Party invite color | Trade request color
+- Key item color | Gil color
+- Treasure color
 
 ### Animation
 
 - Duration | Rise
+- Pin invitations | Minify after
+- Clear invitation notices
+
+### Text
+
+- Font | Text size (px)
+- Alignment | Letter spacing
+- X offset | Y offset
+- Top color | Bottom color
+- Shadow | Shadow color
+- Soft shadow | [empty]
+- Stroke | Stroke color
+- Glow
+
+## Group 2
+
+### General
+
+
+## Group 3
+
+### General
+
+
+## Group 4
+
+### General
+
+
+## Group 5
+
+### General
+
+
+## Group 6
+
+### General
+
 
 ## Blue Magic Learned
 
@@ -2258,14 +3613,14 @@ Audited October 15, 2026. Each bullet is one visual row; [empty] is an empty cel
 
 ### Text
 
+- Show text | [empty]
 - Font | Size (px)
-- Placement | Letter spacing
+- Alignment | Letter spacing
 - X offset | Y offset
 - Top color | Bottom color
 - Shadow | Shadow color
-- Soft shadow | [empty]
-- Stroke | Stroke color
-- Glow | Glow color
+- Soft shadow | Stroke
+- Glow
 
 ## Phantom Roll
 
@@ -2284,9 +3639,7 @@ Audited October 15, 2026. Each bullet is one visual row; [empty] is an empty cel
 
 ### Bar Style
 
-- Bar style | Corner radius
-- Border width | Bookend width
-- Bookends
+- Bar style | Bookends
 
 ### Animation
 
@@ -2299,31 +3652,74 @@ Audited October 15, 2026. Each bullet is one visual row; [empty] is an empty cel
 - Drop shadow | Shadow strength
 - Shadow radius | [empty]
 - Shadow X offset | Shadow Y offset
-- Outer glow | Glow size
-- Fill glow | Fill glow strength
-- Fill glow radius
+- Outer glow | Fill glow
 
 ### Colors
 
-- Background opacity | [empty]
-- Background top | Background bottom
-- Bookend top | Bookend bottom
-- Border color | Shadow color
-- Glow color | Sheen color
-- Lucky / eleven | Unlucky
-- Bust | Duration top
-- Duration bottom
+- Background opacity | Shadow color
+- Sheen color | Lucky / eleven
+- Unlucky | Bust
+- Duration top | Duration bottom
 
 ### Text
 
+- Show text | [empty]
 - Font | Size (px)
-- Placement | Letter spacing
+- Alignment | Letter spacing
 - X offset | Y offset
 - Top color | Bottom color
 - Shadow | Shadow color
-- Soft shadow | [empty]
-- Stroke | Stroke color
-- Glow | Glow color
+- Soft shadow | Stroke
+- Glow
+
+## Magic Burst
+
+### General
+
+- Magic Burst HUD
+
+### Appearance
+
+- Size | Opacity
+- Element artwork | Urgency pulse
+- Fade in
+
+### Text
+
+- Show text | [empty]
+- Font | Size (px)
+- Alignment | Letter spacing
+- X offset | Y offset
+- Top color | Bottom color
+- Shadow | Shadow color
+- Soft shadow | Stroke
+- Glow | Countdown
+- Chain name | Burst elements
+- Element text tint
+
+## Treasure Pool
+
+### General
+
+- Enabled | Open pool
+- Show automatically | Expanded rows
+
+### Appearance
+
+- Show title | Show details
+- Show timers | Width
+- Opacity | Padding
+
+### Text
+
+- Show text | [empty]
+- Font | Size (px)
+- Alignment | Letter spacing
+- X offset | Y offset
+- Top color | Bottom color
+- Shadow | Shadow color
+- Soft shadow | Stroke
+- Glow
 
 ## General
 
@@ -2340,20 +3736,17 @@ Audited October 15, 2026. Each bullet is one visual row; [empty] is an empty cel
 - Soft shadow | [empty]
 - Shadow X offset | Shadow Y offset
 - Stroke outline | Outline color
-- Outer glow | Glow color
-- Animated sheen | Sheen color
-- Sheen width | Sheen speed
+- Outer glow | Animated sheen
 
 ### Appearance / Config Text
 
-- Config font | Letter spacing
+- Config font | Config text size (px)
+- Letter spacing | [empty]
 - Drop shadow | Shadow color
 - Soft shadow | [empty]
 - Shadow X offset | Shadow Y offset
 - Stroke outline | Outline color
-- Outer glow | Glow color
-- Animated sheen | Sheen color
-- Sheen width | Sheen speed
+- Outer glow | Animated sheen
 
 ### Appearance / Controller Focus
 
@@ -2365,27 +3758,38 @@ Audited October 15, 2026. Each bullet is one visual row; [empty] is an empty cel
 - Glow | Glow color
 - Glow opacity | Glow spread
 
+### Appearance / HP Feedback
+
+- HP feedback | HP warning colors
+- Trail delay | Trail decay
+- Flash duration | Flash strength
+- Damage color | Healing color
+- Damage trail | Healing segment
+- Health flashes
+
 ### Enabled Modules
 
-- Cast Bar | Cast Cost
-- Recast | Chat
-- Chat 2 | Enemy List
-- EXP Bar | Inventory
+- Action Bars | Cast Bar
+- Cast Cost | Recast
+- Chat | Chat 2
+- Enemy List | EXP Bar
+- Satchel | Inventory
 - Equipment | Gil
+- Treasure Pool | Minimap
 - Notifications | Party
 - Pet | Player Bar
-- Ready Check | Buffs
-- Debuffs | Target
-- Compass | World Info
-- Commands | Game HUD
+- Buffs | Debuffs
+- Target | Compass
+- World Info | Commands
 - Blue Magic Learned | Phantom Roll
+- Ready Check | Magic Burst
 - Target of Target | Subtarget
 
 ### Attribution
 
 - Cadence | Momentum
 - ChatMon | Cursor Pack
-- Phoenix
+- Find | Phoenix
 
 ### Grid
 
@@ -2403,15 +3807,28 @@ Audited October 15, 2026. Each bullet is one visual row; [empty] is an empty cel
 
 ### Visibility
 
+- Hide all UI | Hide overhead names
 - Apply to | Hide during events
-- Hide with menus | Keep visible with macros
-- Keep Party with menus | Hide Player in party
+- Hide with menus | Hide Player in party
+
+### Game HUD
+
+- Game HUD controls | Hide native UI
+- Restore native UI | Player bars
+- Party list | Alliance 1
+- Alliance 2 | Target box
+- Cast bar | Status icons
+- Compass | Clock
+- Connection info | Menu title
+- Help bar | Chat window 1
+- Chat window 2 | Expanded chat
 
 ## Game HUD
 
 ### General
 
-- Game HUD controls | Player bars
+- Game HUD controls | Hide native UI
+- Restore native UI | Player bars
 - Party list | Alliance 1
 - Alliance 2 | Target box
 - Cast bar | Status icons
@@ -2435,7 +3852,8 @@ Audited October 15, 2026. Each bullet is one visual row; [empty] is an empty cel
 ### Layout
 
 - Width | Height
-- Line spacing | Padding
+- Line spacing | Reactive window sizing
+- Padding
 
 ### Appearance
 
@@ -2443,14 +3861,14 @@ Audited October 15, 2026. Each bullet is one visual row; [empty] is an empty cel
 
 ### Text
 
+- Show text | [empty]
 - Font | Size (px)
-- Placement | Letter spacing
+- Alignment | Letter spacing
 - X offset | Y offset
 - Top color | Bottom color
 - Shadow | Shadow color
-- Soft shadow | [empty]
-- Stroke | Stroke color
-- Glow | Glow color
+- Soft shadow | Stroke
+- Glow
 
 ### Sounds
 
@@ -2541,7 +3959,8 @@ Audited October 15, 2026. Each bullet is one visual row; [empty] is an empty cel
 ### Layout
 
 - Width | Height
-- Line spacing | Padding
+- Line spacing | Reactive window sizing
+- Padding
 
 ### Appearance
 
@@ -2549,14 +3968,14 @@ Audited October 15, 2026. Each bullet is one visual row; [empty] is an empty cel
 
 ### Text
 
+- Show text | [empty]
 - Font | Size (px)
-- Placement | Letter spacing
+- Alignment | Letter spacing
 - X offset | Y offset
 - Top color | Bottom color
 - Shadow | Shadow color
-- Soft shadow | [empty]
-- Stroke | Stroke color
-- Glow | Glow color
+- Soft shadow | Stroke
+- Glow
 
 ### Sounds
 
@@ -2650,36 +4069,167 @@ Audited October 15, 2026. Each bullet is one visual row; [empty] is an empty cel
 
 ### Heading Text
 
+
+## Minimap
+
+### General
+
+- Enabled | Coordinate edges
+- Shape | Map artwork
+- Zoom
+
+### Appearance
+
+- Width | Edge style
+- Drop shadow | Frame
+- Background | Map opacity
+- Background opacity | Frame opacity
+
+### Markers
+
+- Vision cone | Marker size
+- Marker opacity | Party
+- Alliance | Pet
+- Target | North indicator
+- NPCs | Distant party markers
+
+### Text
+
+- Show text | [empty]
 - Font | Size (px)
-- Placement | Letter spacing
+- Alignment | Letter spacing
 - X offset | Y offset
 - Top color | Bottom color
 - Shadow | Shadow color
-- Soft shadow | [empty]
-- Stroke | Stroke color
-- Glow | Glow color
+- Soft shadow | Stroke
+- Glow | Zone name
+- Coordinates | Map number
+
+### Text / Zoom
+
+- Show text | Zoom readout
+- Font | Size (px)
+- Alignment | Letter spacing
+- X offset | Y offset
+- Top color | Bottom color
+- Shadow | Shadow color
+- Soft shadow | Stroke
+- Glow
 
 ## World Info
 
 ### General
 
-- Enabled | Weekday
-- Weather | Date
+- Enabled | Time
+- Weekday | Weather
+- Date
 
 ### Layout
 
-- Width
+- Arrangement | Width
 
 ### Text
 
+- Show text | [empty]
 - Font | Size (px)
-- Placement | Letter spacing
+- Alignment | Letter spacing
 - X offset | Y offset
 - Top color | Bottom color
 - Shadow | Shadow color
-- Soft shadow | [empty]
-- Stroke | Stroke color
-- Glow | Glow color
+- Soft shadow | Stroke
+- Glow
+
+## World Time
+
+### General
+
+- Enabled | Time
+- Weekday | Weather
+- Date
+
+### Layout
+
+- Arrangement | Width
+
+### Text
+
+- Show text | [empty]
+- Font | Size (px)
+- Alignment | Letter spacing
+- X offset | Y offset
+- Top color | Bottom color
+- Shadow | Shadow color
+- Soft shadow | Stroke
+- Glow
+
+## World Weekday
+
+### General
+
+- Enabled | Time
+- Weekday | Weather
+- Date
+
+### Layout
+
+- Arrangement | Width
+
+### Text
+
+- Show text | [empty]
+- Font | Size (px)
+- Alignment | Letter spacing
+- X offset | Y offset
+- Top color | Bottom color
+- Shadow | Shadow color
+- Soft shadow | Stroke
+- Glow
+
+## World Weather
+
+### General
+
+- Enabled | Time
+- Weekday | Weather
+- Date
+
+### Layout
+
+- Arrangement | Width
+
+### Text
+
+- Show text | [empty]
+- Font | Size (px)
+- Alignment | Letter spacing
+- X offset | Y offset
+- Top color | Bottom color
+- Shadow | Shadow color
+- Soft shadow | Stroke
+- Glow
+
+## World Date
+
+### General
+
+- Enabled | Time
+- Weekday | Weather
+- Date
+
+### Layout
+
+- Arrangement | Width
+
+### Text
+
+- Show text | [empty]
+- Font | Size (px)
+- Alignment | Letter spacing
+- X offset | Y offset
+- Top color | Bottom color
+- Shadow | Shadow color
+- Soft shadow | Stroke
+- Glow
 
 ## Commands
 
@@ -2695,7 +4245,6 @@ Audited October 15, 2026. Each bullet is one visual row; [empty] is an empty cel
 - Announce results | Sound when sending
 - Sound when receiving | Sound volume
 - Test sound | Sound
-- Custom WAV filename | Reload custom WAV
 
 ### Layout
 
@@ -2710,14 +4259,14 @@ Audited October 15, 2026. Each bullet is one visual row; [empty] is an empty cel
 
 ### Text
 
+- Show text | [empty]
 - Font | Size (px)
-- Placement | Letter spacing
+- Alignment | Letter spacing
 - X offset | Y offset
 - Top color | Bottom color
 - Shadow | Shadow color
-- Soft shadow | [empty]
-- Stroke | Stroke color
-- Glow | Glow color
+- Soft shadow | Stroke
+- Glow
 
 ## Buffs
 
@@ -2740,19 +4289,18 @@ Audited October 15, 2026. Each bullet is one visual row; [empty] is an empty cel
 ### Appearance
 
 - Container | Status icon theme
-- Status opacity | Container opacity
+- Status opacity
 
 ### Text
 
+- Show text | [empty]
 - Font | Size (px)
-- Placement | Letter spacing
+- Alignment | Letter spacing
 - X offset | Y offset
 - Top color | Bottom color
 - Shadow | Shadow color
-- Soft shadow | [empty]
-- Stroke | Stroke color
-- Glow | Glow color
-- Status timer scale
+- Soft shadow | Stroke
+- Glow | Status timer scale
 
 ## Debuffs
 
@@ -2776,20 +4324,19 @@ Audited October 15, 2026. Each bullet is one visual row; [empty] is an empty cel
 ### Appearance
 
 - Container | Status icon theme
-- Status opacity | Container opacity
+- Status opacity
 
 ### Text
 
+- Show text | [empty]
 - Font | Size (px)
-- Placement | Letter spacing
+- Alignment | Letter spacing
 - X offset | Y offset
 - Top color | Bottom color
 - Shadow | Shadow color
-- Soft shadow | [empty]
-- Stroke | Stroke color
-- Glow | Glow color
-- Status timer scale
+- Soft shadow | Stroke
+- Glow | Status timer scale
 
 ## Coverage
 
-45 registered modules, 322 distinct pages, 3107 controls across those pages, and 687 selector/view combinations.
+70 registered modules, 558 distinct pages, 4386 controls across those pages, and 1908 selector/view combinations.

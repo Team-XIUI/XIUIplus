@@ -223,6 +223,14 @@ namespace xiui::ui
             return {row.x + row.width - width - 6, row.y + 3, width, 20};
         }
 
+        static auto ToggleButton(const rect& row, const size_t index, const size_t count) -> rect
+        {
+            if (count == 0 || index >= count) return {};
+            constexpr float gap = 4;
+            const float width = std::max(1.0f, (row.width - 8 - gap * (count - 1)) / count);
+            return {row.x + 2 + index * (width + gap), row.y + 27, width, 24};
+        }
+
         static auto ChoiceButton(const rect& row) -> rect
         {
             const float width = std::min(148.0f, row.width * 0.44f);
@@ -245,7 +253,7 @@ namespace xiui::ui
         static auto OverrideSwatch(const rect& row) -> rect { return {row.x + row.width - 34, row.y + 5, 28, 20}; }
         static auto OverrideSource(const rect& row) -> rect { return {row.x + row.width - 102, row.y + 3, 62, 24}; }
 
-        static auto Description(const rect& row) -> rect { return {row.x + 3, row.y + 24, row.width - 8, 16}; }
+        static auto Description(const rect& row) -> rect { return {row.x + 3, row.y + 31, row.width - 8, 16}; }
 
         static auto Tooltip(const rect& anchor, const float requestedWidth, const D3DVIEWPORT8& viewport) -> rect
         {

@@ -18,7 +18,7 @@ namespace xiui
     }
 
     auto actionbars_module::IsWindowDialog(const dialog value) -> bool
-    { return value == dialog::picker || value == dialog::editor || value == dialog::palettes || value == dialog::import || value == dialog::setup || value == dialog::keybinds; }
+    { return value == dialog::picker || value == dialog::editor || value == dialog::palettes || value == dialog::import || value == dialog::setup || value == dialog::keybinds || value == dialog::icons; }
     auto actionbars_module::WindowDialog(void) const -> dialog
     {
         if (this->dialog_ == dialog::name || this->dialog_ == dialog::delete_palette) return dialog::palettes;
@@ -30,7 +30,7 @@ namespace xiui
         switch (this->WindowDialog())
         {
         case dialog::palettes: case dialog::import: return 1;
-        case dialog::editor: return 2;
+        case dialog::editor: case dialog::icons: return 2;
         case dialog::setup: return 3;
         case dialog::keybinds: return 4;
         default: return 0;
@@ -40,7 +40,7 @@ namespace xiui
     {
         switch (this->WindowDialog())
         {
-        case dialog::picker: case dialog::editor: return 11;
+        case dialog::picker: case dialog::editor: case dialog::icons: return 11;
         case dialog::palettes: return 12;
         case dialog::import: return 13;
         case dialog::setup: return 10;
@@ -176,6 +176,7 @@ namespace xiui
             bounds = ui::ResizeConfigWindow(this->window_start_, this->window_resize_edges_, x, y, minimum.x, minimum.y, area);
         }
         if (this->dialog_ == dialog::picker) this->SetScroll(static_cast<int>(this->result_scroll_));
+        if (this->dialog_ == dialog::icons) this->ScrollIcons(static_cast<int>(this->icon_scroll_));
         if (this->dialog_ == dialog::palettes && this->store_)
         {
             const auto count = this->store_->Palettes(this->selected_.surface, this->selected_.bar).size(), rows = this->PaletteRows();

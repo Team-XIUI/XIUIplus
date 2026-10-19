@@ -140,7 +140,7 @@ namespace xiui
             hud_runtime runtime;
             runtime.gil_source_.session_.Observe(1, 300, ::GetTickCount64());
             runtime.gil_source_.session_.Observe(1, 350, ::GetTickCount64());
-            runtime.active_module_ = &runtime.gil_; runtime.config_bounds_ = {100, 100, 1100, 600};
+            runtime.config_.module = &runtime.gil_; runtime.config_.bounds = {100, 100, 1100, 600};
             runtime.mouse_x_ = static_cast<int>(runtime.ConfigLayout().OptionRow(gil_module::reset).x + 50);
             runtime.mouse_y_ = static_cast<int>(runtime.ConfigLayout().OptionRow(gil_module::reset).y + 10);
             Check(runtime.ProcessConfigClick({0, 0, 1600, 900, 0, 1}) && runtime.gil_source_.Session().Net() == 0,
@@ -252,8 +252,8 @@ namespace xiui
                 "one Inventory config page owns all six storage trackers, Equipment and Gil");
             for (size_t i = 0; i < found->Count(); ++i)
             {
-                runtime.active_module_ = found->Module(i);
-                Check(found->Contains(runtime.active_module_) && runtime.HasConfigSections() && runtime.HasConfigSubmenu(), "all Inventory members use the shared config navigation");
+                runtime.config_.module = found->Module(i);
+                Check(found->Contains(runtime.config_.module) && runtime.HasConfigSections() && runtime.HasConfigSubmenu(), "all Inventory members use the shared config navigation");
             }
             Check(runtime.inventory_[0].State().enabled && !runtime.inventory_[5].State().enabled, "only main Inventory starts enabled");
             const auto extras = std::find_if(pages.begin(), pages.end(), [](const auto& page) { return std::string_view{page.id} == "extras"; });
@@ -261,8 +261,8 @@ namespace xiui
                 "Extras consolidates Compass, World Info and Commands without replacing their modules");
             for (size_t i = 0; i < extras->Count(); ++i)
             {
-                runtime.active_module_ = extras->Module(i);
-                Check(runtime.HasConfigSections() && runtime.ActiveConfigPage().Contains(runtime.active_module_), "each Extra retains its own shared config selector");
+                runtime.config_.module = extras->Module(i);
+                Check(runtime.HasConfigSections() && runtime.ActiveConfigPage().Contains(runtime.config_.module), "each Extra retains its own shared config selector");
             }
             for (const auto& page : pages)
                 Check(std::string_view{page.id} != "compass" && std::string_view{page.id} != "world" && std::string_view{page.id} != "commands", "Extras has no duplicate sidebar entries");

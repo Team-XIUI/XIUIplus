@@ -1,4 +1,5 @@
 #include "module.hpp"
+#include "ui/native_ui_assets.hpp"
 #include "settings/text_style_settings.hpp"
 #include "ui/button_renderer.hpp"
 #include "ui/tp_meter.hpp"
@@ -111,6 +112,25 @@ namespace xiui
         return result;
     }
 
+    auto module_option::ToggleButtons(const char* label, const char* description, const std::span<bool> values, const std::span<const char* const> labels) -> module_option
+    {
+        module_option result{};
+        result.kind = module_option_kind::toggle_buttons;
+        result.label = label;
+        result.description = description;
+        result.button_toggles = values;
+        result.choices = labels.data();
+        result.choice_count = std::min(values.size(), labels.size());
+        return result;
+    }
+
+    auto module_option::ToggleButton(const size_t index) const -> bool
+    {
+        if (!this->visible || !this->available || index >= this->choice_count || index >= this->button_toggles.size()) return false;
+        this->button_toggles[index] = !this->button_toggles[index];
+        return true;
+    }
+
     auto module_option::Color(const char* label, const char* description, D3DCOLOR* value, const module_option_group group) -> module_option
     {
         module_option result{};
@@ -192,6 +212,7 @@ namespace xiui
             option.group = module_option_group::text;
             return option;
         }
+        case 15: return module_option::Toggle("Show text", "Show this text element while retaining its style and offsets.", &profile.visible, module_option_group::text).Ordered(-50);
         default: return {};
         }
     }
@@ -219,6 +240,7 @@ namespace xiui
         result.offset_x = std::clamp(settings.ReadFloat(section, "offset_x", result.offset_x), -200.0f, 200.0f);
         result.offset_y = std::clamp(settings.ReadFloat(section, "offset_y", result.offset_y), -100.0f, 100.0f);
         result.placement = std::clamp(settings.ReadInt(section, "placement", result.placement), 0, 3);
+        result.visible = settings.ReadBool(section, "visible", result.visible);
         return result;
     }
 
@@ -231,6 +253,7 @@ namespace xiui
         settings.WriteFloat(section, "offset_x", profile.offset_x);
         settings.WriteFloat(section, "offset_y", profile.offset_y);
         settings.WriteInt(section, "placement", profile.placement);
+        settings.WriteBool(section, "visible", profile.visible);
     }
 
     auto MeterGradientTop(const D3DCOLOR color) -> D3DCOLOR
@@ -399,11 +422,12 @@ namespace xiui
     module_render_context::module_render_context(ui::design_system& design, ui::container_renderer* containers, const bool editing, ui::game_icon_cache* icons, const ui::rect& viewport, ui::native_ui_assets* nativeAssets, const ui::health_feedback_style* feedback)
         : design_(design), containers_(containers), icons_(icons), native_assets_(nativeAssets), feedback_(feedback), editing_(editing), viewport_(viewport) {}
 
-    auto module_render_context::DrawButton(const ui::rect& bounds, const char* label, const bool highlighted, const module_text_profile& profile) const -> void
+    auto module_render_context::DrawButton(const ui::rect& bounds, const char* label, const bool highlighted, const module_text_profile& profile, const ui::button_tone tone) const -> void
     {
-        ui::button_renderer{this->design_, this->native_assets_}.Face(bounds, highlighted);
+        ui::button_renderer{this->design_, this->native_assets_}.Face(bounds, highlighted, tone);
         auto text = profile;
-        text.style = ui::button_renderer::TextStyle(this->design_.GetTheme(), text.style, highlighted);
+        text.style = ui::button_renderer::TextStyle(this->design_.GetTheme(), text.style, highlighted, tone);
+        text.style.alignment = ui::text_alignment::center;
         const ui::rect content{bounds.x + 5, bounds.y, std::max(0.0f, bounds.width - 10), bounds.height};
         this->DrawText(label, content, content, text);
     }
@@ -438,12 +462,14 @@ namespace xiui
         const ui::rect& placementBounds,
         const module_text_profile& profile) const -> void
     {
+        if (!profile.visible) return;
         const auto [positioned, style] = PositionText(bounds, placementBounds, profile);
         this->design_.DrawText(text, positioned, style);
     }
 
     auto module_render_context::TextBounds(const char* text, const ui::rect& bounds, const ui::rect& placementBounds, const module_text_profile& profile) const -> ui::rect
     {
+        if (!profile.visible) return {};
         auto [positioned, style] = PositionText(bounds, placementBounds, profile);
         const float measured = this->design_.MeasureText(text, style), height = this->design_.TextHeight(style);
         const float factor = style.alignment == ui::text_alignment::right ? 1.0f : style.alignment == ui::text_alignment::center ? 0.5f : 0;
@@ -499,7 +525,7 @@ namespace xiui
         const bool healthWarnings) const -> void
     {
         const auto& theme = this->design_.GetTheme();
-        const bool hasLabel = label != nullptr && label[0] != '\0';
+        const bool hasLabel = label != nullptr && label[0] != '\0' && (labelProfile == nullptr || labelProfile->visible);
         const float labelWidth = hasLabel && !overlayLabel ? 28.0f : 0.0f;
         if (labelWidth > 0.0f)
         {

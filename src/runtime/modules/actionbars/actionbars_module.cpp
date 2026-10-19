@@ -763,6 +763,7 @@ namespace xiui
     auto actionbars_module::FieldValue(const int id) const -> std::string
     {
         if (id == field_query) return this->query_;
+        if (id == field_icon_query) return this->icon_query_;
         if (id == field_name) return this->dialog_ == dialog::name ? this->name_value_ : this->draft_.name;
         if (id == field_label) return this->draft_.label;
         if (id == field_target) return this->draft_.target;
@@ -775,6 +776,7 @@ namespace xiui
     auto actionbars_module::SetFieldValue(const int id, std::string value) -> void
     {
         if (id == field_query) { this->query_ = std::move(value); this->result_scroll_ = this->focused_result_ = 0; this->RebuildResults(); }
+        else if (id == field_icon_query) { this->icon_query_ = std::move(value); this->RebuildIconResults(); }
         else if (id == field_name) { if (this->dialog_ == dialog::name) this->name_value_ = std::move(value); else if (value != this->draft_.name) { this->draft_.name = std::move(value); this->draft_.id = 0; } }
         else if (id == field_label) this->draft_.label = std::move(value);
         else if (id == field_target) this->draft_.target = std::move(value);
@@ -786,6 +788,7 @@ namespace xiui
     auto actionbars_module::BeginField(const int id) -> void
     {
         this->CommitField(); this->editing_field_ = id;
+        if (id == field_icon_query) this->focused_control_ = id;
         this->input_.Open(this->FieldValue(id), id == field_path ? 1024 : id >= line_first ? 240 : 128);
     }
     auto actionbars_module::CommitField(void) -> void
@@ -829,6 +832,7 @@ namespace xiui
         if (this->sounds_) this->sounds_->Select(this->now_);
         if (this->ActivateSetupControl(id, adjustment)) return;
         if (this->ActivateKeybindControl(id, adjustment)) return;
+        if (this->dialog_ == dialog::icons && id >= icon_first) { this->SelectIcon(static_cast<size_t>(id - icon_first)); return; }
         if (id >= category_first && id < category_first + static_cast<int>(std::size(categories)))
         { this->category_ = id - category_first; this->result_scroll_ = this->focused_result_ = 0; this->RebuildResults(); return; }
         if (this->dialog_ == dialog::picker && id >= result_first && static_cast<size_t>(id - result_first) < this->results_.size())
@@ -847,6 +851,9 @@ namespace xiui
 
         switch (id)
         {
+        case command_icon_picker: this->OpenIconPicker(); break;
+        case command_icon_back: this->CloseIconPicker(); break;
+        case command_icon_default: this->draft_.icon.clear(); this->CloseIconPicker(); break;
         case command_cancel:
             if (this->library_edit_ && this->dialog_ == dialog::editor) { this->library_edit_ = false; this->OpenPicker(); break; }
             if (this->dialog_ == dialog::delete_macro) { this->dialog_ = dialog::editor; this->focused_control_ = command_macro_delete; }
@@ -1013,6 +1020,10 @@ namespace xiui
         const auto footer = [&]() { button(command_cancel, right - 208, bounds.y + bounds.height - 44, 96, "Cancel"); };
         if (this->dialog_ == dialog::none) return result;
         if (this->dialog_ == dialog::keybinds) return this->KeybindControls(bounds);
+        if (this->dialog_ == dialog::icons)
+        {
+            auto icons = this->IconControls(); result.insert(result.end(), icons.begin(), icons.end()); return result;
+        }
         if (this->dialog_ == dialog::slot_menu || this->dialog_ == dialog::bar_menu)
         {
             float y = bounds.y + 8;
@@ -1083,6 +1094,8 @@ namespace xiui
                 choice(command_target, top + 102, "Target", target == std::end(targets) ? this->draft_.target : target_labels[target - std::begin(targets)]);
             }
             field(field_icon, top + 136, "Icon override", this->draft_.icon);
+            result.back().bounds.width -= 144;
+            button(command_icon_picker, right - 100, top + 136, 100, "Choose...");
             if (this->draft_.kind != action_kind::macro && this->draft_.kind != action_kind::command) choice(command_library, top + 170, "Shared library", this->library_draft_ ? "Shared action" : "Slot only");
             if (this->draft_.kind == action_kind::equip) choice(command_equipment, top + 204, "Equipment slot", this->draft_.equipment_slot.empty() ? "main" : this->draft_.equipment_slot);
             if (this->draft_.kind == action_kind::macro || this->draft_.kind == action_kind::command)
@@ -1180,6 +1193,12 @@ namespace xiui
     auto actionbars_module::Scrollbar(void) const -> ui::config_scrollbar
     {
         const auto bounds = this->DialogBounds();
+        if (this->dialog_ == dialog::icons)
+        {
+            const auto layout = this->IconPickerLayout();
+            const auto rows = (this->icon_results_.size() + layout.columns - 1) / layout.columns;
+            return {layout.scrollbar, static_cast<int>(rows), static_cast<int>(layout.rows), static_cast<int>(this->icon_scroll_)};
+        }
         if (this->dialog_ == dialog::keybinds)
         {
             const bool crossbar = this->selected_.surface == action_surface::crossbar;
@@ -1203,6 +1222,7 @@ namespace xiui
     }
     auto actionbars_module::SetScroll(const int value) -> void
     {
+        if (this->dialog_ == dialog::icons) { this->ScrollIcons(value); return; }
         const auto scrollbar = this->Scrollbar();
         const auto position = static_cast<size_t>(std::clamp(value, 0, scrollbar.Maximum()));
         if (this->dialog_ == dialog::picker)
@@ -1223,6 +1243,7 @@ namespace xiui
     {
         this->CommitField();
         if (this->MoveKeybindControl(dx, dy)) return;
+        if (this->MoveIconControl(dx, dy)) return;
         const bool picker = this->dialog_ == dialog::picker;
         const auto focusResult = [&]() {
             if (!picker || this->focused_control_ < result_first || static_cast<size_t>(this->focused_control_ - result_first) >= this->results_.size()) return;
@@ -1335,7 +1356,12 @@ namespace xiui
         if (this->dialog_ != dialog::none)
         {
             if (this->dialog_ == dialog::picker && action == controller_action::actions && this->focused_control_ >= result_first && this->EditLibraryEntry(static_cast<size_t>(this->focused_control_ - result_first))) return true;
-            if (action == controller_action::cancel) { if (this->dialog_ == dialog::palette_dropdown || this->dialog_ == dialog::slot_menu || this->dialog_ == dialog::bar_menu) this->CloseDialog(); else this->ActivateControl(command_cancel); }
+            if (action == controller_action::cancel)
+            {
+                if (this->dialog_ == dialog::icons) this->CloseIconPicker();
+                else if (this->dialog_ == dialog::palette_dropdown || this->dialog_ == dialog::slot_menu || this->dialog_ == dialog::bar_menu) this->CloseDialog();
+                else this->ActivateControl(command_cancel);
+            }
             else if (action == controller_action::confirm || action == controller_action::actions) this->ActivateControl(this->focused_control_);
             else if (direction) this->MoveControl(action == controller_action::left ? -1 : action == controller_action::right ? 1 : 0, action == controller_action::up ? -1 : action == controller_action::down ? 1 : 0);
             else if (action == controller_action::next_tab || action == controller_action::previous_tab)
@@ -1480,10 +1506,10 @@ namespace xiui
                     { this->Notice("Already bound to " + std::string{bar_names[bar]} + ", slot " + std::to_string(slot + 1) + ". Unbind it first."); return true; }
             this->Presentation(this->selected_).keys[this->selected_.slot] = binding; this->binding_capture_ = false; this->settings_changed_ = true; this->message_.clear(); return true;
         }
-        if (this->dialog_ == dialog::picker && this->window_focused_ && key == 'F' && (modifiers & 3) == 1)
+        if ((this->dialog_ == dialog::picker || this->dialog_ == dialog::icons) && this->window_focused_ && key == 'F' && (modifiers & 3) == 1)
         {
             this->owned_keys_[key] = true;
-            if (!repeated) this->BeginField(field_query);
+            if (!repeated) this->BeginField(this->dialog_ == dialog::icons ? field_icon_query : field_query);
             return true;
         }
         if (this->input_.Focused())
@@ -1577,7 +1603,8 @@ namespace xiui
             const int direction = GET_WHEEL_DELTA_WPARAM(wParam) > 0 ? -1 : 1;
             if (this->dialog_ != dialog::none && Contains(this->DialogBounds(), x, y))
             {
-                const auto scrollbar = this->Scrollbar(); const auto position = this->dialog_ == dialog::picker ? this->result_scroll_ : this->palette_scroll_;
+                const auto scrollbar = this->Scrollbar();
+                const auto position = this->dialog_ == dialog::picker ? this->result_scroll_ : this->dialog_ == dialog::icons ? this->icon_scroll_ : this->palette_scroll_;
                 if (scrollbar.Visible()) this->SetScroll(static_cast<int>(position) + direction * 3);
                 return true;
             }
@@ -1797,6 +1824,7 @@ namespace xiui
             case dialog::import: title = "Import action palettes"; break;
             case dialog::setup: title = "Controller Setup"; break;
             case dialog::keybinds: title = "Keybinds"; break;
+            case dialog::icons: title = "Custom icons  /  Vincerno"; break;
             default: break;
             }
             if (floating)
@@ -1814,6 +1842,9 @@ namespace xiui
         }
         if (this->dialog_ == dialog::editor && !this->draft_.macro_id.empty())
             controls.Text("Shared action: edits update every slot using it.", {bounds.x + 16, bounds.y + 36, bounds.width - 32, 16}, captionText);
+        if (this->dialog_ == dialog::editor)
+            this->DrawLibraryIcon(this->draft_, {bounds.x + bounds.width - 152, bounds.y + 188, 28, 28}, context);
+        if (this->dialog_ == dialog::icons) this->DrawIconPickerDetails(context);
         if (this->dialog_ == dialog::delete_palette || this->dialog_ == dialog::delete_macro)
         {
             std::string description = "Cancel keeps your current setup.";
@@ -1867,10 +1898,16 @@ namespace xiui
             {
                 const auto caption = ui::rect{bounds.x + 16, control.bounds.y, control.bounds.x - bounds.x - 24, control.bounds.height};
                 if (!control.hint.empty()) controls.Text(control.hint.c_str(), caption, captionText);
-                const char* placeholder = control.id == field_query ? "Search actions and macros..." : control.id == field_icon ? "Default artwork" : control.id == field_label ? "Use action name" : "";
-                const char* shortcut = control.id == field_query && control.bounds.width >= this->library_metrics_.search_with_shortcut_width ? "Ctrl+F" : nullptr;
+                const char* placeholder = control.id == field_icon_query ? "Search icons by name, job or magic type..." : control.id == field_query ? "Search actions and macros..." : control.id == field_icon ? "Default artwork" : control.id == field_label ? "Use action name" : "";
+                const char* shortcut = control.id == field_icon_query || (control.id == field_query && control.bounds.width >= this->library_metrics_.search_with_shortcut_width) ? "Ctrl+F" : nullptr;
                 if (this->input_.Focused() && this->editing_field_ == control.id) controls.TextInput(control.bounds, this->input_, false, placeholder, shortcut);
                 else { ui::text_input display; display.Open(control.text, 2048); display.Cancel(); controls.TextInput(control.bounds, display, false, placeholder, shortcut); }
+            }
+            else if (control.kind == control_kind::icon)
+            {
+                controls.NavigationItem(control.bounds, "", control.selected, hovered);
+                action_slot icon; icon.icon = control.text;
+                this->DrawLibraryIcon(icon, {control.bounds.x + 4, control.bounds.y + 4, control.bounds.width - 8, control.bounds.height - 8}, context);
             }
             else if (control.kind == control_kind::list)
             {

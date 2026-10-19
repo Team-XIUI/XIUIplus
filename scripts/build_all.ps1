@@ -2,7 +2,7 @@ param(
     [switch]$SkipInstall,
     [switch]$RuntimeOnly,
     [switch]$Development,
-    [switch]$SkipTests,
+    [Alias('SkipTests')][switch]$SkipDevelopmentTests,
     [string]$SdkPath,
     [string]$InstallPath
 )
@@ -12,6 +12,7 @@ $ErrorActionPreference = 'Stop'
 
 $Root = Split-Path -Parent $PSScriptRoot
 if ($RuntimeOnly -and -not $Development) { throw '-RuntimeOnly requires the optional -Development host. Normal Phoenix installs use one standalone DLL.' }
+if ($SkipDevelopmentTests -and -not $Development) { throw '-SkipDevelopmentTests (legacy -SkipTests) applies only to -Development. Standalone packaging retains its required checks.' }
 if (-not $Development) {
     & (Join-Path $PSScriptRoot 'package.ps1') -SdkPath $SdkPath
     if ($SkipInstall) { return }
@@ -78,7 +79,7 @@ if (-not $RuntimeOnly -and -not (Test-Path $BuiltHost)) {
     throw "Expected stable host output was not found: $BuiltHost"
 }
 
-if (-not $SkipTests -and -not $RuntimeOnly) {
+if (-not $SkipDevelopmentTests -and -not $RuntimeOnly) {
     if (-not (Test-Path $ConfigInputSmoke) -or -not (Test-Path $SettingsSmoke)) {
         throw 'Expected config input and settings persistence smoke-test files were not found.'
     }

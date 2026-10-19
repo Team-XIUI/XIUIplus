@@ -1,4 +1,5 @@
 #include "satchel_module.hpp"
+#include "ui/game_icon_cache.hpp"
 
 #include "satchel_source.hpp"
 #include "satchel_cache.hpp"

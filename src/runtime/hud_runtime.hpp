@@ -1,8 +1,11 @@
 #pragma once
 
 #include "Ashita.h"
+#include "ui/native_ui_assets.hpp"
+#include "ui/game_icon_cache.hpp"
 #include "design_system.hpp"
 #include "config/config_controls.hpp"
+#include "config/config_session.hpp"
 #include "config/color_picker.hpp"
 #include "config/experience_display_editor.hpp"
 #include "config/settings_search.hpp"
@@ -89,7 +92,7 @@ namespace xiui
         auto ControllerCaptured(void) const -> bool { return this->ControllerCapture() != controller_capture_mode::none; }
         auto UpdateControllerStatus(const controller_status& status) -> void;
         auto ChatFocused(void) const -> bool { return (this->ContextVisible(this->chat_) && (this->chat_.Focused() || this->chat_.HistoryFocused())) || (this->ContextVisible(this->chat_second_) && this->chat_second_.HistoryFocused()); }
-        auto KeyboardFocused(void) const -> bool { return this->treasure_.InputFocused() || (this->ActionBarsInputAvailable() && this->actionbars_.KeyboardCapture()) || (this->SatchelInputAvailable() && this->satchel_.InputFocused()) || (this->visible_ && this->confirmation_key_release_ != 0) || (this->ContextVisible(this->chat_) && this->chat_.Focused()) || (this->visible_ && this->controller_surface_ == controller_surface::picker) || (this->visible_ && this->editing_ && (this->settings_search_open_ || this->slider_input_.Focused() || this->option_text_input_.Focused() || this->choice_input_.Opened() || this->profile_name_.Focused() || this->profile_dropdown_ || this->profile_actions_)); }
+        auto KeyboardFocused(void) const -> bool { return this->treasure_.InputFocused() || (this->ActionBarsInputAvailable(false, true) && this->actionbars_.KeyboardCapture()) || (this->SatchelInputAvailable(true) && this->satchel_.InputFocused()) || (this->visible_ && this->confirmation_key_release_ != 0) || (this->ContextVisible(this->chat_) && this->chat_.Focused()) || (this->visible_ && this->controller_surface_ == controller_surface::picker) || (this->visible_ && this->editing_ && (this->config_.search_open || this->config_.slider_input.Focused() || this->config_.text_input.Focused() || this->config_.choice_input.Opened() || this->profile_name_.Focused() || this->profile_dropdown_ || this->profile_actions_)); }
         auto CaptureChat(runtime_state& state) const -> void { this->chat_.Capture(state); }
         auto RestoreChat(const runtime_state& state) -> void
         {
@@ -231,7 +234,7 @@ namespace xiui
         uint32_t satchel_pointer_release_{};
         std::array<inventory_module, 6> inventory_{{inventory_module{0}, inventory_module{1}, inventory_module{2}, inventory_module{3}, inventory_module{4}, inventory_module{5}}};
         std::array<hud_module*, 6> inventory_pages_{};
-        std::array<hud_module*, 9> inventory_config_members_{};
+        std::array<hud_module*, 10> inventory_config_members_{};
         equipment_source equipment_source_{};
         equipment_module equipment_{};
         gil_source gil_source_{};
@@ -260,7 +263,7 @@ namespace xiui
         world_info_module world_info_{};
         std::array<world_info_part_module, 4> world_parts_{{{this->world_info_, 0}, {this->world_info_, 1}, {this->world_info_, 2}, {this->world_info_, 3}}};
         command_menu_module commands_{};
-        std::array<hud_module*, 9> extras_pages_{};
+        std::array<hud_module*, 7> extras_pages_{};
         native_ui_state native_ui_{};
         module_visibility_source visibility_source_{};
         module_visibility_context visibility_context_{};
@@ -277,27 +280,22 @@ namespace xiui
         notification_source notification_source_{};
         module_registry modules_{};
         std::vector<module_state> default_module_states_{};
-        hud_module* active_module_{};
+        config_session config_{};
         hud_module* interaction_module_{};
-        rect config_bounds_{-1.0f, 20.0f, ui::config_layout::default_width, ui::config_layout::default_height};
-        bool config_collapsed_{};
-        bool config_sidebar_collapsed_{};
         enum class controller_surface : uint8_t { none, picker, config, chat, chat2, party, enemies, ready_check, equipment, target_status, buffs, debuffs, pet_status, notifications, satchel, hotbar, crossbar, treasure };
         uint64_t controller_notification_id_{};
         controller_surface controller_surface_{};
         controller_status controller_status_{};
         uint32_t controller_input_revision_{};
         bool controller_presented_{}, controller_pointer_down_{};
+        bool keyboard_window_focus_{};
         bool controller_status_details_{};
         size_t controller_picker_index_{}, controller_party_group_{}, controller_equipment_slot_{}, controller_ready_button_{};
         std::string controller_hint_{};
-        config_controller_focus controller_config_{};
-        bool input_mode_menu_{};
-        size_t input_mode_selection_{};
         auto ConfigVisibleBounds(void) const -> rect
         {
-            auto bounds = this->config_bounds_;
-            if (this->config_collapsed_) bounds.height = 32;
+            auto bounds = this->config_.bounds;
+            if (this->config_.collapsed) bounds.height = 32;
             return bounds;
         }
         std::string settings_path_{};
@@ -342,43 +340,6 @@ namespace xiui
         bool hud_target_pressed_{};
         const hud_module* hud_target_module_{};
         HWND mouse_capture_window_{};
-        D3DCOLOR* active_color_{};
-        ui::color_picker color_picker_{};
-        float* active_slider_{};
-        ui::slider_value_input slider_input_{};
-        hud_module* slider_input_module_{};
-        size_t slider_input_option_index_{};
-        rect slider_input_bounds_{};
-        ui::text_input option_text_input_{};
-        ui::text_input settings_search_input_{};
-        bool settings_search_open_{};
-        float settings_search_expansion_{};
-        uint64_t settings_search_animation_at_{};
-        std::vector<ui::settings_search_entry> settings_search_entries_{};
-        std::vector<size_t> settings_search_matches_{};
-        size_t settings_search_selection_{}, settings_search_scroll_{};
-        hud_module* settings_search_revealed_module_{};
-        hud_module* settings_search_highlight_module_{};
-        size_t settings_search_highlight_option_{};
-        uint64_t settings_search_highlight_until_{};
-        hud_module* text_input_module_{};
-        size_t text_input_option_index_{};
-        std::string* text_input_value_{};
-        rect text_input_bounds_{};
-        ui::choice_dropdown choice_input_{};
-        hud_module* choice_input_module_{};
-        size_t choice_input_option_index_{};
-        float active_slider_minimum_{};
-        float active_slider_maximum_{1.0f};
-        float active_slider_step_{0.1f};
-        rect active_slider_row_{};
-        size_t active_option_index_{};
-        module_option_group active_option_group_{module_option_group::general};
-        size_t active_config_section_{};
-        int option_scroll_{};
-        float scrollbar_grab_offset_{};
-        std::string config_tooltip_{};
-        rect config_tooltip_anchor_{};
         interaction interaction_{interaction::none};
         float drag_offset_x_{};
         float drag_offset_y_{};
@@ -404,6 +365,8 @@ namespace xiui
         auto ControllerSurfaceName(controller_surface surface) const -> const char*;
         auto ControllerCommand(std::string_view command) -> bool;
         auto DrawControllerOverlay(const D3DVIEWPORT8& viewport, const module_render_context& context) -> void;
+        auto ChatFocusBounds(void) const -> rect;
+        auto KeyboardStatusFocusBounds(void) const -> rect;
         auto HandleControllerStatus(controller_action action) -> bool;
         auto ControllerStatusBounds(void) const -> rect;
         auto DrawStatusTooltips(const D3DVIEWPORT8& viewport, const module_render_context& context) -> void;
@@ -451,6 +414,7 @@ namespace xiui
         auto ConfigSoundTarget(const D3DVIEWPORT8& viewport) -> uint64_t;
         auto HudSoundTarget(void) -> uint64_t;
         auto UpdateSoundHover(const D3DVIEWPORT8& viewport, bool active) -> void;
+        auto PointerInputBlocked(bool blocked) const -> bool;
         auto SetChatMouseCapture(bool capture) -> void;
         auto ReleaseChatInput(bool preserveExpandedHistory = false) -> void;
         auto FinishConfigInput(bool apply, bool keepInvalid = true) -> bool;
@@ -463,17 +427,17 @@ namespace xiui
         auto ChoiceSoundTarget(const D3DVIEWPORT8& viewport) const -> uint64_t;
         auto DrawChoiceInput(const D3DVIEWPORT8& viewport) -> void;
         auto HandleChatKey(WPARAM key, LPARAM flags, bool blocked, bool replacement, bool targeting, uint8_t nativeInput) -> bool;
-        auto SatchelInputAvailable(void) const -> bool;
+        auto SatchelInputAvailable(bool pointer = false) const -> bool;
         auto SuspendSatchelInput(void) -> void;
         auto UpdateSatchel(uint64_t now) -> void;
         auto HandleSatchelCommand(std::string_view command) -> bool;
         auto HandleSatchelKey(WPARAM key, LPARAM flags, bool blocked) -> bool;
-        auto TreasureInputAvailable(void) const -> bool;
+        auto TreasureInputAvailable(bool pointer = false) const -> bool;
         auto UpdateTreasure(uint64_t now) -> void;
         auto HandleTreasureKey(WPARAM key, LPARAM flags, bool blocked) -> bool;
         auto HandleTreasureMouse(uint32_t message, float x, float y, bool blocked) -> bool;
         auto ActionBarsNativePaletteOwned(bool candidate = false) const -> bool;
-        auto ActionBarsInputAvailable(bool keyboardReplacement = false) const -> bool;
+        auto ActionBarsInputAvailable(bool keyboardReplacement = false, bool pointer = false) const -> bool;
         auto ActionBarsPointerOwns(float x, float y) const -> bool;
         auto ActionBarsExecutionAvailable(bool keyboardReplacement = false) const -> bool;
         auto SuspendActionBarsInput(bool closeWindow = true) -> void;
@@ -604,10 +568,10 @@ namespace xiui
         }
         auto IsInventorySettings(void) const -> bool
         {
-            for (const auto* module : this->inventory_pages_) if (this->active_module_ == module) return true;
+            for (const auto* module : this->inventory_pages_) if (this->config_.module == module) return true;
             return false;
         }
-        auto HasConfigSubmenu(void) const -> bool { return this->active_module_ != nullptr && !this->active_module_->ConfigSections().empty(); }
+        auto HasConfigSubmenu(void) const -> bool { return this->config_.module != nullptr && !this->config_.module->ConfigSections().empty(); }
         struct config_categories
         {
             std::array<module_option_group, 5> groups{};
@@ -615,10 +579,10 @@ namespace xiui
         };
         auto ConfigCategories(void) const -> config_categories;
         auto NormalizeConfigSelection(void) -> void;
-        auto IsExperienceDisplay(void) const -> bool { return this->active_module_ == &this->experience_ && this->experience_.UsesDisplayEditor(this->active_config_section_); }
-        auto IsAttribution(void) const -> bool { return this->active_module_ == &this->general_ && this->active_config_section_ == general_module::attribution_section; }
+        auto IsExperienceDisplay(void) const -> bool { return this->config_.module == &this->experience_ && this->experience_.UsesDisplayEditor(this->config_.section); }
+        auto IsAttribution(void) const -> bool { return this->config_.module == &this->general_ && this->config_.section == general_module::attribution_section; }
         auto IsXIUIContributors(void) const -> bool { return this->IsAttribution() && this->general_.AttributionView() == 1; }
-        auto IsGeneralAppearance(void) const -> bool { return this->active_module_ == &this->general_ && this->active_config_section_ == general_module::appearance_section; }
+        auto IsGeneralAppearance(void) const -> bool { return this->config_.module == &this->general_ && this->config_.section == general_module::appearance_section; }
         auto ConfigLayout(void) const -> ui::config_layout;
         auto ConfigScrollbar(void) const -> ui::config_scrollbar;
         auto ProcessConfigScrollbarClick(void) -> bool;

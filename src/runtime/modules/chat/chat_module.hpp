@@ -106,7 +106,7 @@ namespace xiui
         struct rendered_row { uint64_t sequence{}; uint32_t mode{}, color{}; std::vector<rendered_span> spans; };
         struct message_entrance { uint64_t sequence{}, started{}; };
         struct message_motion { float opacity{1}, x{}; };
-        struct layout { ui::rect content, log, input, channel, scrollbar, completion, counter; size_t completion_rows{}; float completion_row_height{}; std::array<ui::rect, static_cast<size_t>(chat_tab::count)> tabs; std::array<ui::rect, 3> controller_actions; };
+        struct layout { ui::rect content, log, input, scrollbar, completion, counter; size_t completion_rows{}; float completion_row_height{}; std::array<ui::rect, static_cast<size_t>(chat_tab::count)> tabs; std::array<ui::rect, 3> controller_actions; };
         struct history_layout { ui::rect frame, log, scrollbar, footer; std::array<ui::rect, std::size(chat_history_tabs)> tabs; };
         module_state state_{true, {18.0f, -1.0f, 560.0f, 260.0f}, 380.0f, 160.0f};
         ui::container_style container_{};
@@ -130,7 +130,8 @@ namespace xiui
         chat_module* parent_{};
         bool defaults_initialized_{};
         bool shared_windows_{}, stack_peer_visible_{true};
-        int channel_{};
+        static constexpr int game_channel = 9;
+        int channel_{game_channel};
         bool focused_{}, resizing_{}, pointer_down_{};
         bool hovered_{};
         float input_reveal_{};
@@ -195,7 +196,6 @@ namespace xiui
         auto History(void) const -> const chat_model& { return this->shared_model_ != nullptr ? *this->shared_model_ : this->model_; }
         auto MarkUnread(const chat_event& event, uint32_t previousWindows) -> void;
         auto Layout(const ui::design_system& design) const -> layout;
-        auto ChannelProfile(void) const -> module_text_profile;
         auto UpdateInputAnimation(uint64_t now) -> void;
         auto TrackMessageEntrance(const chat_event& event, uint32_t previousWindows, uint64_t now) -> void;
         auto MessageMotion(uint64_t sequence, uint64_t now) const -> message_motion;

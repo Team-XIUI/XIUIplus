@@ -1,4 +1,5 @@
 #include "notification_module.hpp"
+#include "ui/game_icon_cache.hpp"
 #include "settings/text_style_settings.hpp"
 
 #include <algorithm>

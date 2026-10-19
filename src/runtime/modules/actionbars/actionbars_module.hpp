@@ -145,8 +145,9 @@ namespace xiui
             slot_binding_anchor, slot_binding_x, slot_binding_y, slot_count_anchor, slot_count_x, slot_count_y,
             slot_timer_anchor, slot_timer_x, slot_timer_y, slot_mp_cost, slot_cost_anchor, slot_cost_x, slot_cost_y,
             slot_apply_all, slot_reset, crossbar_animations, skillchain_predictions, skillchain_rules, magic_burst_settings, keybinds, shared_expanded, vertical_gap, per_bar_text, label_wrap, diamond_spacing, group_spacing, button_icons, prompt_size, prompt_gap_x, prompt_gap_y, visibility_mode, visibility_delay, visibility_fade, base_options };
-        enum class dialog : uint8_t { none, picker, editor, palettes, name, delete_palette, delete_macro, import, setup, palette_dropdown, slot_menu, bar_menu, keybinds };
-        enum class control_kind : uint8_t { button, field, choice, list, toggle, label, slider, dropdown };
+        enum class dialog : uint8_t { none, picker, editor, palettes, name, delete_palette, delete_macro, import, setup, palette_dropdown, slot_menu, bar_menu, keybinds, icons };
+        enum class control_kind : uint8_t { button, field, choice, list, toggle, label, slider, dropdown, icon };
+        enum icon_control : int { field_icon_query = 8, command_icon_picker = 566, command_icon_default = 567, command_icon_back = 568, icon_first = 100000 };
         enum class window_gesture : uint8_t { none, move, resize };
         enum class slot_pass : uint8_t { all, background, content, foreground };
         enum setup_control : int
@@ -187,6 +188,11 @@ namespace xiui
             float row_pitch{}, row_height{}, column_pitch{}, column_width{}, name_height{}, caption_height{}, nav_pitch{};
             size_t rows{}, columns{2};
         };
+        struct icon_picker_layout
+        {
+            ui::rect search{}, list{}, scrollbar{}, details{}, back{}, defaults{};
+            size_t rows{}, columns{};
+        };
         std::array<actionbar_presentation, action_bar_count + 1> bars_{};
         std::array<bool, action_bar_count + 1> available_{true, true, true, true, true, true, true, true, true, true, true};
         std::array<module_text_profile, 7> text_{};
@@ -218,6 +224,9 @@ namespace xiui
         std::string palette_id_{}, name_value_{}, import_path_{}, message_{}, query_{};
         action_import_preview import_preview_{};
         std::vector<action_slot> results_{};
+        std::string icon_query_{};
+        std::vector<size_t> icon_results_{};
+        size_t icon_scroll_{};
         std::optional<action_slot> library_drag_{};
         std::optional<size_t> library_pressed_{}, configuration_request_{};
         ui::text_input input_{};
@@ -319,6 +328,15 @@ namespace xiui
         auto FieldValue(int) const -> std::string;
         auto SetFieldValue(int, std::string) -> void;
         auto OpenPicker(void) -> void;
+        auto OpenIconPicker(void) -> void;
+        auto CloseIconPicker(void) -> void;
+        auto RebuildIconResults(void) -> void;
+        auto IconPickerLayout(void) const -> icon_picker_layout;
+        auto IconControls(void) const -> std::vector<control>;
+        auto MoveIconControl(int, int) -> bool;
+        auto ScrollIcons(int) -> void;
+        auto SelectIcon(size_t) -> void;
+        auto DrawIconPickerDetails(const module_render_context&) const -> void;
         auto OpenSlotMenu(const address&) -> void;
         auto OpenBarMenu(const address&) -> void;
         auto PrepareAction(action_slot&) const -> void;

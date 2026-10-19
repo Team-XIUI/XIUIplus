@@ -2,6 +2,8 @@
 
 With **Config → Misc. 2 → Keyboard Size → Full**, ordinary typing opens XIUI's visible input as soon as the native client accepts the first character. Native chat drafts transfer with their text and caret intact, without sending a message. Compact 1 and Compact 2 retain F-to-focus for chat; Full mode leaves an unfocused F available as the first character. Unavailable keyboard settings also leave it with the game. F retains window/tab navigation after explicit chat/status focus. Native search and other text editors keep their own input.
 
+**Alt+R** and **Ctrl+R** open reply composition over a native command menu or target selection, using the same ownership as slash input. Enter sends once and keeps keyboard capture through its release, so that gesture cannot also open or confirm a native menu. A new Enter press after release returns to normal gameplay.
+
 Chat input stops accepting new text at the client's native send limit. Typing, clipboard paste and completions use the same outgoing command preparation as Send, including the chosen channel, tell recipient and leading auto-translate commands. Tokens and multibyte characters are kept whole. Oversized pastes insert only the portion that fits; rejected insertions leave a selection intact.
 
 **Chat → General → Character counter** is on by default. It shows the current length and maximum just above the input on the right, and turns red at the limit. Turning it off hides the counter while keeping the limit enforced.

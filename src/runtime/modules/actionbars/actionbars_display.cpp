@@ -1,4 +1,5 @@
 #include "ui/text_fit.hpp"
+#include "ui/game_icon_cache.hpp"
 #include "actionbars_module.hpp"
 #include "config/config_controls.hpp"
 #include "ui/recast_icons.hpp"

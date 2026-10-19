@@ -85,11 +85,11 @@ namespace xiui
         }
         if (hiddenSecond) { this->chat_second_.Focus(false); this->chat_second_.CancelPointer(); }
         if (hiddenReady) { this->ready_check_.CancelPointer(); this->ready_check_.SetHover(-1, -1); }
-        if (!this->SatchelInputAvailable()) this->SuspendSatchelInput();
+        if (!this->SatchelInputAvailable(true)) this->SuspendSatchelInput();
         if (hiddenChat && hiddenSecond && !this->editing_ && !this->ready_check_.PointerDown() && !this->controller_pointer_down_ &&
             !this->satchel_.PointerDown() && !this->actionbars_.PointerDown() && !this->treasure_.PointerDown() &&
-            !(this->ActionBarsInputAvailable() && this->actionbars_.PointerOwns(static_cast<float>(this->mouse_x_), static_cast<float>(this->mouse_y_))) &&
-            !(this->SatchelInputAvailable() && this->satchel_.PointerOwns(static_cast<float>(this->mouse_x_), static_cast<float>(this->mouse_y_))))
+            !(this->ActionBarsInputAvailable(false, true) && this->actionbars_.PointerOwns(static_cast<float>(this->mouse_x_), static_cast<float>(this->mouse_y_))) &&
+            !(this->SatchelInputAvailable(true) && this->satchel_.PointerOwns(static_cast<float>(this->mouse_x_), static_cast<float>(this->mouse_y_))))
         {
             this->SetChatMouseCapture(false);
             this->ReleasePointerCapture();

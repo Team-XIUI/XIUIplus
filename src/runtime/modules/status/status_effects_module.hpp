@@ -28,6 +28,7 @@ namespace xiui
         auto ShouldRender(const hud_snapshot&) const -> bool override;
         auto Render(const hud_snapshot&, const module_render_context& context) -> void override;
         auto BeginControllerBrowse(void) -> bool;
+        auto RefreshControllerBrowse(void) -> void;
         auto MoveControllerBrowse(int direction) -> bool;
         auto MoveControllerBrowseHorizontal(int direction) -> bool;
         auto EndControllerBrowse(void) -> void;
@@ -56,6 +57,7 @@ namespace xiui
         uint32_t controller_player_{};
         uint16_t controller_effect_{};
         size_t controller_occurrence_{};
+        size_t controller_index_{};
 
         struct effect_list
         {
