@@ -224,14 +224,33 @@ namespace xiui
             std::memcpy(primitive.data() + 0x0C, &ownerPointer, 4);
             controller.slots_[static_cast<size_t>(native_hud_element::party)] = reinterpret_cast<uintptr_t>(&ownerPointer);
             controller.hidden_.store(NativeHudBit(native_hud_element::party));
-            controller.party_draw_ = table[10] = 1234;
+            controller.party_update_ = table[10] = 1234;
+            const auto stamina = [&](const int16_t value) { std::memcpy(owner.data() + 0x3A, &value, 2); };
+            stamina(-1);
             if (!check(controller.ShouldHide(primitivePointer), "ordinary party rendering remains hidden while casting and waiting for a bite")) return false;
+            if (!check(controller.FishingStaminaPercent() == -1, "inactive fishing does not expose a stamina value")) return false;
+            for (const int16_t value : {100, 65, 0})
+            {
+                stamina(value);
+                if (!check(controller.ShouldHide(primitivePointer) && controller.FishingStaminaPercent() == value,
+                    "native party stays hidden while XIUI reads live fish stamina, including zero")) return false;
+            }
+            stamina(101);
+            if (!check(controller.FishingStaminaPercent() == -1, "out-of-range native stamina is rejected")) return false;
+            stamina(65);
             owner[0x40] = 1;
-            if (!check(!controller.ShouldHide(primitivePointer), "the verified fish-only renderer retains the hooked-fish HP display")) return false;
+            if (!check(controller.ShouldHide(primitivePointer) && controller.FishingStaminaPercent() == -1,
+                "alternate party preview mode cannot bypass hiding or masquerade as fishing")) return false;
+            owner[0x40] = 0;
             table[10] = 4321;
-            if (!check(controller.ShouldHide(primitivePointer), "another owner layout cannot use the fish-only exception")) return false;
-            table[10] = 1234; owner[0x40] = 0;
-            return check(controller.ShouldHide(primitivePointer), "party hiding resumes immediately after fish-gauge mode ends");
+            if (!check(controller.FishingStaminaPercent() == -1, "replaced native owner layouts are rejected")) return false;
+            table[10] = 1234;
+            std::memset(primitive.data() + 0x0C, 0, 4);
+            if (!check(controller.FishingStaminaPercent() == -1, "detached native primitives are rejected")) return false;
+            std::memcpy(primitive.data() + 0x0C, &ownerPointer, 4);
+            controller.hidden_.store(0);
+            return check(!controller.ShouldHide(primitivePointer) && controller.FishingStaminaPercent() == 65,
+                "explicitly shown native party windows retain their own visibility choice");
         }
 
         static auto Macros(void) -> bool

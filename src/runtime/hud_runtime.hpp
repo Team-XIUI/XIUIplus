@@ -36,6 +36,7 @@
 #include "modules/readycheck/ready_check_module.hpp"
 #include "modules/status/status_effects_module.hpp"
 #include "modules/castbar/cast_bar_module.hpp"
+#include "modules/fishing/fishing_module.hpp"
 #include "modules/castcost/cast_cost_module.hpp"
 #include "modules/recast/recast_module.hpp"
 #include "runtime_api.hpp"
@@ -194,6 +195,7 @@ namespace xiui
         player_module player_{};
         player_cast_source player_cast_source_{};
         cast_bar_module cast_bar_{};
+        fishing_module fishing_{};
         cast_cost_source cast_cost_source_{};
         heal_prediction_source heal_prediction_source_{};
         cast_cost_module cast_cost_{};
@@ -272,7 +274,7 @@ namespace xiui
         world_info_module world_info_{};
         std::array<world_info_part_module, 4> world_parts_{{{this->world_info_, 0}, {this->world_info_, 1}, {this->world_info_, 2}, {this->world_info_, 3}}};
         command_menu_module commands_{};
-        std::array<hud_module*, 7> extras_pages_{};
+        std::array<hud_module*, 8> extras_pages_{};
         native_ui_state native_ui_{};
         module_visibility_source visibility_source_{};
         module_visibility_context visibility_context_{};

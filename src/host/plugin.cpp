@@ -899,6 +899,8 @@ namespace xiui
                 anchor.valid = ProjectWorldPoint(ground, this->scene_view_, this->scene_projection_, hudViewport, anchor.x, anchor.y);
             }
         snapshot.native_hud_available_mask = this->native_hud_.AvailableMask();
+        if (party->GetMemberIsActive(0) && !player->GetIsZoning())
+            snapshot.fishing_stamina_percent = this->native_hud_.FishingStaminaPercent();
         snapshot.exp_current = player->GetExpCurrent();
         snapshot.exp_needed = std::max<uint32_t>(1, player->GetExpNeeded());
 

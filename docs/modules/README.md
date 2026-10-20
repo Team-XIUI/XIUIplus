@@ -33,6 +33,7 @@ Read the note for the module you are changing, then follow its source links. The
 - [Notifications](notifications.md)
 - [Ready Check](readycheck.md)
 - [Experience](experience.md)
+- [Fishing stamina](fishing.md)
 
 ## Chat, world and shared settings
 

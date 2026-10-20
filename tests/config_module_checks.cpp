@@ -42,6 +42,39 @@ namespace xiui
         return check(!runtime.TreasureInputAvailable(), "disabled treasure cannot capture input");
     }
 
+    auto config_input_test::Fishing(void) -> bool
+    {
+        hud_runtime runtime;
+        auto& fishing = runtime.fishing_;
+        const auto theme = ui::theme::CreateDefault();
+        fishing.ResetDefaults(theme);
+        hud_snapshot snapshot{};
+        if (!check(fishing.State().enabled && fishing.PreviewVisible() && !fishing.ShouldRender(snapshot),
+            "fishing is enabled by default, previews in the editor and hides without a hooked fish")) return false;
+        for (const int16_t stamina : {100, 65, 0})
+        {
+            snapshot.fishing_stamina_percent = stamina;
+            if (!check(fishing.ShouldRender(snapshot), "fishing retains both full and fully depleted stamina")) return false;
+        }
+        snapshot.fishing_stamina_percent = 101;
+        if (!check(!fishing.ShouldRender(snapshot), "invalid stamina is not rendered")) return false;
+        if (!check(std::find(runtime.extras_pages_.begin(), runtime.extras_pages_.end(), &fishing) != runtime.extras_pages_.end(),
+            "fishing settings belong to Extras")) return false;
+        runtime.editing_ = true; runtime.config_.module = &fishing; runtime.config_.section = 0;
+        if (!check(!runtime.ControllerConfigItems(config_controller_region::options).empty(), "fishing uses shared controller settings controls")) return false;
+        runtime.EnsureLayout(D3DVIEWPORT8{0, 0, 1280, 720, 0, 1});
+        const auto bounds = fishing.State().bounds;
+        if (!check(bounds.x >= 0 && bounds.y >= 0 && bounds.x + bounds.width <= 1280 && bounds.y + bounds.height <= 720,
+            "new fishing layouts fit the current viewport")) return false;
+        auto store = settings_store::FromIniText("");
+        fishing.State().bounds = {123, 234, 420, 52}; fishing.State().enabled = false;
+        fishing.Save(store);
+        fishing_module restored; restored.ResetDefaults(theme); restored.Load(store);
+        snapshot.fishing_stamina_percent = 65;
+        return check(!restored.ShouldRender(snapshot) && restored.State().bounds.x == 123 && restored.State().bounds.y == 234 &&
+            restored.State().bounds.width == 420, "fishing enable choice, custom position and width survive reload");
+    }
+
     auto config_input_test::PartyNameCast(void) -> bool
     {
         party_module party;

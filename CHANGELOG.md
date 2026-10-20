@@ -2,6 +2,8 @@
 
 ## Unreleased
 
+- Add a movable Fishing stamina bar under Extras, enabled by default while a fish is hooked. Read the client's live stamina independently of native party rendering so hiding the party list no longer removes the fishing gauge.
+
 ## 1.0.6-alpha.1 — 2026-10-19
 
 - Add nearby living enemy dots to the minimap, enabled by default with an independent Markers toggle; use red except for other groups' purple claims. Add a Triangle/Dot player icon choice.

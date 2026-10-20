@@ -8,4 +8,6 @@ Selectively hides native HUD elements while XIUI replaces them. Command placemen
 
 **Focused check:** `xiui_native_hud_target_smoke`.
 
+Fishing stamina shares the party draw call. Keep party suppression active and expose live stamina through the separate [Fishing module](fishing.md).
+
 [Detailed guide](../reference/game-hud.md) · [Shared foundations](../foundations.md) · [Check commands](../../tests/README.md)

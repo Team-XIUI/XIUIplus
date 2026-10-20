@@ -367,6 +367,22 @@
       "requires_arguments": false
     },
     {
+      "name": "fishing",
+      "target": "xiui_config_input_smoke",
+      "arguments": [
+        "--fishing-only"
+      ],
+      "requires_arguments": false
+    },
+    {
+      "name": "native-fishing",
+      "target": "xiui_native_hud_target_smoke",
+      "arguments": [
+        "--fishing-only"
+      ],
+      "requires_arguments": false
+    },
+    {
       "name": "minimap",
       "target": "xiui_config_input_smoke",
       "arguments": [

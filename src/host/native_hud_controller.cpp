@@ -134,7 +134,7 @@ namespace xiui
             if (native_hud_options[index].resource != nullptr)
                 this->slots_[index] = this->FindMenu(native_hud_options[index].resource);
         this->chat_input_slot_ = this->FindMenu("inline");
-        this->party_draw_ = this->Find("51A1????????5785C08BF90F84????????8A474084C074128B4F0868????????E8????????5F59C20400");
+        this->party_update_ = this->Find("51A1????????5785C08BF90F84????????8A474084C074128B4F0868????????E8????????5F59C20400");
         constexpr const char* macroPalettes[]{"mcr1pall", "mcr2pall", "mcr1long", "mcr2long"};
         for (size_t index = 0; index < this->macro_palette_slots_.size(); ++index)
             this->macro_palette_slots_[index] = this->FindMenu(macroPalettes[index]);
@@ -360,12 +360,6 @@ namespace xiui
             uintptr_t current{};
             if (Read(this->slots_[index], current) && current == owner)
             {
-                if (index == static_cast<size_t>(native_hud_element::party) && this->party_draw_ != 0)
-                {
-                    uintptr_t table{}, draw{}; uint8_t fishGauge{};
-                    if (Read(owner, table) && Read(table + 0x28, draw) && draw == this->party_draw_ &&
-                        Read(owner + 0x40, fishGauge) && fishGauge == 1) return false;
-                }
                 if (index == static_cast<size_t>(native_hud_element::target))
                 {
                     if (this->HideTargetBox(owner, primitive))
@@ -377,6 +371,19 @@ namespace xiui
             }
         }
         return false;
+    }
+
+    auto native_hud_controller::FishingStaminaPercent(void) const -> int16_t
+    {
+        uintptr_t owner{}, primitive{}, attached{}, table{}, update{};
+        int16_t stamina{-1}; uint8_t alternate{};
+        const auto slot = this->slots_[static_cast<size_t>(native_hud_element::party)];
+        if (this->party_update_ == 0 || slot == 0 || !Read(slot, owner) || owner == 0 ||
+            !Read(owner, table) || !Read(table + 0x28, update) || update != this->party_update_ ||
+            !Read(owner + 8, primitive) || primitive == 0 || !Read(primitive + 0x0C, attached) || attached != owner ||
+            !Read(owner + 0x40, alternate) || alternate != 0 || !Read(owner + 0x3A, stamina)) return -1;
+        // The fishing update writes 0..100 here; casting, waiting and cleanup use -1.
+        return stamina >= 0 && stamina <= 100 ? stamina : -1;
     }
 
     auto native_hud_controller::HideTargetBox(const uintptr_t owner, const uintptr_t primitive) -> bool
@@ -468,7 +475,7 @@ namespace xiui
         this->native_macros_ = {}; this->macro_entry_ = 0;
         this->macro_hook_created_ = this->macro_hook_enabled_ = this->minhook_initialized_ = false;
         this->chat_input_slot_ = 0;
-        this->party_draw_ = 0;
+        this->party_update_ = 0;
         this->compass_ = {};
         this->connection_ = {};
         this->core_ = nullptr;

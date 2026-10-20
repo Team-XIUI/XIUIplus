@@ -10,7 +10,7 @@
 
 namespace xiui
 {
-    inline constexpr uint32_t runtime_abi_version = 18;
+    inline constexpr uint32_t runtime_abi_version = 19;
 
     struct world_party_anchor
     {
@@ -42,6 +42,7 @@ namespace xiui
         uint32_t exp_current{};
         uint32_t exp_needed{1};
         uint32_t native_hud_available_mask{};
+        int16_t fishing_stamina_percent{-1};
         bool chat_capture_available{};
         chat_palette chat_colors{};
         native_ui_state native_ui{};

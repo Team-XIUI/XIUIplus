@@ -136,6 +136,51 @@ Regenerate with `./scripts/update-docs.ps1`. Each bullet is one visual row; [emp
 - Soft shadow | Stroke
 - Glow
 
+## Fishing
+
+### General
+
+- Enabled | Label
+- Percentage
+
+### Layout
+
+- Width | Bar height
+
+### Bar Style
+
+- Bar style | Bookends
+
+### Animation
+
+- Animated sheen | [empty]
+- Sheen width | Sheen speed
+- Smooth fill | Fill response
+
+### Effects
+
+- Drop shadow | Shadow strength
+- Shadow radius | [empty]
+- Shadow X offset | Shadow Y offset
+- Outer glow | Fill glow
+
+### Colors
+
+- Background opacity | [empty]
+- Fill top | Fill bottom
+- Shadow color | Sheen color
+
+### Text
+
+- Show text | [empty]
+- Font | Size (px)
+- Alignment | Letter spacing
+- X offset | Y offset
+- Top color | Bottom color
+- Shadow | Shadow color
+- Soft shadow | Stroke
+- Glow
+
 ## Cast Cost
 
 ### General
@@ -3834,8 +3879,8 @@ Regenerate with `./scripts/update-docs.ps1`. Each bullet is one visual row; [emp
 - Compass | World Info
 - Commands | Blue Magic Learned
 - Phantom Roll | Ready Check
-- Magic Burst | Target of Target
-- Subtarget
+- Magic Burst | Fishing
+- Target of Target | Subtarget
 
 ### Attribution
 
@@ -4423,4 +4468,4 @@ Regenerate with `./scripts/update-docs.ps1`. Each bullet is one visual row; [emp
 
 ## Coverage
 
-71 registered modules, 568 distinct pages, 4484 controls across those pages, and 1925 selector/view combinations.
+72 registered modules, 575 distinct pages, 4523 controls across those pages, and 1934 selector/view combinations.

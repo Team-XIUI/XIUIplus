@@ -105,6 +105,7 @@ namespace xiui
         static inline unsigned window_writes{};
         static auto StartupWiring(void) -> bool;
         static auto TreasureInput(void) -> bool;
+        static auto Fishing(void) -> bool;
         static auto ControlCount(hud_runtime& runtime) -> size_t;
         static auto PartyNameCast(void) -> bool;
         static auto SettingsPresentation(const char* reportPath) -> bool;

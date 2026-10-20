@@ -79,6 +79,7 @@ namespace xiui
         this->cast_bar_.SetSource(&this->player_cast_source_);
         this->cast_cost_.SetSource(&this->cast_cost_source_);
         this->modules_.Add(this->cast_bar_);
+        this->modules_.Add(this->fishing_);
         this->modules_.Add(this->cast_cost_);
         this->recast_.SetSource(&this->recast_source_);
         this->modules_.Add(this->recast_);
@@ -158,7 +159,7 @@ namespace xiui
         this->modules_.Add(this->world_info_);
         for (auto& part : this->world_parts_) this->modules_.Add(part);
         this->modules_.Add(this->commands_);
-        this->extras_pages_ = {&this->compass_, &this->world_info_, &this->commands_, &this->blue_magic_, &this->phantom_roll_, &this->ready_check_, &this->magic_burst_};
+        this->extras_pages_ = {&this->compass_, &this->world_info_, &this->commands_, &this->blue_magic_, &this->phantom_roll_, &this->ready_check_, &this->magic_burst_, &this->fishing_};
         this->ready_check_.SetSource(&this->party_source_);
         this->ready_check_.SetSounds(&this->ui_sounds_);
         this->modules_.Add(this->ready_check_);
@@ -241,6 +242,7 @@ namespace xiui
         this->cast_cost_source_.Initialize();
         this->recast_source_.Clear();
         this->cast_bar_.ResetDefaults(this->design_system_.GetTheme());
+        this->fishing_.ResetDefaults(this->design_system_.GetTheme());
         this->cast_cost_.ResetDefaults(this->design_system_.GetTheme());
         this->recast_.ResetDefaults(this->design_system_.GetTheme());
         this->target_.ResetDefaults(this->design_system_.GetTheme());
@@ -1904,6 +1906,9 @@ namespace xiui
             if (phantomRoll.x < 0) phantomRoll.x = std::max(0.0f, (viewport.Width - phantomRoll.width) * 0.5f);
             if (phantomRoll.y < 0) phantomRoll.y = std::max(0.0f, (viewport.Height - phantomRoll.height) * 0.65f);
             auto& castBar = this->cast_bar_.State().bounds;
+            auto& fishing = this->fishing_.State().bounds;
+            if (fishing.x < 0) fishing.x = std::max(0.0f, (viewport.Width - fishing.width) * 0.5f);
+            if (fishing.y < 0) fishing.y = std::max(0.0f, viewport.Height * 0.6f);
             if (castBar.x < 0) castBar.x = std::max(0.0f, (viewport.Width - castBar.width) * 0.5f);
             if (castBar.y < 0) castBar.y = std::max(0.0f, viewport.Height * 0.68f);
             auto& castCost = this->cast_cost_.State().bounds;

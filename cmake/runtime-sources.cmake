@@ -133,6 +133,7 @@ set(XIUI_HUD_SOURCES
     src/runtime/modules/player/player_module.hpp
     src/runtime/modules/castbar/player_cast_source.cpp
     src/runtime/modules/castbar/cast_bar_module.cpp
+    src/runtime/modules/fishing/fishing_module.cpp
     src/runtime/modules/castcost/cast_cost_source.cpp
     src/runtime/modules/castcost/cast_cost_module.cpp
     src/runtime/modules/recast/recast_tracker.cpp

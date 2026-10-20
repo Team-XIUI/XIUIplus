@@ -21,6 +21,7 @@ namespace xiui
         auto AvailableMask(void) const -> uint32_t { return this->available_; }
         auto Status(void) const -> std::string;
         auto ShouldHide(uintptr_t primitive) -> bool;
+        auto FishingStaminaPercent(void) const -> int16_t;
         static auto __stdcall InvokeMacro(void* context, uint8_t book, uint8_t set, uint8_t slot, BOOL alt) -> BOOL;
 
     private:
@@ -48,7 +49,7 @@ namespace xiui
         std::array<uintptr_t, native_hud_options.size()> slots_{};
         std::array<uintptr_t, 4> macro_palette_slots_{};
         uintptr_t chat_input_slot_{};
-        uintptr_t party_draw_{};
+        uintptr_t party_update_{};
         uint32_t available_{};
         std::atomic<uint32_t> hidden_{};
         std::atomic<uint64_t> skipped_{};
