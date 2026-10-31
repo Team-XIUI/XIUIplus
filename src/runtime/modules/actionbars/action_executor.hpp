@@ -5,6 +5,7 @@
 #include <functional>
 #include <optional>
 #include <span>
+#include <string_view>
 #include <unordered_map>
 
 struct IAshitaCore;
@@ -16,25 +17,29 @@ namespace xiui
         bool services{}, logged_in{}, zoning{}, has_character{}, has_zone{}, identity_valid{}, dead{};
         bool menu_open{}, action_target{}, subtarget{};
     };
-    auto ActionGuardReason(const action_guard_state& state, bool presentation = false, bool allowMacroPalette = false) -> std::string;
+    auto ActionGuardReason(const action_guard_state& state, bool presentation = false, bool allowNativeMenu = false) -> std::string;
 
     class action_executor
     {
     public:
-        auto SetRestricted(bool restricted) -> void { this->restricted_ = restricted; if (restricted) this->Cancel(); }
-        auto SetNativeMacroPalette(bool allowed) -> void { this->native_macro_palette_ = allowed; }
+        auto SetRestricted(bool restricted, std::string_view reason = "Macro cancelled because another window owns input.") -> void
+        { this->restricted_ = restricted; if (restricted) this->Cancel(reason); }
+        auto SetNativeMenuAllowed(bool allowed) -> void { this->native_menu_allowed_ = allowed; }
         auto Catalog(IAshitaCore* core) -> std::span<const action_catalog_entry>;
         auto Inspect(IAshitaCore* core, const action_slot& slot, bool presentation = false) -> action_availability;
         auto Activate(IAshitaCore* core, const action_slot& slot, uint64_t now) -> bool;
         auto Update(IAshitaCore* core, uint64_t now) -> void;
-        auto Cancel(void) -> void;
+        auto Cancel(std::string_view reason = {}) -> void;
         auto Status(void) const -> const std::string& { return this->status_; }
+        auto Diagnostics(uint64_t now) const -> std::string;
         auto Clear(void) -> void;
         auto SetNativeRunner(std::function<bool(const native_macro_ref&)> run) -> void { this->native_runner_ = std::move(run); }
         auto SetMacroResolver(std::function<action_slot(const action_slot&)> resolve) -> void { this->macro_resolver_ = std::move(resolve); }
         auto SetUtc(uint32_t utc) -> void { this->utc_ = utc; }
         static auto Commands(const action_slot& slot, const std::string& resourceName) -> std::vector<std::string>;
         static auto RepresentativeAction(const action_slot& slot) -> std::optional<action_slot>;
+        static auto IconAction(const action_slot& slot) -> std::optional<action_slot>;
+        auto SuggestedIcon(IAshitaCore* core, const action_slot& slot) const -> std::string;
 
     private:
         friend struct action_executor_test;
@@ -42,8 +47,11 @@ namespace xiui
         uint8_t job_{}, subjob_{}, level_{}, sublevel_{};
         uint32_t player_{};
         uint64_t next_catalog_{};
-        bool restricted_{}, native_macro_palette_{};
+        bool restricted_{}, native_menu_allowed_{};
         std::string status_{};
+        std::string last_command_{};
+        uint64_t last_dispatch_{};
+        size_t last_line_{}, last_total_{};
         std::function<bool(const native_macro_ref&)> native_runner_{};
         std::function<action_slot(const action_slot&)> macro_resolver_{};
         struct macro_step { std::string command{}; uint64_t delay{}; bool subtarget{}; };

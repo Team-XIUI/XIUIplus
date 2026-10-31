@@ -4,9 +4,11 @@
 #include "resources/recast_icons.hpp"
 #include "resources/action_icons.hpp"
 #include "resources/custom_action_icons.hpp"
+#include "ui/recast_icons.hpp"
 
 #include <algorithm>
 #include <cctype>
+#include <charconv>
 
 extern "C" IMAGE_DOS_HEADER __ImageBase;
 
@@ -58,13 +60,26 @@ namespace xiui::ui
         return this->Icon(id, false);
     }
 
-    auto game_icon_cache::ActionIcon(const std::string_view key) const -> game_icon_view
+    auto game_icon_cache::ActionIcon(const std::string_view key) -> game_icon_view
     {
         if (key.empty()) return {};
         std::string normalized{key};
         std::transform(normalized.begin(), normalized.end(), normalized.begin(), [](unsigned char c) { return c == '\\' ? '/' : static_cast<char>(std::tolower(c)); });
         if (normalized.ends_with(".png")) normalized.resize(normalized.size() - 4);
         if (const auto prefix = normalized.find("assets/hotbar/"); prefix != std::string::npos) normalized.erase(0, prefix + 14);
+        if (normalized.starts_with("item:") || normalized.starts_with("game:"))
+        {
+            const auto split = normalized.rfind(':');
+            uint32_t id{};
+            const auto number = std::string_view{normalized}.substr(split + 1);
+            const auto parsed = std::from_chars(number.data(), number.data() + number.size(), id);
+            if (parsed.ec != std::errc{} || parsed.ptr != number.data() + number.size()) return {};
+            if (normalized.starts_with("item:")) return {this->Item(id)};
+            if (normalized.starts_with("game:spell:")) return {this->RecastAtlas(), RecastIconUV(true, id, 0)};
+            if (normalized.starts_with("game:ability:") && this->resources_ != nullptr)
+                if (const auto* ability = this->resources_->GetAbilityById(id)) return {this->RecastAtlas(), RecastIconUV(false, ability->RecastTimerId, 0)};
+            return {};
+        }
         if (normalized.starts_with("vincerno/"))
         {
             const auto& icons = resources::custom_action_icons;

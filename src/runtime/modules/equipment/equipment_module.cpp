@@ -89,7 +89,7 @@ namespace xiui
         return sections;
     }
 
-    auto equipment_module::ConfigSectionContains(const size_t section, const size_t index) -> bool
+    auto equipment_module::ContentConfigSectionContains(const size_t section, const size_t index) -> bool
     {
         if (index >= this->OptionCount()) return false;
         if (index <= tooltips) return section == 0;
@@ -98,7 +98,7 @@ namespace xiui
         return section == 3;
     }
 
-    auto equipment_module::Option(const size_t index) -> module_option
+    auto equipment_module::ContentOption(const size_t index) -> module_option
     {
         static constexpr const char* layouts[]{"4 x 4", "8 x 2", "2 x 8"};
         static constexpr const char* profiles[]{"Heading", "Slot labels", "Ammo count", "Item tooltip"};
@@ -181,7 +181,7 @@ namespace xiui
             "Wardrobe 1", "Mog Safe 2", "Wardrobe 2", "Wardrobe 3", "Wardrobe 4", "Wardrobe 5", "Wardrobe 6", "Wardrobe 7", "Wardrobe 8"};
         for (size_t cell = 0; cell < equipment_grid_order.size(); ++cell)
         {
-            const auto at = this->SlotBounds(cell);
+            const auto at = this->state_.transform.Map(this->SlotBounds(cell));
             if (x < at.x || y < at.y || x >= at.x + at.width || y >= at.y + at.height) continue;
             const auto slot = equipment_grid_order[cell];
             const auto* item = this->source_ != nullptr && this->source_->Available() ? &this->source_->Items()[slot] : nullptr;

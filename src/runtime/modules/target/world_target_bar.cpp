@@ -82,6 +82,7 @@ namespace xiui
         if (!this->enabled || !snapshot.target_valid || !snapshot.target_screen_valid || id == 0)
         { this->target_id = 0; this->animation = {}; return; }
         if (id != this->target_id) { this->animation = {}; this->target_id = id; }
+        const auto transform = context.Design().Transform(ui::hud_transform::At(snapshot.target_screen_x, snapshot.target_screen_y, this->scale_state.transform.x, this->scale_state.transform.y));
         const auto bounds = this->Bounds(snapshot), viewport = context.Viewport();
         if (!std::isfinite(bounds.x) || !std::isfinite(bounds.y) || bounds.x < viewport.x || bounds.y < viewport.y ||
             bounds.x + bounds.width > viewport.x + viewport.width || bounds.y + bounds.height > viewport.y + viewport.height) return;

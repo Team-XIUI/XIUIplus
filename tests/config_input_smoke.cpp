@@ -4,6 +4,54 @@ using namespace xiui::config_checks;
 
 int main(int argc, char** argv)
 {
+    if (argc == 2 && std::strcmp(argv[1], "--xiv1-theme-only") == 0)
+    {
+        if (!xiui::config_input_test::Xiv1Theme()) return 1;
+        std::puts("XIV 1.0 theme persistence, native preference isolation, controller access and text fades passed.");
+        return 0;
+    }
+    if (argc == 3 && std::strcmp(argv[1], "--edit-mode-only") == 0)
+    {
+        if (!xiui::config_input_test::EditMode(argv[2])) return 1;
+        std::puts("Explicit edit mode, selected previews, hidden input controls and live hover editing passed.");
+        return 0;
+    }
+    if (argc == 3 && std::strcmp(argv[1], "--setup-wizard-only") == 0)
+    {
+        if (!xiui::config_input_test::SetupWizard(argv[2])) return 1;
+        std::puts("First-load setup, shared input, native fallback, local persistence and native chat defaults passed.");
+        return 0;
+    }
+    if (argc == 2 && std::strcmp(argv[1], "--window-input-only") == 0)
+    {
+        if (!xiui::config_input_test::WindowInput()) return 1;
+        std::puts("Hex editing, focus/draft suspension, native window cycling and fresh history checks passed.");
+        return 0;
+    }
+    if (argc == 3 && std::strcmp(argv[1], "--hud-presets-only") == 0)
+    {
+        if (!xiui::config_input_test::HudPresets(argv[2])) return 1;
+        std::puts("Captured full HUD presets, Party-only Classic differences and independent reset defaults passed.");
+        return 0;
+    }
+    if (argc == 2 && std::strcmp(argv[1], "--config-memory-only") == 0)
+    {
+        if (!xiui::config_input_test::ConfigMemory()) return 1;
+        std::puts("Configuration mode, page, scroll and position memory passed.");
+        return 0;
+    }
+    if (argc == 3 && std::strcmp(argv[1], "--module-menu-only") == 0)
+    {
+        if (!xiui::config_input_test::ModuleMenu(argv[2])) return 1;
+        std::puts("Module context menu, owned clicks, scoped resets and confirmation checks passed.");
+        return 0;
+    }
+    if (argc == 3 && std::strcmp(argv[1], "--hud-scaling-only") == 0)
+    {
+        if (!xiui::config_input_test::HudScaling(argv[2])) return 1;
+        std::puts("HUD scaling geometry, gestures, input ownership, Basic/Advanced, presets and persistence passed.");
+        return 0;
+    }
     if (argc == 2 && std::strcmp(argv[1], "--fishing-only") == 0)
     {
         if (!xiui::config_input_test::Fishing()) return 1;

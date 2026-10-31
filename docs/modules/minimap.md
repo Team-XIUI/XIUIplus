@@ -2,6 +2,10 @@
 
 Renders regular/enhanced zone maps with player, party, pet, target, enemy and NPC markers, plus per-zone zoom and configurable edges.
 
+The XIV 1.0 appearance uses a softly fading circular map, a warm north label and a turquoise player marker. The frame, backing and coordinate strips are suppressed while this appearance is active; saved shape and edge preferences are retained. Marker opacity follows the feather, and wheel/hover capture uses the visible circular shape.
+
+Default zoom is 4×. A versioned migration updates the old 3× starting value once, retaining other saved starting values and all per-zone zoom choices. The shipped preset contains no development zone overrides.
+
 **Start in:** [minimap_module.cpp](../../src/runtime/modules/minimap/minimap_module.cpp), [minimap_source.cpp](../../src/runtime/modules/minimap/minimap_source.cpp), [minimap_maps.cpp](../../src/runtime/modules/minimap/minimap_maps.cpp), [contour.hpp](../../src/runtime/ui/contour.hpp).
 
 **Keep intact:** Keep native zone/floor IDs and named option/INI identities stable. Decode asynchronously through the bounded cache. Burnt outlines and marker/cone hit tests must avoid repeated expensive distance work. Do not regenerate map assets for routine rendering changes.

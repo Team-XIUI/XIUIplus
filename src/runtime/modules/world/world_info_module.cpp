@@ -13,6 +13,16 @@ namespace
 
 namespace xiui
 {
+    auto world_info_part_module::ResetSettingsFrom(const hud_module& defaults, const ui::theme&) -> void
+    {
+        const auto& source = static_cast<const world_info_part_module&>(defaults);
+        this->parent_.parts_[this->index_] = source.State();
+        const size_t profile = this->index_ == 3 ? 1 : this->index_;
+        this->parent_.text_[profile] = source.parent_.text_[profile];
+        auto& enabled = this->index_ == 0 ? this->parent_.time_ : this->index_ == 1 ? this->parent_.day_ : this->index_ == 2 ? this->parent_.weather_ : this->parent_.date_;
+        enabled = source.parent_.PartEnabled(source.index_);
+    }
+
     auto world_info_module::ApplyTextDefaults(const ui::theme& theme) -> void
     {
         this->text_ = {module_text_profile{theme.title_text}, module_text_profile{theme.caption_text}, module_text_profile{theme.body_text}};
@@ -84,7 +94,7 @@ namespace xiui
         return sections;
     }
 
-    auto world_info_module::ConfigSectionContains(const size_t section, const size_t index) -> bool
+    auto world_info_module::ContentConfigSectionContains(const size_t section, const size_t index) -> bool
     {
         if (section >= this->ConfigSections().size() || index >= this->OptionCount()) return false;
         if (index == 5 || index >= 9) return section == 2;
@@ -92,7 +102,7 @@ namespace xiui
         return section == 0;
     }
 
-    auto world_info_module::Option(const size_t index) -> module_option
+    auto world_info_module::ContentOption(const size_t index) -> module_option
     {
         constexpr static const char* profiles[]{"Time", "Day / date", "Weather"};
         switch (index)
@@ -122,7 +132,7 @@ namespace xiui
         }
     }
 
-    auto world_info_module::OnOptionChanged(const size_t index) -> void
+    auto world_info_module::OnContentOptionChanged(const size_t index) -> void
     {
         if (index == 6)
         {

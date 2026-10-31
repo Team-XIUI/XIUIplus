@@ -27,7 +27,9 @@ namespace xiui
         this->state_.bounds.width = std::clamp(this->state_.bounds.width, 120.0f, 600.0f);
         this->shape_ = std::clamp(store.ReadInt("minimap", "shape", 0), 0, 2);
         this->artwork_ = std::clamp(store.ReadInt("minimap", "artwork", 1), 0, 1);
-        this->zoom_ = this->default_zoom_ = std::clamp(store.ReadFloat("minimap", "zoom", 2), 1.0f, 8.0f);
+        this->zoom_ = this->default_zoom_ = std::clamp(store.ReadFloat("minimap", "zoom", initial_zoom), 1.0f, 8.0f);
+        if (store.ReadInt("minimap", "zoom_defaults_version", 0) < 1 && this->default_zoom_ == 3)
+            this->zoom_ = this->default_zoom_ = initial_zoom;
         this->map_opacity_ = std::clamp(store.ReadFloat("minimap", "map_opacity", 1), 0.0f, 1.0f);
         this->background_opacity_ = std::clamp(store.ReadFloat("minimap", "background_opacity", 0.8f), 0.0f, 1.0f);
         this->frame_opacity_ = std::clamp(store.ReadFloat("minimap", "frame_opacity", 1), 0.0f, 1.0f);
@@ -97,6 +99,7 @@ namespace xiui
             store.WriteBool("minimap", edgeKeys[i], this->coordinate_edges_[i]);
         store.WriteInt("minimap", "shape", this->shape_); store.WriteInt("minimap", "artwork", this->artwork_);
         store.WriteFloat("minimap", "zoom", this->default_zoom_);
+        store.WriteInt("minimap", "zoom_defaults_version", 1);
         store.WriteFloat("minimap", "map_opacity", this->map_opacity_); store.WriteFloat("minimap", "background_opacity", this->background_opacity_);
         store.WriteFloat("minimap", "frame_opacity", this->frame_opacity_);
         store.WriteFloat("minimap", "marker_size", this->marker_size_); store.WriteFloat("minimap", "marker_opacity", this->marker_opacity_);
@@ -127,7 +130,7 @@ namespace xiui
         SaveTextProfile(store, "text.minimap.zoom", this->zoom_text_);
     }
 
-    auto minimap_module::OnOptionChanged(const size_t index) -> void
+    auto minimap_module::OnContentOptionChanged(const size_t index) -> void
     {
         if (index == zoom_option)
         {
@@ -143,12 +146,14 @@ namespace xiui
         this->zoom_ = this->zoom_zone_ < this->zone_zoom_.size() && this->zone_zoom_[this->zoom_zone_] > 0 ? this->zone_zoom_[this->zoom_zone_] : this->default_zoom_;
     }
 
-    auto minimap_module::Contains(const float x, const float y) const -> bool
+    auto minimap_module::Contains(const float screenX, const float screenY) const -> bool
     {
+        const float x = this->State().transform.InverseX(screenX), y = this->State().transform.InverseY(screenY);
         if (!this->state_.enabled) return false;
-        const ui::rect view{this->state_.bounds.x, this->state_.bounds.y, this->state_.bounds.width, MinimapHeight(this->state_.bounds.width, this->shape_)};
-        if (!MinimapContains(view, this->shape_, {x, y}, 0, this->edge_style_ == 1 ? this->corner_radius_ : 0)) return false;
-        if (this->edge_style_ == 2 && this->shape_ != 1 && this->maps_ != nullptr && this->data_ != nullptr && this->data_->available)
+        const int shape = this->xiv1_theme_ ? 1 : this->shape_;
+        const ui::rect view{this->state_.bounds.x, this->state_.bounds.y, this->state_.bounds.width, MinimapHeight(this->state_.bounds.width, shape)};
+        if (!MinimapContains(view, shape, {x, y}, this->xiv1_theme_ ? view.width * .04f : 0, this->edge_style_ == 1 ? this->corner_radius_ : 0)) return false;
+        if (!this->xiv1_theme_ && this->edge_style_ == 2 && shape != 1 && this->maps_ != nullptr && this->data_ != nullptr && this->data_->available)
         {
             const auto image = this->maps_->Acquire(this->data_->zone, this->data_->floor, this->artwork_ == 1);
             if (image.outline && !ui::ContourContains(view, *image.outline, {x, y})) return false;
@@ -182,7 +187,7 @@ namespace xiui
         return sections;
     }
 
-    auto minimap_module::ConfigSectionContains(const size_t section, const size_t index) -> bool
+    auto minimap_module::ContentConfigSectionContains(const size_t section, const size_t index) -> bool
     {
         if (index >= this->OptionCount()) return false;
         if (index == coordinate_edges_option) return section == 0;
@@ -195,7 +200,7 @@ namespace xiui
         return section == 0;
     }
 
-    auto minimap_module::Option(const size_t index) -> module_option
+    auto minimap_module::ContentOption(const size_t index) -> module_option
     {
         static constexpr const char* shapes[]{"Square", "Circle", "Wide (16:9)"};
         static constexpr const char* artwork[]{"Regular", "Enhanced (Remapster)"};
@@ -279,9 +284,12 @@ namespace xiui
     auto minimap_module::Render(const hud_snapshot&, const module_render_context& context) -> void
     {
         const auto& design = context.Design(); const auto& colors = design.GetTheme().colors;
+        this->xiv1_theme_ = design.IsXiv1Theme();
+        const bool xiv1 = this->xiv1_theme_;
+        const int shape = xiv1 ? 1 : this->shape_;
         const bool live = this->data_ != nullptr && this->data_->available;
         this->UpdateZoomZone();
-        const float width = this->state_.bounds.width, height = MinimapHeight(width, this->shape_);
+        const float width = this->state_.bounds.width, height = MinimapHeight(width, shape);
         const float lineHeight = std::max(20.0f, design.TextHeight(this->text_.style) + 4);
         this->state_.bounds.height = height + ((this->zone_name_ || this->coordinates_ || this->map_number_) ? lineHeight : 0);
         const ui::rect view{this->state_.bounds.x, this->state_.bounds.y, width, height};
@@ -289,19 +297,19 @@ namespace xiui
         const uint16_t zone = live ? this->data_->zone : 100;
         const int floor = live ? this->data_->floor : 0;
         const auto image = this->maps_ != nullptr && (live || context.IsEditing()) ? this->maps_->Acquire(zone, floor, this->artwork_ == 1) : minimap_image{};
-        const bool burntStyle = this->edge_style_ == 2 && this->shape_ != 1;
+        const bool burntStyle = !xiv1 && this->edge_style_ == 2 && shape != 1;
         const bool burnt = burntStyle && image.texture != nullptr && image.outline != nullptr;
-        const auto coordinateEdges = burntStyle ? std::array<bool, 4>{} : this->coordinate_edges_;
-        const bool drawFrame = this->frame_ && !burntStyle;
-        const float cornerRadius = MinimapCornerRadius(view, this->shape_, this->edge_style_ == 1 ? this->corner_radius_ : 0);
+        const auto coordinateEdges = xiv1 || burntStyle ? std::array<bool, 4>{} : this->coordinate_edges_;
+        const bool drawFrame = this->frame_ && !burntStyle && !xiv1;
+        const float cornerRadius = MinimapCornerRadius(view, shape, this->edge_style_ == 1 ? this->corner_radius_ : 0);
         const auto alpha = [](const uint32_t color, const float opacity) { return (color & 0xFFFFFF) | (static_cast<uint32_t>((color >> 24) * opacity) << 24); };
-        if (this->shadow_ && this->shadow_opacity_ > 0 && burnt)
+        if (!xiv1 && this->shadow_ && this->shadow_opacity_ > 0 && burnt)
         {
             const float spread = this->shadow_softness_;
             const ui::rect shadow{view.x + this->shadow_x_ - spread, view.y + this->shadow_y_ - spread, width + spread * 2, height + spread * 2};
             design.DrawContour(shadow, *image.outline, {alpha(0xFF000000, this->shadow_opacity_), 0, 0, std::max(1.0f, spread)});
         }
-        else if (this->shadow_ && this->shadow_opacity_ > 0)
+        else if (!xiv1 && this->shadow_ && this->shadow_opacity_ > 0)
         {
             ui::focus_frame_style shadow{};
             shadow.color = 0; shadow.glow = false; shadow.padding = 0; shadow.thickness = 4; shadow.radius = cornerRadius;
@@ -317,29 +325,29 @@ namespace xiui
             width - (coordinateEdges[0] + coordinateEdges[2]) * edgeInset,
             height - (coordinateEdges[1] + coordinateEdges[3]) * edgeInset};
         const auto drawMap = [&](const ui::rect& contour, const ui::rect& uv, const float radius) {
-            const auto tint = alpha(0xFFFFFFFF, this->map_opacity_);
+            const auto tint = alpha(xiv1 ? 0xFFFFE9B8 : 0xFFFFFFFF, this->map_opacity_);
             if (burnt) design.DrawContour(contour, *image.outline, {tint, alpha(0xFF482717, this->map_opacity_), 2, 1}, image.texture, uv);
-            else if (this->shape_ == 1) design.DrawTextureDisc(image.texture, contour, uv, tint);
+            else if (shape == 1) design.DrawTextureDisc(image.texture, contour, uv, tint, xiv1 ? std::min(contour.width, contour.height) * .16f : 0);
             else if (radius > 0) design.DrawTextureRoundedRect(image.texture, contour, uv, radius, tint);
             else design.DrawTexture(image.texture, contour, tint, uv);
         };
         {
             const auto clipContent = design.Clip(image.texture != nullptr ? mapContent : view);
-            if (this->background_)
+            if (this->background_ && !xiv1)
             {
                 const auto color = alpha(0xFF10121C, this->background_opacity_);
                 if (burnt) design.DrawContour(view, *image.outline, {color});
                 else
                 {
                     const auto backing = image.texture != nullptr ? mapContent : view;
-                    design.FillRoundedRect(backing, color, MinimapCornerRadius(backing, this->shape_, cornerRadius));
+                    design.FillRoundedRect(backing, color, MinimapCornerRadius(backing, shape, cornerRadius));
                 }
             }
             if (image.texture != nullptr)
             {
                 const auto clipView = design.Clip(view);
                 const float band = size * minimap_coordinate_band;
-                const auto crop = burntStyle ? std::array<bool, 4>{true, true, true, true} : coordinateEdges;
+                const auto crop = xiv1 || burntStyle ? std::array<bool, 4>{true, true, true, true} : coordinateEdges;
                 const ui::rect artworkBounds{mapBounds.x + (crop[0] ? band : 0), mapBounds.y + (crop[1] ? band : 0),
                     size - (crop[0] + crop[2]) * band, size - (crop[1] + crop[3]) * band};
                 const auto clipImage = design.Clip(artworkBounds);
@@ -383,15 +391,18 @@ namespace xiui
                         marker.kind == minimap_marker_kind::npc && !this->npcs_ || marker.kind == minimap_marker_kind::enemy && !this->enemies_) continue;
                     const ui::point point{mapBounds.x + marker.uv.x * size, mapBounds.y + marker.uv.y * size};
                     const float radius = this->marker_size_ * (marker.kind == minimap_marker_kind::target ? 1.25f : 1);
-                    if (!MinimapContains(view, this->shape_, point, radius + 2, cornerRadius)) continue;
+                    if (!MinimapContains(view, shape, point, radius + 2, cornerRadius)) continue;
                     if (burnt && !ui::ContourContains(view, *image.outline, point, radius + 3)) continue;
+                    const float distance = std::hypot((point.x - center.x) / (view.width * .5f), (point.y - center.y) / (view.height * .5f));
+                    const float edgeFade = xiv1 ? std::clamp((1 - distance) / .32f, 0.0f, 1.0f) : 1;
+                    const float markerOpacity = this->marker_opacity_ * edgeFade * edgeFade * (3 - 2 * edgeFade);
                     if (marker.kind == minimap_marker_kind::target)
                     {
                         flushDots();
-                        design.DrawRing({point.x - radius - 2, point.y - radius - 2, radius * 2 + 4, radius * 2 + 4}, alpha(colors.text, this->marker_opacity_), 1);
+                        design.DrawRing({point.x - radius - 2, point.y - radius - 2, radius * 2 + 4, radius * 2 + 4}, alpha(colors.text, markerOpacity), 1);
                     }
-                    dots[dotCount++] = {point, radius, alpha(0xFF000000, this->marker_opacity_)};
-                    dots[dotCount++] = {point, radius - 1, alpha(marker.color, this->marker_opacity_)};
+                    dots[dotCount++] = {point, radius, alpha(xiv1 ? 0xFF755632 : 0xFF000000, markerOpacity)};
+                    dots[dotCount++] = {point, radius - 1, alpha(marker.color, markerOpacity)};
                     if (dotCount == dots.size()) flushDots();
                 }
                 flushDots();
@@ -405,7 +416,7 @@ namespace xiui
                         center.x - dx * r * 0.6f * scale - dy * r * 0.6f * scale, center.y - dy * r * 0.6f * scale + dx * r * 0.6f * scale,
                         center.x - dx * r * 0.6f * scale + dy * r * 0.6f * scale, center.y - dy * r * 0.6f * scale - dx * r * 0.6f * scale, alpha(color, this->marker_opacity_));
                 };
-                if (this->player_icon_ == 0) { arrow(1.3f, 0xFF000000); arrow(1, 0xFFFFFFFF); }
+                if (this->player_icon_ == 0) { arrow(1.3f, xiv1 ? 0xFF66512C : 0xFF000000); arrow(1, xiv1 ? 0xFF7BD2DF : 0xFFFFFFFF); }
                 else
                 {
                     const float radius = this->marker_size_ * 1.5f;
@@ -440,7 +451,7 @@ namespace xiui
         }
         if (drawFrame)
         {
-            if (this->shape_ == 1)
+            if (shape == 1)
             {
                 design.DrawRing(view, alpha(colors.surface_raised, this->frame_opacity_), 4);
                 design.DrawRing({view.x + 1, view.y + 1, width - 2, height - 2}, alpha(colors.muted, this->frame_opacity_), 1);
@@ -459,7 +470,17 @@ namespace xiui
         {
             const float inset = burntStyle ? std::min(width, height) * minimap_coordinate_band + 4 : 0;
             const ui::rect north{center.x - 12, view.y + (coordinateEdges[1] ? edgeInset : inset) + 5, 24, lineHeight};
-            context.DrawText("N", north, north, this->text_);
+            auto northText = this->text_;
+            if (xiv1)
+            {
+                northText.style = design.ResolveHudText(northText.style);
+                northText.style.theme_text = false;
+                northText.style.top_color = 0xFFE39F62; northText.style.bottom_color = 0xFF9C4C31;
+                northText.style.stroke.enabled = true; northText.style.stroke.color = 0xFF493A20;
+                northText.style.shadow.enabled = true; northText.style.shadow.color = 0xB00F130B;
+                northText.style.shadow.offset_x = northText.style.shadow.offset_y = 1;
+            }
+            context.DrawText("N", north, north, northText);
         }
         if (this->zoom_readout_)
         {

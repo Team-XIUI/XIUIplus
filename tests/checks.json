@@ -1,6 +1,54 @@
 {
   "checks": [
     {
+      "name": "xiv1-theme",
+      "target": "xiui_config_input_smoke",
+      "arguments": ["--xiv1-theme-only"],
+      "requires_arguments": false
+    },
+    {
+      "name": "edit-mode",
+      "target": "xiui_config_input_smoke",
+      "arguments": ["--edit-mode-only", "{root}/config/xiuinative-defaults.ini"],
+      "requires_arguments": false
+    },
+    {
+      "name": "setup-wizard",
+      "target": "xiui_config_input_smoke",
+      "arguments": ["--setup-wizard-only", "{root}/config/xiuinative-defaults.ini"],
+      "requires_arguments": false
+    },
+    {
+      "name": "window-input",
+      "target": "xiui_config_input_smoke",
+      "arguments": ["--window-input-only"],
+      "requires_arguments": false
+    },
+    {
+      "name": "hud-presets",
+      "target": "xiui_config_input_smoke",
+      "arguments": ["--hud-presets-only", "{root}/config/xiuinative-defaults.ini"],
+      "requires_arguments": false
+    },
+    {
+      "name": "config-memory",
+      "target": "xiui_config_input_smoke",
+      "arguments": ["--config-memory-only"],
+      "requires_arguments": false
+    },
+    {
+      "name": "module-menu",
+      "target": "xiui_config_input_smoke",
+      "arguments": ["--module-menu-only", "{root}/config/xiuinative-defaults.ini"],
+      "requires_arguments": false
+    },
+    {
+      "name": "hud-scaling",
+      "target": "xiui_config_input_smoke",
+      "arguments": ["--hud-scaling-only", "{root}/config/xiuinative-defaults.ini"],
+      "requires_arguments": false
+    },
+    {
       "name": "lua-profile-import",
       "target": "xiui_config_input_smoke",
       "arguments": ["--lua-profile-import-only"],
@@ -60,6 +108,12 @@
       "arguments": [
         "--config-resize-only"
       ],
+      "requires_arguments": false
+    },
+    {
+      "name": "target-ring-camera",
+      "target": "xiui_world_overlay_smoke",
+      "arguments": [],
       "requires_arguments": false
     },
     {

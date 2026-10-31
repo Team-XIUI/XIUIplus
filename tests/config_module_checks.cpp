@@ -176,7 +176,7 @@ namespace xiui
             party.ConfigSectionContains(party_module::jobs_section, party_module::icon_offset_options_start + 1),
             "Party and alliance icon offsets persist independently in Jobs, along with cast text offsets")) return false;
         party.ApplyPreset(0);
-        if (!check(party.icon_offset_x_ == 9 && party.icon_offset_y_ == 1, "Classic restores captured icon offsets")) return false;
+        if (!check(party.icon_offset_x_ == 0 && party.icon_offset_y_ == 1, "Classic starts its icon at the content edge")) return false;
         ui::player_timing_settings timing;
         if (!check(timing.attack_layout == 2 && timing.recovery_layout == 2 && timing.mini_gap == 2 && timing.recovery_mini_gap == 2,
             "Player tickers default to Mini bar with two-pixel gaps")) return false;
@@ -191,8 +191,52 @@ namespace xiui
     {
         ui::design_system design;
         module_render_context context{design};
+        {
+            party_source source;
+            source.player_id_ = 100;
+            auto& member = source.members_[0];
+            member.active = member.in_zone = true; member.id = 100; member.name = "Player";
+            member.main_job = 3; member.hp = member.hp_max = member.mp = member.mp_max = 100;
+            member.hp_percent = member.mp_percent = 100;
+            party_module themed;
+            themed.ApplyPreset(0); themed.SetSource(&source);
+            themed.preview_ = themed.labels_ = false; themed.tp_display_ = 1;
+            themed.text_[2].offset_x = -59; themed.text_[3].offset_y = 3;
+            themed.text_[party_module::mp_text].offset_x = -7;
+            themed.Render({}, context);
+            const auto native = themed.LayoutEntry({0, 0, themed.LayoutContainer().canvas_width, 0}, true, {true, true, true, true});
+            const auto offsetsX = themed.bar_offsets_x_, offsetsY = themed.bar_offsets_y_;
+            design.SetAppearanceTheme(ui::xiv1_appearance);
+            themed.Render({}, context);
+            if (!check(themed.ResourceLabels() && !themed.labels_,
+                "XIV 1.0 includes resource labels without enabling saved Native labels")) return false;
+            for (const bool mp : {false, true}) for (const bool tp : {false, true})
+            {
+                const party_module::resource_slots slots{mp, tp, mp, tp};
+                const auto hidden = themed.LayoutEntry({0, 0, 300, 0}, true, slots);
+                themed.labels_ = true;
+                const auto shown = themed.LayoutEntry({0, 0, 300, 0}, true, slots);
+                themed.labels_ = false;
+                if (!check(hidden.height == shown.height && hidden.resources.height == shown.resources.height,
+                    "theme label geometry is independent of Native visibility with optional MP and TP")) return false;
+            }
+            themed.state_.bounds.x += 47; themed.state_.bounds.y += 31;
+            const auto moved = themed.state_.bounds;
+            auto saved = settings_store::FromIniText(""); themed.Save(saved);
+            if (!check(!saved.ReadBool("party", "labels", true) && saved.ReadFloat("text.party.labels", "offset_x", 0) == -59 &&
+                saved.ReadFloat("text.party.values", "offset_y", 0) == 3 && saved.ReadFloat("text.party.mp", "offset_x", 0) == -7,
+                "saving a moved themed Party retains Native label visibility and custom text offsets")) return false;
+            design.SetAppearanceTheme(ui::native_appearance);
+            themed.Render({}, context);
+            const auto restored = themed.LayoutEntry({0, 0, themed.LayoutContainer().canvas_width, 0}, true, {true, true, true, true});
+            const auto same = [](const ui::rect& a, const ui::rect& b) { return a.x == b.x && a.y == b.y && a.width == b.width && a.height == b.height; };
+            if (!check(!themed.ResourceLabels() && themed.state_.bounds.x == moved.x && themed.state_.bounds.y == moved.y &&
+                themed.bar_offsets_x_ == offsetsX && themed.bar_offsets_y_ == offsetsY && native.height == restored.height &&
+                std::equal(native.resources.bars.begin(), native.resources.bars.end(), restored.resources.bars.begin(), same),
+                "returning to Native restores its exact resource layout and keeps the moved Party position")) return false;
+        }
         party_module jobLayout;
-        for (const bool fit : {false,true}) for (const int layout : {0,1,2})
+        for (const bool fit : {false,true}) for (const int layout : {0,1,2,3})
         {
             jobLayout.fit_width_=fit; jobLayout.layout_=layout;
             jobLayout.bar_widths_={140,92,32,0}; jobLayout.job_icons_=false;
@@ -212,6 +256,7 @@ namespace xiui
             }
         }
         jobLayout=party_module{};
+        jobLayout.jobs_=true;
         party_member jobMember{};
         jobMember.main_job=3; jobMember.main_level=99;
         jobMember.sub_job=5; jobMember.sub_level=49; jobMember.master_level=20;
@@ -477,7 +522,7 @@ namespace xiui
         party.ResetDefaults(design.GetTheme());
         party.layout_ = party_module::bars_mp_below_tp_left;
         const auto stacked = party.LayoutResources({10, 20, 360, 0}, {true, true});
-        if (!check(party.Option(21).choice_count == 3 && stacked.bars[1].x == stacked.bars[0].x &&
+        if (!check(party.Option(21).choice_count == 4 && stacked.bars[1].x == stacked.bars[0].x &&
             stacked.bars[1].width == stacked.bars[0].width && stacked.bars[1].y > stacked.bars[0].y + stacked.bars[0].height &&
             stacked.bars[2].x + stacked.bars[2].width < stacked.bars[0].x &&
             stacked.bars[2].y + stacked.bars[2].height * 0.5f == 20 + stacked.height * 0.5f,
@@ -741,7 +786,7 @@ namespace xiui
         };
         const auto topics = runtime.target_.ConfigSections();
         const auto page = runtime.ActiveConfigPage();
-        if (!check(topics.size() == BarConfigSections().size() + 2 && page.SectionCount() == 3 && runtime.HasConfigSections() &&
+        if (!check(topics.size() == BarConfigSections().size() + 2 && page.SectionCount() == 3 && (runtime.ActiveConfigPage().SectionCount() > 1) &&
             std::strcmp(page.SectionName(0), "Target") == 0 && std::strcmp(page.SectionName(1), "Target of Target") == 0 &&
             std::strcmp(page.SectionName(2), "Subtarget") == 0,
             "Target, Target of Target and Subtarget are sibling top categories")) return false;
@@ -958,7 +1003,7 @@ namespace xiui
             runtime.alliance_second_.State().enabled = (mask & 2) != 0;
             runtime.config_.module = &runtime.party_;
             const auto page = runtime.ActiveConfigPage();
-            if (!check(page.SectionCount() == 3 && runtime.HasConfigSections(), "all Party settings selectors remain available for restoring disabled lists")) return false;
+            if (!check(page.SectionCount() == 3 && (runtime.ActiveConfigPage().SectionCount() > 1), "all Party settings selectors remain available for restoring disabled lists")) return false;
             for (size_t index = 1; index < 3; ++index)
             {
                 auto* module = page.SectionModule(index);
@@ -1025,9 +1070,9 @@ namespace xiui
             ui::config_controls::IconId(casting.id) == ui::icon_glyph::castbar,
             "Casting groups both original modules under one alphabetized sidebar entry")) return false;
         click(runtime.ConfigLayout().ModuleTab(1));
-        if (!check(runtime.config_.module == &runtime.cast_bar_ && runtime.HasConfigSections(), "Casting opens the Cast Bar settings")) return false;
+        if (!check(runtime.config_.module == &runtime.cast_bar_ && (runtime.ActiveConfigPage().SectionCount() > 1), "Casting opens the Cast Bar settings")) return false;
         click(runtime.ConfigLayout().Section(1, 2));
-        if (!check(runtime.config_.module == &runtime.cast_cost_ && runtime.HasConfigSections() && runtime.HasConfigSubmenu(),
+        if (!check(runtime.config_.module == &runtime.cast_cost_ && (runtime.ActiveConfigPage().SectionCount() > 1) && runtime.HasConfigSubmenu(),
             "the Cast Cost selector opens its existing settings in Casting")) return false;
         click(runtime.ConfigLayout().Section(0, 2));
         if (!check(runtime.config_.module == &runtime.cast_bar_, "the Cast Bar selector returns to its independent settings")) return false;

@@ -230,6 +230,7 @@ namespace xiui
 
     auto actionbars_module::OpenSetupChoice(const control& item) -> void
     {
+        if (this->dialog_ == dialog::editor) this->CommitField();
         this->FinishSetupValue(true); this->setup_slider_adjust_ = 0;
         this->setup_choice_input_.Cancel(); this->setup_choices_.clear(); this->setup_choice_labels_.clear();
         this->setup_control_ = item.id;
@@ -237,7 +238,9 @@ namespace xiui
         int current{};
         const auto& mapping = this->Mapping();
         const int preset = this->setup_preset_ < 0 ? PresetFor(mapping, this->setup_backend_) : this->setup_preset_;
-        if (item.id == mapping_backend)
+        if (auto choices = this->EditorChoices(item.id); !choices.empty())
+        { this->setup_choices_ = std::move(choices); current = this->EditorChoiceValue(item.id); }
+        else if (item.id == mapping_backend)
         {
             add(0, "XInput"); add(1, "DirectInput"); current = this->setup_backend_;
         }
@@ -294,6 +297,7 @@ namespace xiui
         const bool changed = index != this->setup_choice_index_;
         this->setup_choice_input_.Cancel(); this->setup_choice_pressed_.reset();
         if (!changed) return;
+        if (this->SelectEditorChoice(this->setup_control_, value)) return;
         if (this->setup_control_ == keybind_bar && this->dialog_ == dialog::keybinds)
         {
             this->OpenKeybinds(value == static_cast<int>(action_bar_count), value == static_cast<int>(action_bar_count) ? 0 : static_cast<size_t>(value));
@@ -342,7 +346,7 @@ namespace xiui
 
     auto actionbars_module::HandleSetupMouse(const uint32_t message, const WPARAM buttons, const float x, const float y) -> bool
     {
-        if (this->dialog_ != dialog::setup && this->dialog_ != dialog::keybinds) return false;
+        if (this->dialog_ != dialog::setup && this->dialog_ != dialog::keybinds && !this->setup_choice_input_.Opened()) return false;
         const bool press = message == WM_LBUTTONDOWN || message == WM_LBUTTONDBLCLK;
         if (this->setup_choice_input_.Opened())
         {
@@ -396,7 +400,7 @@ namespace xiui
 
     auto actionbars_module::HandleSetupController(const controller_action action, const bool repeated) -> bool
     {
-        if (this->dialog_ != dialog::setup && this->dialog_ != dialog::keybinds) return false;
+        if (this->dialog_ != dialog::setup && this->dialog_ != dialog::keybinds && !this->setup_choice_input_.Opened()) return false;
         if (this->setup_choice_input_.Opened())
         {
             if (action == controller_action::cancel || action == controller_action::next_tab || action == controller_action::previous_tab) this->setup_choice_input_.Cancel();

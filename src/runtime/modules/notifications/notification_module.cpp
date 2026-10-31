@@ -132,7 +132,7 @@ namespace xiui
 
     }
 
-    auto notification_module::Option(const size_t index) -> module_option
+    auto notification_module::ContentOption(const size_t index) -> module_option
     {
         auto& group = this->groups_[this->SelectedGroup()];
         auto& events = this->groups_[0].style;
@@ -237,7 +237,7 @@ namespace xiui
         this->center_.Update(now, lifetimes);
     }
 
-    auto notification_module::OnOptionChanged(const size_t index) -> void
+    auto notification_module::OnContentOptionChanged(const size_t index) -> void
     {
         this->SelectGroup(this->SelectedGroup());
         if (index == 34)
@@ -257,7 +257,7 @@ namespace xiui
         return sections;
     }
 
-    auto notification_module::ConfigSectionContains(const size_t section, const size_t index) -> bool
+    auto notification_module::ContentConfigSectionContains(const size_t section, const size_t index) -> bool
     {
         if (section >= this->ConfigSections().size() || index >= this->OptionCount()) return false;
         if (index == 28) return section >= 2;
@@ -311,6 +311,7 @@ namespace xiui
         area.x += group.text.offset_x; area.y += group.text.offset_y;
         notification_renderer::Draw(context.Design(), this->center_, area, style, now, context.Icons(), &context,
             routing, static_cast<int>(index), &group.drawn);
+        for (size_t at = 0; at < group.drawn.count; ++at) group.drawn.hits[at].bounds = context.Design().Transform().Map(group.drawn.hits[at].bounds);
     }
 
     auto notification_module::Detail(const uint64_t id) const -> std::optional<notification_draw_result::hit>

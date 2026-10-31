@@ -74,11 +74,11 @@ namespace xiui
         auto ResetDefaults(const ui::theme& themeDefaults) -> void override;
         auto Load(const settings_store& store) -> void override;
         auto Save(const settings_store& store) const -> void override;
-        auto OptionCount(void) const -> size_t override;
-        auto Option(size_t index) -> module_option override;
+        auto ContentOptionCount(void) const -> size_t override;
+        auto ContentOption(size_t index) -> module_option override;
         auto ConfigSections(void) const -> std::span<const module_config_section> override;
-        auto ConfigSectionContains(size_t section, size_t index) -> bool override;
-        auto OnOptionChanged(size_t index) -> void override;
+        auto ContentConfigSectionContains(size_t section, size_t index) -> bool override;
+        auto OnContentOptionChanged(size_t index) -> void override;
         auto PreviewChoice(size_t index, size_t choice) -> bool override;
         auto SetTiming(const combat_timing_source* source) -> void { this->timing_ = source; }
         auto SetSounds(ui::native_ui_sounds* sounds) -> void { this->sounds_ = sounds; }
@@ -120,6 +120,7 @@ namespace xiui
         meter_animation_state hp_animation_{};
         meter_animation_state mp_animation_{};
         meter_animation_state tp_animation_{};
+        bool xiv1_theme_{};
 
         auto SelectedFillTop(void) -> D3DCOLOR*;
         auto SelectedFillBottom(void) -> D3DCOLOR*;

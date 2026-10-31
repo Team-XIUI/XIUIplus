@@ -24,24 +24,30 @@ namespace xiui
         auto ResetDefaults(const ui::theme& theme) -> void override;
         auto Load(const settings_store& store) -> void override;
         auto Save(const settings_store& store) const -> void override;
-        auto OptionCount(void) const -> size_t override { return sound_options_start + 3; }
-        auto Option(size_t index) -> module_option override;
-        auto OnOptionChanged(size_t index) -> void override;
+        auto ContentOptionCount(void) const -> size_t override { return sound_options_start + 3; }
+        auto ContentOption(size_t index) -> module_option override;
+        auto OnContentOptionChanged(size_t index) -> void override;
         auto ConfigSections(void) const -> std::span<const module_config_section> override;
-        auto ConfigSectionContains(size_t section, size_t index) -> bool override;
+        auto ContentConfigSectionContains(size_t section, size_t index) -> bool override;
         auto ShouldRender(const hud_snapshot&) const -> bool override;
         auto Render(const hud_snapshot&, const module_render_context& context) -> void override;
         auto Update(IAshitaCore* core, uint64_t now) -> void;
         auto HandlePacket(IAshitaCore* core, uint16_t id, std::span<const uint8_t> packet, uint64_t now) -> void;
         auto HandleCommand(IAshitaCore* core, std::string_view command) -> void;
-        auto Contains(float x, float y) const -> bool;
-        auto ButtonAt(float x, float y) const -> uint32_t;
+        auto LayoutContains(float x, float y) const -> bool;
+        auto Contains(float x, float y) const -> bool
+        { return this->LayoutContains(this->state_.transform.InverseX(x), this->state_.transform.InverseY(y)); }
+        auto LayoutButtonAt(float x, float y) const -> uint32_t;
+        auto ButtonAt(float x, float y) const -> uint32_t
+        { return this->LayoutButtonAt(this->state_.transform.InverseX(x), this->state_.transform.InverseY(y)); }
         auto PointerDown(void) const -> bool { return this->pointer_down_; }
         auto CancelPointer(void) -> void { this->pointer_down_ = false; this->pressed_ = -1; }
-        auto SetHover(float x, float y) -> void { this->mouse_x_ = x; this->mouse_y_ = y; }
-        auto HandleMouse(uint32_t message, float x, float y, uint64_t now) -> bool;
+        auto SetHover(float x, float y) -> void { this->mouse_x_ = this->state_.transform.InverseX(x); this->mouse_y_ = this->state_.transform.InverseY(y); }
+        auto LayoutHandleMouse(uint32_t message, float x, float y, uint64_t now) -> bool;
+        auto HandleMouse(uint32_t message, float x, float y, uint64_t now) -> bool
+        { return this->LayoutHandleMouse(message, this->state_.transform.InverseX(x), this->state_.transform.InverseY(y), now); }
         auto ControllerButtonCount(void) const -> size_t;
-        auto ControllerButtonBounds(size_t index) const -> ui::rect { return index < this->buttons_.size() ? this->buttons_[index] : ui::rect{}; }
+        auto ControllerButtonBounds(size_t index) const -> ui::rect { return index < this->buttons_.size() ? this->state_.transform.Map(this->buttons_[index]) : ui::rect{}; }
         auto ActivateControllerButton(size_t index, uint64_t now) -> bool;
         auto Stop(void) -> void { this->check_.Clear(); this->CancelPointer(); this->sound_.Stop(); }
 

@@ -4,6 +4,7 @@ set_property(DIRECTORY APPEND PROPERTY CMAKE_CONFIGURE_DEPENDS
     scripts/build-lua-profile-schema.py tests/fixtures/lua/1.8.4/defaults.json tests/fixtures/lua/1.8.5/defaults.json)
 
 set(XIUI_HUD_SOURCES
+    src/runtime/hud_runtime_setup.cpp
     src/runtime/settings/lua_profile_import.cpp
     src/runtime/settings/lua_setup_import.cpp
     src/runtime/hud_runtime_lua_import.cpp
@@ -116,6 +117,9 @@ set(XIUI_HUD_SOURCES
     src/runtime/input/config_controller_focus.hpp
     src/runtime/input/controller_movement_layout.hpp
     src/runtime/hud_runtime_layout.cpp
+    src/runtime/hud_runtime_module_menu.cpp
+    src/runtime/hud_runtime_scale.cpp
+    src/runtime/hud_runtime_basic.cpp
     src/runtime/hud_runtime_elements.cpp
     src/runtime/hud_runtime_search.cpp
     src/runtime/hud_runtime_profiles.cpp
@@ -184,6 +188,7 @@ set(XIUI_HUD_SOURCES
     src/runtime/modules/actionbars/action_executor.cpp
     src/runtime/modules/actionbars/action_import.cpp
     src/runtime/modules/actionbars/actionbars_module.cpp
+    src/runtime/modules/actionbars/actionbars_editor.cpp
     src/runtime/modules/actionbars/actionbars_setup.cpp
     src/runtime/modules/actionbars/actionbars_keybinds.cpp
     src/runtime/modules/actionbars/actionbars_display.cpp
@@ -242,6 +247,8 @@ set(XIUI_HUD_SOURCES
     src/runtime/settings/text_style_settings.hpp
     src/runtime/settings/settings_profiles.cpp
     src/runtime/settings/profile_identity.cpp
+    src/runtime/settings/profile_file.cpp
+    src/runtime/settings/profile_file.hpp
     src/runtime/settings/profile_share.cpp
     src/runtime/settings/profile_share.hpp
     src/runtime/settings/profile_share_delta.cpp
@@ -252,6 +259,7 @@ set(XIUI_HUD_SOURCES
     src/runtime/settings/settings_writer.cpp
     src/runtime/settings/settings_writer.hpp
     src/shared/runtime_api.hpp
+    src/shared/keyboard_input.hpp
     ${XIUI_CURSOR_RESOURCE}
     ${XIUI_JOB_RESOURCE}
     ${XIUI_NOTIFICATION_RESOURCE}
@@ -261,4 +269,5 @@ set(XIUI_HUD_SOURCES
     ${XIUI_DEFAULTS_RESOURCE}
     ${XIUI_MOB_RESOURCE}
     ${XIUI_BLUE_MAGIC_RESOURCE}
+    ${XIUI_XIV1_RESOURCE}
 )

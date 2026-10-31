@@ -17,12 +17,13 @@ namespace xiui
         auto PositionBoundsReady(void) const -> bool override { return this->PreviewVisible(); }
         auto SetDisplayAllowed(bool allowed) -> void;
         auto ResetDefaults(const ui::theme&) -> void override;
+        auto ResetSettingsFrom(const hud_module& defaults, const ui::theme&) -> void override;
         auto Load(const settings_store& store) -> void override;
         auto Save(const settings_store& store) const -> void override;
-        auto OptionCount(void) const -> size_t override;
-        auto Option(size_t index) -> module_option override { return this->parent_.ChildOption(this->subtarget_, index); }
+        auto ContentOptionCount(void) const -> size_t override;
+        auto ContentOption(size_t index) -> module_option override { return this->parent_.ChildOption(this->subtarget_, index); }
         auto ConfigSections(void) const -> std::span<const module_config_section> override;
-        auto ConfigSectionContains(size_t section, size_t index) -> bool override { return this->parent_.ChildContains(this->subtarget_, section, index); }
+        auto ContentConfigSectionContains(size_t section, size_t index) -> bool override { return this->parent_.ChildContains(this->subtarget_, section, index); }
         auto ShouldRender(const hud_snapshot&) const -> bool override { return this->HasEditableBounds() && this->parent_.ChildVisible(this->subtarget_, false); }
         auto Render(const hud_snapshot&, const module_render_context& context) -> void override { this->parent_.RenderChild(this->subtarget_, context); }
 

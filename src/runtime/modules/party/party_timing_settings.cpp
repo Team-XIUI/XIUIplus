@@ -84,13 +84,14 @@ namespace xiui
         }
     }
 
-    auto party_timing_settings::CountdownWidth(const size_t index) const -> float
+    auto party_timing_settings::CountdownWidth(const size_t index, const ui::text_style* resolved) const -> float
     {
         const auto& ticker = this->tickers[index];
         if (ticker.display == 0) return 0;
         const auto& text = ticker.text;
-        const auto metrics = ui::NativeFontMetrics(text.style.font, ui::TextPixelSize(text.style.scale));
-        return std::ceil(metrics.digit_advance * 7 + std::max(0.0f, text.style.letter_spacing) * 5 +
+        const auto& style = resolved != nullptr ? *resolved : text.style;
+        const auto metrics = ui::NativeFontMetrics(style.font, ui::TextPixelSize(style.scale));
+        return std::ceil(metrics.digit_advance * 7 + std::max(0.0f, style.letter_spacing) * 5 +
             std::max(0.0f, text.offset_x) + (text.placement == 0 ? 0 : 8));
     }
 }

@@ -40,8 +40,14 @@ namespace xiui::ui
         auto Shutdown(void) -> void;
         auto SelectSkin(uint8_t type) -> void { if (type < this->windows_.size()) this->selected_ = type; }
         auto SelectedSkin(void) const -> uint8_t { return this->selected_; }
-        auto BackgroundColor(void) const -> D3DCOLOR { return this->windows_[this->selected_].average; }
+        auto SetAppearanceTheme(int value) -> void { this->appearance_theme_ = value == 1 ? 1 : 0; }
+        auto AppearanceTheme(void) const -> int { return this->appearance_theme_; }
+        auto BackgroundColor(void) const -> D3DCOLOR { return this->appearance_theme_ == 1 ? 0xFF0B102B : this->windows_[this->selected_].average; }
         auto MeterBackground(void) const -> meter_texture;
+        auto AppearanceMeterSkin(void) const -> std::optional<meter_skin> { return this->appearance_theme_ == 1 ? this->xiv1_meter_ : std::nullopt; }
+        auto DrawXiv1TargetHeader(const design_system& design, const rect& bounds, float opacity = 1) const -> void;
+        auto DrawXiv1ActionMedallion(const design_system& design, const rect& bounds, float opacity = 1) const -> void;
+        auto DrawXiv1TitleSeparator(const design_system& design, const rect& bounds, float opacity = 1) const -> void;
         auto Draw(const design_system& design, const rect& bounds, const container_style& style, std::span<const container_fill> fills = {}, const horizontal_fade* fade = nullptr) const -> rect;
         auto DrawFrame(const design_system& design, const rect& bounds, const container_style& style, const horizontal_fade* fade = nullptr) const -> void;
         auto DrawTooltip(const design_system& design, const rect& bounds) const -> rect;
@@ -63,6 +69,12 @@ namespace xiui::ui
         };
         std::array<window_skin, 8> windows_{};
         uint8_t selected_{};
+        int appearance_theme_{};
+        IDirect3DTexture8* xiv1_atlas_{};
+        IDirect3DTexture8* xiv1_fabric_{};
+        nine_slice_skin xiv1_window_{};
+        std::optional<meter_skin> xiv1_meter_{};
+        auto LoadAppearanceAssets(void) -> void;
         auto ReleaseTextures(void) -> void;
         auto CreateTexture(const resources::menu_texture& image, IDirect3DTexture8** texture) const -> bool;
         static auto CorrectWindowFrame(resources::menu_window& window, uint8_t type) -> void;

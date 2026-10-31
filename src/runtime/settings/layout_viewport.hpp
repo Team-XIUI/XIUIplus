@@ -69,7 +69,11 @@ namespace xiui
         for (const auto& section : sections)
         {
             const auto bounds = source.ReadRect(section.c_str(), defaults.ReadRect(section.c_str(), {}));
-            const auto preset = defaults.ReadRect(section.c_str(), {});
+            auto preset = defaults.ReadRect(section.c_str(), {});
+            const auto scaleSection = std::string{"hud.scale."} + section.substr(7);
+            const auto global = std::clamp(source.ReadFloat("appearance.hud", "scale", 1), .5f, 2.0f);
+            preset.width *= global * std::clamp(source.ReadFloat(scaleSection.c_str(), "x", 1), .25f, 3.0f);
+            preset.height *= global * std::clamp(source.ReadFloat(scaleSection.c_str(), "y", 1), .25f, 3.0f);
             const bool hasPreset = !defaults.ReadString(section.c_str(), "x").empty() && !defaults.ReadString(section.c_str(), "y").empty();
             const auto matches = [&](const bool horizontal) {
                 const auto extent = horizontal ? reference.width : reference.height;

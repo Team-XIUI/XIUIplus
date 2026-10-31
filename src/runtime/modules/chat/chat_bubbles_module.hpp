@@ -13,17 +13,20 @@ namespace xiui
         auto DisplayName(void) const -> const char* override { return "Bubbles"; }
         auto State(void) -> module_state& override { return this->state_; }
         auto State(void) const -> const module_state& override { return this->state_; }
-        auto HasEditableBounds(void) const -> bool override { return false; }
+        auto HasEditableBounds(void) const -> bool override { return true; }
+        auto CanMove(void) const -> bool override { return false; }
+        auto PreviewVisible(void) const -> bool override { return false; }
+        auto EditGrip(void) const -> edit_grip_kind override { return edit_grip_kind::none; }
         auto ApplyTextDefaults(const ui::theme& theme) -> void override;
         auto VisitTextSettings(const text_settings_visitor& visit) -> void override { VisitTextStyles(visit, {&this->text_.style}); }
         auto ResetDefaults(const ui::theme& theme) -> void override;
         auto Load(const settings_store& store) -> void override;
         auto Save(const settings_store& store) const -> void override;
-        auto OptionCount(void) const -> size_t override { return text_start + text_profile_option_count; }
-        auto Option(size_t index) -> module_option override;
+        auto ContentOptionCount(void) const -> size_t override { return text_start + text_profile_option_count; }
+        auto ContentOption(size_t index) -> module_option override;
         auto ConfigSections(void) const -> std::span<const module_config_section> override;
-        auto ConfigSectionContains(size_t section, size_t index) -> bool override;
-        auto OnOptionChanged(size_t) -> void override;
+        auto ContentConfigSectionContains(size_t section, size_t index) -> bool override;
+        auto OnContentOptionChanged(size_t) -> void override;
         auto ShouldRender(const hud_snapshot& snapshot) const -> bool override { return this->state_.enabled && snapshot.camera_valid && (!this->bubbles_.empty() || !this->outgoing_.empty()); }
         auto Render(const hud_snapshot& snapshot, const module_render_context& context) -> void override;
         auto Receive(IAshitaCore* core, const chat_line& line) -> void;

@@ -48,6 +48,7 @@ namespace xiui
 
     inline constexpr uint32_t controller_capture_mask = 3;
     inline constexpr uint32_t controller_party_input = 4;
+    inline constexpr uint32_t controller_native_cycle = 8;
     inline constexpr uint32_t controller_revision_mask = 0xffff0000;
 
     constexpr auto ControllerEntryBit(const controller_action action) -> uint32_t

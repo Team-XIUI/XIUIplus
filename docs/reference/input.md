@@ -18,25 +18,41 @@ Read the ABI from [runtime_api.hpp](../../src/shared/runtime_api.hpp); do not co
 - Distinguish DirectInput IDs, XInput event IDs, masks and native mapping slots. Resolve actual configured bindings; historical A/B/Y conventions are not universal.
 - Separate native configuration, Ashita enumeration, observed connection and runtime readiness. Auto/Keyboard & Mouse/Controller presentation changes prompts, not device settings.
 - Respect an existing input owner. Track owned press, repeats, held state and release; one-shot Send/Confirm/Delete must not repeat. Require neutral before returning a captured stick.
-- Release transient focus, dialogs and gestures on foreground loss, disconnect, hidden/disabled context, zoning, profile/runtime replacement and unload. Preserve drafts and committed layout.
+- Suspend ownership on foreground loss while retaining the selected window, chat draft, caret, channel and recipient; returning resumes that focus. Pointer/resize gestures end and queued controller input is invalidated. Disconnect, hidden/disabled context, zoning, profile/runtime replacement and unload release transient focus normally.
 
 ## Mouse and locked HUD
 
+Opening settings leaves Edit Mode OFF. Live modules retain hover editing; selecting a module previews it. The shared footer toggle and controller Utilities action explicitly preview all enabled modules. Render visibility also gates grips, dragging, context menus, snapping and controller movement entries, so hidden modules cannot capture input.
+
 Hover capture blocks native gameplay without blocking XIUI's own controls. `PointerInputBlocked` unwraps XIUI's capture state while retaining the previous mouse block. Satchel, Action Bars management and Treasure Pool accept pointer interaction over ordinary native menus.
+
+Native chat cleanup preserves pointer gestures and pending releases owned by another XIUI surface. Repeated command-menu/combat polling must not cancel workspace drags or button clicks between press and release. Foreground/input suspension still releases capture immediately.
+
+Configuration, color-picker and profile/import close buttons activate on the matching release; releasing outside cancels the close. Action workspace close controls use the same press/release rule. Dismissing a popup keeps native mouse blocking and held movement capture until its owned release, even after the popup disappears.
 
 Window visibility, pointer capture, text focus and deliberate browsing are separate. Clicking a bag/item or blank window space must not enter keyboard browsing. An explicitly opened editor/popup owns its required keys until dismissal. Unclaimed keyboard/controller navigation stays with the native menu. Native text entry, spell/ability subtargeting and cutscenes retain their existing guards.
 
 ## Keyboard
 
-Follow native Keyboard Size through `input/keyboard_policy.hpp`. Compact layouts retain character shortcuts, including F-to-focus; Full mode leaves unfocused letters, digits, punctuation and Space available to native typing. Missing settings also preserve typing. Explicitly focused editors and deliberate browsing retain their keys.
+Follow native Keyboard Size through `input/keyboard_policy.hpp`. Compact layouts retain character shortcuts, including F-to-focus. With XIUI chat replacing native chat, Full mode opens composition from a fresh letter, top-row digit, punctuation or Space press without waiting for a hidden native editor. Numpad movement, Ctrl/Alt commands and existing input owners retain priority. Missing settings leave initiation native. Explicitly focused editors and deliberate browsing retain their keys.
 
-Keyboard suppression tracks window-message gestures, immediate state and buffered events independently. Keep physical scan-code/extended-key identity, drain owned releases after a surface closes, and preserve other keys. A held Enter that sends chat cannot also open a native command menu.
+Keyboard suppression tracks window-message gestures, immediate state and buffered events independently. Cached keyboard routing reserves chat/status navigation before DirectInput polling, including compact F entry, while leaving unrelated typing, numpad movement and modified shortcuts available. Keep physical scan-code/extended-key identity and drain owned releases after a surface closes. A held Enter used by XIUI cannot also open native expanded chat or a command menu. The host reads this routing without taking the runtime mutex.
 
 ## Controller
 
+First-load [Setup](setup.md) shares mouse, keyboard and controller actions. It captures input while visible, keeps held confirmation and pointer releases owned through dismissal, and yields to native text, targeting, events and foreground loss.
+
 `/xiui focus` opens the picker; `/xiui focus <area>` enters a supported surface and `off` releases it. Focus uses stable identities, visible feedback and the same actions as pointer/keyboard controls. Directions repeat; activation and destructive confirmation require a fresh press. Configuration/modals can capture exclusively; ordinary chat-history browsing leaves movement/camera sticks available.
 
-The configured Cycle Window action follows Chat 1 → Chat 2 → Buffs → Debuffs, skipping unavailable windows/effects. Enter/Confirm expands focused chat history; Cancel returns one layer. Gameplay Up/Down remains native party targeting. Explicit XIUI party browsing highlights members without changing the hard target until activation and yields to native menus/subtargets.
+F/the configured Cycle Window action follows Chat → Buffs → Debuffs, skipping unavailable effects. Window 2 is a tab inside expanded chat instead of a second compact focus stop. Enter/Confirm expands focused chat history; Cancel returns one layer. Gameplay Up/Down remains native party targeting. Explicit XIUI party browsing highlights members without changing the hard target until activation and yields to native menus/subtargets.
+
+Inside expanded chat, F/Cycle Window visits Window 1 → Window 2 → Say → Tell → Party → LS1 → LS2 → Assist E → Assist J → Unity → Shout → Emotes, then wraps. Shift+F reverses that order. Window tabs retain their native message routing; channel tabs combine both windows. Native menu focus polling cannot replace the expanded log or reset its tab; native text editors and action targeting still take priority.
+
+Window 2 is omitted when its XIUI window is disabled, the game uses a single log, or no message types route to the second native log. Keyboard and controller navigation skip it in both directions. A configured but quiet window stays available; removing the selected Window 2 tab returns to Window 1.
+
+If the game's native expanded log becomes active, XIUI releases chat/controller focus and makes that native log visible until it closes. This overrides only the effective render mask, preserving saved HUD preferences, so a hidden native log cannot trap gameplay controls.
+
+F/Cycle Window selects XIUI chat directly over the combat command menu; Enter/Confirm expands its log. Enter remains owned through its release so it cannot also activate the native menu. Equipment, inventory and other native menus keep the game's original cycle so Storage Options and Sort remain accessible. XIUI mirrors the validated native focus identity for replaced chat/status windows and releases navigation when focus returns to a native control. The host leaves the mapped cycle control's press, held state and release native in both controller backends while native cycling owns it. Native text editors and action subtargets still take priority.
 
 Deliberate controller browsing of Buffs/Debuffs keeps its focus frame and navigation over the combat command menu. This captures navigation only, preserving movement/camera sticks; native text entry and action subtargets still take priority.
 
@@ -45,6 +61,8 @@ Within local Buffs/Debuffs, Confirm/A or Enter requests removal only for a clien
 ## Chat handoff
 
 Composition, compact focus and expanded history are distinct. Preserve channel, recipient, draft and caret when adopting native slash/tell/Full-keyboard input; opening chat does not send it. Alt+R/Ctrl+R use one reply cycle. Enter sends once and remains owned through release. Native CHAT activation keeps its own initiating Enter release before handoff.
+
+Alt+Tab retains composition and window selection while suspending input. Opening expanded history starts at the newest messages with zero scroll in each history tab; a suspended, already-open history view retains its current position until deliberately closed.
 
 Native chat input (`0x11`) and other text editors (`0x21`) are different owners. Existing draft adoption does not establish arbitrary software-keyboard/IME transfer. See [Chat](../modules/chat.md) and [input details](chat-input.md).
 

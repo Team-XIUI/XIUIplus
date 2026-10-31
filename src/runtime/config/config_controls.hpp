@@ -11,6 +11,11 @@
 
 namespace xiui::ui
 {
+    struct text_input_appearance
+    {
+        float minimum_pixels{};
+        D3DCOLOR background{}, foreground{};
+    };
     class config_controls
     {
     public:
@@ -27,8 +32,9 @@ namespace xiui::ui
         auto ListItem(const rect& bounds, const char* label, const char* accessory, bool selected, bool hovered) const -> void;
         auto Dropdown(const rect& bounds, const char* label, bool open, bool hovered) const -> void;
         auto ChoiceMenu(const choice_dropdown&, const D3DVIEWPORT8&, float mouseX, float mouseY) const -> void;
-        auto Slider(const rect& row, const module_option&, bool hovered, const slider_value_input* input = nullptr, float labelWidth = -1) const -> void;
-        auto TextInput(const rect& bounds, const text_input& input, bool invalid = false, const char* placeholder = nullptr, const char* shortcut = nullptr) const -> void;
+        auto Slider(const rect& row, const module_option&, bool hovered, const slider_value_input* input = nullptr, float labelWidth = -1, bool compact = false, const char* suffix = nullptr) const -> void;
+        auto TextInput(const rect& bounds, const text_input& input, bool invalid = false, const char* placeholder = nullptr, const char* shortcut = nullptr,
+            const text_input_appearance* appearance = nullptr) const -> void;
         static auto Segment(const rect& bounds, size_t index, size_t count) -> rect;
         auto Panel(const rect& bounds, std::span<const container_fill> fills = {}) const -> void;
         auto Scrollbar(const config_scrollbar& scrollbar, bool hovered, bool dragging) const -> void;

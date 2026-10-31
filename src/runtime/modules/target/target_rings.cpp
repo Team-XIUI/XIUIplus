@@ -19,6 +19,7 @@ namespace xiui
         this->follow_name_color = store.ReadBool("target.rings", "follow_name_color", true);
         this->show_npcs = store.ReadBool("target.rings", "show_npcs", false);
         this->show_players = store.ReadBool("target.rings", "show_players", false);
+        this->scale_with_model = store.ReadBool("target.rings", "scale_with_model", true);
         const auto radius = [&](const char* key, float fallback, float minimum) {
             const float value = store.ReadFloat("target.rings", key, fallback);
             return std::isfinite(value) ? std::clamp(value, minimum, 10.0f) : fallback;
@@ -35,6 +36,7 @@ namespace xiui
         store.WriteBool("target.rings", "follow_name_color", this->follow_name_color);
         store.WriteBool("target.rings", "show_npcs", this->show_npcs);
         store.WriteBool("target.rings", "show_players", this->show_players);
+        store.WriteBool("target.rings", "scale_with_model", this->scale_with_model);
         store.WriteFloat("target.rings", "inner_radius", this->inner_radius);
         store.WriteFloat("target.rings", "outer_radius", this->outer_radius);
         store.WriteArgb("target.rings", "color", this->color);
@@ -52,12 +54,14 @@ namespace xiui
         {
         case 0: return module_option::Toggle("Enabled", "Draw a terrain-following ring beneath the current target.", &this->enabled).Ordered(-50);
         case 1: return module_option::Toggle("HP fill", "The band fills clockwise with the enemy's actual HP percentage. Turn off for a full decorative ring.", &this->hp_fill);
-        case 2: return module_option::Slider("Inner radius", "Radius of the empty center, in world units (yalms).", &this->inner_radius, 0.05f, 9.95f, 0.05f).Ordered(100, true);
-        case 3: return module_option::Slider("Outer radius", "Outside radius of the band, in world units (yalms).", &this->outer_radius, 0.1f, 10, 0.05f).Ordered(101);
+        case 2: return module_option::Slider("Inner radius", this->scale_with_model ? "Empty-center radius as a multiple of the target's model hitbox radius." : "Radius of the empty center, in world units (yalms).", &this->inner_radius, 0.05f, 9.95f, 0.05f).Ordered(100, true);
+        case 3: return module_option::Slider("Outer radius", this->scale_with_model ? "Outside radius as a multiple of the target's model hitbox radius." : "Outside radius of the band, in world units (yalms).", &this->outer_radius, 0.1f, 10, 0.05f).Ordered(101);
         case 4: return module_option::Color("Ring color", "Opacity always applies. Custom RGB applies when Follow target name color is off.", &this->color).Ordered(500, true);
         case 5: return module_option::Toggle("Follow target name color", "Match native name and claim colors, including your shared entity-color overrides. Keeps the configured ring opacity.", &this->follow_name_color).Ordered(490);
         case 6: return module_option::Toggle("Show for NPCs", "Also show the ring when targeting an NPC. NPCs without HP use a full decorative band.", &this->show_npcs).Ordered(10);
-        default: return module_option::Toggle("Show for players", "Also show the ring when targeting yourself, party/alliance members or other players.", &this->show_players).Ordered(11);
+        case 7: return module_option::Toggle("Show for players", "Also show the ring when targeting yourself, party/alliance members or other players.", &this->show_players).Ordered(11);
+        case 8: return module_option::Toggle("Scale with model size", "Scale the ring, glow and facing marker using the target's native model hitbox radius. Uses a one-yalm radius when unavailable. Turn off for fixed yalm radii.", &this->scale_with_model).Ordered(90);
+        default: return {};
         }
     }
 
@@ -70,6 +74,13 @@ namespace xiui
 
     auto target_ring_settings::Color(D3DCOLOR name_color) const -> D3DCOLOR
     { return this->follow_name_color ? (this->color&0xFF000000)|(name_color&0xFFFFFF) : this->color; }
+
+    auto target_ring_settings::RadiusScale(float model_hitbox_radius) const -> float
+    {
+        // The native hitbox radius is sent as an unsigned byte in tenths of a yalm.
+        return this->scale_with_model && std::isfinite(model_hitbox_radius) && model_hitbox_radius > 0 && model_hitbox_radius <= 25.5f ?
+            model_hitbox_radius : 1.0f;
+    }
 
     namespace
     {
@@ -132,15 +143,17 @@ namespace xiui
     }
 
     auto target_ring_renderer::Build(const zone_ground& ground, const ground_point& center, float hp,
-        const target_ring_settings& settings, std::vector<vertex>& vertices, float yaw) -> void
+        const target_ring_settings& settings, std::vector<vertex>& vertices, float yaw, float model_hitbox_radius) -> void
     {
         vertices.clear();
         if (!std::isfinite(settings.inner_radius) || !std::isfinite(settings.outer_radius) ||
             settings.inner_radius < 0.05f || settings.outer_radius <= settings.inner_radius || settings.outer_radius > 10) return;
         for (float v : center) if (!std::isfinite(v)) return;
+        const float scale=settings.RadiusScale(model_hitbox_radius);
+        const float inner=settings.inner_radius*scale, outer=settings.outer_radius*scale;
         std::vector<uint32_t> nearby;
-        ground.Nearby(center,settings.outer_radius+0.4f,nearby);
-        const float reach=0.75f+settings.outer_radius*1.5f;
+        ground.Nearby(center,outer+0.4f*scale,nearby);
+        const float reach=0.75f+outer*1.5f;
         const auto point = [&](float radius, float angle) -> ground_point {
             return {center[0]+std::cos(angle)*radius,center[1],center[2]+std::sin(angle)*radius};
         };
@@ -153,18 +166,17 @@ namespace xiui
                 ProjectPolygon(ground,nearby,center,reach,shape,color,vertices);
             }
         };
-        const float inner=settings.inner_radius, outer=settings.outer_radius;
-        const float trim=std::min(0.025f,(outer-inner)*0.2f);
+        const float trim=std::min(0.025f*scale,(outer-inner)*0.2f);
         const auto color=settings.color;
-        band(outer,outer+0.045f,0,tau,Alpha(color,0.12f));
-        band(outer+0.045f,outer+0.09f,0,tau,Alpha(color,0.04f));
+        band(outer,outer+0.045f*scale,0,tau,Alpha(color,0.12f));
+        band(outer+0.045f*scale,outer+0.09f*scale,0,tau,Alpha(color,0.04f));
         band(inner,outer,0,tau,Alpha(color,0.14f));
         const float fill=settings.hp_fill ? std::clamp(hp,0.0f,1.0f) : 1.0f;
         band(inner,outer,-tau*0.25f,-tau*0.25f+tau*fill,Alpha(color,0.72f));
         band(inner,inner+trim,0,tau,Alpha(color,0.8f));
         band(outer-trim,outer,0,tau,color);
         const float facing=std::isfinite(yaw) ? -yaw : 0;
-        const std::array marker{point(outer+0.23f,facing),point(outer-0.08f,facing-0.09f),point(outer-0.08f,facing+0.09f)};
+        const std::array marker{point(outer+0.23f*scale,facing),point(outer-0.08f*scale,facing-0.09f),point(outer-0.08f*scale,facing+0.09f)};
         ProjectPolygon(ground,nearby,center,reach,marker,color,vertices);
     }
 
@@ -252,9 +264,10 @@ namespace xiui
     auto target_ring_renderer::Status(void) const -> std::string
     {
         char text[512]{};
-        std::snprintf(text,sizeof(text),"Target rings: %s; zone %u; floors %zu; vertices %zu; target %u/%08X HP %u; camera %s; draw %08lX.",
+        std::snprintf(text,sizeof(text),"Target rings: %s; zone %u; floors %zu; vertices %zu; target %u/%08X HP %u; model radius %.2f; ring scale %.2f; camera %s; draw %08lX.",
             this->stage_,this->zone_,this->ground_ ? this->ground_->triangles.size() : 0,this->vertices_.size(),
             this->current_index_,this->current_id_,this->current_hp_,
+            this->current_model_radius_,this->current_scale_,
             this->camera_valid_ ? "ready" : "missing",static_cast<unsigned long>(this->draw_result_));
         return text;
     }
@@ -285,6 +298,7 @@ namespace xiui
     auto target_ring_renderer::Draw(IAshitaCore* core, IDirect3DDevice8* device, const hud_snapshot& snapshot, const target_ring_settings& settings) -> void
     {
         this->stage_="disabled";
+        this->current_model_radius_=0; this->current_scale_=1;
         this->current_id_=snapshot.target_server_id; this->current_hp_=snapshot.target_hp_percent; this->camera_valid_=snapshot.camera_valid;
         if (!settings.enabled || !core || !device) return;
         auto* memory=core->GetMemoryManager();
@@ -306,6 +320,9 @@ namespace xiui
         if (hasHealth && snapshot.target_hp_percent==0) { this->stage_="target is dead"; return; }
         auto appearance=settings;
         appearance.color=settings.Color(ReadEntityNameColor(*party,*entity,index));
+        const float modelRadius=entity->GetModelHitboxSize(index);
+        this->current_model_radius_=std::isfinite(modelRadius) ? modelRadius : 0;
+        this->current_scale_=settings.RadiusScale(modelRadius);
         static_assert(offsetof(Ashita::FFXI::entity_t, ActorPointer) == 0xA0);
         static const auto clientCode = Ashita::Memory::GetModuleBase("FFXiMain.dll");
         static const auto clientSize = Ashita::Memory::GetModuleSize("FFXiMain.dll");
@@ -320,11 +337,12 @@ namespace xiui
         const float yaw=std::isfinite(nativeYaw) ? nativeYaw : 0;
         if (!this->mesh_valid_ || this->last_id_!=snapshot.target_server_id || this->last_center_!=center ||
             (settings.hp_fill && this->last_hp_!=hp) || this->last_yaw_!=yaw || this->last_settings_.inner_radius!=settings.inner_radius ||
-            this->last_settings_.outer_radius!=settings.outer_radius || this->last_settings_.hp_fill!=settings.hp_fill || this->last_settings_.color!=appearance.color)
+            this->last_settings_.outer_radius!=settings.outer_radius || this->last_settings_.hp_fill!=settings.hp_fill ||
+            this->last_settings_.color!=appearance.color || this->last_scale_!=this->current_scale_)
         {
-            Build(*this->ground_,center,hp,appearance,this->vertices_,yaw);
+            Build(*this->ground_,center,hp,appearance,this->vertices_,yaw,modelRadius);
             this->last_center_=center; this->last_id_=snapshot.target_server_id; this->last_hp_=hp; this->last_yaw_=yaw;
-            this->last_settings_=appearance; this->mesh_valid_=true;
+            this->last_settings_=appearance; this->last_scale_=this->current_scale_; this->mesh_valid_=true;
         }
         this->stage_="no floor under target";
         if (this->vertices_.empty()) return;

@@ -1,4 +1,5 @@
 #include "chat_module.hpp"
+#include "chat_theme.hpp"
 #include "chat/chat_stack_layout.hpp"
 #include "chat/chat_encoding.hpp"
 #include "chat/chat_token.hpp"
@@ -16,6 +17,16 @@
 namespace
 {
     constexpr float dialogue_prompt_padding = 2.0f;
+
+    auto KeyText(const WPARAM key, const LPARAM flags) -> std::string
+    {
+        BYTE state[256]{};
+        ::GetKeyboardState(state);
+        if (key < 256) state[key] |= 0x80;
+        wchar_t text[8]{};
+        const auto count = ::ToUnicodeEx(static_cast<UINT>(key), (static_cast<uint32_t>(flags) >> 16) & 0xFF, state, text, 8, 4, ::GetKeyboardLayout(0));
+        return count > 0 ? xiui::ToUtf8({text, static_cast<size_t>(count)}) : std::string{};
+    }
 
     auto MessageProgress(const uint64_t started, const uint64_t now, const float duration) -> float
     {
@@ -127,6 +138,7 @@ namespace xiui
             this->state_.bounds = {-1, -1, 560, 260};
             this->source_ = 1;
             this->active_tab_ = static_cast<int>(chat_tab::window2);
+            this->history_view_.tab = static_cast<size_t>(chat_history_tab::window2);
         }
     }
 
@@ -135,6 +147,15 @@ namespace xiui
         this->second_window_ = &second;
         second.shared_model_ = &this->model_;
         second.parent_ = this;
+    }
+
+    auto chat_module::InitializeNativeWindows(const std::optional<unsigned> count) -> bool
+    {
+        if (this->native_windows_initialized_ || !count || *count < 1 || *count > 2 || this->second_window_ == nullptr) return false;
+        this->second_window_->state_.enabled = *count == 2;
+        if (*count == 2) this->second_window_->EnsureWindowDefaults();
+        this->native_windows_initialized_ = true;
+        return true;
     }
 
     auto chat_module::EnsureWindowDefaults(void) -> void
@@ -245,6 +266,7 @@ namespace xiui
 
     auto chat_module::Load(const settings_store& store) -> void
     {
+        this->native_windows_initialized_ = store.ReadBool(this->Id(), "native_windows_initialized", true);
         this->independent_settings_.reset();
         this->match_window1_ = this->secondary_ && store.ReadBool(this->Id(), "match_window1", false);
         if (!this->secondary_) { this->alerts_.Load(store); this->colors_.Load(store); }
@@ -300,8 +322,40 @@ namespace xiui
         if (!this->state_.enabled) this->Focus(false);
     }
 
+    auto chat_module::LoadScale(const settings_store& store) -> void
+    {
+        hud_module::LoadScale(store);
+        const auto scale = this->state_.scale;
+        if (std::abs(scale.x - scale.y) < .0001f) return;
+        // Earlier X/Y stretching represented a window resize; retain that footprint.
+        if (this->independent_settings_)
+        {
+            this->independent_settings_->width = std::max(this->state_.minimum_width, this->independent_settings_->width * scale.x);
+            this->independent_settings_->height = std::max(this->state_.minimum_height, this->independent_settings_->height * scale.y);
+            this->independent_settings_->height_limits_lines = true;
+        }
+        else
+        {
+            const auto original = this->state_.bounds;
+            this->state_.bounds.width = std::max(this->state_.minimum_width, original.width * scale.x);
+            this->state_.bounds.height = std::max(this->state_.minimum_height, original.height * scale.y);
+            this->OnBoundsResized(original);
+        }
+        this->state_.scale = this->state_.scale_checkpoint = {};
+        this->state_.content_bounds = {};
+        this->cache_revision_ = UINT64_MAX;
+    }
+
+    auto chat_module::OnBoundsResized(const ui::rect& original) -> void
+    {
+        if (this->state_.bounds.height != original.height) this->height_limits_lines_ = true;
+        this->ResetCollapse();
+        this->cache_revision_ = UINT64_MAX;
+    }
+
     auto chat_module::Save(const settings_store& store) const -> void
     {
+        if (!this->secondary_) store.WriteBool(this->Id(), "native_windows_initialized", this->native_windows_initialized_);
         const auto window = this->independent_settings_.value_or(this->CaptureWindowSettings());
         auto bounds = this->state_.bounds;
         bounds.width = window.width; bounds.height = window.height;
@@ -353,7 +407,7 @@ namespace xiui
         return sections;
     }
 
-    auto chat_module::ConfigSectionContains(const size_t section, const size_t index) -> bool
+    auto chat_module::ContentConfigSectionContains(const size_t section, const size_t index) -> bool
     {
         if (section >= this->ConfigSections().size() || index >= this->OptionCount()) return false;
         if (this->secondary_ && index == this->MatchWindow1Option()) return section == 0;
@@ -371,7 +425,7 @@ namespace xiui
         return section == 1;
     }
 
-    auto chat_module::Option(const size_t index) -> module_option
+    auto chat_module::ContentOption(const size_t index) -> module_option
     {
         this->EnsureWindowDefaults();
         if (this->secondary_ && index == this->MatchWindow1Option())
@@ -459,9 +513,9 @@ namespace xiui
         }
         switch (index)
         {
-        case 0: return module_option::Toggle("Enabled", "Show XIUI chat. Game HUD controls the native chat windows.", &this->state_.enabled).Ordered(-50);
+        case 0: return module_option::Toggle("Enabled", "Show XIUI chat. Native Menus controls the native chat windows.", &this->state_.enabled).Ordered(-50);
         case 1: return ModuleWidthOption(this->state_);
-        case 2: return module_option::Slider("Height", "Also resize from the top-right corner.", &this->state_.bounds.height, 160.0f, 900.0f, 1.0f, module_option_group::appearance).Ordered(101);
+        case 2: return module_option::Slider("Height", "Resize the chat viewport without changing text size. The top-right corner resizes the window in edit mode and while the HUD is locked.", &this->state_.bounds.height, this->state_.minimum_height, 900.0f, 1.0f, module_option_group::appearance).Ordered(101);
         case 3: return module_option::Slider("Opacity", "Native window background opacity.", &this->container_.opacity, 0.1f, 1.0f, 0.05f, module_option_group::appearance).Ordered(450);
         case 4: return module_option::Slider("Padding", "Space inside the chat frame.", &this->container_.padding, 4.0f, 24.0f, 1.0f, module_option_group::appearance).Ordered(402);
         case 5:
@@ -494,8 +548,10 @@ namespace xiui
         return TextProfileOption(index - (this->secondary_ ? 10 : 12), this->text_);
     }
 
-    auto chat_module::OnOptionChanged(const size_t index) -> void
+    auto chat_module::OnContentOptionChanged(const size_t index) -> void
     {
+        if (!this->secondary_ && index == 11) this->native_windows_initialized_ = true;
+        if (this->secondary_ && index == 0 && this->parent_ != nullptr) this->parent_->native_windows_initialized_ = true;
         if (this->secondary_ && index == this->MatchWindow1Option())
         {
             this->EnsureWindowDefaults();
@@ -710,7 +766,7 @@ namespace xiui
         }
         const auto content = ui::container_renderer::ContentBounds(this->state_.bounds, this->container_);
         this->RebuildRows(design, std::max(1.0f, content.width - 14));
-        const auto lineHeight = std::max(1.0f, design.TextHeight(this->text_.style) + this->line_spacing_);
+        const auto lineHeight = std::max(1.0f, design.TextHeight(ChatThemeStyle(design, this->text_.style)) + this->line_spacing_);
         const auto capacity = std::max<size_t>(1, static_cast<size_t>(content.height / lineHeight));
         const auto maximum = this->height_limits_lines_ ? capacity : std::min<size_t>(capacity, settings->maximum_lines);
         const auto minimum = std::min<size_t>(maximum, settings->minimum_lines);
@@ -756,7 +812,7 @@ namespace xiui
     {
         auto frame = this->state_.bounds;
         if (!this->collapse_active_ || this->CollapsePinned()) return frame;
-        const auto lineHeight = design.TextHeight(this->text_.style) + this->line_spacing_;
+        const auto lineHeight = design.TextHeight(ChatThemeStyle(design, this->text_.style)) + this->line_spacing_;
         const auto height = this->collapse_height_rows_ > 0 ? this->collapse_height_rows_ * lineHeight +
             (this->container_.edge_size + this->container_.padding) * 2 : 0;
         frame.height = std::clamp(height, 0.0f, frame.height);
@@ -772,7 +828,7 @@ namespace xiui
         if (!owner->shared_windows_ || peer == nullptr || !this->stack_peer_visible_ || !peer->WindowVisible() ||
             this->CollapsePinned() || peer->CollapsePinned()) return frame;
         const auto offsets = ChatStackOffsets(this->state_.bounds, peer->state_.bounds, frame.height, peer->CompactBounds(design).height);
-        frame.y += offsets[0];
+        frame.y += offsets[0] * peer->state_.transform.y / this->state_.transform.y;
         return frame;
     }
 
@@ -792,7 +848,7 @@ namespace xiui
         return {frame.x, top, frame.width, frame.y + frame.height - top};
     }
 
-    auto chat_module::HitTest(const ui::design_system& design, const float x, const float y) const -> bool
+    auto chat_module::LayoutHitTest(const ui::design_system& design, const float x, const float y) const -> bool
     {
         if (this->HistoryExpanded()) return Contains(this->history_view_.viewport, x, y);
         if (Contains(this->FrameBounds(design), x, y)) return true;
@@ -800,10 +856,11 @@ namespace xiui
         return std::any_of(layout.tabs.begin(), layout.tabs.end(), [x, y](const auto& tab) { return Contains(tab, x, y); });
     }
 
-    auto chat_module::SoundTarget(const ui::design_system& design, const float x, const float y, const bool editing) const -> uint32_t
+    auto chat_module::LayoutSoundTarget(const ui::design_system& design, const float x, const float y, const bool editing) const -> uint32_t
     {
         if (this->HistoryExpanded()) return this->HistorySoundTarget(design, x, y);
         if (!this->WindowVisible() && (!editing || this->secondary_)) return 0;
+        if (!this->MatchingWindow1() && Contains(this->Grip(design), x, y)) return 12;
         const auto layout = this->Layout(design);
         if (Contains(layout.completion, x, y) && layout.completion_rows > 0)
         {
@@ -832,31 +889,31 @@ namespace xiui
         {
             if (!this->visible_tabs_[window]) continue;
             const size_t tab = static_cast<size_t>(chat_tab::window1) + window;
-            const float width = design.MeasureText(chat_tab_names[tab], this->chrome_.style) + 22.0f;
+            const float width = design.MeasureText(chat_tab_names[tab], ChatThemeStyle(design, this->chrome_.style, true)) + 22.0f;
             result.tabs[tab] = {x, frame.y - 28, width, 24};
             x += width + 2;
         }
-        const float inputHeight = this->secondary_ || (!this->Focused() && this->input_reveal_ == 0) ? 0 : std::max(26.0f, design.TextHeight(this->text_.style) + 6.0f);
+        const float inputHeight = this->secondary_ || (!this->Focused() && this->input_reveal_ == 0) ? 0 : std::max(26.0f, design.TextHeight(ChatThemeStyle(design, this->text_.style)) + 6.0f);
         result.input = {result.content.x, result.content.y + result.content.height - inputHeight, result.content.width, inputHeight};
-        const float counterHeight = inputHeight > 0 && this->input_counter_ ? design.TextHeight(this->chrome_.style) + 3 : 0;
+        const float counterHeight = inputHeight > 0 && this->input_counter_ ? design.TextHeight(ChatThemeStyle(design, this->chrome_.style)) + 3 : 0;
         if (counterHeight > 0)
         {
-            const float width = std::min(result.content.width, design.MeasureText("000/000", this->chrome_.style) + 8);
+            const float width = std::min(result.content.width, design.MeasureText("000/000", ChatThemeStyle(design, this->chrome_.style)) + 8);
             result.counter = {result.content.x + result.content.width - width, result.input.y - counterHeight - 2, width, counterHeight};
         }
         result.log = {result.content.x + 2.0f, result.content.y, result.content.width - 14.0f, std::max(1.0f, result.input.y - result.content.y - counterHeight - (inputHeight > 0 ? 5.0f : 0.0f))};
         if (this->ControllerComposing())
         {
-            const float height = std::max(24.0f, design.TextHeight(this->chrome_.style) + 6);
+            const float height = std::max(24.0f, design.TextHeight(ChatThemeStyle(design, this->chrome_.style)) + 6);
             const float width = std::max(1.0f, (result.content.width - 8) / 3);
             for (size_t index = 0; index < result.controller_actions.size(); ++index)
                 result.controller_actions[index] = {result.content.x + static_cast<float>(index) * (width + 4), result.input.y - counterHeight - height - 4, width, height};
-            result.log.height = std::max(1.0f, result.controller_actions[0].y - result.log.y - design.TextHeight(this->chrome_.style) - 12);
+            result.log.height = std::max(1.0f, result.controller_actions[0].y - result.log.y - design.TextHeight(ChatThemeStyle(design, this->chrome_.style)) - 12);
         }
         result.scrollbar = {result.log.x + result.log.width + 4.0f, result.log.y, 6.0f, result.log.height};
         if (this->Focused() && !this->editor_.Completions().empty())
         {
-            result.completion_row_height = std::max(22.0f, design.TextHeight(this->chrome_.style) + 6);
+            result.completion_row_height = std::max(22.0f, design.TextHeight(ChatThemeStyle(design, this->chrome_.style)) + 6);
             result.completion_rows = std::min(this->editor_.Completions().size(), static_cast<size_t>(std::clamp(static_cast<int>((result.log.height - 44) / result.completion_row_height), 1, 8)));
             const float height = result.completion_rows * result.completion_row_height + 44;
             const float bottom = this->ControllerComposing() ? result.log.y + result.log.height : result.input.y - counterHeight - 3;
@@ -878,13 +935,14 @@ namespace xiui
     auto chat_module::ScrollbarOpacity(const uint64_t now) const -> float
     { return now >= this->scrollbar_until_ ? 0 : std::min(1.0f, static_cast<float>(this->scrollbar_until_ - now) / 200.0f); }
 
-    auto chat_module::HandleMouse(const uint32_t message, const WPARAM wParam, const float x, const float y, const bool editing,
+    auto chat_module::LayoutHandleMouse(const uint32_t message, const WPARAM wParam, const float x, const float y, const bool editing,
         const ui::design_system& design, const ui::rect& viewport, bool& save, IChatManager* chat) -> bool
     {
         if (!this->WindowVisible() && (!editing || this->secondary_)) { this->CancelPointer(); return false; }
+        if (editing) return false;
         if (this->HistoryExpanded()) return this->HandleHistoryMouse(message, wParam, x, y, design);
         const bool down = message == WM_LBUTTONDOWN || message == WM_LBUTTONDBLCLK;
-        if (down && !this->pointer_down_ && this->sounds_ != nullptr && this->SoundTarget(design, x, y, editing) != 0)
+        if (down && !this->pointer_down_ && this->sounds_ != nullptr && this->LayoutSoundTarget(design, x, y, editing) != 0)
             this->sounds_->Select(::GetTickCount64());
         if (this->resizing_)
         {
@@ -910,7 +968,7 @@ namespace xiui
             return true;
         }
         if (message == WM_LBUTTONUP && this->pointer_down_) { this->pointer_down_ = false; return true; }
-        if (!this->HitTest(design, x, y)) { if (down) this->Focus(false); return false; }
+        if (!this->LayoutHitTest(design, x, y)) { if (down) this->Focus(false); return false; }
         const auto layout = this->Layout(design);
         if (this->ControllerComposing() && !editing)
             for (size_t index = 0; index < layout.controller_actions.size(); ++index)
@@ -976,8 +1034,8 @@ namespace xiui
             while (caret < text.size())
             {
                 size_t next = caret; NextDraft(text, next);
-                const float previousWidth = MeasureChatText(design, this->DisplayDraft(text.substr(this->input_start_, caret - this->input_start_)), this->text_.style);
-                const float nextWidth = MeasureChatText(design, this->DisplayDraft(text.substr(this->input_start_, next - this->input_start_)), this->text_.style);
+                const float previousWidth = MeasureChatText(design, this->DisplayDraft(text.substr(this->input_start_, caret - this->input_start_)), ChatThemeStyle(design, this->text_.style));
+                const float nextWidth = MeasureChatText(design, this->DisplayDraft(text.substr(this->input_start_, next - this->input_start_)), ChatThemeStyle(design, this->text_.style));
                 if (local < (previousWidth + nextWidth) * 0.5f) break;
                 caret = next;
             }
@@ -1366,7 +1424,7 @@ namespace xiui
         return true;
     }
 
-    auto chat_module::HandleKey(IAshitaCore* core, const WPARAM key, const LPARAM flags, const bool blocked, const bool replaceNative, const std::span<const std::string> replyTargets) -> bool
+    auto chat_module::HandleKey(IAshitaCore* core, const WPARAM key, const LPARAM flags, const bool blocked, const bool replaceNative, const std::span<const std::string> replyTargets, const bool startTyping) -> bool
     {
         if (core != nullptr) this->SetInputContext(core->GetChatManager());
         const bool released = (static_cast<uint32_t>(flags) & 0x80000000u) != 0;
@@ -1387,12 +1445,21 @@ namespace xiui
                 this->Focus(true);
                 return true;
             }
+            if (startTyping)
+            {
+                const auto text = key == VK_SPACE ? std::string{} : KeyText(key, flags);
+                if (key != VK_SPACE && text.empty()) return false;
+                this->error_.clear(); this->input_start_ = 0;
+                this->Focus(true);
+                if (!text.empty()) this->editor_.Insert(text);
+                return true;
+            }
             return false;
         }
         const HWND window = core != nullptr && core->GetProperties() != nullptr ? core->GetProperties()->GetFinalFantasyHwnd() : nullptr;
         this->error_.clear();
         if (key == VK_RETURN && (static_cast<uint32_t>(flags) & 0x40000000u) != 0) return true;
-        if (alt && key == VK_TAB) { this->Focus(false); return false; }
+        if (alt && key == VK_TAB) return false;
         switch (key)
         {
         case VK_ESCAPE:
@@ -1435,12 +1502,7 @@ namespace xiui
             }
             else if (!alt || control)
             {
-                BYTE state[256]{};
-                ::GetKeyboardState(state);
-                if (key < 256) state[key] |= 0x80;
-                wchar_t text[8]{};
-                const auto count = ::ToUnicodeEx(static_cast<UINT>(key), (static_cast<uint32_t>(flags) >> 16) & 0xFF, state, text, 8, 4, ::GetKeyboardLayout(0));
-                if (count > 0) this->editor_.Insert(ToUtf8({text, static_cast<size_t>(count)}));
+                this->editor_.Insert(KeyText(key, flags));
             }
         }
         return true;
@@ -1450,10 +1512,13 @@ namespace xiui
     {
         const int timestampMode = this->TimestampMode();
         const int filter = this->RowFilter();
-        if (this->cache_revision_ == this->History().Revision() && this->cache_width_ == width && this->cache_scale_ == this->text_.style.scale &&
-            this->cache_spacing_ == this->text_.style.letter_spacing && this->cache_font_ == this->text_.style.font && this->cache_tab_ == filter && this->cache_timestamp_mode_ == timestampMode) return;
-        const bool incremental = this->cache_revision_ != UINT64_MAX && this->cache_revision_ != this->History().Revision() && this->cache_tab_ == filter && this->cache_width_ == width &&
-            this->cache_scale_ == this->text_.style.scale && this->cache_spacing_ == this->text_.style.letter_spacing && this->cache_font_ == this->text_.style.font && this->cache_timestamp_mode_ == timestampMode && !this->History().Lines().empty();
+        const float hudScale = design.Transform().y;
+        const bool themed = design.IsXiv1Theme();
+        const auto style = ChatThemeStyle(design, this->text_.style);
+        if (this->cache_xiv1_ == themed && this->cache_hud_scale_ == hudScale && this->cache_revision_ == this->History().Revision() && this->cache_width_ == width && this->cache_scale_ == style.scale &&
+            this->cache_spacing_ == style.letter_spacing && this->cache_font_ == style.font && this->cache_tab_ == filter && this->cache_timestamp_mode_ == timestampMode) return;
+        const bool incremental = this->cache_xiv1_ == themed && this->cache_hud_scale_ == hudScale && this->cache_revision_ != UINT64_MAX && this->cache_revision_ != this->History().Revision() && this->cache_tab_ == filter && this->cache_width_ == width &&
+            this->cache_scale_ == style.scale && this->cache_spacing_ == style.letter_spacing && this->cache_font_ == style.font && this->cache_timestamp_mode_ == timestampMode && !this->History().Lines().empty();
         size_t previousRows{};
         const size_t oldLastRows = incremental ? std::count_if(this->rows_.begin(), this->rows_.end(), [this](const rendered_row& row) { return row.sequence == this->cache_last_sequence_; }) : 0;
         if (incremental)
@@ -1466,13 +1531,13 @@ namespace xiui
         for (const auto& line : this->History().Lines())
         {
             if (incremental && line.sequence < this->cache_last_sequence_) continue;
-            if (this->HistoryExpanded() ? !ChatHistoryMatches(this->history_view_.tab, line.mode, line.windows, this->secondary_ ? 2 : 1) :
+            if (this->HistoryExpanded() ? !this->HistoryTabMatches(this->history_view_.tab, line.mode, line.windows) :
                 !ChatTabMatches(static_cast<chat_tab>(this->active_tab_), line.mode, line.windows)) continue;
             rendered_row row{line.sequence, line.mode, line.color};
             float used{};
             const auto finish = [&] { this->rows_.push_back(std::move(row)); row = {line.sequence, line.mode, line.color}; used = 0.0f; };
             const auto append = [&](const std::string& token, const int color, const bool timestamp = false, const bool prompt = false) {
-                const auto tokenWidth = MeasureChatText(design, token, this->text_.style) + this->text_.style.letter_spacing * this->text_.style.scale +
+                const auto tokenWidth = MeasureChatText(design, token, style) + ChatThemeTracking(style) +
                     (prompt ? dialogue_prompt_padding : 0.0f);
                 if (used > 0.0f && used + tokenWidth > width)
                 {
@@ -1491,7 +1556,7 @@ namespace xiui
                     const size_t begin = pos;
                     NextUtf8(token, pos);
                     const auto glyph = token.substr(begin, pos - begin);
-                    const auto glyphWidth = MeasureChatText(design, glyph, this->text_.style) + this->text_.style.letter_spacing * this->text_.style.scale +
+                    const auto glyphWidth = MeasureChatText(design, glyph, style) + ChatThemeTracking(style) +
                         (prompt ? dialogue_prompt_padding : 0.0f);
                     if (used > 0 && used + glyphWidth > width) finish();
                     if (!row.spans.empty() && row.spans.back().color == color && row.spans.back().timestamp == timestamp && row.spans.back().dialogue_prompt == prompt) { row.spans.back().text += glyph; row.spans.back().width += glyphWidth; }
@@ -1527,9 +1592,10 @@ namespace xiui
         }
         if (incremental && this->CurrentScroll() > 0 && this->rows_.size() > previousRows + oldLastRows)
             this->CurrentScroll() += this->rows_.size() - previousRows - oldLastRows;
-        this->cache_revision_ = this->History().Revision(); this->cache_width_ = width;
-        this->cache_scale_ = this->text_.style.scale; this->cache_spacing_ = this->text_.style.letter_spacing;
-        this->cache_font_ = this->text_.style.font;
+        this->cache_xiv1_ = themed;
+        this->cache_revision_ = this->History().Revision(); this->cache_width_ = width; this->cache_hud_scale_ = hudScale;
+        this->cache_scale_ = style.scale; this->cache_spacing_ = style.letter_spacing;
+        this->cache_font_ = style.font;
         this->cache_tab_ = filter; this->cache_timestamp_mode_ = timestampMode;
         this->cache_last_sequence_ = this->History().Lines().empty() ? 0 : this->History().Lines().back().sequence;
     }
@@ -1542,7 +1608,7 @@ namespace xiui
         context.Design().FillRect(bounds, theme.colors.chrome | 0xFF000000);
         ui::container_style style{}; style.padding = 3;
         context.DrawContainer(bounds, style);
-        auto text = this->chrome_;
+        auto text = ChatThemeProfile(context.Design(), this->chrome_);
         text.placement = 0; text.offset_x = text.offset_y = 0; text.style.alignment = ui::text_alignment::left;
         const size_t selected = this->editor_.CompletionIndex();
         const size_t first = selected / layout.completion_rows * layout.completion_rows;
@@ -1558,7 +1624,7 @@ namespace xiui
             if (first + row == selected) context.Design().FillRect(at, theme.colors.selected | 0xB0000000);
             const ui::rect label{at.x + 5, at.y, std::max(1.0f, at.width - 95), at.height};
             const auto name = match.kind == chat_completion_kind::auto_translate ? std::string{chat_cap_open} + match.label + std::string{chat_cap_close} : match.label;
-            DrawChatText(context, name, label, TintTextProfile(text, theme.colors.text));
+            DrawThemedChatText(context, name, label, TintTextProfile(text, theme.colors.text));
             auto badge = text; badge.style.scale *= 0.8f; badge.style.alignment = ui::text_alignment::right;
             const auto* kind = match.kind == chat_completion_kind::auto_translate ? "Auto-translate" : match.kind == chat_completion_kind::command ? "Command" : match.kind == chat_completion_kind::player ? "Player" : "Text";
             const ui::rect badgeBounds{at.x + at.width - 90, at.y, 84, at.height};
@@ -1569,20 +1635,20 @@ namespace xiui
         context.DrawText("Tab / arrows: browse   Enter: choose   Esc: cancel", footer, footer, help);
     }
 
-    auto chat_module::SpanColor(const rendered_row& row, const rendered_span& span, const chat_palette& palette) const -> D3DCOLOR
+    auto chat_module::SpanColor(const rendered_row& row, const rendered_span& span, const chat_palette& palette, const bool xiv1) const -> D3DCOLOR
     {
         if (span.timestamp && this->timestamp_color_enabled_) return this->timestamp_color_;
         const auto configured = palette.modes[row.mode & 0xFF];
         const auto base = configured != 0 ? configured : row.color;
         const auto inlineColor = span.color >= 0 && static_cast<size_t>(span.color) < palette.colors.size() ? palette.colors[span.color] : 0;
-        return this->Colors().Resolve(row.mode, base, inlineColor);
+        return this->Colors().Resolve(row.mode, ChatThemeColor(row.mode, base, xiv1), inlineColor);
     }
 
     auto chat_module::DrawLog(const hud_snapshot& snapshot, const module_render_context& context, const ui::rect& log, const ui::rect& scrollbar) -> void
     {
         const auto now = ::GetTickCount64();
         const auto& theme = context.Design().GetTheme();
-        const float lineHeight = std::max(1.0f, context.Design().TextHeight(this->text_.style) + this->line_spacing_);
+        const float lineHeight = std::max(1.0f, context.Design().TextHeight(ChatThemeStyle(context.Design(), this->text_.style)) + this->line_spacing_);
         if (this->HistoryExpanded() || this->CurrentScroll() != 0 || this->cache_tab_ != this->RowFilter()) this->message_entrances_.clear();
         std::erase_if(this->message_entrances_, [now, duration = this->MessageAnimationDuration()](const auto& entry) { return now < entry.started || now - entry.started >= duration; });
         this->RebuildRows(context.Design(), log.width);
@@ -1626,7 +1692,7 @@ namespace xiui
             if (this->text_.placement == 3) x += std::max(0.0f, log.width - rowWidth);
             for (const auto& span : row.spans)
             {
-                const auto color = this->SpanColor(row, span, snapshot.chat_colors);
+                const auto color = this->SpanColor(row, span, snapshot.chat_colors, context.Design().IsXiv1Theme());
                 auto profile = FadeText(TintTextProfile(this->text_, color), motion.opacity);
                 profile.placement = 0; profile.style.alignment = ui::text_alignment::left;
                 const float padding = span.dialogue_prompt ? dialogue_prompt_padding : 0.0f;
@@ -1637,14 +1703,14 @@ namespace xiui
                     bounds.y -= (1 - std::cos(phase)) * 1.5f * profile.style.scale;
                     profile = FadeText(profile, 0.75f + std::cos(phase) * 0.25f);
                 }
-                DrawChatText(context, span.text, bounds, profile);
+                DrawThemedChatText(context, span.text, bounds, profile);
                 x += span.width;
             }
         }
         if (this->rows_.empty() && !collapsed)
         {
             const auto text = snapshot.chat_capture_available ? (this->secondary_ ? "This window follows your game filters." : "Chat follows your game filters. Press / to chat.") : "Native chat capture unavailable. Keep game chat enabled.";
-            context.DrawText(text, log, log, this->chrome_);
+            context.DrawText(text, log, log, ChatThemeProfile(context.Design(), this->chrome_));
         }
         const float scrollbarOpacity = this->ScrollbarOpacity(now);
         if (maximum > 0 && scrollbarOpacity > 0)
@@ -1664,15 +1730,15 @@ namespace xiui
         this->UpdateCompactLayout(context.Design(), now);
         const auto frame = this->FrameBounds(context.Design());
         if (frame.height <= 0 && !this->TabsVisible()) return;
-        if (frame.height > 0) context.DrawContainer(frame, this->container_);
+        if (frame.height > 0 && !context.Design().IsXiv1Theme()) context.DrawContainer(frame, this->container_);
         const auto layout = this->Layout(context.Design());
         const auto& theme = context.Design().GetTheme();
         for (size_t index = 0; index < layout.tabs.size(); ++index)
         {
             if (layout.tabs[index].height <= 0) continue;
-            auto profile = this->chrome_;
+            auto profile = ChatThemeProfile(context.Design(), this->chrome_);
             profile.style.alignment = ui::text_alignment::center;
-            context.DrawButton(layout.tabs[index], chat_tab_names[index], static_cast<int>(index) == this->active_tab_, profile);
+            DrawChatTab(context, layout.tabs[index], chat_tab_names[index], static_cast<int>(index) == this->active_tab_, profile);
             const ui::rect label{layout.tabs[index].x + 5.0f, layout.tabs[index].y, layout.tabs[index].width - 10.0f, layout.tabs[index].height};
             if (this->tabs_[index].unread > 0) context.Design().FillRect({label.x + label.width - 1.0f, label.y + 3.0f, 3.0f, 3.0f}, theme.colors.accent);
         }
@@ -1680,7 +1746,7 @@ namespace xiui
         const auto& tab = this->tabs_[this->active_tab_];
         if (this->HistoryFocused())
         {
-            auto help = this->chrome_; help.style.alignment = ui::text_alignment::right;
+            auto help = ChatThemeProfile(context.Design(), this->chrome_); help.style.alignment = ui::text_alignment::right;
             const ui::rect hint{frame.x, frame.y - 24, frame.width, 20};
             context.DrawText(this->controller_history_ ? this->controller_compact_prompt_.c_str() : "F: cycle focus   Enter: expand chat   Esc: back", hint, hint, help);
         }
@@ -1688,9 +1754,9 @@ namespace xiui
         {
             const float reveal = this->input_reveal_ * this->input_reveal_ * (3 - 2 * this->input_reveal_);
             const float slide = 4 * (1 - reveal);
-            context.Design().FillRect(layout.input, FadeColor(0x60000000, reveal));
+            if (!context.Design().IsXiv1Theme()) context.Design().FillRect(layout.input, FadeColor(0x60000000, reveal));
             const ui::rect input{layout.input.x + 5.0f, layout.input.y + 2.0f + slide, layout.input.width - 10.0f, layout.input.height - 4.0f};
-            auto profile = FadeText(this->text_, reveal); profile.placement = 0; profile.offset_x = profile.offset_y = 0.0f; profile.style.alignment = ui::text_alignment::left;
+            auto profile = FadeText(this->text_, reveal); profile.style = ChatThemeStyle(context.Design(), profile.style); profile.placement = 0; profile.offset_x = profile.offset_y = 0.0f; profile.style.alignment = ui::text_alignment::left;
             const auto& text = this->editor_.Text();
             size_t start{};
             while (start < this->editor_.Caret() && MeasureChatText(context.Design(), this->DisplayDraft(text.substr(start, this->editor_.Caret() - start)), profile.style) > input.width - 5.0f) NextDraft(text, start);
@@ -1702,22 +1768,22 @@ namespace xiui
                 const auto right = MeasureChatText(context.Design(), this->DisplayDraft(text.substr(start, selectionEnd - start)), profile.style);
                 context.Design().FillRect({input.x + std::min(left, input.width), input.y, std::max(0.0f, std::min(right, input.width) - left), input.height}, FadeColor(theme.colors.selected, reveal));
             }
-            if (text.empty()) context.DrawText(this->channel_ == 7 ? "Player message" : "Message", input, input, FadeText(this->chrome_, reveal * 0.4f));
+            if (text.empty()) context.DrawText(this->channel_ == 7 ? "Player message" : "Message", input, input, FadeText(ChatThemeProfile(context.Design(), this->chrome_), reveal * 0.4f));
             else
             {
                 const auto commandEnd = text.find(' ');
                 const auto prefixEnd = commandEnd == std::string::npos ? text.size() : commandEnd;
                 const auto mode = CommandMode(std::string_view{text}.substr(0, prefixEnd));
-                const auto nativeColor = this->Colors().Resolve(mode, snapshot.chat_colors.modes[mode]);
+                const auto nativeColor = this->Colors().Resolve(mode, ChatThemeColor(mode, snapshot.chat_colors.modes[mode], context.Design().IsXiv1Theme()));
                 if (mode != 0 && nativeColor != 0 && start < prefixEnd)
                 {
                     const auto command = text.substr(start, prefixEnd - start);
                     const float width = context.Design().MeasureText(command.c_str(), profile.style);
                     context.DrawText(command.c_str(), input, input, TintTextProfile(profile, nativeColor));
                     const ui::rect rest{input.x + width, input.y, std::max(0.0f, input.width - width), input.height};
-                    DrawChatText(context, this->DisplayDraft(text.substr(prefixEnd)), rest, profile);
+                    DrawThemedChatText(context, this->DisplayDraft(text.substr(prefixEnd)), rest, profile);
                 }
-                else DrawChatText(context, this->DisplayDraft(text.substr(start)), input, profile);
+                else DrawThemedChatText(context, this->DisplayDraft(text.substr(start)), input, profile);
             }
             if (this->Focused() && (::GetTickCount64() / 500) % 2 == 0)
             {
@@ -1733,14 +1799,14 @@ namespace xiui
                 const float bottom = this->ControllerComposing() ? layout.controller_actions[0].y : layout.input.y;
                 const ui::rect hintBounds{layout.log.x, bottom - 23.0f, std::max(1.0f, layout.log.width - (!this->ControllerComposing() ? layout.counter.width : 0)), 21.0f};
                 context.Design().FillRect(hintBounds, FadeColor(theme.colors.surface_raised, reveal));
-                context.DrawText(hint.c_str(), hintBounds, hintBounds, FadeText(this->chrome_, reveal));
+                context.DrawText(hint.c_str(), hintBounds, hintBounds, FadeText(ChatThemeProfile(context.Design(), this->chrome_), reveal));
             }
         }
         if (layout.counter.height > 0)
         {
             const auto [used, maximum] = this->InputUsage(this->editor_.Text());
             char count[32]{}; std::snprintf(count, sizeof(count), "%zu/%zu", used, maximum);
-            auto profile = this->chrome_; profile.style.alignment = ui::text_alignment::right;
+            auto profile = ChatThemeProfile(context.Design(), this->chrome_); profile.style.alignment = ui::text_alignment::right;
             if (used >= maximum) profile = TintTextProfile(profile, 0xFFFF8C8C);
             context.DrawText(count, layout.counter, layout.counter, FadeText(profile, this->input_reveal_));
         }
@@ -1750,12 +1816,12 @@ namespace xiui
             const auto channel = !draft.empty() && draft.front() == '/' ? "Command: " + draft.substr(0, draft.find(' ')) :
                 this->controller_channel_adjusting_ ? std::string{"< "} + channels[this->channel_] + " >" : std::string{"Channel: "} + channels[this->channel_];
             const std::array<const char*, 3> labels{channel.c_str(), "Send", "Back"};
-            auto profile = this->chrome_; profile.style.alignment = ui::text_alignment::center;
+            auto profile = ChatThemeProfile(context.Design(), this->chrome_); profile.style.alignment = ui::text_alignment::center;
             for (size_t index = 0; index < layout.controller_actions.size(); ++index)
                 context.DrawButton(layout.controller_actions[index], labels[index], index == this->controller_compose_action_, profile);
         }
         this->DrawCompletions(layout, context);
-        if (this->hovered_ && !this->MatchingWindow1())
+        if ((this->hovered_ || context.IsEditing()) && !this->MatchingWindow1())
         {
             const auto grip = this->Grip(context.Design());
             context.Design().DrawTriangle(grip.x + 3, grip.y + 3, grip.x + 15, grip.y + 3, grip.x + 15, grip.y + 15, theme.colors.accent);

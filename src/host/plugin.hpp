@@ -8,6 +8,7 @@
 #include "native_chat_source.hpp"
 #include "controller_input.hpp"
 #include "keyboard_suppression.hpp"
+#include "ring_shader_capture.hpp"
 #include <array>
 #include <atomic>
 
@@ -50,6 +51,9 @@ namespace xiui
         auto Direct3DDrawIndexedPrimitiveUP(D3DPRIMITIVETYPE primitiveType, UINT minIndex, UINT vertexCount, UINT primitiveCount, const void* indexData, D3DFORMAT indexFormat, const void* vertexData, UINT vertexStride) -> bool override;
 
     private:
+#if defined(XIUI_ENABLE_SCENE_TESTS)
+        friend struct world_overlay_test;
+#endif
         IAshitaCore* core_{};
         ILogManager* log_{};
         IDirect3DDevice8* device_{};
@@ -99,6 +103,7 @@ namespace xiui
         std::array<float,3> scene_target_position_{};
         uint32_t scene_target_position_id_{};
         bool scene_end_seen_{};
+        ring_shader_capture ring_capture_{};
 
         static callback_gate<plugin> callback_gate_;
         static auto __stdcall SceneTargetCallback(IDirect3DDevice8* device, IDirect3DSurface8* color, IDirect3DSurface8* depth) -> HRESULT;
@@ -112,6 +117,7 @@ namespace xiui
         static auto __stdcall XInputButtonCallback(uint8_t* field, int16_t* state, bool injected, bool blocked) -> BOOL;
         static auto __stdcall XInputStateCallback(DWORD user, XINPUT_STATE* state) -> DWORD;
         auto KeyboardForeground(void) const -> bool;
+        auto KeyboardCaptureState(bool foreground) const -> uint32_t;
         auto UpdateKeyboardCapture(void) -> void;
 
         auto ApplyPendingDevice(void) -> void;

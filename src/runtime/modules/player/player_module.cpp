@@ -3,6 +3,7 @@
 #include "modules/bar_config.hpp"
 #include "modules/party/party_source.hpp"
 #include "modules/castcost/mp_cost_preview.hpp"
+#include "ui/xiv1_resource_layout.hpp"
 
 #include <algorithm>
 #include <cstdio>
@@ -29,7 +30,7 @@ namespace xiui
     {
         auto PlayerMeterBounds(const ui::rect& row, const ui::meter_style& style) -> ui::rect
         {
-            const float height = (style.height > 0 ? style.height : std::clamp(row.height, 14.0f, 30.0f) - 2) + 2;
+            const float height = (style.height > 0 ? style.height : 12.0f) + 2;
             return {row.x, row.y + std::max(8.0f, (row.height - height) * 0.5f), row.width, height};
         }
     }
@@ -45,6 +46,8 @@ namespace xiui
         this->settings_.hp_style = style;
         this->settings_.mp_style = style;
         this->settings_.tp_style = style;
+        for (auto* meter : {&this->settings_.hp_style, &this->settings_.mp_style, &this->settings_.tp_style})
+            if (meter->height <= 0) meter->height = 12;
     }
 
     auto player_module::ApplyTextDefaults(const ui::theme& theme) -> void
@@ -165,6 +168,10 @@ namespace xiui
         this->settings_.hp_style = LoadMeterStyle(store, "meter.player.hp", this->settings_.hp_style);
         this->settings_.mp_style = LoadMeterStyle(store, "meter.player.mp", this->settings_.mp_style);
         this->settings_.tp_style = LoadMeterStyle(store, "meter.player.tp", this->settings_.tp_style);
+        const bool oversizedLegacy = store.ReadInt("player", "bar_height_version", 0) < 2 &&
+            this->settings_.hp_style.height == 28 && this->settings_.mp_style.height == 28 && this->settings_.tp_style.height == 28;
+        for (auto* meter : {&this->settings_.hp_style, &this->settings_.mp_style, &this->settings_.tp_style})
+            if (meter->height <= 0 || oversizedLegacy) meter->height = 12;
         this->settings_.name_text = LoadTextProfile(store, "text.player.name", this->settings_.name_text);
         this->settings_.jobs_text = LoadTextProfile(store, "text.player.jobs", this->settings_.jobs_text);
         this->settings_.label_text = LoadTextProfile(store, "text.player.labels", this->settings_.label_text);
@@ -198,6 +205,7 @@ namespace xiui
     {
         this->timers_.Save(store);
         store.WriteBool("player", "enabled", this->state_.enabled);
+        store.WriteInt("player", "bar_height_version", 2);
         store.WriteBool("player", "show_identity", this->settings_.show_identity);
         store.WriteBool("player", "show_labels", this->settings_.show_labels);
         store.WriteBool("player", "show_values", this->settings_.show_values);
@@ -239,11 +247,11 @@ namespace xiui
         store.WriteRect("layout.player", this->state_.bounds);
     }
 
-    auto player_module::OptionCount(void) const -> size_t { return heal_options_start + heal_preview_settings::option_count; }
+    auto player_module::ContentOptionCount(void) const -> size_t { return heal_options_start + heal_preview_settings::option_count; }
 
     auto player_module::ConfigSections(void) const -> std::span<const module_config_section> { return ui::TimingSections(true); }
 
-    auto player_module::ConfigSectionContains(const size_t section, const size_t index) -> bool
+    auto player_module::ContentConfigSectionContains(const size_t section, const size_t index) -> bool
     {
         if (section >= this->ConfigSections().size() || index >= this->OptionCount()) return false;
         if (index >= heal_options_start) return section == static_cast<size_t>(heal_preview_settings::ColorOption(index - heal_options_start) ? bar_config_section::colors : bar_config_section::general);
@@ -263,7 +271,7 @@ namespace xiui
         return topic == bar_config_section::general;
     }
 
-    auto player_module::Option(const size_t index) -> module_option
+    auto player_module::ContentOption(const size_t index) -> module_option
     {
         if (index >= heal_options_start) return this->settings_.heal_preview.Option(index - heal_options_start, this->heal_prediction_);
         if (index == mp_preview_option)
@@ -331,7 +339,7 @@ namespace xiui
         }
     }
 
-    auto player_module::OnOptionChanged(const size_t index) -> void
+    auto player_module::OnContentOptionChanged(const size_t index) -> void
     {
         if (this->settings_.style_edit_mode == 0 && index >= 9 && index < 9 + meter_style_option_count)
             for (auto* style : {&this->settings_.hp_style, &this->settings_.mp_style, &this->settings_.tp_style})
@@ -388,16 +396,19 @@ namespace xiui
 
     auto player_module::HPMeterBounds(const hud_snapshot& snapshot) const -> ui::rect
     {
+        if (this->xiv1_theme_) return ui::Xiv1ResourceTrack(this->ResourceRows(snapshot)[0], 0);
         return ui::LayoutMeterTrack(PlayerMeterBounds(this->ResourceRows(snapshot)[0], this->settings_.hp_style), this->settings_.hp_style);
     }
 
     auto player_module::MPMeterBounds(const hud_snapshot& snapshot) const -> ui::rect
     {
+        if (this->xiv1_theme_ && this->ShowsMP(snapshot)) return ui::Xiv1ResourceTrack(this->ResourceRows(snapshot)[1], 1);
         return this->ShowsMP(snapshot) ? ui::LayoutMeterTrack(PlayerMeterBounds(this->ResourceRows(snapshot)[1], this->settings_.mp_style), this->settings_.mp_style) : ui::rect{};
     }
 
     auto player_module::TPMeterBounds(const hud_snapshot& snapshot) const -> ui::rect
     {
+        if (this->xiv1_theme_) return ui::Xiv1ResourceTrack(this->ResourceRows(snapshot)[2], 2);
         return ui::LayoutMeterTrack(PlayerMeterBounds(this->ResourceRows(snapshot)[2], this->settings_.tp_style), this->settings_.tp_style);
     }
 
@@ -432,6 +443,8 @@ namespace xiui
 
     auto player_module::Render(const hud_snapshot& snapshot, const module_render_context& context) -> void
     {
+        const bool xiv1 = context.Design().IsXiv1Theme();
+        this->xiv1_theme_ = xiv1;
         const float tallestBar = std::max({this->settings_.hp_style.height, this->ShowsMP(snapshot) ? this->settings_.mp_style.height : 0, this->settings_.tp_style.height});
         const std::array labels{this->settings_.label_text, this->settings_.mp_label_text, this->settings_.tp_label_text};
         const std::array values{this->settings_.value_text, this->settings_.mp_value_text, this->settings_.tp_value_text};
@@ -448,13 +461,15 @@ namespace xiui
                 textSpace = std::max(textSpace, 2 * (context.Design().TextHeight(values[i].style) + std::abs(values[i].offset_y)) - barHeight);
         }
         this->state_.minimum_height = std::max(76.0f, textSpace + (this->settings_.show_identity ? 39.0f : 19.0f));
-        this->state_.bounds.height = std::max(this->state_.bounds.height, this->state_.minimum_height);
+        if (!xiv1) this->state_.bounds.height = std::max(this->state_.bounds.height, this->state_.minimum_height);
         const auto& panel = this->state_.bounds;
 
         float y = panel.y + 4.0f;
         if (this->settings_.show_identity)
         {
-            context.DrawText(snapshot.player_name, {panel.x + 7.0f, y, panel.width * 0.55f, 18.0f}, panel, this->settings_.name_text);
+            auto nameText = this->settings_.name_text;
+            if (xiv1) nameText.style.font = ui::xiv1_italic_font;
+            context.DrawText(snapshot.player_name, {panel.x + 7.0f, y, panel.width * 0.55f, 18.0f}, panel, nameText);
             char jobs[64]{};
             std::snprintf(jobs, sizeof(jobs), "%s / %s", snapshot.main_job, snapshot.sub_job);
             context.DrawText(jobs, {panel.x + panel.width * 0.5f, y, panel.width * 0.48f - 7.0f, 18.0f}, panel, this->settings_.jobs_text);
@@ -462,16 +477,21 @@ namespace xiui
         }
 
         const auto rows = this->ResourceRows(snapshot);
-        const auto meterBounds = [&](const ui::rect& row, ui::meter_style& style) -> ui::rect {
-            if (style.height <= 0.0f)
-                style.height = std::clamp(row.height, 14.0f, 30.0f) - 2.0f;
+        auto hpStyle = this->settings_.hp_style, mpStyle = this->settings_.mp_style, tpStyle = this->settings_.tp_style;
+        if (xiv1)
+        {
+            hpStyle.height = mpStyle.height = ui::xiv1_resource_height; tpStyle.height = ui::xiv1_tp_height;
+            for (auto* style : {&hpStyle, &mpStyle, &tpStyle}) style->bookends = true;
+        }
+        const auto meterBounds = [&](const ui::rect& row, const ui::meter_style& style) -> ui::rect {
+            if (xiv1) return {row.x, row.y, row.width, style.height + 2};
             return PlayerMeterBounds(row, style);
         };
         const auto [hp, mp] = this->Resources(snapshot);
         const auto hpValue = this->settings_.show_values ? FormatPartyResource(hp.current, hp.percent, hp.maximum, true, this->settings_.hp_display) : std::string{};
         const auto mpValue = this->settings_.show_values ? FormatPartyResource(mp.current, mp.percent, mp.maximum, true, this->settings_.mp_display) : std::string{};
         const auto tpValue = this->settings_.show_values ? std::to_string(snapshot.tp) : std::string{};
-        auto hpTop = this->settings_.hp_color_top, hpBottom = this->settings_.hp_color;
+        auto hpTop = xiv1 ? 0xFFD8C1B6 : this->settings_.hp_color_top, hpBottom = xiv1 ? 0xFFBC7160 : this->settings_.hp_color;
         const bool hpKnown = hp.maximum != 0 || (this->source_ != nullptr && this->source_->Available());
         auto hpText = hpKnown ? TintTextProfile(this->settings_.value_text, ui::HPValueColor(hp.percent)) : this->settings_.value_text;
         const auto hpState = hp.maximum != 0 ? PlayerHPState(hp.current, hp.maximum, this->settings_.hp_warning, this->settings_.hp_critical) :
@@ -486,7 +506,7 @@ namespace xiui
             TintTextProfile(this->settings_.tp_value_text, this->settings_.tp_ready_color) : this->settings_.tp_value_text;
         this->hp_animation_.Bind((uint64_t{snapshot.hp_max} << 32) | (this->source_ != nullptr ? this->source_->Members()[0].id : 0));
         const auto healRanges = this->settings_.heal_preview.Ranges(this->heal_prediction_, this->source_ != nullptr ? this->source_->Members()[0].id : 0, ::GetTickCount64(), hp.ratio);
-        context.DrawMeter(meterBounds(rows[0], this->settings_.hp_style), this->settings_.show_labels ? "HP" : "", hpValue.c_str(), hp.ratio, hpTop, hpBottom, this->settings_.hp_style, this->hp_animation_, true, &this->settings_.label_text, &hpText,
+        context.DrawMeter(meterBounds(rows[0], hpStyle), !xiv1 && this->settings_.show_labels ? "HP" : "", xiv1 ? "" : hpValue.c_str(), hp.ratio, hpTop, hpBottom, hpStyle, this->hp_animation_, true, &this->settings_.label_text, &hpText,
             ui::meter_text_anchor::automatic, ui::meter_text_anchor::automatic, meter_fill_mode::health, {}, healRanges, nullptr, !this->settings_.hp_state_colors);
         if (this->ShowsMP(snapshot))
         {
@@ -497,13 +517,13 @@ namespace xiui
                 const auto preview = this->mp_preview_->MPPreview(sampledAt);
                 ranges = MPPreviewRanges(preview, mp.current, mp.maximum, preview.player_id, sampledAt, context.Design().GetTheme());
             }
-            context.DrawMeter(meterBounds(rows[1], this->settings_.mp_style), this->settings_.show_labels ? "MP" : "", mpValue.c_str(),
-                mp.ratio, this->settings_.mp_color_top, this->settings_.mp_color, this->settings_.mp_style,
+            context.DrawMeter(meterBounds(rows[1], mpStyle), !xiv1 && this->settings_.show_labels ? "MP" : "", xiv1 ? "" : mpValue.c_str(),
+                mp.ratio, xiv1 ? 0xFFD5DDB0 : this->settings_.mp_color_top, xiv1 ? 0xFF9FAE58 : this->settings_.mp_color, mpStyle,
                 this->mp_animation_, true, &this->settings_.mp_label_text, &this->settings_.mp_value_text,
                 ui::meter_text_anchor::automatic, ui::meter_text_anchor::automatic, meter_fill_mode::single, {}, ranges);
         }
-        context.DrawMeter(meterBounds(rows[2], this->settings_.tp_style), this->settings_.show_labels ? "TP" : "", tpValue.c_str(),
-            module_render_context::Ratio(snapshot.tp, 3000), this->settings_.tp_color_top, this->settings_.tp_color, this->settings_.tp_style,
+        context.DrawMeter(meterBounds(rows[2], tpStyle), !xiv1 && this->settings_.show_labels ? "TP" : "", xiv1 ? "" : tpValue.c_str(),
+            module_render_context::Ratio(snapshot.tp, 3000), this->settings_.tp_color_top, this->settings_.tp_color, tpStyle,
             this->tp_animation_, true, &this->settings_.tp_label_text, &tpText,
             ui::meter_text_anchor::automatic, ui::meter_text_anchor::automatic, this->settings_.tp_ready_blink ? meter_fill_mode::tp_blink : meter_fill_mode::tp,
             {}, {}, &this->settings_.tp_palette);
@@ -519,6 +539,19 @@ namespace xiui
         for (size_t i = 0; i < styles.size(); ++i)
         {
             if (i == 1 && !this->ShowsMP(snapshot)) continue;
+            if (xiv1)
+            {
+                const auto& style = i == 0 ? hpStyle : i == 1 ? mpStyle : tpStyle;
+                const auto track = ui::LayoutMeterTrack(meterBounds(rows[i], style), style);
+                auto label = ui::Xiv1ResourceLabel(labels[i]);
+                auto value = ui::Xiv1ResourceValue(i == 0 ? hpText : i == 2 ? tpText : values[i],
+                    values[0].offset_y);
+                const float labelHeight = context.Design().TextHeight(label.style), valueHeight = context.Design().TextHeight(value.style);
+                const auto text = ui::LayoutXiv1ResourceText(track, labelHeight, valueHeight);
+                if (this->settings_.show_labels) { context.DrawText(captions[i], text.label, text.label, label); include(context.TextBounds(captions[i], text.label, text.label, label)); }
+                if (!numbers[i].empty()) { context.DrawText(numbers[i].c_str(), text.value, text.value, value); include(context.TextBounds(numbers[i].c_str(), text.value, text.value, value)); }
+                continue;
+            }
             const auto track = ui::LayoutMeterTrack(PlayerMeterBounds(rows[i], styles[i]), styles[i]);
             const auto text = ui::LayoutMeterText(track, std::max(16.0f, context.Design().TextHeight(labels[i].style)),
                 std::max(16.0f, context.Design().TextHeight(values[i].style)), 32);

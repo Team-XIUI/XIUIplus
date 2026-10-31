@@ -25,9 +25,22 @@ namespace
         __except (EXCEPTION_EXECUTE_HANDLER) { return false; }
     }
 
+    auto NativeDetailOwner(const std::array<char, 16>& name) -> bool
+    {
+        constexpr std::string_view menus[]{"shop    ", "shopmain", "shopbuy ", "shopsell", "equip   ", "inspect ", "comment "};
+        const std::string_view id{name.data() + 8, 8};
+        return std::find(std::begin(menus), std::end(menus), id) != std::end(menus);
+    }
+
+    auto DetailPanel(const std::array<char, 16>& name) -> bool
+    {
+        const std::string_view id{name.data() + 8, 8};
+        return id == "iteminfo" || id == "money   ";
+    }
+
     auto MovableFrame(const uintptr_t primitive, const std::array<char, 16>& name) -> bool
     {
-        constexpr std::string_view commandLists[]{"playermo", "magic   ", "ability ", "magselec", "abiselec", "mount   "};
+        constexpr std::string_view commandLists[]{"playermo", "magic   ", "ability ", "magselec", "abiselec", "mount   ", "shopmain", "shopsell", "comment "};
         const std::string_view id{name.data() + 8, 8};
         const bool commandList = std::find(std::begin(commandLists), std::end(commandLists), id) != std::end(commandLists);
         uintptr_t node{};
@@ -48,7 +61,8 @@ namespace
     auto Excluded(const std::array<char, 16>& name) -> bool
     {
         constexpr std::string_view excluded[]{"logwindo", "logwin2 ", "log1win ", "log2win ", "inline  ", "fulllog ",
-            "gaugewin", "partywin", "targetwi", "casttime", "buff    ", "netstat ", "titlewin", "helpwind"};
+            "gaugewin", "partywin", "targetwi", "casttime", "buff    ", "netstat ", "titlewin", "helpwind",
+            "shop    ", "shopbuy ", "equip   ", "inspect "};
         if (std::string_view{name.data(), 8} != "menu    ") return true;
         const std::string_view id{name.data() + 8, 8};
         return std::find(std::begin(excluded), std::end(excluded), id) != std::end(excluded);
@@ -73,6 +87,7 @@ namespace xiui
         const auto config = this->Find("8B0D????????85C974108B4424088B5424045052E8????????C383C8FFC3");
         if (config != 0) Read(config + 2, this->config_slot_);
         this->reposition_ = this->Find("83EC0C668B44241453558B6C2418568BF15733FF8D5E1466896E528BCB66894654897C2414897C2418E8");
+        this->comment_draw_ = this->Find("81EC140200005355568BF1578D4424148B4E0833FF5066897C241866897C241A66897C241C66897C241E");
         this->state_.menu_available = this->manager_ >= module && this->manager_ - module + 0x84 <= size && this->reposition_ != 0;
     }
 
@@ -131,9 +146,9 @@ namespace xiui
         const auto previous = this->menus_;
         const auto previousCount = this->count_;
         this->count_ = 0;
-        int left = 32000, top = 32000, right = -32000, bottom = -32000, tallest = 0;
         std::array<uintptr_t, 128> visited{};
         size_t visitedCount{};
+        bool nativeDetails{};
         while (node != 0 && visitedCount < visited.size() && this->count_ < this->menus_.size())
         {
             if (std::find(visited.begin(), visited.begin() + visitedCount, node) != visited.begin() + visitedCount) break;
@@ -145,20 +160,40 @@ namespace xiui
             std::array<char, 16> name{};
             std::array<int16_t, 4> frame{}, liveFrame{};
             if (removed || !Read(primitive + 0x70, closed) || closed || !Read(primitive + 4, resource) ||
-                !Read(resource + 0x46, name) || Excluded(name) || !Read(primitive + 0x0C, owner) ||
-                !Read(owner + 8, attached) || attached != primitive || !MovableFrame(primitive, name) ||
+                !Read(resource + 0x46, name) || !Read(primitive + 0x0C, owner) ||
+                !Read(owner + 8, attached) || attached != primitive) continue;
+            if (std::string_view{name.data(), 8} == "menu    " && NativeDetailOwner(name)) nativeDetails = true;
+            if (Excluded(name) || (!DetailPanel(name) && !MovableFrame(primitive, name)) ||
                 !Read(primitive + 0x42, frame) || frame[2] <= frame[0] || frame[3] <= frame[1] ||
                 !Read(primitive + 0x3A, liveFrame) || liveFrame[2] <= liveFrame[0] || liveFrame[3] <= liveFrame[1]) continue;
             auto& value = this->menus_[this->count_++];
             value = {primitive, owner, resource};
             for (size_t i = 0; i < previousCount; ++i)
                 if (previous[i].primitive == primitive && previous[i].owner == owner && previous[i].resource == resource) { value = previous[i]; break; }
+            value.detail = DetailPanel(name);
+        }
+        size_t kept = 0;
+        int left = 32000, top = 32000, right = -32000, bottom = -32000, tallest = 0;
+        for (size_t i = 0; i < this->count_; ++i)
+        {
+            auto value = this->menus_[i];
+            if (this->ShouldHide(value.primitive)) { this->Move(value, false); continue; }
+            if (value.detail)
+            {
+                std::array<char, 16> name{};
+                if (nativeDetails || !Read(value.resource + 0x46, name) || !MovableFrame(value.primitive, name))
+                { this->Move(value, false); continue; }
+            }
+            std::array<int16_t, 4> frame{}, liveFrame{};
+            if (!Read(value.primitive + 0x42, frame) || !Read(value.primitive + 0x3A, liveFrame)) continue;
+            this->menus_[kept++] = value;
             left = std::min<int>(left, frame[0]); top = std::min<int>(top, frame[1]);
             right = std::max<int>(right, frame[2]); bottom = std::max<int>(bottom, frame[3]);
             tallest = std::max<int>(tallest, liveFrame[3] - liveFrame[1]);
         }
+        this->count_ = kept;
         this->state_.menu_count = static_cast<uint32_t>(this->count_);
-        this->state_.menu_visible = this->count_ != 0;
+        this->state_.menu_visible = nativeDetails || this->count_ != 0;
         if (this->count_ != 0)
         {
             this->state_.x = static_cast<float>(left); this->state_.y = static_cast<float>(layout.anchor_top ? top : bottom - tallest);
@@ -178,11 +213,38 @@ namespace xiui
             if (this->menus_[i].primitive == primitive) { this->Move(this->menus_[i], this->layout_.enabled); break; }
     }
 
+    auto native_menu_controller::ShouldHide(const uintptr_t primitive) const -> bool
+    {
+        if (!this->layout_.enabled || this->comment_draw_ == 0) return false;
+        uintptr_t resource{}, owner{}, attached{}, vtable{}, draw{};
+        std::array<char, 16> name{};
+        uint8_t mode{};
+        if (!Read(primitive + 4, resource) || !Read(resource + 0x46, name) ||
+            std::string_view{name.data(), name.size()} != "menu    comment " ||
+            !Read(primitive + 0x0C, owner) || !Read(owner + 8, attached) || attached != primitive ||
+            !Read(owner, vtable) || !Read(vtable + 0x10, draw) || draw != this->comment_draw_ ||
+            !Read(owner + 0x16, mode) || mode != 1) return false;
+        // Mode 1 views another player's three 40-byte lines; other modes are editors.
+        std::array<std::array<char, 41>, 3> lines{};
+        if (!Read(owner + 0x95, lines)) return false;
+        for (const auto& line : lines)
+        {
+            bool terminated{};
+            for (const char c : line)
+            {
+                if (c == '\0') { terminated = true; break; }
+                if (c != ' ' && c != '\t' && c != '\r' && c != '\n') return false;
+            }
+            if (!terminated) return false;
+        }
+        return true;
+    }
+
     auto native_menu_controller::Shutdown(void) -> void
     {
         // Restore only panels still present in the live list, never cached freed objects.
         this->Update({});
-        this->count_ = 0; this->module_ = this->manager_ = this->config_slot_ = this->reposition_ = 0;
+        this->count_ = 0; this->module_ = this->manager_ = this->config_slot_ = this->reposition_ = this->comment_draw_ = 0;
         this->module_size_ = 0; this->state_ = {}; this->layout_ = {};
     }
 }

@@ -34,18 +34,21 @@ namespace xiui
         auto VisitTextSettings(const text_settings_visitor& visit) -> void override
         { for (auto& group : this->groups_) visit(group.text.style); }
         auto ResetDefaults(const ui::theme&) -> void override;
+        auto ResetSettingsFrom(const hud_module& defaults, const ui::theme&) -> void override
+        { this->groups_[0] = static_cast<const notification_module&>(defaults).groups_[0]; }
         auto Load(const settings_store& store) -> void override;
         auto Save(const settings_store& store) const -> void override;
-        auto OptionCount(void) const -> size_t override { return 48; }
-        auto Option(size_t index) -> module_option override;
-        auto OnOptionChanged(size_t index) -> void override;
+        auto ContentOptionCount(void) const -> size_t override { return 48; }
+        auto ContentOption(size_t index) -> module_option override;
+        auto OnContentOptionChanged(size_t index) -> void override;
         auto OnPositionChanged(void) -> void override { this->groups_[0].screen_anchor = false; }
         auto ConfigSections(void) const -> std::span<const module_config_section> override;
-        auto ConfigSectionContains(size_t section, size_t index) -> bool override;
+        auto ContentConfigSectionContains(size_t section, size_t index) -> bool override;
         auto ShouldRender(const hud_snapshot&) const -> bool override { return this->GroupVisible(0); }
         auto Render(const hud_snapshot&, const module_render_context& context) -> void override { this->RenderGroup(0, context); }
         auto Group(size_t index) -> notification_group& { return this->groups_[std::min(index, maximum_groups - 1)]; }
         auto Group(size_t index) const -> const notification_group& { return this->groups_[std::min(index, maximum_groups - 1)]; }
+        auto ConfigScaleState(void) -> module_state& override { return this->Group(this->SelectedGroup()).state; }
         auto GroupCount(void) const -> size_t { return static_cast<size_t>(this->group_count_ + 2); }
         auto SelectedGroup(void) const -> size_t { return static_cast<size_t>(std::clamp(this->selected_group_, 0, static_cast<int>(this->GroupCount()) - 1)); }
         auto SelectGroup(size_t group) -> void { this->selected_group_ = static_cast<int>(std::min(group, this->GroupCount() - 1)); }
@@ -79,10 +82,12 @@ namespace xiui
         auto HasEditableBounds(void) const -> bool override { return this->group_ < this->owner_.GroupCount(); }
         auto PreviewVisible(void) const -> bool override { return this->HasEditableBounds() && this->owner_.State().enabled; }
         auto ResetDefaults(const ui::theme&) -> void override {}
+        auto ResetSettingsFrom(const hud_module& defaults, const ui::theme&) -> void override
+        { const auto& source = static_cast<const notification_group_module&>(defaults); this->owner_.Group(this->group_) = source.owner_.Group(source.group_); }
         auto Load(const settings_store&) -> void override {}
         auto Save(const settings_store&) const -> void override {}
-        auto OptionCount(void) const -> size_t override { return 0; }
-        auto Option(size_t) -> module_option override { return {}; }
+        auto ContentOptionCount(void) const -> size_t override { return 0; }
+        auto ContentOption(size_t) -> module_option override { return {}; }
         auto OnPositionChanged(void) -> void override { this->owner_.Group(this->group_).screen_anchor = false; }
         auto ShouldRender(const hud_snapshot&) const -> bool override { return this->owner_.GroupVisible(this->group_); }
         auto Render(const hud_snapshot&, const module_render_context& context) -> void override { this->owner_.RenderGroup(this->group_, context); }

@@ -61,7 +61,7 @@ namespace xiui
         return sections;
     }
 
-    auto compass_module::ConfigSectionContains(const size_t section, const size_t index) -> bool
+    auto compass_module::ContentConfigSectionContains(const size_t section, const size_t index) -> bool
     {
         if (section >= this->ConfigSections().size() || index >= this->OptionCount()) return false;
         if (index >= 7) return section == 3;
@@ -70,7 +70,7 @@ namespace xiui
         return section == 0;
     }
 
-    auto compass_module::Option(const size_t index) -> module_option
+    auto compass_module::ContentOption(const size_t index) -> module_option
     {
         switch (index)
         {

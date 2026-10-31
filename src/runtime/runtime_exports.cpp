@@ -149,6 +149,13 @@ namespace
         return guard_bool(instance, [](xiui::hud_runtime& runtime) { return runtime.KeyboardFocused(); });
     }
 
+    auto __stdcall keyboard_input_state(void* instance) -> uint32_t
+    {
+        uint32_t state{};
+        guard_void(instance, [&](xiui::hud_runtime& runtime) { state = runtime.KeyboardInputState(); });
+        return state;
+    }
+
     auto __stdcall handle_controller(void* instance, const xiui::controller_event* event) -> BOOL
     {
         if (event == nullptr) return FALSE;
@@ -280,6 +287,7 @@ extern "C" __declspec(dllexport) auto __stdcall XiuiGetRuntimeApi(const uint32_t
     result.handle_chat = &handle_chat;
     result.handle_key = &handle_key;
     result.chat_focused = &chat_focused;
+    result.keyboard_input_state = &keyboard_input_state;
     *api = result;
     return TRUE;
 }

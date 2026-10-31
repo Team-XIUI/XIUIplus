@@ -12,6 +12,7 @@ namespace xiui
         static constexpr size_t option_count = 1 + global_count + window_count;
         auto Initialize(native_window_config& config) -> void;
         auto Refresh(void) -> void;
+        auto WindowHasRouting(bool secondary) const -> std::optional<bool>;
         auto Visible(size_t index) const -> bool;
         auto Option(size_t index) -> module_option;
         auto Apply(size_t index) -> bool;

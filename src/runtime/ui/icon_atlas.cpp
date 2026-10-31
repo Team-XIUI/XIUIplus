@@ -4,6 +4,7 @@
 #include "resources/target_arrow.hpp"
 
 #include <algorithm>
+#include <bit>
 #include <cmath>
 #include <vector>
 #include <span>
@@ -12,8 +13,8 @@ namespace xiui::ui
 {
     namespace
     {
-        constexpr int cell = 32, columns = 32, supersample = 4;
-        constexpr int rows = (static_cast<int>(icon_glyph::unknown) + columns) / columns;
+        constexpr int cell = 32, columns = 8, supersample = 4;
+        constexpr int rows = static_cast<int>(std::bit_ceil(static_cast<unsigned>((static_cast<int>(icon_glyph::unknown) + columns) / columns)));
 
         class icon_path
         {
@@ -187,6 +188,8 @@ namespace xiui::ui
                 p.Begin(13, 6); p.Line(19, 12); p.Line(13, 18); p.End(); break;
             case icon_glyph::add:
                 p.Begin(12, 4); p.Line(12, 20); p.End(); p.Begin(4, 12); p.Line(20, 12); p.End(); break;
+            case icon_glyph::minus:
+                p.Begin(4, 12); p.Line(20, 12); p.End(); break;
             case icon_glyph::close:
                 p.Begin(5, 5); p.Line(19, 19); p.End(); p.Begin(19, 5); p.Line(5, 19); p.End(); break;
             case icon_glyph::more:
@@ -209,8 +212,7 @@ namespace xiui::ui
 
     auto icon_atlas::Shutdown(void) -> void
     {
-        if (this->texture_ != nullptr) this->texture_->Release();
-        this->texture_ = nullptr;
+        for (auto*& texture : this->textures_) { if (texture) texture->Release(); texture = nullptr; }
         this->device_ = nullptr;
     }
 
@@ -257,43 +259,54 @@ namespace xiui::ui
         };
         bake(resources::github_icon_runs, icon_glyph::github);
         bake(resources::target_arrow_runs, icon_glyph::target_arrow);
-        std::vector<uint32_t> pixels(width * height);
         const auto* source = static_cast<const uint32_t*>(bits);
-        for (int y = 0; y < height; ++y)
-        for (int x = 0; x < width; ++x)
+        for (size_t level = 0; level < this->textures_.size(); ++level)
         {
-            unsigned coverage{};
-            for (int sy = 0; sy < supersample; ++sy)
-            for (int sx = 0; sx < supersample; ++sx) coverage += source[(y * supersample + sy) * width * supersample + x * supersample + sx] & 255;
-            pixels[y * width + x] = 0x00FFFFFF | ((coverage / (supersample * supersample)) << 24);
+            const int factor = 1 << level, samples = supersample / factor;
+            const int targetWidth = width * factor, targetHeight = height * factor;
+            auto*& texture = this->textures_[level];
+            if (FAILED(device->CreateTexture(targetWidth, targetHeight, 1, 0, D3DFMT_A8R8G8B8, D3DPOOL_MANAGED, &texture))) continue;
+            D3DLOCKED_RECT locked{};
+            if (FAILED(texture->LockRect(0, &locked, nullptr, 0))) { texture->Release(); texture = nullptr; continue; }
+            for (int y = 0; y < targetHeight; ++y)
+            {
+                auto* row = reinterpret_cast<uint32_t*>(static_cast<uint8_t*>(locked.pBits) + y * locked.Pitch);
+                for (int x = 0; x < targetWidth; ++x)
+                {
+                    unsigned coverage{};
+                    for (int sy = 0; sy < samples; ++sy)
+                        for (int sx = 0; sx < samples; ++sx) coverage += source[(y * samples + sy) * width * supersample + x * samples + sx] & 255;
+                    row[x] = 0x00FFFFFF | ((coverage / (samples * samples)) << 24);
+                }
+            }
+            texture->UnlockRect(0);
         }
         ::SelectObject(dc, previousBrush); ::SelectObject(dc, previousPen); ::SelectObject(dc, previousBitmap);
         ::DeleteObject(pen); ::DeleteObject(bitmap); ::DeleteDC(dc);
-        if (FAILED(device->CreateTexture(width, height, 1, 0, D3DFMT_A8R8G8B8, D3DPOOL_MANAGED, &this->texture_))) return;
-        D3DLOCKED_RECT locked{};
-        if (FAILED(this->texture_->LockRect(0, &locked, nullptr, 0))) { this->texture_->Release(); this->texture_ = nullptr; return; }
-        for (int y = 0; y < height; ++y) std::memcpy(static_cast<uint8_t*>(locked.pBits) + y * locked.Pitch, pixels.data() + y * width, width * sizeof(uint32_t));
-        this->texture_->UnlockRect(0);
     }
 
     auto icon_atlas::Draw(const design_system& design, const rect& bounds, const icon_glyph icon, const D3DCOLOR color, const int quarterTurns, const bool flipX) const -> void
     {
-        if (this->texture_ == nullptr) return;
         const float size = std::max(0.0f, std::min(bounds.width, bounds.height));
+        const float pixels = size * std::max(design.Transform().x, design.Transform().y);
+        size_t level = pixels <= cell ? 0 : pixels <= cell * 2 ? 1 : 2;
+        while (level && this->textures_[level] == nullptr) --level;
+        auto* texture = this->textures_[level];
+        if (texture == nullptr) return;
         const rect at{std::round(bounds.x + (bounds.width - size) * 0.5f), std::round(bounds.y + (bounds.height - size) * 0.5f), size, size};
         const auto index = static_cast<int>(icon);
         rect uv{static_cast<float>(index % columns) / columns, static_cast<float>(index / columns) / rows, 1.0f / columns, 1.0f / rows};
         if (flipX) { uv.x += uv.width; uv.width = -uv.width; }
         const D3DCOLOR shadow = ((color >> 24) * 208 / 255) << 24;
         const auto draw = [&](const rect& box, const D3DCOLOR tint) {
-            if ((quarterTurns & 3) == 0) { design.DrawTexture(this->texture_, box, tint, uv); return; }
+            if ((quarterTurns & 3) == 0) { design.DrawTexture(texture, box, tint, uv); return; }
             const std::array<point, 4> corners{{{box.x, box.y}, {box.x + box.width, box.y},
                 {box.x + box.width, box.y + box.height}, {box.x, box.y + box.height}}};
             std::array<point, 4> rotated{};
             constexpr std::array<size_t, 4> order{0, 1, 3, 2};
             for (size_t i = 0; i < rotated.size(); ++i) rotated[i] = corners[(order[i] + quarterTurns) & 3];
             texture_style style; style.colors.fill(tint);
-            design.DrawTextureQuad(this->texture_, rotated, uv, style);
+            design.DrawTextureQuad(texture, rotated, uv, style);
         };
         draw({at.x + 1, at.y + 1, size, size}, shadow);
         draw(at, color);

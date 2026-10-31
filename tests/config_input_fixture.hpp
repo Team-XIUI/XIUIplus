@@ -104,6 +104,13 @@ namespace xiui
         static inline uint32_t* window_record{};
         static inline unsigned window_writes{};
         static auto StartupWiring(void) -> bool;
+        static auto SetupWizard(const char* defaultsPath) -> bool;
+        static auto HudScaling(const char* defaultsPath) -> bool;
+        static auto HudPresets(const char* defaultsPath) -> bool;
+        static auto ModuleMenu(const char* defaultsPath) -> bool;
+        static auto EditMode(const char* defaultsPath) -> bool;
+        static auto ConfigMemory(void) -> bool;
+        static auto WindowInput(void) -> bool;
         static auto TreasureInput(void) -> bool;
         static auto Fishing(void) -> bool;
         static auto ControlCount(hud_runtime& runtime) -> size_t;
@@ -153,6 +160,7 @@ namespace xiui
         static auto DarkBacking(void) -> bool;
         static auto __cdecl SetWindowType(const uint32_t id, const int value) -> int;
         static auto WindowTheme(void) -> bool;
+        static auto Xiv1Theme(void) -> bool;
         static auto Presentation(const char* dat) -> bool;
         static auto EmptyCategories(void) -> bool;
         static auto SecondaryMenus(void) -> bool;

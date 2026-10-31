@@ -191,12 +191,46 @@ namespace
         filter(input, data);
         return require(data[0].value == 0 && data[1].value == 0, "lifecycle reset removes overflow history");
     }
+
+    auto CheckPreemptiveHistory(void) -> bool
+    {
+        using namespace xiui;
+        constexpr uint32_t enter = 0x1C, arrow = 0xC8, movement = 0x48, cycle = 0x21;
+        keyboard_suppression input;
+        std::array<uint8_t, 256> state{};
+        state[enter] = state[arrow] = state[movement] = state[digit] = 0x80;
+        input.FilterState(state.data(), state.size(), keyboard_capture_history);
+        if (!require(state[enter] == 0 && state[arrow] == 0 && state[movement] == 0x80 && state[digit] == 0x80,
+            "history blocks Enter and navigation before WM delivery while preserving movement and typing")) return false;
+        std::array<entry, 3> first{{{enter, 0x80}, {movement, 0x80}, {digit, 0x80}}};
+        input.FilterData(first.data(), sizeof(entry), first.size(), keyboard_capture_history, false, 0);
+        if (!require(first[0].value == 0 && first[1].value == 0x80 && first[2].value == 0x80,
+            "buffered Enter cannot open the native log before XIUI receives its key event")) return false;
+        input.Observe(enter, true, false, true);
+        input.Observe(enter, false, false, false);
+        std::array<entry, 1> release{{{enter, 0x01}}};
+        filter(input, release);
+        state[enter] = 0x80;
+        input.FilterState(state.data(), state.size(), 0);
+        if (!require(release[0].value == 0 && state[enter] == 0, "closing history drains Enter from buffered and immediate input")) return false;
+        state.fill(0); input.FilterState(state.data(), state.size(), 0);
+        input.Observe(enter, true, false, false); input.Observe(enter, false, false, false);
+        std::array<entry, 2> native{{{enter, 0x80}, {enter, 0x01}}}; filter(input, native);
+        if (!require(native[0].value == 0x80 && native[1].value == 0x01, "a fresh Enter returns to native attack/menu controls after history closes")) return false;
+        input.Reset();
+        state.fill(0); state[cycle] = state[enter] = 0x80;
+        input.FilterState(state.data(), state.size(), keyboard_capture_cycle);
+        if (!require(state[cycle] == 0 && state[enter] == 0x80, "compact F entry is reserved before it can select native chat")) return false;
+        return require(!KeyboardCapturesScan(FilterKeyboardCapture(keyboard_capture_cycle, true), cycle) &&
+            KeyboardCapturesScan(keyboard_capture_status, 0x0F) && !KeyboardCapturesScan(keyboard_capture_history, 0x0F),
+            "modified F shortcuts and Alt+Tab stay native while status focus owns its tab navigation");
+    }
 }
 
 auto main(void) -> int
 {
     if (!CheckQuickTap() || !CheckMixedBufferedGestures() || !CheckIndependentStateDrain() || !CheckPeekAndFailures() ||
-        !CheckModalAndLifecycle() || !CheckRepeatsAndFormats() || !CheckBoundedHistory()) return 1;
+        !CheckModalAndLifecycle() || !CheckRepeatsAndFormats() || !CheckBoundedHistory() || !CheckPreemptiveHistory()) return 1;
     std::puts("Keyboard suppression checks passed.");
     return 0;
 }

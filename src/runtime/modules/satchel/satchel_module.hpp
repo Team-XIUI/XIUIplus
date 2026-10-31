@@ -37,14 +37,20 @@ namespace xiui
         auto BeginControllerBrowse(void) -> void;
         auto EndControllerBrowse(void) -> void;
         auto HandleControllerAction(controller_action, bool repeated) -> bool;
-        auto HandleMouse(uint32_t, WPARAM, float x, float y, bool blocked) -> bool;
+        auto LayoutHandleMouse(uint32_t, WPARAM, float x, float y, bool blocked) -> bool;
+        auto HandleMouse(uint32_t message, WPARAM keys, float x, float y, bool blocked) -> bool
+        {
+            if (!this->pointer_down_ && (message == WM_LBUTTONDOWN || message == WM_LBUTTONDBLCLK || message == WM_RBUTTONDOWN)) this->pointer_transform_ = this->state_.transform;
+            const auto& transform = this->pointer_down_ && this->window_action_ != window_action::none ? this->pointer_transform_ : this->state_.transform;
+            return this->LayoutHandleMouse(message, keys, this->dialog_ != dialog::none ? x : transform.InverseX(x), this->dialog_ != dialog::none ? y : transform.InverseY(y), blocked);
+        }
         auto HandleKey(WPARAM, LPARAM) -> bool;
         auto KeyboardFocused(void) const -> bool { return this->editor_.Focused(); }
         auto InputFocused(void) const -> bool { return this->controller_ || this->keyboard_ || this->editor_.Focused() || this->dialog_ != dialog::none || this->window_action_ != window_action::none; }
         auto PointerDown(void) const -> bool { return this->pointer_down_; }
         auto PointerOwns(float x, float y) const -> bool
-        { const auto& b = this->state_.bounds; return this->opened_ && this->state_.enabled && (this->pointer_down_ || this->dialog_ != dialog::none || (x >= b.x && y >= b.y && x < b.x + b.width && y < b.y + b.height)); }
-        auto SetHover(float x, float y) -> void { this->hover_x_ = x; this->hover_y_ = y; }
+        { const auto b = this->state_.transform.Map(this->state_.bounds); return this->opened_ && this->state_.enabled && (this->pointer_down_ || this->dialog_ != dialog::none || (x >= b.x && y >= b.y && x < b.x + b.width && y < b.y + b.height)); }
+        auto SetHover(float x, float y) -> void { this->hover_x_ = this->dialog_ != dialog::none ? x : this->state_.transform.InverseX(x); this->hover_y_ = this->dialog_ != dialog::none ? y : this->state_.transform.InverseY(y); }
         auto TakeSettingsChanged(void) -> bool { const bool changed = this->settings_changed_; this->settings_changed_ = false; return changed; }
         auto Update(uint64_t now) -> void;
         auto VisitTextSettings(const text_settings_visitor& visit) -> void override { VisitTextProfiles(visit, this->text_); }
@@ -52,11 +58,11 @@ namespace xiui
         auto ResetDefaults(const ui::theme&) -> void override;
         auto Load(const settings_store&) -> void override;
         auto Save(const settings_store&) const -> void override;
-        auto OptionCount(void) const -> size_t override { return base_options + text_profile_option_count; }
-        auto Option(size_t) -> module_option override;
+        auto ContentOptionCount(void) const -> size_t override { return base_options + text_profile_option_count; }
+        auto ContentOption(size_t) -> module_option override;
         auto ConfigSections(void) const -> std::span<const module_config_section> override;
-        auto ConfigSectionContains(size_t, size_t) -> bool override;
-        auto OnOptionChanged(size_t) -> void override;
+        auto ContentConfigSectionContains(size_t, size_t) -> bool override;
+        auto OnContentOptionChanged(size_t) -> void override;
         auto ShouldRender(const hud_snapshot&) const -> bool override { return this->state_.enabled && this->opened_; }
         auto Render(const hud_snapshot&, const module_render_context&) -> void override;
         auto RenderOverlay(const module_render_context&) -> void;
@@ -73,6 +79,7 @@ namespace xiui
         enum class scroll_area : uint8_t { none, bags, items };
         struct cell { satchel_item item{}; bool empty{}; std::string key{}; };
         struct pick { std::string label{}, value{}; int id{}; bool available{true}; };
+        ui::hud_transform pointer_transform_{};
         module_state state_{true, {-1, -1, 576, 456}, 330, 200};
         ui::rect viewport_{};
         ui::rect window_start_{};

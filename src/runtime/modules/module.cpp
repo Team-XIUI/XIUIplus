@@ -7,6 +7,7 @@
 
 #include <algorithm>
 #include <cmath>
+#include <cstring>
 
 namespace
 {
@@ -30,6 +31,16 @@ namespace
 
 namespace xiui
 {
+    auto hud_module::ResetSettingsFrom(const hud_module& defaults, const ui::theme& theme) -> void
+    {
+        auto store = settings_store::FromIniText("");
+        defaults.Save(store); defaults.SaveScale(store);
+        this->ResetDefaults(theme);
+        this->Load(store); this->LoadScale(store);
+        this->State().bounds = defaults.State().bounds;
+        this->State().content_bounds = {};
+    }
+
     auto meter_animation_state::Update(float ratio, uint64_t now, bool enabled, float speed) -> float
     {
         const float target=std::clamp(ratio,0.0f,1.0f);
@@ -480,6 +491,8 @@ namespace xiui
 
     auto module_render_context::MeterSkin(const ui::meter_style& style) const -> std::optional<ui::meter_skin>
     {
+        if (style.appearance == ui::meter_style::window_theme && this->containers_ != nullptr && this->design_.IsXiv1Theme())
+            return this->containers_->AppearanceMeterSkin();
         auto skin = style.appearance == ui::meter_style::window_theme && this->native_assets_ != nullptr && this->containers_ != nullptr
             ? this->native_assets_->MeterSkin() : std::nullopt;
         if (skin)
@@ -525,6 +538,14 @@ namespace xiui
         const bool healthWarnings) const -> void
     {
         const auto& theme = this->design_.GetTheme();
+        std::optional<module_text_profile> themedValue;
+        if (this->design_.IsXiv1Theme())
+        {
+            themedValue = valueProfile != nullptr ? *valueProfile : module_text_profile{theme.meter_text};
+            themedValue->style.font = ui::xiv1_number_font;
+            if (valueProfile == nullptr) themedValue->style.alignment = ui::text_alignment::right;
+            valueProfile = &*themedValue;
+        }
         const bool hasLabel = label != nullptr && label[0] != '\0' && (labelProfile == nullptr || labelProfile->visible);
         const float labelWidth = hasLabel && !overlayLabel ? 28.0f : 0.0f;
         if (labelWidth > 0.0f)
@@ -561,6 +582,19 @@ namespace xiui
         }
         if (fillMode == meter_fill_mode::single || fillMode == meter_fill_mode::health)
             this->design_.DrawMeter(track, animation.displayed_ratio, healthTop, healthBottom, phase, style, skin ? &*skin : nullptr, {}, false, strips, ranges, feedbackRanges);
+        else if (this->design_.IsXiv1Theme())
+        {
+            const auto fill = ui::Xiv1TPMeterFill(animation.displayed_ratio, fillTop, fillBottom, now * .001, fillMode == meter_fill_mode::tp_blink);
+            this->design_.DrawMeter(track, fill.ratio, fill.top, fill.bottom, phase, style, skin ? &*skin : nullptr, {}, false, strips, ranges);
+            const auto content = skin ? ui::LayoutMeterSkin(track, *skin, style.themed_bookends).content : track;
+            if (content.width >= 18)
+                for (const float threshold : {1.0f / 3, 2.0f / 3})
+                {
+                    const float x = content.x + content.width * threshold;
+                    this->design_.FillRect({x, content.y, 1, content.height}, 0xC0454030);
+                    this->design_.FillRect({x + 1, content.y, 1, content.height}, 0x90E4DBBA);
+                }
+        }
         else
         {
             const auto layers = ui::TPMeterLayers(animation.displayed_ratio, fillTop, fillBottom, now * 0.001,
@@ -587,7 +621,14 @@ namespace xiui
         if (value != nullptr && value[0] != '\0')
         {
             if (valueProfile != nullptr)
-                this->DrawText(value, textLayout.value, textLayout.placement, *valueProfile);
+            {
+                auto profile = *valueProfile;
+                if (profile.placement != 0)
+                    profile.style.alignment = profile.placement == 1 ? ui::text_alignment::left :
+                        profile.placement == 2 ? ui::text_alignment::center : ui::text_alignment::right;
+                profile.placement = 0;
+                this->DrawText(value, textLayout.value, textLayout.value, profile);
+            }
             else
             {
                 auto valueStyle = theme.meter_text;
@@ -600,5 +641,70 @@ namespace xiui
     auto module_render_context::Ratio(const uint32_t value, const uint32_t maximum) -> float
     {
         return maximum == 0 ? 0.0f : std::clamp(static_cast<float>(value) / static_cast<float>(maximum), 0.0f, 1.0f);
+    }
+    auto hud_module::Option(const size_t index) -> module_option
+    {
+        const auto first = this->ContentOptionCount();
+        if (index < first) return this->ContentOption(index);
+        if (!this->SupportsScale() || index >= first + 4) return {};
+        auto& scale = this->ActiveScaleState().scale;
+        module_option option;
+        switch (index - first)
+        {
+        case 0: option = module_option::Slider(scale.locked ? "Scale (%)" : "Scale X (%)", "Scale the whole element, including native-size text, artwork and hit regions. Locked proportions adjust both axes together.", &scale.x, .25f, 3, .01f).Ordered(-200, !scale.locked); option.display_scale = 100; break;
+        case 1: option = module_option::Slider("Scale Y (%)", "Scale the whole element vertically. Global Scale multiplies this value.", &scale.y, .25f, 3, .01f).Ordered(-199).VisibleWhen(!scale.locked); option.display_scale = 100; break;
+        case 2: option = module_option::Toggle("Lock proportions", "Scale uniformly by default. Use the module's width and height settings to change its layout; unlock only to stretch the whole element.", &scale.locked).Ordered(-198).VisibleWhen(this->SupportsNonUniformScale()); break;
+        default: option = module_option::Action("Reset scale", "Restore this element to 100% on both axes. Global Scale stays unchanged.", "Reset").Ordered(-197); break;
+        }
+        option.available = this->config_scale_state_ != nullptr ? this->config_scale_editable_ : this->ConfigScaleEditable();
+        if (!option.available) option.description = "Attached content follows its owner's scale. Detach it to adjust an independent scale.";
+        return option.VisibleWhen(this->ConfigScaleVisible());
+    }
+
+    auto hud_module::ConfigSectionContains(const size_t section, const size_t index) -> bool
+    {
+        if (index < this->ContentOptionCount()) return this->ContentConfigSectionContains(section, index);
+        if (!this->SupportsScale() || !this->ConfigScaleVisible() || index >= this->OptionCount()) return false;
+        const auto sections = this->ConfigSections();
+        size_t destination{};
+        for (size_t at = 0; at < sections.size(); ++at)
+            if (sections[at].Id() == "layout" || sections[at].Id() == "window") { destination = at; break; }
+        return section == destination;
+    }
+
+    auto hud_module::OnOptionChanged(const size_t index) -> void
+    {
+        if (index < this->ContentOptionCount()) { this->OnContentOptionChanged(index); return; }
+        auto& scale = this->ActiveScaleState().scale;
+        if (!this->SupportsNonUniformScale()) scale.locked = true;
+        const auto axis = index - this->ContentOptionCount();
+        if (axis == 3) { scale.x = scale.y = 1; scale.locked = true; }
+        else if (scale.locked && axis < 2)
+        {
+            const float factor = axis == 0 ? scale.x / this->ActiveScaleState().scale_checkpoint.x : scale.y / this->ActiveScaleState().scale_checkpoint.y;
+            const float safe = std::clamp(factor, std::max(.25f / this->ActiveScaleState().scale_checkpoint.x, .25f / this->ActiveScaleState().scale_checkpoint.y),
+                std::min(3 / this->ActiveScaleState().scale_checkpoint.x, 3 / this->ActiveScaleState().scale_checkpoint.y));
+            scale.x = this->ActiveScaleState().scale_checkpoint.x * safe; scale.y = this->ActiveScaleState().scale_checkpoint.y * safe;
+        }
+        scale.Sanitize(); this->ActiveScaleState().scale_checkpoint = scale;
+    }
+
+    auto hud_module::LoadScale(const settings_store& store) -> void
+    {
+        const auto section = std::string{"hud.scale."} + this->Id();
+        auto& scale = this->State().scale;
+        const bool locked = !this->SupportsNonUniformScale() || store.ReadInt(section.c_str(), "version", 0) < 2 || store.ReadBool(section.c_str(), "locked", true);
+        scale = {store.ReadFloat(section.c_str(), "x", 1), store.ReadFloat(section.c_str(), "y", 1), locked};
+        scale.Sanitize(); this->State().scale_checkpoint = scale; this->config_scale_state_ = nullptr;
+    }
+
+    auto hud_module::SaveScale(const settings_store& store) const -> void
+    {
+        if (!this->SupportsScale()) return;
+        const auto section = std::string{"hud.scale."} + this->Id();
+        const auto& scale = this->State().scale;
+        store.WriteFloat(section.c_str(), "x", scale.x); store.WriteFloat(section.c_str(), "y", scale.y);
+        store.WriteBool(section.c_str(), "locked", scale.locked);
+        store.WriteInt(section.c_str(), "version", 2);
     }
 } // namespace xiui

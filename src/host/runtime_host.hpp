@@ -30,8 +30,10 @@ namespace xiui
         auto DescribeNpcCapture(void) const -> std::string;
         auto HandleKey(WPARAM key, LPARAM flags, bool blocked) -> bool;
         auto ChatFocused(void) const -> bool;
+        auto KeyboardInputState(void) const -> uint32_t { return this->keyboard_input_state_.load(std::memory_order_acquire); }
         auto CrossbarSettings(void) const -> controller_crossbar_settings;
         auto ControllerRevision(void) const -> uint32_t { return this->controller_mailbox_.State() & controller_revision_mask; }
+        auto NativeWindowCycle(void) const -> bool { return (this->controller_mailbox_.State() & controller_native_cycle) != 0; }
         auto HandleController(const controller_event& event, bool nativeMenuOpen = false) -> bool;
         auto ControllerCapture(bool nativeMenuOpen = false) const -> controller_capture_mode;
         auto SuspendControllerInput(void) -> void;
@@ -72,7 +74,7 @@ namespace xiui
 
         mutable std::recursive_mutex mutex_{};
         controller_mailbox controller_mailbox_{};
-        std::atomic_bool keyboard_focused_{};
+        std::atomic_uint32_t keyboard_input_state_{};
         IAshitaCore* core_{};
         native_macro_runner macro_runner_{};
         void* macro_context_{};

@@ -23,12 +23,14 @@ namespace xiui
         auto VisitTextSettings(const text_settings_visitor& visit) -> void override
         { VisitTextProfiles(visit, this->text_); VisitTextStyles(visit, {&this->timers_.text.style}); }
         auto ApplyTextDefaults(const ui::theme& theme) -> void override;
+        auto ApplyMeterDefaults(const ui::meter_style& style) -> void override
+        { const float height = this->meter_.height; this->meter_ = style; this->meter_.height = height; }
         auto Load(const settings_store& store) -> void override;
         auto Save(const settings_store& store) const -> void override;
-        auto OptionCount(void) const -> size_t override { return status_options_start + ui::status_strip_settings::option_count; }
-        auto Option(size_t index) -> module_option override;
+        auto ContentOptionCount(void) const -> size_t override { return status_options_start + ui::status_strip_settings::option_count; }
+        auto ContentOption(size_t index) -> module_option override;
         auto ConfigSections(void) const -> std::span<const module_config_section> override;
-        auto ConfigSectionContains(size_t section, size_t index) -> bool override;
+        auto ContentConfigSectionContains(size_t section, size_t index) -> bool override;
         auto ShouldRender(const hud_snapshot&) const -> bool override { return this->state_.enabled && !this->source_.Entries().empty(); }
         auto Render(const hud_snapshot& snapshot, const module_render_context& context) -> void override;
         auto Update(IAshitaCore* core, uint64_t now) -> void;

@@ -5,6 +5,8 @@
 #include "ui/text_size.hpp"
 #include "ui/icon_atlas.hpp"
 #include "ui/font_catalog.hpp"
+#include "ui/hud_transform.hpp"
+#include "ui/appearance_theme.hpp"
 
 #include <array>
 #include <cstddef>
@@ -100,6 +102,7 @@ namespace xiui::ui
         stroke_effect stroke{};
         glow_effect glow{};
         sheen_effect sheen{};
+        bool theme_text{true};
     };
 
     struct color_tokens
@@ -200,6 +203,9 @@ namespace xiui::ui
         auto ReloadTheme(void) -> bool;
         auto PollTheme(void) -> bool;
         auto SetWindowPalette(D3DCOLOR background) -> void;
+        auto SetAppearanceTheme(int theme) -> void;
+        auto IsXiv1Theme(void) const -> bool { return this->appearance_theme_ == xiv1_appearance; }
+        auto ResolveHudText(const text_style& style) const -> text_style;
         auto SetControlPalette(D3DCOLOR base, D3DCOLOR highlighted) -> void;
         auto SetDarkBackingOpacity(float opacity) -> void;
         auto DarkBackingOpacity(void) const -> float { return this->dark_backing_opacity_; }
@@ -228,7 +234,7 @@ namespace xiui::ui
         auto DrawTexture(IDirect3DTexture8* texture, const rect& bounds, const rect& uv, const texture_style& style) const -> void;
         auto DrawTextureQuad(IDirect3DTexture8* texture, const std::array<point, 4>& points, const rect& uv, const texture_style& style) const -> void;
         auto DrawTextureQuads(IDirect3DTexture8* texture, std::span<const texture_quad> quads) const -> void;
-        auto DrawTextureDisc(IDirect3DTexture8* texture, const rect& bounds, const rect& uv, D3DCOLOR color) const -> void;
+        auto DrawTextureDisc(IDirect3DTexture8* texture, const rect& bounds, const rect& uv, D3DCOLOR color, float feather = 0) const -> void;
         auto DrawTextureRoundedRect(IDirect3DTexture8* texture, const rect& bounds, const rect& uv, float radius, D3DCOLOR color) const -> void;
         auto DrawContour(const rect& bounds, std::span<const point> contour, const contour_style& style, IDirect3DTexture8* texture = nullptr, const rect& uv = {0, 0, 1, 1}) const -> void;
         auto DrawRing(const rect& bounds, D3DCOLOR color, float thickness = 2) const -> void;
@@ -255,7 +261,22 @@ namespace xiui::ui
         };
         auto Clip(const rect& bounds) const -> clip_scope { return clip_scope{*this, bounds}; }
         auto MeasureText(const char* text, const text_style& style) const -> float;
-        auto TextHeight(const text_style& style) const -> float { return this->glyphs_.Metrics(style.font, TextPixelSize(style.scale)).height; }
+        auto TextHeight(const text_style& style) const -> float;
+        class transform_scope
+        {
+        public:
+            transform_scope(const design_system& design, const hud_transform& transform) : design_(design), previous_(design.transform_), clip_(design.clip_bounds_)
+            { this->design_.transform_ = transform; this->design_.clip_bounds_.reset(); }
+            ~transform_scope(void) { this->design_.transform_ = this->previous_; this->design_.clip_bounds_ = this->clip_; }
+            transform_scope(const transform_scope&) = delete;
+            auto operator=(const transform_scope&) -> transform_scope& = delete;
+        private:
+            const design_system& design_;
+            hud_transform previous_;
+            std::optional<rect> clip_;
+        };
+        auto Transform(const hud_transform& value) const -> transform_scope { return {*this, value}; }
+        auto Transform(void) const -> const hud_transform& { return this->transform_; }
         auto DrawSheen(const rect& bounds, D3DCOLOR color, float phase, float width, float radius = 0.0f) const -> void;
 
     private:
@@ -283,6 +304,9 @@ namespace xiui::ui
         mutable bool tracking_content_bounds_{};
         mutable rect content_bounds_{};
         mutable std::optional<rect> clip_bounds_{};
+        mutable hud_transform transform_{};
+        mutable std::vector<uint8_t> transformed_vertices_{};
+        auto Submit(D3DPRIMITIVETYPE type, UINT primitives, const void* vertices, UINT stride) const -> void;
         bool shader_attempted_{};
         bool gpu_shader_enabled_{true};
         icon_atlas icons_{};
@@ -291,6 +315,7 @@ namespace xiui::ui
         D3DCOLOR window_background_{};
         std::array<D3DCOLOR, 2> control_palette_{};
         float dark_backing_opacity_{1.0f};
+        int appearance_theme_{};
         auto ApplyWindowPalette(void) -> void;
         std::string theme_path_{};
         theme_file_stamp theme_stamp_{};

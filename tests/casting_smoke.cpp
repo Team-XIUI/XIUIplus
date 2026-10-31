@@ -124,6 +124,10 @@ namespace
             std::strcmp(anchor.choices[1], "Bottom") == 0 && !module.AnchorsTop(), "top and bottom options are always available; legacy settings retain bottom anchoring");
         native_ui_state native{}; native.menu_available = native.menu_visible = true; native.width = 112; native.height = 400;
         module.Update(native, 1920, 1080);
+        Check(module.State().bounds.y == 500 && module.State().bounds.height == 168,
+            "a visible shop without movable panels preserves the saved command bounds");
+        native.menu_count = 1;
+        module.Update(native, 1920, 1080);
         Check(module.State().bounds.y == 268 && module.Layout(true).bottom == 668, "a taller command menu retains its saved bottom edge");
         native.height = 1000; module.Update(native, 1920, 1080);
         Check(module.State().bounds.y == 0 && module.Layout(true).bottom == 668 && module.Layout(true).enabled,

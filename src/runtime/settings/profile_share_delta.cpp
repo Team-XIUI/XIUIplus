@@ -110,17 +110,18 @@ namespace xiui::profile_share_detail
             if (!baseline.contains(field))
             { Number(changes, 0); Text(changes, field.first); Text(changes, field.second); Text(changes, value); ++count; }
         std::string result; Text(result, name); Number(result, count); result += changes;
-        return result.size() <= maximum_payload ? result : std::string{};
+        return result.size() <= maximum_profile_payload ? result : std::string{};
     }
 
     auto DecodeDelta(const std::string_view data) -> std::optional<shared_profile>
     {
+        if (data.empty() || data.size() > maximum_profile_payload) return std::nullopt;
         const auto& baseline = Baseline();
         if (baseline.empty()) return std::nullopt;
         reader read{data};
         const auto name = read.Text();
         const auto count = read.Number();
-        if (!read.valid || !ValidName(name) || count > maximum_payload / 2) return std::nullopt;
+        if (!read.valid || !ValidName(name) || count > read.input.size()) return std::nullopt;
         auto values = baseline;
         std::vector<fields::iterator> indexed;
         for (auto it = values.begin(); it != values.end(); ++it) indexed.push_back(it);
@@ -147,7 +148,7 @@ namespace xiui::profile_share_detail
         if (!read.valid || !read.input.empty()) return std::nullopt;
         auto store = settings_store::FromIniText("");
         for (const auto& [field, value] : values) store.WriteString(field.first.c_str(), field.second.c_str(), value);
-        if (store.ToIniText().size() > maximum_payload) return std::nullopt;
+        if (store.ToIniText().size() > maximum_profile_payload) return std::nullopt;
         return shared_profile{name, store.Preferences("")};
     }
 }

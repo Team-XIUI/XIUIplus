@@ -214,7 +214,7 @@ auto RunTargetRingChecks(const char* client_root) -> bool
     slope.Add({point(-5,-5),point(5,-5),point(5,5)});
     slope.Add({point(-5,-5),point(5,5),point(-5,5)});
     target_ring_settings settings;
-    if (!check(settings.follow_name_color && !settings.show_npcs && !settings.show_players &&
+    if (!check(settings.follow_name_color && settings.scale_with_model && !settings.show_npcs && !settings.show_players &&
         settings.Allows(0x10) && !settings.Allows(0x02) && !settings.Allows(0x01) && !settings.Allows(0),
         "name colors default on and optional entity types stay off")) return false;
     settings.show_npcs=settings.show_players=true;
@@ -243,6 +243,34 @@ auto RunTargetRingChecks(const char* client_root) -> bool
         const float radius=settings.outer_radius+0.23f;
         if (!check(tip!=vertices.end() && std::abs(tip->x-radius*std::cos(yaw))<0.001f &&
             std::abs(tip->z+radius*std::sin(yaw))<0.001f,"triangle marks native facing at each cardinal turn")) return false;
+    }
+    {
+        zone_ground wide;
+        wide.Add({ground_point{-50,0,-50},ground_point{50,0,-50},ground_point{50,0,50}});
+        wide.Add({ground_point{-50,0,-50},ground_point{50,0,50},ground_point{-50,0,50}});
+        const auto extent=[&](const target_ring_settings& appearance,float hitbox) {
+            target_ring_renderer::Build(wide,{0,0,0},1,appearance,vertices,0,hitbox);
+            float radius=0;
+            for (const auto& v : vertices) radius=std::max(radius,std::hypot(v.x,v.z));
+            return radius;
+        };
+        for (float hitbox : {0.1f,0.6f,1.0f,4.2f,25.5f}) {
+            if (!check(std::abs(extent(settings,hitbox)-(settings.outer_radius+0.23f)*hitbox)<0.001f,
+                "small and dragon-sized hitboxes scale the ring and facing marker together")) return false;
+            bool inner=false,outer=false;
+            for (const auto& v : vertices) {
+                const float radius=std::hypot(v.x,v.z);
+                inner |= std::abs(radius-settings.inner_radius*hitbox)<0.001f;
+                outer |= std::abs(radius-settings.outer_radius*hitbox)<0.001f;
+            }
+            if (!check(inner && outer,"both configured band radii follow the native model footprint")) return false;
+        }
+        for (float invalid : {0.0f,-1.0f,26.0f,std::numeric_limits<float>::infinity(),std::numeric_limits<float>::quiet_NaN()})
+            if (!check(std::abs(extent(settings,invalid)-(settings.outer_radius+0.23f))<0.001f,
+                "unavailable or invalid hitboxes retain the one-yalm fallback")) return false;
+        auto fixed=settings; fixed.scale_with_model=false;
+        if (!check(std::abs(extent(fixed,4.2f)-(settings.outer_radius+0.23f))<0.001f,
+            "fixed radius mode ignores target model size")) return false;
     }
     meter_animation_state hp;
     if (!check(hp.Update(1,1000)==1,"first HP sample initializes immediately")) return false;
@@ -377,10 +405,12 @@ auto RunTargetRingChecks(const char* client_root) -> bool
     const auto path=std::filesystem::temp_directory_path()/("xiui-ring-check-"+std::to_string(::GetCurrentProcessId())+".ini");
     struct cleanup { std::filesystem::path path; ~cleanup() { std::error_code ignored; std::filesystem::remove(path,ignored); } } remove{path};
     settings_store store{path.string()};
-    settings.enabled=false; settings.color=0xA0123456;
+    target_ring_settings existing; existing.scale_with_model=false; existing.Load(store);
+    if (!check(existing.scale_with_model,"existing profiles without the new key enable model-relative sizing")) return false;
+    settings.enabled=false; settings.color=0xA0123456; settings.scale_with_model=false;
     settings.Save(store);
     target_ring_settings restored; restored.Load(store);
-    if (!check(!restored.enabled && !restored.hp_fill && !restored.follow_name_color && restored.show_npcs && restored.show_players &&
+    if (!check(!restored.enabled && !restored.hp_fill && !restored.follow_name_color && !restored.scale_with_model && restored.show_npcs && restored.show_players &&
         restored.color==settings.color && std::abs(restored.inner_radius-settings.inner_radius)<0.0001f,"all ring preferences persist, including entity filters and color mode")) return false;
     if (client_root)
     {
@@ -391,6 +421,6 @@ auto RunTargetRingChecks(const char* client_root) -> bool
         if (!check(!vertices.empty(),"current native player floor supports the projected ring")) return false;
         std::printf("Jugner Forest: %zu floor triangles decoded; %zu ring vertices at current native position.\n",terrain->triangles.size(),vertices.size());
     }
-    std::puts("Target ring slope/step projection, HP fill, missing terrain, config routing and persistence passed.");
+    std::puts("Target ring model sizing, slope/step projection, HP fill, missing terrain, config routing and persistence passed.");
     return true;
 }

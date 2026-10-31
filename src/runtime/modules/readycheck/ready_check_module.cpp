@@ -94,14 +94,14 @@ namespace xiui
         return sections;
     }
 
-    auto ready_check_module::ConfigSectionContains(size_t section, size_t index) -> bool
+    auto ready_check_module::ContentConfigSectionContains(size_t section, size_t index) -> bool
     {
         if (index >= sound_options_start) return index < this->OptionCount() && section == 0;
         return index < this->OptionCount() && section == (index <= test_sound ? size_t{0} : index <= icon_size ? size_t{1} :
             index <= pending_color ? size_t{2} : size_t{3});
     }
 
-    auto ready_check_module::Option(size_t index) -> module_option
+    auto ready_check_module::ContentOption(size_t index) -> module_option
     {
         auto& settings = this->settings_;
         if (index >= sound_options_start)
@@ -144,7 +144,7 @@ namespace xiui
         }
     }
 
-    auto ready_check_module::OnOptionChanged(size_t index) -> void
+    auto ready_check_module::OnContentOptionChanged(size_t index) -> void
     {
         if (index == enabled && !this->state_.enabled) this->Stop();
         if (index == start) this->Start(::GetTickCount64());
@@ -253,14 +253,14 @@ namespace xiui
         return this->state_.enabled && this->check_.Mode() != ready_check_mode::idle;
     }
 
-    auto ready_check_module::Contains(float x, float y) const -> bool
+    auto ready_check_module::LayoutContains(float x, float y) const -> bool
     {
         return this->ShouldRender({}) && Inside(this->state_.bounds, x, y);
     }
 
-    auto ready_check_module::HandleMouse(uint32_t message, float x, float y, uint64_t now) -> bool
+    auto ready_check_module::LayoutHandleMouse(uint32_t message, float x, float y, uint64_t now) -> bool
     {
-        this->SetHover(x, y);
+        this->mouse_x_ = x; this->mouse_y_ = y;
         if (message == WM_LBUTTONUP && this->pointer_down_)
         {
             const auto pressed = this->pressed_;
@@ -274,10 +274,10 @@ namespace xiui
             }
             return true;
         }
-        if (!this->Contains(x, y)) return this->pointer_down_;
+        if (!this->LayoutContains(x, y)) return this->pointer_down_;
         if ((message == WM_LBUTTONDOWN || message == WM_LBUTTONDBLCLK) && !this->pointer_down_)
         {
-            if (this->ui_sounds_ != nullptr && this->ButtonAt(x, y) != 0) this->ui_sounds_->Select(now);
+            if (this->ui_sounds_ != nullptr && this->LayoutButtonAt(x, y) != 0) this->ui_sounds_->Select(now);
             this->pointer_down_ = true;
             this->pressed_deadline_ = this->check_.Deadline();
             this->pressed_ = Inside(this->buttons_[0], x, y) ? 0 : Inside(this->buttons_[1], x, y) ? 1 : -1;
@@ -301,9 +301,9 @@ namespace xiui
         return true;
     }
 
-    auto ready_check_module::ButtonAt(const float x, const float y) const -> uint32_t
+    auto ready_check_module::LayoutButtonAt(const float x, const float y) const -> uint32_t
     {
-        if (!this->Contains(x, y)) return 0;
+        if (!this->LayoutContains(x, y)) return 0;
         for (size_t index = 0; index < this->buttons_.size(); ++index)
             if (Inside(this->buttons_[index], x, y)) return static_cast<uint32_t>(index + 1);
         return 0;

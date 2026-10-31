@@ -6,6 +6,10 @@ A movable inventory browser supports search, bag/profile/slip pickers, local dis
 
 **Keep intact:** Every item-changing path revalidates captured identity and real native state. Cached/slip views stay read only. Locked HUD and ordinary native menus do not disable pointer controls; popup/search ownership ends on dismissal, with owned releases drained.
 
+Dismissed popups retain native mouse blocking and held movement capture until the owned release.
+
 **Focused check:** `xiui_satchel_ui_smoke --input-ownership-only`; item validation uses `xiui_satchel_actions_smoke`.
 
 [Detailed guide](../reference/satchel.md) · [Shared foundations](../foundations.md) · [Check commands](../../tests/README.md)
+
+[Shared HUD scaling](../reference/hud-scaling.md) keeps element coordinates separate from screen input/overlay anchors. Edit grips use the shared scale gesture; preserve independent scale values when changing layouts or inheritance.

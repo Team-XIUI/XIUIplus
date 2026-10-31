@@ -31,15 +31,18 @@ namespace xiui
         auto ApplyTextDefaults(const ui::theme& theme) -> void override;
         auto ResetDefaults(const ui::theme& theme) -> void override;
         auto ApplyPreset(size_t preset) -> void;
+        auto ConfigurePresetSample(size_t preset, const party_module* textSource = nullptr) -> void;
+        auto ConfigurePresetSample(const settings_store& settings) -> void;
+        auto RenderSample(const party_member& member, const ui::rect& area, const module_render_context& context) -> ui::rect;
         auto CopyPreferences(const party_module& party) -> void;
         auto PreviewVisible(void) const -> bool override { return this->ModuleEnabled() && this->state_.enabled && (this->group_ == 0 || !this->hide_preview_); }
         auto Load(const settings_store& settings) -> void override;
         auto Save(const settings_store& settings) const -> void override;
-        auto OptionCount(void) const -> size_t override { return job_text_options_start + 2; }
-        auto Option(size_t index) -> module_option override;
+        auto ContentOptionCount(void) const -> size_t override { return leader_option + 1; }
+        auto ContentOption(size_t index) -> module_option override;
         auto ConfigSections(void) const -> std::span<const module_config_section> override;
-        auto ConfigSectionContains(size_t section, size_t index) -> bool override;
-        auto OnOptionChanged(size_t index) -> void override;
+        auto ContentConfigSectionContains(size_t section, size_t index) -> bool override;
+        auto OnContentOptionChanged(size_t index) -> void override;
         auto ShouldRender(const hud_snapshot&) const -> bool override;
         auto Render(const hud_snapshot& snapshot, const module_render_context& context) -> void override;
         auto Count(void) const -> size_t { return this->source_ != nullptr ? this->source_->Count(this->group_) : 0; }
@@ -62,6 +65,7 @@ namespace xiui
         auto ControllerStatusBounds(void) const -> ui::rect;
 
     private:
+        auto PrepareSample(const party_module* textSource = nullptr) -> void;
 #if defined(XIUI_ENABLE_PARITY_TESTS)
         friend struct module_parity_test;
         friend struct status_display_test;
@@ -86,6 +90,7 @@ namespace xiui
         static constexpr size_t heal_options_start = status_theme_option + 1;
         static constexpr size_t preset_options_start = heal_options_start + heal_preview_settings::option_count;
         static constexpr size_t job_text_options_start = preset_options_start + 2;
+        static constexpr size_t leader_option = job_text_options_start + 2;
         std::array<party_module*, 2> preset_alliances_{};
         static constexpr size_t heading_text = 6;
         static constexpr size_t tp_text = 9;
@@ -97,7 +102,7 @@ namespace xiui
         static constexpr int cast_separate = 0, cast_name = 1, cast_mp = 2, cast_tp = 3;
         static constexpr int jobs_name = 0, jobs_below = 1;
         static constexpr int job_anchor_name = 0, job_anchor_hp = 1;
-        static constexpr int bars_horizontal = 0, bars_vertical = 1, bars_mp_below_tp_left = 2;
+        static constexpr int bars_horizontal = 0, bars_vertical = 1, bars_mp_below_tp_left = 2, bars_classic = 3;
         static constexpr int position_layout = 0, position_left = 1, position_center = 2, position_right = 3;
         size_t group_{};
         const party_source* source_{};
@@ -128,11 +133,13 @@ namespace xiui
         bool solo_{true}, preview_{true}, title_{true}, distance_{true}, job_icons_{true};
         bool hide_preview_{};
         bool status_preview_{};
-        bool icon_follow_name_{}, show_sync_{true};
-        bool jobs_{true}, main_level_{true}, sub_job_{true}, sub_level_{true}, master_level_{true};
+        bool icon_follow_name_{}, show_sync_{true}, show_leader_{true};
+        bool xiv1_theme_{};
+        bool jobs_{}, main_level_{true}, sub_job_{true}, sub_level_{true}, master_level_{true};
         bool tp_{true}, flash_tp_{true}, always_mp_{false}, buffs_{true}, casts_{true}, selection_{true};
         ui::selection_style selection_style_{};
         bool labels_{};
+        auto ResourceLabels(void) const -> bool { return this->xiv1_theme_ || this->labels_; }
         bool fit_width_{true};
         bool bottom_{false}, expand_{false}, expand_alliance_{false};
         int layout_{}, hp_display_{2}, mp_display_{0}, selected_bar_{}, style_mode_{}, selected_text_{};
@@ -188,7 +195,9 @@ namespace xiui
         auto Ticker(const party_member& member, size_t kind, uint64_t now) const -> attack_prediction;
         auto LayoutTickerText(resource_layout& layout, const resource_slots& slots, float top) const -> void;
         auto DrawTickers(const party_member& member, const entry_layout& entry, const resource_slots& slots, uint64_t now, const module_render_context& context) const -> void;
+        auto TextStyle(const module_text_profile& profile) const -> ui::text_style;
         static auto LineHeight(const module_text_profile& profile) -> float;
+        auto ResolvedLineHeight(const module_text_profile& profile) const -> float;
         auto LayoutEntry(const ui::rect& bounds, bool inZone, const resource_slots& slots, bool details = true) const -> entry_layout;
         auto MemberHeight(const party_member& member) const -> float;
         auto DetailText(const party_member& member) const -> std::string;

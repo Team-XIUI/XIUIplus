@@ -29,7 +29,7 @@ namespace xiui
         this->config_.search_entries.clear();
         std::set<std::string> modules;
         static constexpr const char* groups[]{"General", "Appearance", "Effects", "Colors", "Text"};
-        static constexpr const char* displays[]{"Bar info", "Readouts", "Layout"};
+        static constexpr const char* displays[]{"Bar info", "Readouts"};
         for (const auto& page : catalog->ConfigPages())
         for (size_t member = 0; member < page.Count(); ++member)
         {
@@ -42,9 +42,10 @@ namespace xiui
                 const auto sections = module->ConfigSections();
                 for (size_t section = 0; section < (sections.empty() ? std::size(groups) : sections.size()); ++section)
                 {
+                    if (module == &catalog->general_ && section == general_module::game_hud_section) continue;
                     catalog->config_.section = sections.empty() ? 0 : section;
                     catalog->config_.group = sections.empty() ? static_cast<module_option_group>(section) : module_option_group::general;
-                    const size_t tabs = catalog->IsGeneralAppearance() ? std::size(general_module::appearance_tabs) : catalog->IsExperienceDisplay() ? 3 : 1;
+                    const size_t tabs = catalog->IsGeneralAppearance() ? std::size(general_module::appearance_tabs) : catalog->IsExperienceDisplay() ? std::size(displays) : 1;
                     for (size_t tab = 0; tab < tabs; ++tab)
                     {
                         if (catalog->IsGeneralAppearance()) catalog->general_.SelectAppearanceTab(tab);
@@ -52,8 +53,9 @@ namespace xiui
                         std::string location = page.name;
                         if (std::strcmp(module->DisplayName(), page.name) != 0) location += std::string{" / "} + module->DisplayName();
                         if (!module->ConfigViews().empty()) location += std::string{" / "} + module->ConfigViews()[view];
-                        location += std::string{" / "} + (sections.empty() ? groups[section] : sections[section].name);
-                        if (catalog->IsGeneralAppearance()) location += std::string{" / "} + general_module::appearance_tabs[tab];
+                        if (catalog->IsGeneralAppearance()) location += std::string{" / "} + (tab == 0 ? "Appearance" : general_module::appearance_tabs[tab]);
+                        else location += std::string{" / "} + (sections.empty() ? groups[section] : ui::SettingsTopicPath(sections, section, module != &catalog->general_));
+                        if (catalog->IsGeneralAppearance() && tab >= 3) location = std::string{"Extras / "} + general_module::appearance_tabs[tab];
                         if (catalog->IsExperienceDisplay()) location += std::string{" / "} + displays[tab];
                         std::vector<std::pair<size_t, int>> selectors;
                         std::vector<std::string> labels;
@@ -104,6 +106,7 @@ namespace xiui
 
     auto hud_runtime::BeginSettingsSearch(void) -> void
     {
+        this->SetBasicSettings(false);
         if (this->config_.search_open) { this->config_.search_input.SelectAll(); return; }
         this->FinishConfigInput(true, false); this->CloseProfileControls(); this->ReleaseChatInput();
         this->FinishConfigResize(false); this->FinishControllerMove(false);
@@ -228,7 +231,7 @@ namespace xiui
 
     auto hud_runtime::SettingsSearchTarget(const D3DVIEWPORT8&) const -> uint64_t
     {
-        if (!this->editing_ || this->config_.collapsed) return 0;
+        if (!this->editing_ || this->config_.basic || this->config_.collapsed) return 0;
         const ui::settings_search_layout layout{this->ConfigLayout(), this->config_.bounds};
         const auto x = static_cast<float>(this->mouse_x_), y = static_cast<float>(this->mouse_y_);
         const auto input = this->SettingsSearchBounds();
@@ -254,7 +257,7 @@ namespace xiui
 
     auto hud_runtime::DrawSettingsSearch(const D3DVIEWPORT8&) -> void
     {
-        if (this->config_.collapsed) return;
+        if (this->config_.basic || this->config_.collapsed) return;
         this->AnimateSettingsSearch(::GetTickCount64());
         const ui::settings_search_layout layout{this->ConfigLayout(), this->config_.bounds};
         const auto& theme = this->design_system_.GetTheme();

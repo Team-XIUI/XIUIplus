@@ -8,12 +8,21 @@
 #include "text_input.hpp"
 #include "settings_search.hpp"
 #include "input/config_controller_focus.hpp"
+#include "settings_sidebar.hpp"
+
+#include <unordered_map>
 
 namespace xiui
 {
     struct config_session
     {
         hud_module* module{};
+        bool basic{};
+        bool edit_mode{}, preview_selected{};
+        hud_module* advanced_module{};
+        hud_module* layout_selection{};
+        size_t advanced_section{}, advanced_scroll{};
+        module_option_group advanced_group{module_option_group::general};
         ui::rect bounds{-1.0f, 20.0f, ui::config_layout::default_width, ui::config_layout::default_height};
         bool collapsed{};
         bool sidebar_collapsed{};
@@ -53,6 +62,9 @@ namespace xiui
         size_t option{};
         module_option_group group{module_option_group::general};
         size_t section{};
+        std::unordered_map<std::string, std::string> appearance_topics{};
+        mutable ui::settings_sidebar_animation sidebar_animation{};
+        bool sidebar_scrolling{};
         int scroll{};
         float scrollbar_grab{};
         std::string tooltip{};

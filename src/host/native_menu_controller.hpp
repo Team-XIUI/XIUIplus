@@ -13,6 +13,7 @@ namespace xiui
         auto Initialize(uintptr_t module, size_t size) -> void;
         auto Update(const native_menu_layout& layout) -> void;
         auto BeforeDraw(uintptr_t primitive) -> void;
+        auto ShouldHide(uintptr_t primitive) const -> bool;
         auto DisableMovement(void) -> void { this->Update({}); this->state_.menu_available = false; }
         auto Shutdown(void) -> void;
         auto State(void) const -> const native_ui_state& { return this->state_; }
@@ -25,11 +26,11 @@ namespace xiui
         {
             uintptr_t primitive{}, owner{}, resource{};
             std::array<int16_t, 2> original{}, applied{};
-            bool moved{};
+            bool moved{}, detail{};
         };
         std::array<menu, 64> menus_{};
         size_t count_{};
-        uintptr_t module_{}, manager_{}, config_slot_{}, reposition_{};
+        uintptr_t module_{}, manager_{}, config_slot_{}, reposition_{}, comment_draw_{};
         size_t module_size_{};
         native_ui_state state_{};
         native_menu_layout layout_{};

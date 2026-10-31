@@ -92,7 +92,7 @@ namespace xiui
         return sections;
     }
 
-    auto status_effects_module::ConfigSectionContains(const size_t section, const size_t index) -> bool
+    auto status_effects_module::ContentConfigSectionContains(const size_t section, const size_t index) -> bool
     {
         if (section >= this->ConfigSections().size() || index >= this->OptionCount()) return false;
         if (index >= preference_options_start) return section == 0;
@@ -115,7 +115,7 @@ namespace xiui
         return section == 0;
     }
 
-    auto status_effects_module::Option(const size_t index) -> module_option
+    auto status_effects_module::ContentOption(const size_t index) -> module_option
     {
         if (index == 0) return module_option::Toggle("Enabled", "Show this group of your native status effects.", &this->state_.enabled).Ordered(-50);
         if (index == preference_options_start) return module_option::Toggle("Show preview", "Show a few sample effects and countdowns in edit mode only.", &this->preview_).Ordered(-20);
@@ -293,7 +293,7 @@ namespace xiui
     {
         const auto effects = this->Effects();
         const auto index = this->ControllerIndex(effects);
-        return index ? this->Layout(effects).Icon(*index) : ui::rect{};
+        return index ? this->state_.transform.Map(this->Layout(effects).Icon(*index)) : ui::rect{};
     }
 
     auto status_effects_module::ControllerEffect(void) const -> std::optional<uint16_t>
@@ -331,8 +331,9 @@ namespace xiui
             if (!index) return;
             tooltip = ui::status_tooltip{effects.entries[*index], this->Layout(effects).Icon(*index), effects.player};
         }
-        else tooltip = ui::StatusStripHit(effects.Effects(), this->StripBounds(), style.settings_, x, y);
+        else tooltip = ui::StatusStripHit(effects.Effects(), this->StripBounds(), style.settings_, this->state_.transform.InverseX(x), this->state_.transform.InverseY(y));
         if (!tooltip) return;
+        tooltip->bounds = this->state_.transform.Map(tooltip->bounds);
         if (resources == nullptr && this->source_ != nullptr) resources = this->source_->Resources();
         ui::DrawStatusTooltip(*tooltip, resources, style.text_[2], context);
     }

@@ -1,0 +1,13 @@
+{
+  "preserved_at": "2026-10-20T19:43:22.9702622-07:00",
+  "source": "Previous captured XIV setup, separated from the reset baseline",
+  "settings_path": "C:\\Users\\Cody\\Desktop\\workspaces\\ffxi\\plugins\\xiui-plugin\\out\\defaults-capture-20261020-194230-230\\defaults-before.ini",
+  "snapshot_sha256": "D7505F98C7289B1AC269B7B452B1C646A09972F3C73D609897C042220D8C3935",
+  "amended_at": "2026-10-26T18:13:58.102443-07:00",
+  "amendment": "Action Bars: Replace native macros defaults off; other captured preferences retained.",
+  "authored_at": "2026-10-31T20:40:40.970791+00:00",
+  "authored_amendment": "Named preset explicitly selects XI Theme (appearance.theme=0); all captured settings otherwise retained.",
+  "authored_sha256": "06D8A29DE221A27AD9370821502BB066812BF8032A58C273F4D7EFE57C76760D",
+  "compatibility_amended_at": "2026-10-31T20:46:01.799296+00:00",
+  "compatibility_amendment": "Make legacy direct-load semantics explicit when applying over newer settings: chat.native_windows_initialized=1 preserves the authored chat window count; minimap.zoom=4 and zoom_defaults_version=1 record the existing 3-to-4 default zoom migration."
+}

@@ -8,4 +8,6 @@ Displays observed skillchain/burst windows; Action Bars can consume the same tra
 
 **Focused check:** `./scripts/check.ps1 -Name skillchain`.
 
+Edit-mode scaling uses the shared top-right gesture: the bottom-left corner stays fixed as the module grows upward and right. `hud-scaling` covers its drag, cancellation and committed placement.
+
 [Shared foundations](../foundations.md) · [Check commands](../../tests/README.md)

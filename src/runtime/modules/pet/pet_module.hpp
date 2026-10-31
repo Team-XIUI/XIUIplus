@@ -33,11 +33,11 @@ namespace xiui
         auto ConfigViews(void) const -> std::span<const char* const> override;
         auto ConfigView(void) const -> size_t override { return this->view_; }
         auto SelectConfigView(size_t index) -> void override { this->view_ = std::min(index, pet_kind_count); }
-        auto OptionCount(void) const -> size_t override;
-        auto Option(size_t index) -> module_option override;
-        auto OnOptionChanged(size_t) -> void override { if (this->Main().source_) this->Main().source_->SetBonusCharisma(this->Main().types_[static_cast<size_t>(pet_kind::charm)].bonus_charisma); }
+        auto ContentOptionCount(void) const -> size_t override;
+        auto ContentOption(size_t index) -> module_option override;
+        auto OnContentOptionChanged(size_t) -> void override { if (this->Main().source_) this->Main().source_->SetBonusCharisma(this->Main().types_[static_cast<size_t>(pet_kind::charm)].bonus_charisma); }
         auto ConfigSections(void) const -> std::span<const module_config_section> override;
-        auto ConfigSectionContains(size_t section, size_t index) -> bool override;
+        auto ContentConfigSectionContains(size_t section, size_t index) -> bool override;
         auto ShouldRender(const hud_snapshot&) const -> bool override;
         auto Render(const hud_snapshot&, const module_render_context& context) -> void override;
         auto BeginControllerStatus(void) -> bool;

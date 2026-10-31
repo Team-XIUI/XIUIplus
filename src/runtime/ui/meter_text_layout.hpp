@@ -21,9 +21,10 @@ namespace xiui::ui
         const auto placement = skin != nullptr ? LayoutMeterSkin(track, *skin, bookends).frame[1] : track;
         const float padding = std::min(4.0f, std::max(0.0f, placement.width) * 0.5f);
         const float width = std::max(0.0f, placement.width - padding * 2);
+        const float valueRightPadding = std::min(6.0f, std::max(0.0f, placement.width - padding));
         meter_text_layout result{
             {placement.x + padding, track.y - labelHeight * 0.5f, std::min(labelWidth, width), labelHeight},
-            {placement.x + padding, track.y, width, track.height}, placement};
+            {placement.x + padding, track.y, std::max(0.0f, placement.width - padding - valueRightPadding), track.height}, placement};
         if (anchor != meter_text_anchor::automatic)
         {
             const float y = track.y + (anchor == meter_text_anchor::bottom ? track.height :

@@ -1,0 +1,17 @@
+{
+  "captured_at": "2026-10-20T19:37:13.1201775-07:00",
+  "source": "AgentLink confirmed live save",
+  "settings_path": "C:\\Games\\PhoenixXI-dev\\PhoenixXI\\config\\xiuinative.ini",
+  "theme_path": "C:\\Games\\PhoenixXI-dev\\PhoenixXI\\config\\xiuinative-theme.ini",
+  "sections": 2667,
+  "preferences": 15706,
+  "defaults_sha256": "70C98F3E97EC4510A37779BAB6CF3595C5967C923F967EE1D8E8CFEA5E0D87FF",
+  "theme_sha256": "3F7ACD509C16DA7C8C65F6BB93B3EA9C82BFCFF29D34DC38469543805C2AA5D8",
+  "amended_at": "2026-10-26T18:13:58.101439-07:00",
+  "amendment": "Classic layout: full-width HP above TP/MP, remove the empty left gutter; other captured preferences retained. Action Bars: Replace native macros defaults off; other captured preferences retained.",
+  "authored_at": "2026-10-31T20:40:40.970791+00:00",
+  "authored_amendment": "Named preset explicitly selects XI Theme (appearance.theme=0); all captured settings otherwise retained.",
+  "authored_sha256": "9E94F4630820B3E947B13993AE060D1558AB9CF155E4C9332036B1BA65A3E45C",
+  "compatibility_amended_at": "2026-10-31T20:46:01.799296+00:00",
+  "compatibility_amendment": "Make legacy direct-load semantics explicit when applying over newer settings: chat.native_windows_initialized=1 preserves the authored chat window count; minimap.zoom=4 and zoom_defaults_version=1 record the existing 3-to-4 default zoom migration."
+}

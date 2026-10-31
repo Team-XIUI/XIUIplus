@@ -37,13 +37,13 @@ namespace xiui
         return sections;
     }
 
-    auto command_menu_module::Option(const size_t index) -> module_option
+    auto command_menu_module::ContentOption(const size_t index) -> module_option
     {
         static constexpr const char* anchors[]{"Top", "Bottom"};
         if (index == 1)
-            return module_option::Choice("Window anchor", "Align command, magic, ability and detail windows along their top or bottom edges as their heights change.", &this->anchor_, anchors, 2).Ordered(200);
+            return module_option::Choice("Window anchor", "Align command, magic, ability and detail windows to the selected edge.", &this->anchor_, anchors, 2).Ordered(200);
         if (index != 0) return {};
-        auto option = module_option::Toggle("Move native menus", "Commands, item details and spell panels share this anchor. Off restores the game's position.", &this->state_.enabled).Ordered(-50);
+        auto option = module_option::Toggle("Move native menus", "Command, spell and ordinary item-detail panels share this anchor. Off restores the game's position.", &this->state_.enabled).Ordered(-50);
         option.available = this->native_.menu_available;
         return option;
     }
@@ -55,14 +55,15 @@ namespace xiui
         const float scaleX = value.reference_width > 0 ? viewportWidth / value.reference_width : 1;
         const float scaleY = value.reference_height > 0 ? viewportHeight / value.reference_height : 1;
         auto& bounds = this->state_.bounds;
-        if (!this->position_initialized_ && value.menu_visible)
+        const bool movableMenu = value.menu_visible && value.menu_count != 0;
+        if (!this->position_initialized_ && movableMenu)
         {
             bounds = {value.x * scaleX, value.y * scaleY, value.width * scaleX, value.height * scaleY};
             this->position_initialized_ = true;
         }
         if (bounds.x < 0) { bounds.x = 16 * scaleX; bounds.width = 112 * scaleX; }
         if (bounds.y < 0) { bounds.height = 168 * scaleY; bounds.y = std::max(0.0f, viewportHeight - 152 * scaleY - bounds.height); }
-        if (value.menu_visible)
+        if (movableMenu)
         {
             const float edge = this->AnchorsTop() ? bounds.y : bounds.y + bounds.height;
             bounds.width = std::max(32.0f, value.width * scaleX);
@@ -83,7 +84,7 @@ namespace xiui
     {
         if (!context.IsEditing()) return;
         const auto& bounds = this->state_.bounds;
-        if (!this->native_.menu_visible || !this->state_.enabled)
+        if (!this->native_.menu_visible || this->native_.menu_count == 0 || !this->state_.enabled)
         {
             context.DrawContainer(bounds);
             auto text = this->text_;

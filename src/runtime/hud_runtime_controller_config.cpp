@@ -24,6 +24,7 @@ namespace xiui
 {
     auto hud_runtime::ResetControllerConfigFocus(void) -> void
     {
+        this->FinishScale(false);
         this->FinishControllerMove(false);
         this->FinishConfigResize(false);
         this->config_.focus = {};
@@ -81,45 +82,46 @@ namespace xiui
         };
         if (area == region::utilities)
         {
+            if (!this->config_.collapsed)
+                add("settings-mode", this->SettingsModeBounds(), 8, this->config_.basic ? "Advanced Settings" : "Basic Settings");
+            if (!this->config_.collapsed)
+                add("edit-mode", layout.EditModeButton(), 9, this->config_.edit_mode ? "Edit Mode ON: show all enabled modules. Confirm turns previews off." : "Edit Mode OFF: show live modules and the selected preview. Confirm previews all enabled modules.");
             add("input", layout.InputMode(), 0, "Input mode: Auto, Keyboard & Mouse, or Controller. Both devices remain available.");
             add("attribution", layout.HeaderAction(), 1, "Attribution");
             add("collapse", layout.HeaderAction(1), 2, this->config_.collapsed ? "Expand configuration" : "Collapse to title bar");
             add("close", layout.CloseButton(), 3, "Close configuration and return to the game");
             if (!this->config_.collapsed)
                 add("resize", layout.ResizeGrip(), 4, "Resize configuration. D-pad changes width and height; Actions switches fine steps. Confirm saves; Cancel restores.");
-            add("sidebar", layout.SidebarToggle(), 5, this->config_.sidebar_collapsed ? "Expand sidebar" : "Collapse sidebar to icons");
-            add("search", this->SettingsSearchBounds(), 6, "Search settings (Ctrl+F). Confirm opens; use a keyboard to type, directions for results and Actions to clear.");
+            if (!this->config_.basic) add("sidebar", layout.SidebarToggle(), 5, this->config_.sidebar_collapsed ? "Expand sidebar" : "Collapse sidebar to icons");
+            if (!this->config_.basic && this->MovementSelectionModule() != nullptr && this->MovementSelectionModule()->HasEditableBounds() && this->ModuleDisplayed(*this->MovementSelectionModule()) && this->MovementSelectionModule()->EditGrip() != edit_grip_kind::none)
+                add("scale", layout.HeaderTitle(), 7, this->MovementSelectionModule()->EditGrip() == edit_grip_kind::resize ?
+                    "Resize chat viewport. Directions adjust width/height without changing fonts; Actions changes step; Confirm saves and Cancel restores." :
+                    "Scale selected HUD element. Directions adjust X/Y; Actions changes step; Confirm saves and Cancel restores.");
+            if (!this->config_.basic) add("search", this->SettingsSearchBounds(), 6, "Search settings (Ctrl+F). Confirm opens; use a keyboard to type, directions for results and Actions to clear.");
             return items;
         }
+        if (this->config_.basic && area != region::profiles && area != region::movement) return this->BasicControllerItems(area);
         if (area == region::movement)
         {
             const auto modules = this->ControllerMovableModules();
             const controller_movement_layout bounds{this->config_.bounds, this->config_.focus.viewport, modules.size()};
             for (size_t index = 0; index < modules.size(); ++index)
                 add(modules[index]->Id(), bounds.Row(static_cast<int>(index) - this->config_.focus.movement_scroll), index,
-                    "Confirm enters Move. D-pad nudges; Actions switches fine movement. Confirm saves, Cancel restores.");
+                    "Confirm enters Move; Actions opens reset options. While moving: D-pad nudges, Actions changes step, Confirm saves, Cancel restores.");
             return items;
         }
         if (this->config_.collapsed) return items;
         if (area == region::categories)
         {
-            const auto pages = this->VisibleConfigPages();
-            for (size_t index = 0; index < pages.size(); ++index)
-                add(pages[index].id, layout.ModuleTab(index), index, pages[index].name);
-        }
-        else if (area == region::sections)
-        {
-            const auto page = this->ActiveConfigPage();
-            if (page.SectionCount() > 1)
-                for (size_t index = 0; index < page.SectionCount(); ++index)
-                    add(page.SectionName(index), layout.Section(index, page.SectionCount()), index, page.SectionName(index));
+            for (const auto& row : this->ConfigSidebarRows())
+                if (row.available) add(row.id, row.bounds, row.item, row.help != nullptr ? row.help : row.label);
         }
         else if (area == region::topics)
         {
             if (this->config_.module == nullptr) return items;
-            const auto topics = this->config_.module->ConfigSections();
+            const auto topics = this->ConfigTopicRows();
             for (size_t index = 0; index < topics.size(); ++index)
-                add(topics[index].name, layout.Submenu(index, topics.size()), index, topics[index].description);
+                add(topics[index].id.c_str(), ui::SettingsTopicBounds(layout.Submenu(index, topics.size()), topics[index]), index, topics[index].description);
             if (topics.empty())
             {
                 static constexpr const char* names[]{"General", "Appearance", "Effects", "Colors", "Text"};
@@ -130,18 +132,15 @@ namespace xiui
         }
         else if (area == region::content_tabs)
         {
-            if (this->IsInventorySettings())
-                for (size_t index = 0; index < this->inventory_pages_.size(); ++index)
-                    add(this->inventory_pages_[index]->Id(), ui::config_controls::Segment(layout.ContentTabs(), index, this->inventory_pages_.size()), index, this->inventory_pages_[index]->DisplayName());
-            if (this->IsGeneralAppearance())
-                for (size_t index = 0; index < std::size(general_module::appearance_tabs); ++index)
-                    add(general_module::appearance_tabs[index], ui::config_controls::Segment(layout.ContentTabs(), index, std::size(general_module::appearance_tabs)), index, general_module::appearance_tabs[index]);
             if (this->IsAttribution())
                 for (size_t index = 0; index < std::size(ui::attribution_views); ++index)
                     add(ui::attribution_views[index], ui::config_controls::Segment(layout.ContentTabs(), index, std::size(ui::attribution_views)), index, ui::attribution_views[index]);
+            if (this->IsInventorySettings())
+                for (size_t index = 0; index < this->inventory_pages_.size(); ++index)
+                    add(this->inventory_pages_[index]->Id(), ui::config_controls::Segment(layout.ContentTabs(), index, this->inventory_pages_.size()), index, this->inventory_pages_[index]->DisplayName());
             if (this->IsExperienceDisplay())
             {
-                static constexpr const char* names[]{"Bar info", "Readouts", "Layout"};
+                static constexpr const char* names[]{"Bar info", "Readouts"};
                 for (size_t index = 0; index < std::size(names); ++index)
                     add(names[index], ui::config_controls::Segment(layout.ContentTabs(), index, std::size(names)), index, names[index]);
             }
@@ -212,6 +211,15 @@ namespace xiui
             focus.Resolve(items);
         }
         if (items.empty()) return;
+        if (focus.region == region::categories)
+        {
+            const auto bounds = this->ConfigSidebarBounds();
+            const auto& item = items[focus.item];
+            if (item.bounds.y < bounds.y) this->config_.sidebar_animation.scroll -= bounds.y - item.bounds.y;
+            else if (item.bounds.y + item.bounds.height > bounds.y + bounds.height)
+                this->config_.sidebar_animation.scroll += item.bounds.y + item.bounds.height - bounds.y - bounds.height;
+            return;
+        }
         if (focus.region == region::movement)
         {
             const controller_movement_layout bounds{this->config_.bounds, focus.viewport, items.size()};
@@ -220,7 +228,7 @@ namespace xiui
             focus.movement_scroll = std::clamp(focus.movement_scroll, 0, std::max(0, static_cast<int>(items.size()) - bounds.rows));
             return;
         }
-        if (focus.region != region::options) return;
+        if (focus.region != region::options || this->config_.basic) return;
         const auto& item = items[focus.item];
         if (this->IsExperienceDisplay() && this->experience_display_.View() == experience_display_view::readouts)
         {
@@ -250,8 +258,15 @@ namespace xiui
     {
         const auto area = this->config_.focus.region;
         const bool confirm = value == action::confirm && !repeated;
+        if (area == region::movement && value == action::actions && !repeated)
+        {
+            for (auto* module : this->ControllerMovableModules())
+                if (item.id == module->Id()) return this->OpenModuleMenu(*module, this->ScaleGrip(*module));
+            return true;
+        }
         if (area == region::options)
         {
+            if (this->config_.basic) return this->ActivateBasicItem(item.index, value, repeated);
             if (this->IsExperienceDisplay() && this->experience_display_.View() == experience_display_view::readouts)
             {
                 if (confirm && this->experience_display_.Activate(static_cast<uint32_t>(item.index), this->experience_, this->ConfigLayout()) == ui::experience_display_editor::result::changed)
@@ -313,18 +328,11 @@ namespace xiui
         this->config_.focus.adjusting = false;
         if (area == region::categories)
         {
-            const auto pages = this->VisibleConfigPages();
-            if (item.index >= pages.size()) return true;
-            this->SelectConfigModule(pages[item.index].SectionModule(0), 0);
-        }
-        else if (area == region::sections)
-        {
-            const auto page = this->ActiveConfigPage();
-            if (item.index < page.SectionCount()) this->SelectConfigModule(page.SectionModule(item.index), page.SectionView(item.index));
+            this->SelectConfigSidebarItem(item.index);
         }
         else if (area == region::topics)
         {
-            if (this->HasConfigSubmenu()) this->SelectConfigTopic(item.index);
+            if (this->HasConfigSubmenu()) this->SelectConfigTopicRow(item.index);
             else
             {
                 const auto categories = this->ConfigCategories();
@@ -335,9 +343,8 @@ namespace xiui
         else if (area == region::content_tabs)
         {
             if (this->IsInventorySettings()) this->SelectConfigModule(this->inventory_pages_[item.index]);
-            else if (this->IsGeneralAppearance()) this->general_.SelectAppearanceTab(item.index);
-            else if (this->IsAttribution()) this->general_.SelectAttributionView(item.index);
             else if (this->IsExperienceDisplay()) this->experience_display_.SelectView(static_cast<experience_display_view>(item.index));
+            else if (this->IsAttribution()) this->general_.SelectAttributionView(item.index);
             this->config_.scroll = 0; this->config_.active_color = nullptr;
         }
         else if (area == region::elements)
@@ -376,6 +383,7 @@ namespace xiui
             const auto found = std::find_if(modules.begin(), modules.end(), [&](const auto* module) { return item.id == module->Id(); });
             if (found == modules.end()) return true;
             this->FocusModuleConfig(**found);
+            if (!(*found)->CanMove()) { this->BeginScale(**found, true); return true; }
             auto& focus = this->config_.focus;
             focus.moving_id = (*found)->Id(); focus.move_original = focus.move_desired = (*found)->State().bounds;
             focus.move_collapsed = this->config_.collapsed; focus.moving = true; focus.fine = false;
@@ -385,11 +393,14 @@ namespace xiui
         {
             if (item.index == 0) { this->config_.input_mode_menu = true; this->config_.input_mode_selection = this->general_.InputMode(); }
             else if (item.index == 1)
-            { this->config_.collapsed = false; this->SelectConfigModule(&this->general_); this->config_.section = general_module::attribution_section; }
+            { this->SetBasicSettings(false); this->config_.collapsed = false; this->SelectConfigModule(&this->general_); this->config_.section = general_module::attribution_section; }
             else if (item.index == 2) { this->config_.collapsed = !this->config_.collapsed; this->CloseProfileControls(); }
             else if (item.index == 4) this->BeginConfigResize();
             else if (item.index == 5) this->ToggleConfigSidebar(this->config_.focus.viewport);
             else if (item.index == 6) this->BeginSettingsSearch();
+            else if (item.index == 8) this->SetBasicSettings(!this->config_.basic);
+            else if (item.index == 9) this->ToggleLayoutEditMode();
+            else if (item.index == 7 && this->MovementSelectionModule() != nullptr) this->BeginScale(*this->MovementSelectionModule(), true);
             else this->ExitEdit();
         }
         return true;
@@ -402,6 +413,7 @@ namespace xiui
         if (this->config_.search_open) return this->HandleSettingsSearchController(value, repeated);
         auto& focus = this->config_.focus;
         focus.active = true;
+        if (this->scale_gesture_.module != nullptr) return this->HandleScaleAction(value, repeated);
         if (focus.moving) return this->HandleControllerMove(value, repeated);
         if (focus.resizing) return this->HandleConfigResize(value, repeated);
         this->NormalizeConfigSelection();
@@ -449,21 +461,21 @@ namespace xiui
             if (value == action::cancel) this->CloseProfileControls();
             else if (Directional(value))
             {
-                if (share && (value == action::up || value == action::down)) this->profile_key_view_.Scroll(Direction(value));
-                else
-                {
-                    const auto previous = focus.modal_item;
-                    focus.modal_item = static_cast<uint8_t>(std::clamp(static_cast<int>(focus.modal_item) + Direction(value), 0, importing ? 5 : share || deleting || confirming ? 1 : 2));
-                    if (previous != focus.modal_item) this->ui_sounds_.Play(ui::native_ui_sound::hover);
-                }
+                const auto previous = focus.modal_item;
+                const int direction = Direction(value);
+                int next = std::clamp(static_cast<int>(focus.modal_item) + direction, 0, importing ? 6 : share || deleting || confirming ? 1 : 2);
+                if (importing && next == 1 && !this->profile_import_) next += direction;
+                focus.modal_item = static_cast<uint8_t>(next);
+                if (previous != focus.modal_item) this->ui_sounds_.Play(ui::native_ui_sound::hover);
             }
             else if (value == action::confirm)
             {
                 if (focus.modal_item == 0) this->CloseProfileControls();
-                else if (share) this->CopyProfileKey();
+                else if (share) this->BrowseProfileFile(true);
                 else if (deleting) { if (focus.modal_item == 1) this->DeleteProfile(); }
                 else if (confirming) { if (focus.modal_item == 1) this->ApplyConfirmedAction(); }
-                else if (importing && focus.modal_item == 2) this->PasteProfileKey();
+                else if (importing && focus.modal_item == 2) this->BrowseProfileFile(false);
+                else if (importing && focus.modal_item == 6) this->PasteProfileKey();
                 else if (importing && (focus.modal_item == 4 || focus.modal_item == 5)) this->SetProfileImportSource(focus.modal_item == 5);
                 else if (focus.modal_item == 1)
                 {
@@ -501,11 +513,19 @@ namespace xiui
         }
         if (this->config_.active_color != nullptr)
         {
+            if (this->config_.color_picker.EditingHex())
+            {
+                if (value == action::cancel) this->config_.color_picker.CancelHex();
+                else if (value == action::confirm && this->config_.color_picker.CommitHex()) { this->ApplyPickedColor(); this->SaveSettings(); }
+                return true;
+            }
             if (value == action::cancel) { this->config_.active_color = nullptr; return true; }
             if (value == action::confirm)
             {
                 if (focus.modal_item == 4) { this->config_.color_picker.Restore(); this->ApplyPickedColor(); this->SaveSettings(); }
                 else if (focus.modal_item == 5)
+                    this->config_.color_picker.BeginHex();
+                else if (focus.modal_item == 6)
                 {
                     const auto* properties = this->core_ != nullptr ? this->core_->GetProperties() : nullptr;
                     this->config_.color_picker.CopyHex(properties != nullptr ? properties->GetFinalFantasyHwnd() : nullptr);
@@ -516,7 +536,7 @@ namespace xiui
             if (value == action::up || value == action::down)
             {
                 const auto previous = focus.modal_item;
-                focus.modal_item = static_cast<uint8_t>(std::clamp(static_cast<int>(focus.modal_item) + Direction(value), 0, 6));
+                focus.modal_item = static_cast<uint8_t>(std::clamp(static_cast<int>(focus.modal_item) + Direction(value), 0, 7));
                 if (previous != focus.modal_item) this->ui_sounds_.Play(ui::native_ui_sound::hover);
             }
             if ((value == action::left || value == action::right) && focus.modal_item < 4)
@@ -625,6 +645,7 @@ namespace xiui
         auto style = this->design_system_.GetTheme().caption_text;
         style.scale = 0.7f; style.alignment = ui::text_alignment::left;
         const float y = std::max(area.y + 224, area.y + area.height - 86);
+        const auto clip = this->design_system_.Clip(area);
         const auto& status = this->general_.ControllerStatus();
         const char* readiness = status.enumeration_disabled ? "Runtime ready. Ashita controller enumeration is disabled; check your launch configuration." :
             status.configuration_known && !status.gamepad_enabled ? "Runtime ready. The gamepad is disabled in FFXI Config." :
@@ -641,6 +662,7 @@ namespace xiui
         auto& focus = this->config_.focus;
         focus.viewport = viewport;
         if (!focus.active || !this->visible_ || !this->editing_) return;
+        if (this->scale_gesture_.module != nullptr) return;
         if (focus.moving) { this->DrawControllerMovement(viewport); return; }
         const auto modal = this->profile_name_.Focused() ? "profile/" + std::to_string(static_cast<int>(this->profile_dialog_)) :
             this->config_.active_color != nullptr ? std::string{"color"} : std::string{};
@@ -661,8 +683,9 @@ namespace xiui
         {
             const bool share = this->profile_dialog_ == profile_dialog::share, importing = this->profile_dialog_ == profile_dialog::import_profile;
             const ui::profile_dialog_layout dialog{this->config_.bounds, viewport, share || importing};
-            bounds = focus.modal_item == 0 ? dialog.Cancel() : focus.modal_item == 1 ? dialog.Create() : importing && focus.modal_item == 2 ? dialog.Paste() : dialog.Field();
-            if (importing && focus.modal_item >= 4) bounds = dialog.ImportSource(focus.modal_item - 4);
+            bounds = focus.modal_item == 0 ? dialog.Cancel() : focus.modal_item == 1 ? dialog.Create() : importing && focus.modal_item == 2 ? dialog.Browse() : dialog.Field();
+            if (importing && (focus.modal_item == 4 || focus.modal_item == 5)) bounds = dialog.ImportSource(focus.modal_item - 4);
+            if (importing && focus.modal_item == 6) bounds = dialog.Paste();
             if (importing && this->profile_import_lua_)
             { const ui::lua_import_layout luaLayout{this->config_.bounds, viewport}; bounds = luaLayout.Control(focus.modal_item); }
             legend = this->ConfirmingAction() || this->profile_dialog_ == profile_dialog::delete_profile ?
@@ -682,9 +705,10 @@ namespace xiui
         {
             const auto panel = this->ConfigLayout().ColorEditor(viewport);
             const ui::color_picker_layout picker{panel};
-            bounds = focus.modal_item == 4 ? picker.Original() : focus.modal_item == 6 ? picker.Close() : picker.Hex();
+            bounds = focus.modal_item == 4 ? picker.Original() : focus.modal_item == 6 ? picker.Copy() : focus.modal_item == 7 ? picker.Close() : picker.Hex();
             static constexpr const char* channels[]{"Red", "Green", "Blue", "Alpha"};
-            help = focus.modal_item == 4 ? "Restore the original color." : focus.modal_item == 5 ? "Copy the hexadecimal color." : focus.modal_item == 6 ? "Close the color picker." :
+            help = this->config_.color_picker.EditingHex() ? "Type or paste #RRGGBB or #RRGGBBAA. Confirm applies; Cancel discards." :
+                focus.modal_item == 4 ? "Restore the original color." : focus.modal_item == 5 ? "Edit the hexadecimal color with a keyboard." : focus.modal_item == 6 ? "Copy the hexadecimal color." : focus.modal_item == 7 ? "Close the color picker." :
                 std::string{channels[focus.modal_item]} + ": Left/Right adjusts one step; Up/Down changes channel or action.";
             legend = "Up/Down: channel/action   Left/Right: adjust   Confirm: activate/close   Cancel: back";
         }
@@ -704,13 +728,17 @@ namespace xiui
             if (!items.empty()) { bounds = items[focus.item].bounds; help = items[focus.item].help; }
             if (focus.adjusting) legend = "Left/Right: adjust   Confirm: finish   Cancel: back   Actions: type value";
             else if (focus.region == region::options) legend = "D-pad: navigate   Confirm: edit   Actions: type value / color source   Next/Previous: region";
+            if (this->config_.basic) legend = focus.adjusting ? "Left/Right: adjust   Confirm: done   Actions: type value" :
+                "Confirm: select   Next/Previous: region";
         }
         if (!help.empty()) { this->config_.tooltip = std::move(help); this->config_.tooltip_anchor = bounds; }
         if (!this->config_.collapsed)
         {
             auto style = this->design_system_.GetTheme().caption_text; style.scale = 0.64f; style.alignment = ui::text_alignment::center;
             const auto footer = this->ConfigLayout().Footer();
+            if (footer.width < 500) legend = focus.adjusting ? "Left/Right: adjust   Confirm: done" : "Confirm: select   Cancel: back";
             this->FillRect(footer, this->design_system_.GetTheme().colors.surface);
+            const auto clip = this->design_system_.Clip(footer);
             this->config_controls_.Text(legend, footer, style);
         }
         if (bounds.width > 0 && bounds.height > 0) this->design_system_.DrawFocusFrame(bounds, this->general_.FocusStyle());

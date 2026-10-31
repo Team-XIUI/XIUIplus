@@ -28,6 +28,17 @@ namespace xiui
         if (!source.ReadString("chat.bubbles", "opacity").empty() || !source.ReadString("chat.bubbles", "width").empty() ||
             !source.ReadString("chat.bubbles", "offset_y").empty())
             target.WriteInt("chat.bubbles", "appearance_version", source.ReadInt("chat.bubbles", "appearance_version", 0));
+        if (!source.ReadString("meter.experience", "height").empty())
+            target.WriteInt("exp", "bar_height_version", source.ReadInt("exp", "bar_height_version", 0));
+        for (const auto* section : {"meter.player.hp", "meter.player.mp", "meter.player.tp"})
+            if (!source.ReadString(section, "height").empty())
+            {
+                target.WriteInt("player", "bar_height_version", source.ReadInt("player", "bar_height_version", 0));
+                break;
+            }
+        for (const auto* section : {"party", "alliance1", "alliance2"})
+            if (!source.ReadString(section, "layout").empty())
+                target.WriteInt(section, "classic_layout_version", source.ReadInt(section, "classic_layout_version", 0));
         const int frameVersion = source.ReadInt("actionbars", "slot_frame_version", 0);
         // A replaced legacy section must not inherit the snapshot's migration marker.
         source.VisitPreferences([&](const std::string_view section, const std::string_view key, const std::string_view) {

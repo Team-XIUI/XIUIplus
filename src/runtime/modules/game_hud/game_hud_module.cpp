@@ -39,10 +39,10 @@ namespace xiui
         }
     }
 
-    auto game_hud_module::Option(const size_t index) -> module_option
+    auto game_hud_module::ContentOption(const size_t index) -> module_option
     {
         if (index == 0)
-            return module_option::Toggle("Game HUD controls", "Apply the native HUD visibility choices below.", &this->preferences_.enabled).Ordered(-100);
+            return module_option::Toggle("Native menu controls", "Apply the native HUD visibility choices below.", &this->preferences_.enabled).Ordered(-100);
         if (index == hide_all_option || index == show_all_option)
         {
             auto result = index == hide_all_option ?
@@ -61,7 +61,7 @@ namespace xiui
         return result;
     }
 
-    auto game_hud_module::OnOptionChanged(const size_t index) -> void
+    auto game_hud_module::OnContentOptionChanged(const size_t index) -> void
     {
         if (index == hide_all_option) this->HideAll();
         else if (index == show_all_option) this->ShowAll();

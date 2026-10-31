@@ -71,7 +71,7 @@ namespace xiui
 
     auto cast_cost_module::ConfigSections(void) const -> std::span<const module_config_section> { return BarConfigSections(); }
 
-    auto cast_cost_module::ConfigSectionContains(size_t section, size_t index) -> bool
+    auto cast_cost_module::ContentConfigSectionContains(size_t section, size_t index) -> bool
     {
         if (section >= this->ConfigSections().size() || index >= this->OptionCount()) return false;
         const auto topic = static_cast<bar_config_section>(section);
@@ -82,7 +82,7 @@ namespace xiui
         return topic == bar_config_section::general;
     }
 
-    auto cast_cost_module::Option(size_t index) -> module_option
+    auto cast_cost_module::ContentOption(size_t index) -> module_option
     {
         static constexpr const char* names[]{"Action name", "MP / TP / charges", "Base cast / recast", "Recast label", "Recast value"};
         switch (index)

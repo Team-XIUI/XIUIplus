@@ -63,11 +63,11 @@ namespace xiui
         auto ResetDefaults(const ui::theme& themeDefaults) -> void override;
         auto Load(const settings_store& store) -> void override;
         auto Save(const settings_store& store) const -> void override;
-        auto OptionCount(void) const -> size_t override;
-        auto Option(size_t index) -> module_option override;
+        auto ContentOptionCount(void) const -> size_t override;
+        auto ContentOption(size_t index) -> module_option override;
         auto ConfigSections(void) const -> std::span<const module_config_section> override;
-        auto ConfigSectionContains(size_t section, size_t index) -> bool override;
-        auto OnOptionChanged(size_t index) -> void override;
+        auto ContentConfigSectionContains(size_t section, size_t index) -> bool override;
+        auto OnContentOptionChanged(size_t index) -> void override;
         auto ShouldRender(const hud_snapshot& snapshot) const -> bool override;
         auto Render(const hud_snapshot& snapshot, const module_render_context& context) -> void override;
         auto Update(IAshitaCore* core, uint64_t now) -> void;
@@ -88,7 +88,7 @@ namespace xiui
             alert_food_option, alert_dedication_option, alert_chain_option, alert_merits_option, alert_goal_option, sound_option, volume_option, mute_paused_option,
             chain_warning_option, warning_color_option, history_option, bar_gap_option = history_option + 10,
             readout_anchor_option, readout_x_option, readout_y_option, stable_numbers_option, option_count };
-        enum section : size_t { general, display, appearance, effects, text, tracking, alerts, history };
+        enum section : size_t { general, display, appearance, effects, text, tracking, alerts, history, layout };
         module_state state_{true, {24.0f, 226.0f, 540.0f, 74.0f}, 340.0f, 62.0f};
         settings settings_{};
         ui::text_style legacy_readout_style_{ui::theme::CreateDefault().caption_text};

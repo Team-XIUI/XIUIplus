@@ -1,11 +1,61 @@
 #include "config_input_fixture.hpp"
+#include "config/lua_import_layout.hpp"
 
 namespace xiui
 {
     using namespace config_checks;
 
+    auto config_input_test::ConfigMemory(void) -> bool
+    {
+        class mouse final : public IMouse
+        {
+            bool blocked_{};
+        public:
+            void AddCallback(const char*, mousecallback_f) override {}
+            void RemoveCallback(const char*) override {}
+            bool GetBlockInput(void) const override { return this->blocked_; }
+            void SetBlockInput(bool value) override { this->blocked_ = value; }
+        } input;
+        hud_runtime runtime;
+        runtime.mouse_ = &input; runtime.SetEditing(true, false);
+        runtime.config_.bounds = {320, 180, 1100, 600};
+        const auto section = static_cast<size_t>(bar_config_section::text);
+        runtime.SelectConfigModule(&runtime.player_); runtime.config_.section = section;
+        runtime.config_.scroll = 2; runtime.ClampOptionScroll();
+        const int scroll = runtime.config_.scroll;
+        if (!check(scroll > 0, "memory fixture has a scrollable settings page")) return false;
+        for (const bool basic : {false, true})
+        {
+            runtime.SetBasicSettings(basic, false);
+            runtime.SetEditing(false, false); runtime.SetEditing(true, false);
+            if (!check(runtime.config_.basic == basic && runtime.config_.bounds.x == 320 && runtime.config_.bounds.y == 180,
+                "close and reopen retain the chosen settings mode and window placement")) return false;
+            const auto saved = runtime.CaptureSettings();
+            hud_runtime restored;
+            restored.LoadSettings(settings_store::FromIniText(saved.ToIniText()));
+            if (!check(restored.config_.basic == basic && restored.config_.bounds.x == 320 && restored.config_.bounds.y == 180,
+                "saved mode and placement survive a fresh runtime")) return false;
+            restored.SetBasicSettings(false, false);
+            if (!check(restored.config_.module == &restored.player_ && restored.config_.section == section && restored.config_.scroll == scroll,
+                "the last Advanced page and scroll survive both modes and a fresh runtime")) return false;
+            const auto selection = settings_store::FromIniText(""); runtime.SaveConfigSelection(selection);
+            runtime.SetBasicSettings(!basic, false); runtime.LoadConfigSelection(selection);
+            if (!check(runtime.config_.basic == basic, "navigation-only restoration retains the mode with its page")) return false;
+        }
+        runtime.SetEditing(false, false);
+        return true;
+    }
+
     auto config_input_test::SettingsPresentation(const char* reportPath) -> bool
     {
+        ui::settings_sidebar_animation animation;
+        animation.Select("extras", 100);
+        const auto halfway = animation.Expansion("extras", 180);
+        if (!check(animation.Expansion("extras", 100) == 0 && halfway > 0 && halfway < 1 && animation.Expansion("extras", 260) == 1,
+            "sidebar submenus expand over time")) return false;
+        animation.Select("inventory", 180);
+        if (!check(animation.Expansion("extras", 180) == halfway && animation.Expansion("extras", 340) == 0 && animation.Expansion("inventory", 340) == 1,
+            "changing categories reverses an in-progress expansion without jumping")) return false;
         hud_runtime runtime;
         runtime.editing_ = true;
         runtime.config_.bounds = {20, 20, 1100, 600};
@@ -58,20 +108,46 @@ namespace xiui
             for (size_t view = 0; view < std::max<size_t>(1, module->ConfigViews().size()); ++view)
             {
                 module->SelectConfigView(view);
+                const auto sections = module->ConfigSections();
+                for (size_t selected = 0; module != &runtime.general_ && module != &runtime.game_hud_ && selected < sections.size(); ++selected)
+                {
+                    runtime.config_.section = selected;
+                    const auto topics = runtime.ConfigTopicRows();
+                    std::set<std::string> ids;
+                    bool reachable{};
+                    size_t appearanceParents{};
+                    for (const auto& topic : topics)
+                    {
+                        if (!check(ids.insert(topic.id).second, "settings navigation has stable unique topic identities")) return false;
+                        reachable |= !topic.parent && topic.section == selected;
+                        appearanceParents += topic.id == "appearance";
+                        if (module != &runtime.general_ && ui::AppearanceCategory(sections[topic.section]) != nullptr)
+                            if (!check(topic.child || topic.id == "appearance", "visual categories appear only inside Appearance")) return false;
+                    }
+                    if (!check(reachable && appearanceParents <= 1, "every original topic remains reachable under one Appearance parent")) return false;
+                }
                 report << "## " << module->DisplayName();
                 if (!module->ConfigViews().empty()) report << " / " << module->ConfigViews()[view];
                 report << "\n\n";
-                for (size_t section = 0; section < std::max<size_t>(1, module->ConfigSections().size()); ++section)
+                std::vector<size_t> sectionOrder;
+                size_t expanded{};
+                for (size_t index = 0; index < sections.size(); ++index)
+                    if (ui::AppearanceCategory(sections[index]) != nullptr) { expanded = index; break; }
+                for (const auto& topic : ui::SettingsTopics(sections, expanded, {}, module != &runtime.general_))
+                    if (!topic.parent) sectionOrder.push_back(topic.section);
+                if (sectionOrder.empty()) sectionOrder.push_back(0);
+                for (const size_t section : sectionOrder)
                 {
+                    if (module == &runtime.general_ && section == general_module::game_hud_section) continue;
                     runtime.config_.section = section;
                     runtime.config_.group = module_option_group::general;
-                    const auto title = module->ConfigSections().empty() ? "General" : module->ConfigSections()[section].name;
+                    const auto title = module->ConfigSections().empty() ? std::string{"General"} : ui::SettingsTopicPath(module->ConfigSections(), section, module != &runtime.general_);
                     std::set<std::string> seen;
                     const auto run = [&]() {
-                        static constexpr const char* displayTabs[]{"Bar info", "Readouts", "Layout"};
-                        const auto pageTitle = std::string{title} + (module == &runtime.general_ && section == general_module::appearance_section ?
-                            std::string{" / "} + general_module::appearance_tabs[runtime.general_.AppearanceTab()] : "");
-                        const auto viewTitle = pageTitle + (module == &runtime.experience_ && std::strcmp(title, "Display") == 0 ?
+                        static constexpr const char* displayTabs[]{"Bar info", "Readouts"};
+                        const auto pageTitle = module == &runtime.general_ && section == general_module::appearance_section ?
+                            std::string{runtime.general_.AppearanceTab() == 0 ? "Appearance" : general_module::appearance_tabs[runtime.general_.AppearanceTab()]} : title;
+                        const auto viewTitle = pageTitle + (runtime.IsExperienceDisplay() ?
                             std::string{" / "} + displayTabs[static_cast<size_t>(runtime.experience_display_.View())] : "");
                         if (!audit(viewTitle, seen)) return false;
                         for (size_t index = 0; index < module->OptionCount(); ++index)
@@ -100,9 +176,9 @@ namespace xiui
                         }
                         runtime.general_.SelectAppearanceTab(0);
                     }
-                    else if (module == &runtime.experience_ && std::strcmp(title, "Display") == 0)
+                    else if (runtime.IsExperienceDisplay())
                     {
-                        for (int tab = 0; tab < 3; ++tab)
+                        for (int tab = 0; tab < 2; ++tab)
                         {
                             runtime.experience_display_.SelectView(static_cast<experience_display_view>(tab));
                             if (!run()) return false;
@@ -116,6 +192,206 @@ namespace xiui
         }
         if (!check(runtime.CaptureSettings().Preferences("").ToIniText() == originalSettings,
             "browsing every reordered group preserves all saved settings and positions")) return false;
+        runtime.actionbars_.SetWindowFocused(false);
+        runtime.SelectConfigModule(&runtime.general_);
+        const auto settleGlobal = [&] {
+            runtime.ConfigSidebarRows();
+            for (auto& [id, transition] : runtime.config_.sidebar_animation.pages) transition.started = 0;
+            return runtime.ConfigSidebarRows();
+        };
+        const auto globalTopics = runtime.general_.ConfigSections();
+        for (size_t section = 0; section < globalTopics.size(); ++section)
+        {
+            if (section == general_module::attribution_section || section == general_module::game_hud_section) continue;
+            runtime.SelectConfigTopic(section);
+            const auto rows = runtime.ConfigTopicRows();
+            const auto id = std::string{"general/"} + std::string{globalTopics[section].Id()} + (section == general_module::appearance_section ? "/0" : "");
+            const auto row = std::find_if(rows.begin(), rows.end(), [&](const auto& item) { return item.id == id; });
+            if (!check(row != rows.end(), "all Global sections are reachable in the second navigation column")) return false;
+            runtime.SelectConfigTopicRow(static_cast<size_t>(row - rows.begin()));
+            if (!check(runtime.config_.module == &runtime.general_ && runtime.config_.section == section,
+                "Global topic routes retain their original identity")) return false;
+        }
+        for (size_t tab = 0; tab < std::size(general_module::appearance_tabs); ++tab)
+        {
+            runtime.config_.module = &runtime.general_;
+            runtime.SelectConfigTopic(general_module::appearance_section);
+            runtime.general_.SelectAppearanceTab(tab);
+            const auto sidebar = settleGlobal();
+            const auto topics = runtime.ConfigTopicRows();
+            if (!check(std::none_of(sidebar.begin(), sidebar.end(), [](const auto& item) { return item.id.starts_with("general/"); }),
+                "Global does not expand destinations in the primary sidebar")) return false;
+            if (!check(std::strcmp(runtime.ActiveConfigPage().id, tab < 3 ? "general" : "extras") == 0,
+                "shared appearance destinations select their Global or Extras category")) return false;
+            if (tab < 3)
+            {
+                const auto id = std::string{"general/appearance/"} + std::to_string(tab);
+                const auto row = std::find_if(topics.begin(), topics.end(), [&](const auto& item) { return item.id == id; });
+                if (!check(row != topics.end() && row->selected && !row->parent && !row->child,
+                    "Global appearance pages are direct topics in the second column")) return false;
+                if (!check(std::none_of(topics.begin(), topics.end(), [](const auto& item) {
+                    return item.id == "general/appearance" || item.id.starts_with("general/attribution") || item.id == "general/game-hud" ||
+                        item.id == "general/appearance/3" || item.id == "general/appearance/4";
+                }), "Global topics omit Attribution and settings moved to Extras")) return false;
+                runtime.SelectConfigTopicRow(static_cast<size_t>(row - topics.begin()));
+            }
+            else
+            {
+                const auto id = std::string{"extras/appearance/"} + std::to_string(tab);
+                const auto row = std::find_if(sidebar.begin(), sidebar.end(), [&](const auto& item) { return item.id == id; });
+                if (!check(row != sidebar.end() && row->available && row->selected && topics.empty(),
+                    "Extras retains its direct focus and feedback destinations")) return false;
+                runtime.SelectConfigSidebarItem(row->item);
+            }
+            if (!check(runtime.general_.AppearanceTab() == tab &&
+                runtime.ControllerConfigItems(config_controller_region::content_tabs).empty(),
+                "moved appearance settings keep their underlying saved identities")) return false;
+            if (!check(runtime.ConfigLayout().OptionRow(0).y == runtime.config_.bounds.y + ui::config_layout::grid_y + ((tab == 1 || tab == 3) ? 56 : 0),
+                "appearance pages remove unused top space and retain visible preview space")) return false;
+            const auto saved = settings_store::FromIniText(""); runtime.SaveConfigSelection(saved);
+            auto restored = std::make_unique<hud_runtime>(); restored->LoadConfigSelection(saved);
+            if (!check(restored->general_.AppearanceTab() == tab &&
+                std::strcmp(restored->ActiveConfigPage().id, tab < 3 ? "general" : "extras") == 0,
+                "saved shared settings reopen under the correct sidebar category")) return false;
+        }
+        const D3DVIEWPORT8 globalViewport{0, 0, 1280, 720, 0, 1};
+        runtime.general_.SelectAppearanceTab(0);
+        runtime.SelectConfigTopic(general_module::appearance_section);
+        const auto globalRows = runtime.ConfigTopicRows();
+        const auto configText = std::find_if(globalRows.begin(), globalRows.end(), [](const auto& row) { return row.id == "general/appearance/2"; });
+        if (!check(configText != globalRows.end(), "Global Config Text has a second-column topic")) return false;
+        const auto configTextBounds = runtime.ConfigLayout().Submenu(static_cast<size_t>(configText - globalRows.begin()), globalRows.size());
+        runtime.mouse_x_ = static_cast<int>(configTextBounds.x + 8); runtime.mouse_y_ = static_cast<int>(configTextBounds.y + configTextBounds.height * .5f);
+        runtime.ProcessPointerMessage(WM_LBUTTONDOWN, MK_LBUTTON, globalViewport);
+        runtime.ProcessPointerMessage(WM_LBUTTONUP, 0, globalViewport);
+        if (!check(runtime.IsGeneralAppearance() && runtime.general_.AppearanceTab() == 2, "pointer activates Global's second-column settings")) return false;
+        runtime.config_.focus.active = true; runtime.config_.focus.viewport = globalViewport;
+        runtime.config_.focus.region = config_controller_region::topics; runtime.config_.focus.id = "general/appearance/1";
+        runtime.HandleControllerConfig(controller_action::confirm, false);
+        if (!check(runtime.IsGeneralAppearance() && runtime.general_.AppearanceTab() == 1, "controller uses Global's second-column topics")) return false;
+        runtime.config_.focus.active = false;
+        runtime.general_.SelectAppearanceTab(2);
+        const auto globalSelection = settings_store::FromIniText(""); runtime.SaveConfigSelection(globalSelection);
+        auto globalRestored = std::make_unique<hud_runtime>(); globalRestored->LoadConfigSelection(globalSelection);
+        if (!check(globalRestored->IsGeneralAppearance() && globalRestored->general_.AppearanceTab() == 2,
+            "Global topic selection survives saved navigation")) return false;
+        const auto attribution = runtime.ConfigLayout().HeaderAction();
+        runtime.mouse_x_ = static_cast<int>(attribution.x + attribution.width * .5f);
+        runtime.mouse_y_ = static_cast<int>(attribution.y + attribution.height * .5f);
+        runtime.ProcessPointerMessage(WM_LBUTTONDOWN, MK_LBUTTON, globalViewport);
+        runtime.ProcessPointerMessage(WM_LBUTTONUP, 0, globalViewport);
+        if (!check(runtime.IsAttribution() && runtime.ControllerConfigItems(config_controller_region::content_tabs).size() == std::size(ui::attribution_views),
+            "the header Attribution button opens all credit pages")) return false;
+        const auto creditTab = ui::config_controls::Segment(runtime.ConfigLayout().ContentTabs(), 1, std::size(ui::attribution_views));
+        runtime.mouse_x_ = static_cast<int>(creditTab.x + creditTab.width * .5f);
+        runtime.mouse_y_ = static_cast<int>(creditTab.y + creditTab.height * .5f);
+        if (!check(runtime.ConfigSoundTarget(globalViewport) != 0 && runtime.ResolveCursorShape(globalViewport) == hud_runtime::cursor_shape::hand,
+            "credit tabs expose shared pointer and sound targets")) return false;
+        runtime.ProcessPointerMessage(WM_LBUTTONDOWN, MK_LBUTTON, globalViewport);
+        runtime.ProcessPointerMessage(WM_LBUTTONUP, 0, globalViewport);
+        if (!check(runtime.general_.AttributionView() == 1, "pointer switches Attribution credit pages")) return false;
+        runtime.config_.focus.active = true; runtime.config_.focus.viewport = globalViewport;
+        runtime.config_.focus.region = config_controller_region::content_tabs; runtime.config_.focus.id = ui::attribution_views[2];
+        runtime.HandleControllerConfig(controller_action::confirm, false);
+        if (!check(runtime.IsAttribution() && runtime.general_.AttributionView() == 2, "controller switches Attribution credit pages")) return false;
+        runtime.config_.focus.active = false;
+        runtime.SelectConfigModule(&runtime.game_hud_);
+        const auto extrasRows = settleGlobal();
+        const auto nativeMenus = std::find_if(extrasRows.begin(), extrasRows.end(), [](const auto& row) { return row.id == "extras/8"; });
+        if (!check(nativeMenus != extrasRows.end() && nativeMenus->available && nativeMenus->selected &&
+            std::strcmp(nativeMenus->label, "Native Menus") == 0 && runtime.ConfigTopicRows().empty(),
+            "Native Menus is a direct Extras destination")) return false;
+        if (!check(runtime.ConfigLayout().OptionRow(0).y == runtime.config_.bounds.y + ui::config_layout::grid_y,
+            "pages without tabs or a topic column start directly below the header")) return false;
+        const auto legacyMenus = settings_store::FromIniText("[session.config]\nbasic=false\nmodule=general\ntopic_id=game-hud\nsection=6\n");
+        globalRestored->LoadConfigSelection(legacyMenus);
+        if (!check(globalRestored->config_.module == &globalRestored->game_hud_ && globalRestored->config_.section == 0,
+            "saved Global Game HUD navigation migrates to Native Menus")) return false;
+        runtime.general_.SelectAppearanceTab(0); runtime.general_.SelectAttributionView(0);
+        runtime.SelectConfigModule(&runtime.player_);
+        runtime.SelectConfigTopic(0);
+        const D3DVIEWPORT8 topicViewport{0, 0, 1280, 720, 0, 1};
+        const auto clickTopic = [&](const char* id) {
+            const auto topics = runtime.ConfigTopicRows();
+            const auto found = std::find_if(topics.begin(), topics.end(), [&](const auto& topic) { return topic.id == id; });
+            if (found == topics.end()) return false;
+            const auto bounds = ui::SettingsTopicBounds(runtime.ConfigLayout().Submenu(static_cast<size_t>(found - topics.begin()), topics.size()), *found);
+            runtime.mouse_x_ = static_cast<int>(bounds.x + 8); runtime.mouse_y_ = static_cast<int>(bounds.y + bounds.height * .5f);
+            runtime.ProcessPointerMessage(WM_LBUTTONDOWN, MK_LBUTTON, topicViewport);
+            runtime.ProcessPointerMessage(WM_LBUTTONUP, 0, topicViewport);
+            return runtime.ResolveCursorShape(topicViewport) == hud_runtime::cursor_shape::hand;
+        };
+        const auto appearanceClicked = clickTopic("appearance");
+        const bool appearanceSelected = runtime.config_.section == static_cast<size_t>(bar_config_section::layout);
+        const auto colorsClicked = clickTopic("appearance/colors");
+        if (!check(appearanceClicked && appearanceSelected && colorsClicked && runtime.config_.section == static_cast<size_t>(bar_config_section::colors),
+            "pointer opens Appearance and selects its indented categories")) return false;
+        runtime.config_.focus.active = true; runtime.config_.focus.viewport = topicViewport;
+        runtime.config_.focus.region = config_controller_region::topics; runtime.config_.focus.id = "appearance/effects";
+        runtime.HandleControllerConfig(controller_action::confirm, false);
+        if (!check(runtime.config_.section == static_cast<size_t>(bar_config_section::effects) && clickTopic("general") && clickTopic("appearance") &&
+            runtime.config_.section == static_cast<size_t>(bar_config_section::effects), "controller shares category routing and Appearance remembers its last category")) return false;
+        const auto topicSelection = settings_store::FromIniText(""); runtime.SaveConfigSelection(topicSelection);
+        hud_runtime topicRestored; topicRestored.LoadConfigSelection(topicSelection);
+        if (!check(topicRestored.config_.module == &topicRestored.player_ && topicRestored.config_.section == runtime.config_.section,
+            "grouped settings retain existing saved topic identities")) return false;
+        runtime.config_.focus.active = false;
+        runtime.SelectConfigModule(&runtime.equipment_);
+        runtime.ConfigSidebarRows();
+        for (auto& [id, transition] : runtime.config_.sidebar_animation.pages) transition.started = 0;
+        auto sidebar = runtime.ConfigSidebarRows();
+        const auto equipmentRow = std::find_if(sidebar.begin(), sidebar.end(), [](const auto& row) { return row.child && std::string_view{row.label} == "Equipment"; });
+        if (!check(equipmentRow != sidebar.end() && equipmentRow->available && equipmentRow->selected,
+            "Inventory destinations expand under the selected left category")) return false;
+        const auto sidebarItems = runtime.ControllerConfigItems(config_controller_region::categories);
+        const auto equipmentItem = std::find_if(sidebarItems.begin(), sidebarItems.end(), [&](const auto& item) { return item.id == equipmentRow->id; });
+        if (!check(equipmentItem != sidebarItems.end() && equipmentItem->index == equipmentRow->item,
+            "controller navigation uses the same submenu destinations as pointer input")) return false;
+        const auto gilRow = std::find_if(sidebar.begin(), sidebar.end(), [](const auto& row) { return row.child && std::string_view{row.label} == "Gil"; });
+        if (!check(gilRow != sidebar.end(), "Inventory retains its Gil destination")) return false;
+        runtime.mouse_x_ = static_cast<int>(gilRow->bounds.x + 8); runtime.mouse_y_ = static_cast<int>(gilRow->bounds.y + gilRow->bounds.height * .5f);
+        runtime.ProcessPointerMessage(WM_LBUTTONDOWN, MK_LBUTTON, topicViewport);
+        runtime.ProcessPointerMessage(WM_LBUTTONUP, 0, topicViewport);
+        if (!check(runtime.config_.module == &runtime.gil_, "pointer activates destinations inside the new sidebar submenu")) return false;
+        runtime.config_.focus.active = true; runtime.config_.focus.viewport = topicViewport;
+        runtime.config_.focus.region = config_controller_region::categories; runtime.config_.focus.id = equipmentItem->id;
+        runtime.HandleControllerConfig(controller_action::confirm, false);
+        if (!check(runtime.config_.module == &runtime.equipment_, "controller activates the same nested destination")) return false;
+        runtime.config_.bounds.height = 350;
+        runtime.SelectConfigModule(&runtime.compass_);
+        runtime.ConfigSidebarRows();
+        for (auto& [id, transition] : runtime.config_.sidebar_animation.pages) transition.started = 0;
+        sidebar = runtime.ConfigSidebarRows();
+        const auto lastChild = std::find_if(sidebar.rbegin(), sidebar.rend(), [](const auto& row) { return row.child && row.available; });
+        if (!check(lastChild != sidebar.rend() && runtime.ConfigSidebarScrollbar().Visible(), "long submenus have an independent sidebar scrollbar")) return false;
+        const auto expandedBounds = runtime.ConfigSidebarBounds();
+        const auto extrasRoot = std::find_if(sidebar.begin(), sidebar.end(), [](const auto& row) { return row.id == "extras"; });
+        if (!check(extrasRoot != sidebar.end() && extrasRoot->bounds.y >= expandedBounds.y &&
+            extrasRoot->bounds.y + extrasRoot->bounds.height + 22 <= expandedBounds.y + expandedBounds.height + 1,
+            "opening a category taller than the sidebar reveals its header and first destination")) return false;
+        runtime.config_.focus.region = config_controller_region::categories; runtime.config_.focus.id = lastChild->id;
+        runtime.config_.sidebar_animation.scroll = 0;
+        runtime.RefreshControllerConfigFocus();
+        sidebar = runtime.ConfigSidebarRows();
+        const auto revealed = std::find_if(sidebar.begin(), sidebar.end(), [&](const auto& row) { return row.id == runtime.config_.focus.id; });
+        const auto sidebarBounds = runtime.ConfigSidebarBounds();
+        if (!check(revealed != sidebar.end() && revealed->bounds.y >= sidebarBounds.y &&
+            revealed->bounds.y + revealed->bounds.height <= sidebarBounds.y + sidebarBounds.height + 1,
+            "controller focus scrolls the selected submenu item into view")) return false;
+        runtime.config_.focus.active = false;
+        const auto sidebarScroll = runtime.ConfigSidebarScrollbar();
+        const auto optionScroll = runtime.config_.scroll;
+        runtime.mouse_x_ = static_cast<int>(sidebarScroll.Thumb().x + 4); runtime.mouse_y_ = static_cast<int>(sidebarScroll.Thumb().y + 4);
+        runtime.ProcessPointerMessage(WM_LBUTTONDOWN, MK_LBUTTON, topicViewport);
+        if (!check(runtime.interaction_ == hud_runtime::interaction::option_scrollbar && runtime.config_.sidebar_scrolling,
+            "the sidebar scrollbar uses shared pointer capture")) return false;
+        runtime.mouse_y_ = static_cast<int>(sidebarScroll.track.y - 30);
+        runtime.ProcessPointerMessage(WM_MOUSEMOVE, MK_LBUTTON, topicViewport);
+        runtime.ProcessPointerMessage(WM_LBUTTONUP, 0, topicViewport);
+        if (!check(runtime.config_.sidebar_animation.scroll == 0 && runtime.config_.scroll == optionScroll &&
+            runtime.interaction_ == hud_runtime::interaction::none && !runtime.config_.sidebar_scrolling,
+            "sidebar dragging stays independent of option scrolling and releases ownership outside its track")) return false;
+        runtime.config_.bounds.height = 600;
         runtime.config_.module = &runtime.party_;
         runtime.config_.section = party_module::layout_section;
         const auto partySlots = runtime.GroupOptionSlots();
@@ -517,6 +793,47 @@ namespace xiui
         if (!check(send(WM_LBUTTONUP, 0, close.x + 3, close.y + 3) && runtime.IsEditing(),
             "cancelling an interaction cannot later activate close")) return false;
         runtime.SetEditing(false);
+        for (const bool previouslyBlocked : {false, true})
+            for (int surface = 0; surface < 5; ++surface)
+            {
+                input.blocked = previouslyBlocked;
+                runtime.SetEditing(true, false);
+                ui::rect button;
+                const auto opened = [&] { return surface == 0 ? runtime.config_.active_color != nullptr : runtime.profile_name_.Focused(); };
+                if (surface == 0)
+                {
+                    runtime.config_.module = &runtime.player_;
+                    runtime.config_.active_color = &runtime.player_.Settings().hp_color;
+                    button = ui::color_picker_layout{runtime.ConfigLayout().ColorEditor(viewport)}.Close();
+                }
+                else
+                {
+                    runtime.profile_dialog_ = surface < 3 ? hud_runtime::profile_dialog::share : hud_runtime::profile_dialog::import_profile;
+                    runtime.profile_name_.Open("Close ownership");
+                    runtime.profile_import_lua_ = surface >= 3;
+                    if (surface < 3)
+                    {
+                        const ui::profile_dialog_layout dialog{runtime.config_.bounds, viewport, true};
+                        button = surface == 1 ? dialog.Close() : dialog.Cancel();
+                    }
+                    else
+                    {
+                        const ui::lua_import_layout dialog{runtime.config_.bounds, viewport};
+                        button = surface == 3 ? dialog.Close() : dialog.Control(0);
+                    }
+                }
+                if (!check(send(WM_LBUTTONDOWN, MK_LBUTTON, button.x + 3, button.y + 3) && opened() && input.blocked,
+                    "submenu close waits for release while blocking native mouse input")) return false;
+                if (!check(send(WM_MOUSEMOVE, MK_LBUTTON, 1200, 5) && runtime.UpdateMouseCapture(viewport, MK_LBUTTON) && input.blocked,
+                    "a held submenu close stays captured outside its window")) return false;
+                if (!check(send(WM_LBUTTONUP, 0, 1200, 5) && opened(),
+                    "releasing away from a submenu close cancels dismissal")) return false;
+                if (!check(send(WM_LBUTTONDBLCLK, MK_LBUTTON, button.x + 3, button.y + 3) && opened() &&
+                    send(WM_LBUTTONUP, 0, button.x + 3, button.y + 3) && !opened() && runtime.IsEditing(),
+                    "submenu close consumes its matching release and leaves Configuration open")) return false;
+                runtime.SetEditing(false, false);
+                if (!check(input.blocked == previouslyBlocked, "submenu dismissal preserves the original native mouse block")) return false;
+            }
         return true;
     }
 
@@ -876,13 +1193,21 @@ namespace xiui
         const auto collapsedSearch = runtime.SettingsSearchBounds();
         if (!check(collapsedSearch.width == 24 && runtime.ControllerConfigItems(config_controller_region::utilities).back().bounds.width == 24,
             "search starts as a compact icon for pointer and controller focus")) return false;
+        runtime.mouse_x_ = static_cast<int>(collapsedSearch.x - 12); runtime.mouse_y_ = static_cast<int>(collapsedSearch.y + 11);
+        if (!check(!runtime.ProcessSettingsSearchClick(viewport) && runtime.ResolveCursorShape(viewport) == hud_runtime::cursor_shape::move,
+            "unused space left of the compact search icon remains a configuration drag target")) return false;
+        runtime.BeginPanelInteraction(viewport);
+        if (!check(runtime.interaction_ == hud_runtime::interaction::drag_config,
+            "the formerly reserved search area starts dragging the configuration window")) return false;
+        runtime.FinishInteraction();
         runtime.mouse_x_ = static_cast<int>(collapsedSearch.x + 12); runtime.mouse_y_ = static_cast<int>(collapsedSearch.y + 11);
         if (!check(runtime.ProcessSettingsSearchClick(viewport), "the search icon opens the existing search action")) return false;
         runtime.config_.search_animation_at = 1000;
         runtime.AnimateSettingsSearch(1090);
         const auto expandingSearch = runtime.SettingsSearchBounds();
         if (!check(expandingSearch.width > 24 && expandingSearch.width < 248 &&
-            expandingSearch.x + expandingSearch.width == collapsedSearch.x + collapsedSearch.width,
+            expandingSearch.x + expandingSearch.width == collapsedSearch.x + collapsedSearch.width &&
+            runtime.ConfigHeaderDragArea().x + runtime.ConfigHeaderDragArea().width == expandingSearch.x,
             "search expands leftward smoothly without moving the header's other actions")) return false;
         runtime.AnimateSettingsSearch(1180);
         if (!check(runtime.SettingsSearchBounds().width == 248, "search reaches its full input width")) return false;
@@ -923,7 +1248,8 @@ namespace xiui
         if (!check(!runtime.config_.search_open && !runtime.KeyboardFocused(), "Escape releases search input without leaking into chat")) return false;
         runtime.config_.search_animation_at = 2000; runtime.AnimateSettingsSearch(2180);
         runtime.mouse_x_ = static_cast<int>(layout.SearchInput().x + 8);
-        if (!check(runtime.SettingsSearchBounds().width == 24 && runtime.SettingsSearchTarget(viewport) == 0,
+        if (!check(runtime.SettingsSearchBounds().width == 24 && runtime.SettingsSearchTarget(viewport) == 0 &&
+            hud_runtime::Contains(runtime.ConfigHeaderDragArea(), runtime.mouse_x_, runtime.mouse_y_),
             "closing search returns to the icon and releases the expanded input's old hit area")) return false;
         runtime.BeginSettingsSearch();
         runtime.config_.search_input.SelectAll(); runtime.config_.search_input.Insert("party hp"); runtime.UpdateSettingsSearch();
@@ -972,9 +1298,9 @@ namespace xiui
             "icon-only sidebar returns width to responsive content without changing the selected page")) return false;
         const auto last = compact.ModuleTab(runtime.VisibleConfigPages().size() - 1);
         for (const auto& button : {compact.ProfileSelector(), compact.ProfileAdd(), compact.ProfileActionsButton()})
-            if (!check(button.x > runtime.config_.bounds.x && button.x + button.width < runtime.config_.bounds.x + compact.SidebarWidth() &&
-                button.y > last.y + last.height && button.y + button.height < runtime.config_.bounds.y + runtime.config_.bounds.height,
-                "profile selector, creation and actions remain accessible within the compact sidebar")) return false;
+            if (!check(button.x > runtime.config_.bounds.x && button.x + button.width < runtime.config_.bounds.x + runtime.config_.bounds.width &&
+                button.y > last.y + last.height && button.y >= compact.FooterBackground().y && button.y + button.height < runtime.config_.bounds.y + runtime.config_.bounds.height,
+                "profile controls remain in a horizontal footer when the sidebar collapses")) return false;
         const auto pages = runtime.VisibleConfigPages(); const auto category = compact.ModuleTab(2);
         runtime.mouse_x_ = static_cast<int>(category.x + category.width * 0.5f); runtime.mouse_y_ = static_cast<int>(category.y + category.height * 0.5f);
         runtime.DrawConfig(viewport);
@@ -1137,7 +1463,8 @@ namespace xiui
             const auto last = layout.Submenu(topics.size() - 1, topics.size()), row = layout.OptionRow(0);
             if (!check(last.y + last.height < height - 20 && last.x + last.width < row.x &&
                 layout.Section(0, 3).x < row.x && layout.ContentArea().y <= row.y &&
-                layout.Footer().x == row.x, "secondary navigation, controls and footer occupy separate bounds")) return false;
+                layout.ContentArea().y + layout.ContentArea().height <= layout.FooterBackground().y,
+                "secondary navigation, controls and footer occupy separate bounds")) return false;
         }
         return select("player") && check(runtime.HasConfigSubmenu() && runtime.config_.section == 0 && runtime.GroupOptionIndex(0) == 0,
             "switching to Player resets the topic to General");

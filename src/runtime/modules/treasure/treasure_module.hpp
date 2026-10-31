@@ -21,16 +21,22 @@ namespace xiui
         auto SetSource(treasure_source* source) -> void { this->source_ = source; }
         auto SetSounds(ui::native_ui_sounds* sounds) -> void { this->sounds_ = sounds; }
         auto SetFocusStyle(const ui::focus_frame_style& style) -> void { this->focus_style_ = style; }
-        auto SoundTarget(float x, float y) const -> uint64_t;
+        auto LayoutSoundTarget(float x, float y) const -> uint64_t;
+        auto SoundTarget(float x, float y) const -> uint64_t
+        { return this->LayoutSoundTarget(this->state_.transform.InverseX(x), this->state_.transform.InverseY(y)); }
         auto Update(IAshitaCore* core, bool available) -> void;
         auto Open(void) -> void { this->forced_ = true; }
         auto EndInput(void) -> void { this->browse_ = false; this->pressed_.reset(); }
         auto InputFocused(void) const -> bool { return this->browse_; }
         auto BeginBrowse(void) -> bool;
         auto HandleControllerAction(controller_action action, bool repeated) -> bool;
-        auto HandleMouse(uint32_t message, float x, float y) -> bool;
+        auto LayoutHandleMouse(uint32_t message, float x, float y) -> bool;
+        auto HandleMouse(uint32_t message, float x, float y) -> bool
+        { return this->LayoutHandleMouse(message, this->state_.transform.InverseX(x), this->state_.transform.InverseY(y)); }
         auto PointerDown(void) const -> bool { return this->pointer_down_; }
-        auto Contains(float x, float y) const -> bool;
+        auto LayoutContains(float x, float y) const -> bool;
+        auto Contains(float x, float y) const -> bool
+        { return this->LayoutContains(this->state_.transform.InverseX(x), this->state_.transform.InverseY(y)); }
         auto TakeSettingsChanged(void) -> bool { return std::exchange(this->changed_, false); }
         auto Batch(bool pass) -> void;
         auto ApplyTextDefaults(const ui::theme& theme) -> void override;
@@ -38,11 +44,11 @@ namespace xiui
         auto ResetDefaults(const ui::theme& theme) -> void override;
         auto Load(const settings_store& store) -> void override;
         auto Save(const settings_store& store) const -> void override;
-        auto OptionCount(void) const -> size_t override { return visibility_start + 3; }
-        auto Option(size_t index) -> module_option override;
-        auto OnOptionChanged(size_t index) -> void override;
+        auto ContentOptionCount(void) const -> size_t override { return visibility_start + 3; }
+        auto ContentOption(size_t index) -> module_option override;
+        auto OnContentOptionChanged(size_t index) -> void override;
         auto ConfigSections(void) const -> std::span<const module_config_section> override;
-        auto ConfigSectionContains(size_t section, size_t index) -> bool override;
+        auto ContentConfigSectionContains(size_t section, size_t index) -> bool override;
         auto ShouldRender(const hud_snapshot&) const -> bool override;
         auto Render(const hud_snapshot&, const module_render_context& context) -> void override;
         auto RenderOverlay(const module_render_context& context, const ui::config_text_settings& text, float mouseX, float mouseY) const -> void;

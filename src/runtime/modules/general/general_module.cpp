@@ -12,6 +12,8 @@ namespace xiui
     {
         this->requested_window_type_ = -1;
         this->dark_backing_opacity_ = 1.0f;
+        this->appearance_theme_ = ui::native_appearance;
+        this->hud_scale_ = 1;
         this->inventory_enabled_ = true;
         this->party_enabled_ = true;
         this->grid_ = {};
@@ -29,8 +31,10 @@ namespace xiui
     auto general_module::Load(const settings_store& store) -> void
     {
         this->dark_backing_opacity_ = std::clamp(store.ReadFloat("appearance", "dark_backing_opacity", 1.0f), 0.0f, 1.0f);
+        this->appearance_theme_ = ui::AppearanceTheme(store.ReadInt("appearance", "theme", ui::native_appearance));
         this->inventory_enabled_ = store.ReadBool("modules", "inventory", true);
         this->party_enabled_ = store.ReadBool("modules", "party", true);
+        this->hud_scale_ = std::clamp(store.ReadFloat("appearance.hud", "scale", 1), .5f, 2.0f);
         this->global_text_.Load(store);
         this->config_text_.Load(store);
         this->controller_focus_.Load(store);
@@ -57,6 +61,8 @@ namespace xiui
     auto general_module::Save(const settings_store& store) const -> void
     {
         store.WriteFloat("appearance", "dark_backing_opacity", this->dark_backing_opacity_);
+        store.WriteInt("appearance", "theme", this->appearance_theme_);
+        store.WriteFloat("appearance.hud", "scale", this->hud_scale_);
         this->global_text_.Save(store);
         this->config_text_.Save(store);
         this->controller_focus_.Save(store);
@@ -76,8 +82,21 @@ namespace xiui
         store.WriteFloat("layout.grid", "opacity", this->grid_.opacity);
     }
 
-    auto general_module::Option(const size_t index) -> module_option
+    auto general_module::ContentOption(const size_t index) -> module_option
     {
+        if (index == this->AppearanceThemeOption())
+            return module_option::Choice("Theme", "Global XIUI artwork and HUD presentation. XIV1.0 Theme uses navy windows, aged metal frames, copper gauges and serif text. Saved positions and styling are preserved.", &this->appearance_theme_, ui::appearance_themes, std::size(ui::appearance_themes), module_option_group::appearance).Ordered(-50);
+        if (index >= this->HudScaleStart())
+        {
+            if (index == this->HudScaleStart()) { auto option = module_option::Slider("Global Scale (%)", "Scale all XIUIN HUD elements. Each element keeps its own scale and saved placement.", &this->hud_scale_, .5f, 2, .01f).Ordered(-200); option.display_scale = 100; return option; }
+            if (index == this->HudScaleStart() + 1) return module_option::Action("Reset global scale", "Restore Global Scale to 100%.", "Reset").Ordered(-199);
+            const auto preset = this->HudPresetFromOption(index);
+            if (!preset) return {};
+            auto option = module_option::Action(ui::hud_presets[*preset].name, "Restore this complete HUD preset, including settings, enabled modules, positions, scales and theme.", "Apply");
+            option.card = true; option.display_order = 2002 + static_cast<int>(*preset);
+            option.confirmation = "Restore this complete HUD setup?\nSettings, enabled modules, positions and scales will change.\nYour saved profiles and local input-device settings are kept.";
+            return option;
+        }
         if (index >= this->GameHudStart()) return this->game_hud_module_ != nullptr ? this->game_hud_module_->Option(index - this->GameHudStart()) : module_option{};
         if (index == this->NameplatesOption())
             return module_option::Toggle("Hide overhead names", "Hide native names above players, NPCs and enemies. Turn off to show them again. Uses the game's name-display setting.", &this->hide_nameplates_).Ordered(-90);
@@ -180,7 +199,7 @@ namespace xiui
         if (index == window_theme_option)
         {
             static constexpr const char* types[]{"Type 1", "Type 2", "Type 3", "Type 4", "Type 5", "Type 6", "Type 7", "Type 8"};
-            auto result = module_option::Choice("Window theme", "Changes Window Type for the whole game.", &this->window_type_, types, std::size(types), module_option_group::appearance).Ordered(-40);
+            auto result = module_option::Choice("Native Window Type", "Changes Window Type for the whole game. XIUI follows it when XI Theme is selected.", &this->window_type_, types, std::size(types), module_option_group::appearance).Ordered(-40);
             result.available = this->window_type_available_;
             if (!result.available) result.description = "Unavailable on this client.";
             return result;
@@ -188,8 +207,15 @@ namespace xiui
         return {};
     }
 
-    auto general_module::OnOptionChanged(const size_t index) -> void
+    auto general_module::OnContentOptionChanged(const size_t index) -> void
     {
+        if (index == this->AppearanceThemeOption()) { this->appearance_theme_ = ui::AppearanceTheme(this->appearance_theme_); return; }
+        if (index >= this->HudScaleStart())
+        {
+            if (index == this->HudScaleStart() + 1) this->hud_scale_ = 1;
+            else if (const auto preset = this->HudPresetFromOption(index)) this->preset_request_ = *preset;
+            return;
+        }
         if (index >= this->GameHudStart() && this->game_hud_module_ != nullptr)
         { this->game_hud_module_->OnOptionChanged(index - this->GameHudStart()); return; }
         if (index == this->NameplatesOption()) this->nameplates_request_ = this->hide_nameplates_;
@@ -243,9 +269,10 @@ namespace xiui
         return std::span{sections}.first(this->game_hud_module_ != nullptr ? std::size(sections) : game_hud_section);
     }
 
-    auto general_module::ConfigSectionContains(const size_t section, const size_t index) -> bool
+    auto general_module::ContentConfigSectionContains(const size_t section, const size_t index) -> bool
     {
         if (index >= this->OptionCount()) return false;
+        if (index >= this->HudScaleStart()) return section == appearance_section;
         if (index >= this->GameHudStart()) return section == game_hud_section;
         if (section == visibility_section) return (index >= this->VisibilityStart() && index < this->IconThemesStart()) || index == this->HideAllUiOption() || index == this->NameplatesOption();
         if (section == input_section) return index >= this->InputStart() && index < this->FocusStart();

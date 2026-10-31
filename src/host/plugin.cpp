@@ -101,6 +101,7 @@ namespace xiui
         this->id_ = id;
         this->keyboard_suppression_.Reset();
         const char* installPath = core != nullptr ? core->GetInstallPath() : ".";
+        this->ring_capture_.Initialize(installPath,release_version,native_build_id);
         this->native_hud_.Initialize(core);
         const bool runtimeLoaded = this->runtime_.Initialize(core, installPath, &native_hud_controller::InvokeMacro, &this->native_hud_);
 #if defined(XIUI_SINGLE_DLL)
@@ -159,6 +160,7 @@ namespace xiui
         if (this->registered_controller_ != nullptr) this->registered_controller_->RemoveCallback("xiuinative");
         if (this->registered_xinput_ != nullptr) this->registered_xinput_->RemoveCallback("xiuinative");
         callback_gate_.Wait();
+        this->ring_capture_.Shutdown();
         this->keyboard_suppression_.Reset();
         if (this->scene_target_hook_) ::MH_RemoveHook(this->scene_target_hook_);
         this->scene_target_hook_=nullptr;
@@ -280,10 +282,12 @@ namespace xiui
 
         if (is_command(argument, "help"))
         {
-            this->WriteChat("[XIUI] /xiui edit|save|show|hide|reload|reset|status");
+            this->WriteChat("[XIUI] /xiui setup|edit|save|show|hide|reload|reset|status");
+            this->WriteChat("[XIUI] /xiui preset classic|xiv; /xiui party preset classic|xiv");
             this->WriteChat("[XIUI] /xiui notify test|clear|status; /xiui container preview|hide; /xiui gamehud");
             this->WriteChat("[XIUI] /xiui commands; /xiui commands status; /xiui theme status");
             this->WriteChat("[XIUI] /readycheck [yes|no|close|status]; /xiui readycheck for settings");
+            this->WriteChat("[XIUI] /xiui rings status|host|capture [stop|status]");
             return true;
         }
 
@@ -298,6 +302,12 @@ namespace xiui
             this->WriteChat(this->runtime_.DescribeNpcCapture().c_str());
             return true;
         }
+        if (::_stricmp(argument,"rings capture")==0 || ::_stricmp(argument,"rings capture start")==0)
+        { this->ring_capture_.Request(ring_shader_capture::request::start); return true; }
+        if (::_stricmp(argument,"rings capture stop")==0)
+        { this->ring_capture_.Request(ring_shader_capture::request::stop); return true; }
+        if (::_stricmp(argument,"rings capture status")==0)
+        { this->ring_capture_.Request(ring_shader_capture::request::status); return true; }
         if (::_stricmp(argument, "rings host") == 0)
         {
             char message[320]{};
@@ -489,10 +499,13 @@ namespace xiui
         D3DSURFACE_DESC depthDesc{};
         this->last_scene_depth_format_=this->scene_depth_ && SUCCEEDED(this->scene_depth_->GetDesc(&depthDesc)) ? depthDesc.Format : D3DFMT_UNKNOWN;
         this->last_scene_camera_=this->scene_world_camera_valid_ ? "terrain" : this->scene_camera_valid_ ? "fixed-function" : "missing";
-        this->last_world_overlay_=this->world_overlay_drawn_ ? (this->world_overlay_at_switch_ ? "target boundary" : "scene end") : "none";
+        this->last_world_overlay_=this->world_overlay_drawn_ ? (this->world_overlay_at_switch_ ? "target boundary" :
+            this->world_overlay_at_end_ ? "scene end" : "scene copy") : "none";
         this->last_scene_opaque_draws_=this->scene_opaque_draws_;
         this->last_scene_opaque_after_overlay_=this->scene_opaque_after_overlay_;
-        if (this->scene_world_camera_valid_)
+        for (const auto& message : this->ring_capture_.Tick(this->device_,{this->last_scene_camera_,this->last_world_overlay_,this->scene_hook_status_}))
+            this->WriteChat(message.c_str());
+        if (this->scene_camera_valid_)
         {
             ++this->ring_probe_.frames;
             this->ring_probe_.overlay_misses+=!this->world_overlay_drawn_;
@@ -650,13 +663,21 @@ namespace xiui
         return window != nullptr && ::GetForegroundWindow() == window;
     }
 
+    auto plugin::KeyboardCaptureState(const bool foreground) const -> uint32_t
+    {
+        if (!foreground) return 0;
+        const bool modified = ((::GetAsyncKeyState(VK_CONTROL) | ::GetAsyncKeyState(VK_MENU) | ::GetAsyncKeyState(VK_SHIFT) |
+            ::GetAsyncKeyState(VK_LWIN) | ::GetAsyncKeyState(VK_RWIN)) & 0x8000) != 0;
+        return FilterKeyboardCapture(this->runtime_.KeyboardInputState(), modified);
+    }
+
     auto __stdcall plugin::KeyboardStateCallback(LPDIRECTINPUTDEVICE8A, const DWORD size, LPVOID data) -> HRESULT
     {
         auto callback = callback_gate_.Enter();
         if (!callback || data == nullptr || size != 256) return DI_OK;
         const bool foreground = callback->KeyboardForeground();
         if (!foreground) callback->keyboard_suppression_.Suspend();
-        callback->keyboard_suppression_.FilterState(static_cast<uint8_t*>(data), size, foreground && callback->runtime_.ChatFocused());
+        callback->keyboard_suppression_.FilterState(static_cast<uint8_t*>(data), size, callback->KeyboardCaptureState(foreground));
         return DI_OK;
     }
 
@@ -666,7 +687,7 @@ namespace xiui
         if (!callback || FAILED(static_cast<HRESULT>(result)) || data == nullptr || count == nullptr || *count > 4096 || objectSize < 8 || objectSize > sizeof(DIDEVICEOBJECTDATA)) return DI_OK;
         const bool foreground = callback->KeyboardForeground();
         if (!foreground) callback->keyboard_suppression_.Suspend();
-        callback->keyboard_suppression_.FilterData(data, objectSize, *count, foreground && callback->runtime_.ChatFocused(),
+        callback->keyboard_suppression_.FilterData(data, objectSize, *count, callback->KeyboardCaptureState(foreground),
             (flags & DIGDD_PEEK) != 0, static_cast<int32_t>(result));
         return DI_OK;
     }
@@ -696,23 +717,26 @@ namespace xiui
 
     auto plugin::CaptureSceneCamera(void) -> void
     {
+        auto capture=this->ring_capture_.Trace(this->device_);
         if (this->device_ == nullptr) return;
         DWORD shader{},depth{},write{},blend{};
         if (FAILED(this->device_->GetVertexShader(&shader)) || FAILED(this->device_->GetRenderState(D3DRS_ZENABLE,&depth)) ||
-            FAILED(this->device_->GetRenderState(D3DRS_ZWRITEENABLE,&write)) || FAILED(this->device_->GetRenderState(D3DRS_ALPHABLENDENABLE,&blend)) ||
-            !depth || !write || blend) return;
+            FAILED(this->device_->GetRenderState(D3DRS_ZWRITEENABLE,&write)) || FAILED(this->device_->GetRenderState(D3DRS_ALPHABLENDENABLE,&blend))) return;
+        if (!depth) { capture.result=ring_camera_result::depth_disabled; return; }
+        if (!write) { capture.result=ring_camera_result::depth_write_disabled; return; }
+        if (blend) { capture.result=ring_camera_result::alpha_blended; return; }
         bool world = false;
         if ((shader & 1) != 0)
         {
-            static constexpr DWORD worldDeclaration[]{536870912,1073872896,1073872899,1074003973,1073807367,1073872911,4294967295};
             DWORD declaration[16]{}, bytes=sizeof(declaration);
             world = SUCCEEDED(this->device_->GetVertexShaderDeclaration(shader,declaration,&bytes)) &&
-                bytes==sizeof(worldDeclaration) && std::memcmp(declaration,worldDeclaration,bytes)==0;
-            if (!world) return;
+                bytes<=sizeof(declaration) && bytes%sizeof(DWORD)==0 && IsTerrainVertexDeclaration({declaration,bytes/sizeof(DWORD)});
+            if (!world) { capture.result=ring_camera_result::declaration_unrecognized; return; }
         }
-        else if ((shader & D3DFVF_POSITION_MASK)!=D3DFVF_XYZ || (shader & D3DFVF_NORMAL)==0) return;
+        else if ((shader & D3DFVF_POSITION_MASK)!=D3DFVF_XYZ || (shader & D3DFVF_NORMAL)==0)
+        { capture.result=ring_camera_result::vertex_format_unrecognized; return; }
         Microsoft::WRL::ComPtr<IDirect3DSurface8> target;
-        if (FAILED(this->device_->GetRenderTarget(&target))) return;
+        if (FAILED(this->device_->GetRenderTarget(&target))) { capture.result=ring_camera_result::target_unavailable; return; }
         if (this->scene_target_ && target==this->scene_target_)
         {
             ++this->scene_opaque_draws_;
@@ -720,6 +744,7 @@ namespace xiui
         }
         if (this->scene_world_camera_valid_)
         {
+            capture.result=ring_camera_result::terrain_camera_retained;
             if (world && target==this->scene_target_)
             {
                 D3DMATRIX view{},projection{};
@@ -738,19 +763,23 @@ namespace xiui
             }
             return;
         }
-        if (!world && this->scene_target_ && target!=this->scene_target_) return;
+        if (!world && this->scene_target_ && target!=this->scene_target_)
+        { capture.result=ring_camera_result::different_scene_target; return; }
         D3DMATRIX projection{};
-        if (FAILED(this->device_->GetTransform(D3DTS_PROJECTION, &projection)) ||
-            std::abs(projection._44) > 0.001f || std::abs(projection._34) < 0.001f)
-            return;
+        if (FAILED(this->device_->GetTransform(D3DTS_PROJECTION, &projection)))
+        { capture.result=ring_camera_result::projection_unavailable; return; }
+        if (std::abs(projection._44) > 0.001f || std::abs(projection._34) < 0.001f)
+        { capture.result=ring_camera_result::projection_not_perspective; return; }
         D3DMATRIX view{};
         D3DVIEWPORT8 viewport{};
         if (FAILED(this->device_->GetTransform(D3DTS_VIEW, &view)) || FAILED(this->device_->GetViewport(&viewport)))
-            return;
+        { capture.result=ring_camera_result::transform_unavailable; return; }
         // The sky uses a rotation-only view before the translated world camera.
         if (std::abs(view._41) + std::abs(view._42) + std::abs(view._43) < 0.001f)
-            return;
-        // Fixed-function draws are provisional; the actual terrain program owns the scene camera.
+        { capture.result=ring_camera_result::sky_camera; return; }
+        capture.result=world ? ring_camera_result::accepted_terrain : ring_camera_result::accepted_fixed;
+        // Native fixed-function worlds are valid; a recognized terrain shader takes precedence.
+        const bool refreshDiagnostics=!this->scene_camera_valid_ || world;
         if (!this->scene_target_ || target!=this->scene_target_) ++this->scene_opaque_draws_;
         this->scene_target_=target;
         this->device_->GetDepthStencilSurface(this->scene_depth_.ReleaseAndGetAddressOf());
@@ -759,7 +788,7 @@ namespace xiui
         this->scene_viewport_ = viewport;
         this->scene_camera_valid_ = true;
         this->scene_world_camera_valid_ = world;
-        if (world)
+        if (refreshDiagnostics)
         {
             this->scene_depth_mode_=depth;
             this->device_->GetRenderState(D3DRS_ZFUNC,&this->scene_depth_function_);
@@ -797,7 +826,7 @@ namespace xiui
 
     auto plugin::DrawWorldOverlay(bool sceneEnd) -> void
     {
-        if ((this->world_overlay_drawn_ && !sceneEnd) || !this->scene_world_camera_valid_ || !this->device_) return;
+        if ((this->world_overlay_drawn_ && !sceneEnd) || !this->scene_camera_valid_ || !this->device_) return;
         DWORD shader{};
         if (!sceneEnd && (FAILED(this->device_->GetVertexShader(&shader)) || (shader & 1)!=0 ||
             (shader & D3DFVF_POSITION_MASK)!=D3DFVF_XYZRHW)) return;

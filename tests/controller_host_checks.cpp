@@ -23,6 +23,7 @@ namespace xiui
 
         static auto __stdcall InputState(void* instance) -> uint32_t { return static_cast<state*>(instance)->routing; }
         static auto __stdcall KeyboardFocused(void*) -> BOOL { return FALSE; }
+        static auto __stdcall KeyboardState(void*) -> uint32_t { return 0; }
         static auto __stdcall Status(void*, const controller_status*) -> void {}
         static auto __stdcall Controller(void* instance, const controller_event* event) -> BOOL
         {
@@ -50,6 +51,7 @@ namespace xiui
             host.instance_ = &value;
             host.api_.controller_input_state = &InputState;
             host.api_.chat_focused = &KeyboardFocused;
+            host.api_.keyboard_input_state = &KeyboardState;
             host.api_.handle_controller = &Controller;
             host.api_.update_controller_status = &Status;
             host.api_.render = &Render;

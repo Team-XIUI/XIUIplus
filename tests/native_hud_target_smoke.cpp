@@ -55,7 +55,8 @@ namespace xiui
             const auto link = [](auto& bytes, const size_t at, const auto address) { const auto p = reinterpret_cast<uintptr_t>(address); std::memcpy(bytes.data() + at, &p, 4); };
             struct panel
             {
-                std::array<uint8_t, 0xD4> primitive{}, owner{}, resource{};
+                std::array<uint8_t, 0xD4> primitive{}, resource{};
+                std::array<uint8_t, 0x180> owner{};
                 std::array<uint8_t, 24> node{}, component_node{};
                 std::array<uint8_t, 0x60> component{};
                 std::array<uint8_t, 32> definition{};
@@ -69,7 +70,7 @@ namespace xiui
                 {
                     std::array<int16_t, 2> result{}; std::memcpy(result.data(), primitive.data() + 0x52, 4); return result;
                 }
-            } command, magic;
+            } command, magic, details, money;
             const auto initialize = [&](panel& value, const char* name, const std::array<int16_t, 4>& frame, const uint8_t anchor)
             {
                 link(value.primitive, 4, value.resource.data()); link(value.primitive, 0xC, value.owner.data());
@@ -110,8 +111,152 @@ namespace xiui
             controller.BeforeDraw(magicPointer);
             if (!check(magic.Coordinates()[1] == 610, "shrinking a bottom-anchored list preserves its bottom edge")) return false;
             controller.Shutdown();
-            return check(command.Coordinates() == std::array<int16_t, 2>{16, 760} && magic.Coordinates() == std::array<int16_t, 2>{130, 400},
-                "shutdown restores both panels' distinct native positions");
+            if (!check(command.Coordinates() == std::array<int16_t, 2>{16, 760} && magic.Coordinates() == std::array<int16_t, 2>{130, 400},
+                "shutdown restores both panels' distinct native positions")) return false;
+
+            initialize(command, "menu    shop    ", {16, 48, 272, 238}, 0);
+            initialize(magic, "menu    shopmain", {16, 256, 128, 296}, 0);
+            initialize(details, "menu    iteminfo", {16, 240, 382, 296}, 0);
+            initialize(money, "menu    money   ", {16, 240, 128, 296}, 0);
+            link(magic.node, 0, details.node.data()); link(details.node, 0, money.node.data());
+            controller.manager_ = reinterpret_cast<uintptr_t>(manager.data());
+            controller.reposition_ = reinterpret_cast<uintptr_t>(&Position); controller.state_.menu_available = true;
+            const auto shopCalls = calls;
+            for (const char* name : {"menu    shop    ", "menu    shopbuy "})
+            {
+                std::memcpy(magic.resource.data() + 0x46, name, 16);
+                for (const bool top : {false, true})
+                {
+                    controller.Update({true, 400, 1000, 2560, 1440, top, 200});
+                    for (const auto* value : {&command, &magic, &details, &money})
+                        controller.BeforeDraw(reinterpret_cast<uintptr_t>(value->primitive.data()));
+                    if (!check(controller.State().menu_count == 0 && controller.State().menu_visible && calls == shopCalls &&
+                        command.Coordinates() == std::array<int16_t, 2>{16, 48} && magic.Coordinates() == std::array<int16_t, 2>{16, 256} &&
+                        details.Coordinates() == std::array<int16_t, 2>{16, 240} && money.Coordinates() == std::array<int16_t, 2>{16, 240},
+                        "shop lists, details and gil retain native positions and input visibility under either command anchor")) return false;
+                }
+            }
+            details.definition[0x13] = money.definition[0x13] = 2;
+            controller.Update({true, 400, 1000, 2560, 1440});
+            details.Height(120);
+            controller.BeforeDraw(reinterpret_cast<uintptr_t>(details.primitive.data()));
+            if (!check(controller.State().menu_count == 0 && calls == shopCalls && details.Coordinates()[1] == 240,
+                "shop details stay native through resizing even with bottom-anchored frames")) return false;
+            command.primitive[0x70] = magic.primitive[0x70] = 1;
+            details.definition[0x13] = money.definition[0x13] = 0;
+            controller.Update({true, 400, 1000, 2560, 1440});
+            if (!check(controller.State().menu_count == 0 && !controller.State().menu_visible,
+                "top-anchored details and gil stay excluded after the shop closes")) return false;
+            details.definition[0x13] = 2;
+            controller.Update({true, 400, 1000, 2560, 1440});
+            if (!check(controller.State().menu_count == 1 && details.Coordinates() == std::array<int16_t, 2>{300, 630},
+                "ordinary bottom-anchored item details remain supported outside shops")) return false;
+            command.primitive[0x70] = magic.primitive[0x70] = 0;
+            controller.Update({true, 400, 1000, 2560, 1440});
+            if (!check(controller.State().menu_count == 0 && controller.State().menu_visible &&
+                details.Coordinates() == std::array<int16_t, 2>{16, 240},
+                "opening a shop restores previously moved item details to their native position")) return false;
+            std::memcpy(magic.resource.data() + 0x46, "menu    shopmain", 16);
+            for (const bool top : {false, true})
+            {
+                controller.Update({true, 400, 1000, 2560, 1440, top, 200});
+                controller.BeforeDraw(reinterpret_cast<uintptr_t>(magic.primitive.data()));
+                if (!check(controller.State().menu_count == 1 && controller.State().menu_visible &&
+                    controller.State().width == 112 && controller.State().height == 40 &&
+                    magic.Coordinates() == std::array<int16_t, 2>{300, static_cast<int16_t>(top ? 150 : 710)} &&
+                    command.Coordinates() == std::array<int16_t, 2>{16, 48} &&
+                    details.Coordinates() == std::array<int16_t, 2>{16, 240} && money.Coordinates() == std::array<int16_t, 2>{16, 240},
+                    "the main Buy/Sell choice follows the command anchor independently of native shop panels")) return false;
+            }
+            controller.Update({});
+            if (!check(magic.Coordinates() == std::array<int16_t, 2>{16, 256},
+                "disabling command movement restores the main Buy/Sell choice")) return false;
+            initialize(magic, "menu    shopsell", {16, 888, 128, 928}, 2);
+            for (const bool top : {false, true})
+            {
+                controller.Update({true, 400, 1000, 2560, 1440, top, 200});
+                controller.BeforeDraw(reinterpret_cast<uintptr_t>(magic.primitive.data()));
+                if (!check(controller.State().menu_count == 1 && controller.State().menu_visible &&
+                    magic.Coordinates() == std::array<int16_t, 2>{300, static_cast<int16_t>(top ? 150 : 710)} &&
+                    command.Coordinates() == std::array<int16_t, 2>{16, 48} &&
+                    details.Coordinates() == std::array<int16_t, 2>{16, 240} && money.Coordinates() == std::array<int16_t, 2>{16, 240},
+                    "sell confirmation follows the command anchor without moving shop lists, details or gil")) return false;
+            }
+            controller.Update({});
+            if (!check(magic.Coordinates() == std::array<int16_t, 2>{16, 888},
+                "disabling command movement restores sell confirmation")) return false;
+            magic.primitive[0x70] = money.primitive[0x70] = 1;
+            for (const char* name : {"menu    equip   ", "menu    inspect "})
+            {
+                initialize(command, name, {16, 48, 198, 238}, 2);
+                const auto nativeCalls = calls;
+                for (const bool top : {false, true})
+                {
+                    controller.Update({true, 400, 1000, 2560, 1440, top, 200});
+                    controller.BeforeDraw(reinterpret_cast<uintptr_t>(command.primitive.data()));
+                    controller.BeforeDraw(reinterpret_cast<uintptr_t>(details.primitive.data()));
+                    if (!check(controller.State().menu_count == 0 && controller.State().menu_visible && calls == nativeCalls &&
+                        command.Coordinates() == std::array<int16_t, 2>{16, 48} && details.Coordinates() == std::array<int16_t, 2>{16, 240},
+                        "equipment, inspection and their item details stay native under either command anchor")) return false;
+                }
+                command.primitive[0x70] = 1;
+                controller.Update({true, 400, 1000, 2560, 1440});
+                if (!check(controller.State().menu_count == 1 && details.Coordinates() == std::array<int16_t, 2>{300, 630},
+                    "item details remain movable outside equipment and inspection")) return false;
+                command.primitive[0x70] = 0;
+                controller.Update({true, 400, 1000, 2560, 1440});
+                controller.BeforeDraw(reinterpret_cast<uintptr_t>(details.primitive.data()));
+                if (!check(controller.State().menu_count == 0 && details.Coordinates() == std::array<int16_t, 2>{16, 240},
+                    "opening equipment or inspection restores managed details and leaves them native at draw time")) return false;
+            }
+            initialize(magic, "menu    comment ", {16, 872, 382, 928}, 2);
+            magic.primitive[0x70] = 0;
+            std::array<uint8_t, 20> commentVtable{};
+            link(commentVtable, 0x10, &Position); link(magic.owner, 0, commentVtable.data());
+            controller.comment_draw_ = reinterpret_cast<uintptr_t>(&Position);
+            magic.owner[0x16] = 1;
+            std::memcpy(magic.owner.data() + 0x95, "A real comment", 15);
+            for (const bool top : {false, true})
+            {
+                controller.Update({true, 400, 1000, 2560, 1440, top, 200});
+                controller.BeforeDraw(reinterpret_cast<uintptr_t>(magic.primitive.data()));
+                if (!check(controller.State().menu_count == 1 && controller.State().menu_visible &&
+                    controller.State().width == 366 && controller.State().height == 56 &&
+                    magic.Coordinates() == std::array<int16_t, 2>{300, static_cast<int16_t>(top ? 150 : 694)} &&
+                    command.Coordinates() == std::array<int16_t, 2>{16, 48} && details.Coordinates() == std::array<int16_t, 2>{16, 240},
+                    "bazaar comments follow the command anchor while inspection and its details stay native")) return false;
+            }
+            magic.owner[0x95] = 0;
+            controller.Update({true, 400, 1000, 2560, 1440});
+            if (!check(controller.ShouldHide(reinterpret_cast<uintptr_t>(magic.primitive.data())) && controller.State().menu_count == 0 &&
+                controller.State().menu_visible && magic.Coordinates() == std::array<int16_t, 2>{16, 872},
+                "empty viewed comments ignore stale bytes, leave command bounds and retain native input ownership")) return false;
+            magic.owner[0x95 + 82] = 'X';
+            if (!check(!controller.ShouldHide(reinterpret_cast<uintptr_t>(magic.primitive.data())),
+                "text on the third comment line becomes visible without waiting for a menu update")) return false;
+            magic.owner[0x95 + 82] = 0;
+            for (const uint8_t mode : std::array<uint8_t, 3>{0, 2, 3})
+            {
+                magic.owner[0x16] = mode;
+                if (!check(!controller.ShouldHide(reinterpret_cast<uintptr_t>(magic.primitive.data())),
+                    "empty comment editors remain visible")) return false;
+            }
+            magic.owner[0x16] = 1;
+            for (size_t line = 0; line < 3; ++line)
+            {
+                std::memset(magic.owner.data() + 0x95 + line * 41, ' ', 40);
+                magic.owner[0x95 + line * 41 + 40] = 0;
+            }
+            if (!check(controller.ShouldHide(reinterpret_cast<uintptr_t>(magic.primitive.data())),
+                "whitespace-only viewed comments are hidden")) return false;
+            controller.comment_draw_ = 0;
+            if (!check(!controller.ShouldHide(reinterpret_cast<uintptr_t>(magic.primitive.data())),
+                "unsupported native comment readers leave the window visible")) return false;
+            controller.Update({});
+            if (!check(magic.Coordinates() == std::array<int16_t, 2>{16, 872},
+                "disabling command movement restores bazaar comments")) return false;
+            controller.Shutdown();
+            return true;
         }
 
         static auto Run(void) -> bool

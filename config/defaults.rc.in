@@ -12,3 +12,6 @@
 312 RCDATA "@CMAKE_SOURCE_DIR@/third_party/libwebp/COPYING"
 313 RCDATA "@CMAKE_SOURCE_DIR@/third_party/libwebp/PATENTS"
 314 RCDATA "@CMAKE_SOURCE_DIR@/third_party/miniz/LICENSE"
+315 RCDATA "@CMAKE_SOURCE_DIR@/config/hud-classic.ini"
+316 RCDATA "@CMAKE_SOURCE_DIR@/config/hud-xiv.ini"
+317 RCDATA "@CMAKE_SOURCE_DIR@/config/hud-xivclassic.ini"

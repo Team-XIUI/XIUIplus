@@ -7,9 +7,11 @@
 #include "settings/layout_viewport.hpp"
 #include "config/config_controls.hpp"
 #include "config/config_session.hpp"
+#include "config/setup_wizard.hpp"
 #include "config/color_picker.hpp"
 #include "config/experience_display_editor.hpp"
 #include "config/settings_search.hpp"
+#include "config/settings_topics.hpp"
 #include "input/cursor_renderer.hpp"
 #include "modules/experience/experience_module.hpp"
 #include "modules/module_registry.hpp"
@@ -97,11 +99,12 @@ namespace xiui
         auto HandleController(const controller_event& event) -> bool;
         auto ControllerCapture(void) const -> controller_capture_mode;
         auto ControllerInputState(void) const -> uint32_t;
+        auto KeyboardInputState(void) const -> uint32_t;
         auto CrossbarSettings(void) const -> controller_crossbar_settings;
         auto ControllerCaptured(void) const -> bool { return this->ControllerCapture() != controller_capture_mode::none; }
         auto UpdateControllerStatus(const controller_status& status) -> void;
         auto ChatFocused(void) const -> bool { return (this->ContextVisible(this->chat_) && (this->chat_.Focused() || this->chat_.HistoryFocused())) || (this->ContextVisible(this->chat_second_) && this->chat_second_.HistoryFocused()); }
-        auto KeyboardFocused(void) const -> bool { return this->treasure_.InputFocused() || (this->ActionBarsInputAvailable(false, true) && this->actionbars_.KeyboardCapture()) || (this->SatchelInputAvailable(true) && this->satchel_.InputFocused()) || (this->visible_ && this->confirmation_key_release_ != 0) || (this->ContextVisible(this->chat_) && this->chat_.Focused()) || (this->visible_ && this->controller_surface_ == controller_surface::picker) || (this->visible_ && this->editing_ && (this->config_.search_open || this->config_.slider_input.Focused() || this->config_.text_input.Focused() || this->config_.choice_input.Opened() || this->profile_name_.Focused() || this->profile_dropdown_ || this->profile_actions_)); }
+        auto KeyboardFocused(void) const -> bool { if (!this->GameWindowFocused() || this->window_input_suspended_) return false; return this->SetupVisible() || this->setup_.key_releases.any() || (this->editing_ && this->config_.active_color != nullptr && this->config_.color_picker.EditingHex()) || this->treasure_.InputFocused() || (this->ActionBarsInputAvailable(false, true) && this->actionbars_.KeyboardCapture()) || (this->SatchelInputAvailable(true) && this->satchel_.InputFocused()) || (this->visible_ && this->confirmation_key_release_ != 0) || (this->ContextVisible(this->chat_) && this->chat_.Focused()) || (this->visible_ && this->controller_surface_ == controller_surface::picker) || (this->visible_ && this->editing_ && (this->config_.search_open || this->config_.slider_input.Focused() || this->config_.text_input.Focused() || this->config_.choice_input.Opened() || this->profile_name_.Focused() || this->profile_dropdown_ || this->profile_actions_)); }
         auto CaptureChat(runtime_state& state) const -> void { this->chat_.Capture(state); }
         auto RestoreChat(const runtime_state& state) -> void
         {
@@ -164,10 +167,13 @@ namespace xiui
         {
             none,
             drag_module,
+            scale_module,
             drag_config,
             resize_config,
             module_toolbar,
             close_config,
+            close_color,
+            close_profile,
             color_pick,
             option_slider,
             option_scrollbar,
@@ -202,6 +208,7 @@ namespace xiui
         recast_source recast_source_{};
         recast_module recast_{};
         target_module target_{};
+        world_target_bar_module world_target_scale_{this->target_.Settings().world_bar};
         target_cast_module target_cast_{this->target_};
         target_ring_renderer target_rings_{};
         target_child_module target_recipient_{this->target_, false};
@@ -274,7 +281,7 @@ namespace xiui
         world_info_module world_info_{};
         std::array<world_info_part_module, 4> world_parts_{{{this->world_info_, 0}, {this->world_info_, 1}, {this->world_info_, 2}, {this->world_info_, 3}}};
         command_menu_module commands_{};
-        std::array<hud_module*, 8> extras_pages_{};
+        std::array<hud_module*, 9> extras_pages_{};
         native_ui_state native_ui_{};
         module_visibility_source visibility_source_{};
         module_visibility_context visibility_context_{};
@@ -292,6 +299,25 @@ namespace xiui
         module_registry modules_{};
         std::vector<module_state> default_module_states_{};
         config_session config_{};
+        ui::setup_session setup_{};
+        auto LoadSetup(const settings_store& store, bool fresh) -> void;
+        auto BeginSetup(void) -> void;
+        auto UpdateSetup(void) -> void;
+        auto SetupVisible(void) const -> bool;
+        auto SetupModule(void) -> hud_module*;
+        auto SetupModules(void) const -> std::array<const hud_module*, 12>;
+        auto SetupModuleVisible(const hud_module& module) const -> bool;
+        auto SetupNativeHudMask(void) const -> uint32_t;
+        auto SetupBounds(const D3DVIEWPORT8& viewport) -> rect;
+        auto SetupItems(const D3DVIEWPORT8& viewport) -> std::vector<ui::setup_item>;
+        auto ActivateSetup(ui::setup_control control) -> void;
+        auto FinishSetup(bool settings = false) -> void;
+        auto HandleSetupAction(controller_action action, bool repeated) -> bool;
+        auto HandleSetupKey(WPARAM key, LPARAM flags, bool blocked) -> bool;
+        auto HandleSetupMouse(uint32_t message, WPARAM buttons, bool blocked, const D3DVIEWPORT8& viewport) -> bool;
+        auto DrawSetup(const hud_snapshot& snapshot, const D3DVIEWPORT8& viewport) -> void;
+        std::array<party_module, 3> basic_preset_samples_{party_module{}, party_module{}, party_module{}};
+        bool basic_preset_samples_ready_{};
         hud_module* interaction_module_{};
         enum class controller_surface : uint8_t { none, picker, config, chat, chat2, party, enemies, ready_check, equipment, target_status, buffs, debuffs, pet_status, notifications, satchel, hotbar, crossbar, treasure };
         uint64_t controller_notification_id_{};
@@ -320,12 +346,11 @@ namespace xiui
         uint64_t next_profile_identity_update_{};
         ui::text_input profile_name_{};
         bool profile_dropdown_{};
-        enum class profile_dialog : uint8_t { create, duplicate, share, import_profile, delete_profile, confirm_action, reset_defaults, rename };
+        enum class profile_dialog : uint8_t { create, duplicate, share, import_profile, delete_profile, confirm_action, reset_defaults, rename, reset_module };
         profile_dialog profile_dialog_{profile_dialog::create};
-        bool profile_actions_{}, profile_key_copied_{};
+        bool profile_actions_{}, profile_legacy_import_{};
         size_t profile_source_{};
-        std::string profile_share_key_{};
-        ui::share_key_view profile_key_view_{};
+        std::filesystem::path profile_file_{};
         std::optional<settings_store> profile_import_{};
         bool profile_import_lua_{}, profile_lua_activate_{}, profile_lua_links_{}, profile_lua_controls_{}, profile_lua_done_{};
         ui::text_input profile_lua_path_{};
@@ -343,7 +368,44 @@ namespace xiui
         bool settings_error_reported_{};
         bool visible_{true};
         bool editing_{false};
+        hud_snapshot layout_snapshot_{};
         bool layout_initialized_{false};
+        struct scale_gesture
+        {
+            hud_module* module{};
+            ui::hud_scale original{};
+            rect original_bounds{}, visual{}, layout{};
+            ui::point pointer{};
+            bool keyboard{}, fine{}, resizing_bounds{};
+        } scale_gesture_{};
+        std::array<bool, 256> scale_key_release_{};
+        D3DVIEWPORT8 hud_viewport_{0, 0, 2560, 1440, 0, 1};
+        auto ResolveHudTransforms(const D3DVIEWPORT8& viewport) -> void;
+        auto LayoutBounds(const hud_module& module) const -> rect;
+        auto ScaleGrip(const hud_module& module) const -> rect;
+        auto EditGripAt(float x, float y) const -> hud_module*;
+        auto BeginScale(hud_module& module, bool keyboard = false) -> void;
+        auto UpdateScale(float x, float y) -> void;
+        auto ApplyScaleFactors(float x, float y) -> void;
+        auto FinishScale(bool apply) -> void;
+        auto HandleScaleAction(controller_action action, bool repeated) -> bool;
+        auto DrawScaleGrips(void) -> void;
+        auto SetBasicSettings(bool basic, bool save = true) -> void;
+        auto SettingsModeBounds(void) const -> rect;
+        auto BasicSettingBounds(size_t index) const -> rect;
+        auto DrawBasicSettings(const D3DVIEWPORT8& viewport) -> void;
+        auto ProcessBasicSettingsClick(const D3DVIEWPORT8& viewport) -> bool;
+        auto BasicControllerItems(config_controller_region region) -> std::vector<config_controller_item>;
+        auto ActivateBasicItem(size_t index, controller_action action, bool repeated) -> bool;
+        auto ApplyHudPreset(size_t preset) -> bool;
+        hud_module* module_menu_target_{};
+        int module_menu_selection_{};
+        std::optional<int> module_menu_pressed_{};
+        auto ModuleMenuAvailable(const hud_module& module) const -> bool;
+        auto OpenModuleMenu(hud_module& module, const rect& anchor) -> bool;
+        auto TryOpenModuleMenu(const D3DVIEWPORT8& viewport) -> bool;
+        auto ResetModule(hud_module& module, bool settings) -> bool;
+        auto ConfirmModuleReset(hud_module& module) -> void;
         layout_viewport layout_viewport_{};
         std::optional<settings_store> pending_layout_settings_{};
         bool mouse_block_state_saved_{false};
@@ -360,6 +422,7 @@ namespace xiui
         const hud_module* hud_target_module_{};
         HWND mouse_capture_window_{};
         interaction interaction_{interaction::none};
+        rect close_button_{};
         float drag_offset_x_{};
         float drag_offset_y_{};
         ui::point drag_origin_{};
@@ -372,6 +435,10 @@ namespace xiui
 
         auto SetEditing(bool editing, bool playSound = true) -> bool;
         auto ContextVisible(const hud_module& module) const -> bool;
+        auto ConfigPreview(const hud_module& module) const -> bool;
+        auto ModuleDisplayed(const hud_module& module) const -> bool;
+        auto ModuleEditControlsVisible(const hud_module& module) const -> bool;
+        auto ToggleLayoutEditMode(void) -> void;
         auto TargetStatusVisible(void) const -> bool;
         auto UpdateVisibilityContext(void) -> void;
         auto ControllerSurfaceVisible(void) const -> bool;
@@ -379,7 +446,7 @@ namespace xiui
         auto ControllerPresented(void) const -> bool;
         auto ReleaseControllerFocus(bool preserveExpandedHistory = false) -> void;
         auto UpdateControllerFocus(void) -> void;
-        auto BeginControllerFocus(controller_surface surface) -> bool;
+        auto BeginControllerFocus(controller_surface surface, bool playSound = true) -> bool;
         auto ControllerSurfaces(void) const -> std::vector<controller_surface>;
         auto ControllerSurfaceName(controller_surface surface) const -> const char*;
         auto ControllerCommand(std::string_view command) -> bool;
@@ -394,6 +461,13 @@ namespace xiui
         auto SelectHudTarget(uint32_t id, uint32_t index) -> bool;
         auto ControllerNativeBusy(void) const -> bool;
         auto GameWindowFocused(void) const -> bool;
+        auto SuspendWindowInput(void) -> void;
+        auto UpdateNativeWindowFocus(void) -> void;
+        auto NativeWindowCycle(void) const -> bool;
+        bool window_input_suspended_{}, native_window_cycle_{};
+        native_window_focus observed_native_focus_{};
+        uintptr_t observed_native_focus_id_{};
+        uint64_t observed_native_focus_name_{};
         auto ControllerNativeMenuOpen(void) const -> bool;
         auto HandleControllerConfig(controller_action action, bool repeated) -> bool;
         auto DrawControllerConfig(const D3DVIEWPORT8& viewport) -> void;
@@ -405,6 +479,7 @@ namespace xiui
         auto ActivateControllerConfigItem(const config_controller_item& item, controller_action action, bool repeated) -> bool;
         auto RefreshControllerConfigFocus(void) -> void;
         auto ConfigResizeEdges(float x, float y) const -> uint8_t;
+        auto ConfigHeaderDragArea(void) const -> rect;
         auto ToggleConfigSidebar(const D3DVIEWPORT8& viewport) -> void;
         auto BuildSettingsSearch(void) -> void;
         auto BeginSettingsSearch(void) -> void;
@@ -456,6 +531,8 @@ namespace xiui
         auto HandleTreasureKey(WPARAM key, LPARAM flags, bool blocked) -> bool;
         auto HandleTreasureMouse(uint32_t message, float x, float y, bool blocked) -> bool;
         auto ActionBarsNativePaletteOwned(bool candidate = false) const -> bool;
+        auto ActionBarsNativeMenuAllowed(bool keyboardReplacement = false) const -> bool;
+        auto PrepareActionBarsExecutor(bool keyboardReplacement = false) -> void;
         auto ActionBarsInputAvailable(bool keyboardReplacement = false, bool pointer = false) const -> bool;
         auto ActionBarsPointerOwns(float x, float y) const -> bool;
         auto ActionBarsExecutionAvailable(bool keyboardReplacement = false) const -> bool;
@@ -480,6 +557,7 @@ namespace xiui
         auto CaptureSettings(void) const -> settings_store;
         auto DrainSettings(void) const -> bool;
         auto DrawProfileControls(void) -> void;
+        auto DrawSettingsFooter(void) -> void;
         auto DrawProfileOverlay(const D3DVIEWPORT8& viewport) -> void;
         auto ProfileSoundTarget(const D3DVIEWPORT8& viewport) const -> uint64_t;
         auto ProfileSurface(const D3DVIEWPORT8& viewport) const -> bool;
@@ -511,13 +589,16 @@ namespace xiui
         auto ProfileActionAvailable(size_t index) const -> bool;
         auto OpenProfileAction(size_t index) -> bool;
         auto MoveProfileAction(int direction) -> void;
-        auto ConfirmingAction(void) const -> bool { return this->profile_dialog_ == profile_dialog::confirm_action || this->profile_dialog_ == profile_dialog::reset_defaults; }
-        auto CopyProfileKey(void) -> bool;
+        auto ConfirmingAction(void) const -> bool { return this->profile_dialog_ == profile_dialog::confirm_action || this->profile_dialog_ == profile_dialog::reset_defaults || this->profile_dialog_ == profile_dialog::reset_module; }
+        auto ExportProfileFile(const std::filesystem::path& path) -> bool;
+        auto BrowseProfileFile(bool save) -> void;
+        auto LoadProfileFile(const std::filesystem::path& path) -> bool;
         auto PasteProfileKey(void) -> bool;
         auto LoadProfileKey(std::string_view key) -> bool;
         auto EnsureLayout(const D3DVIEWPORT8& viewport) -> void;
         auto ProcessInput(const D3DVIEWPORT8& viewport) -> void;
         auto ProcessPointerMessage(uint32_t message, uint32_t buttons, const D3DVIEWPORT8& viewport) -> bool;
+        auto BeginCloseInteraction(interaction closing, const rect& button) -> void;
         auto FinishInteraction(void) -> void;
         auto ReleasePointerCapture(void) -> void;
         auto UpdateMouseCapture(const D3DVIEWPORT8& viewport, uint32_t buttons) -> bool;
@@ -592,12 +673,15 @@ namespace xiui
         auto ActiveConfigPage(void) -> config_page;
         auto SelectConfigModule(hud_module* module, std::optional<size_t> view = std::nullopt) -> void;
         auto SelectConfigTopic(size_t index) -> void;
+        auto ConfigTopicRows(void) const -> std::vector<ui::settings_topic_row>;
+        auto SelectConfigTopicRow(size_t row) -> void;
+        auto ConfigSidebarBounds(void) const -> rect;
+        auto ConfigSidebarRows(void) const -> std::vector<ui::settings_sidebar_row>;
+        auto ConfigPageActive(const config_page& page) const -> bool;
+        auto SelectConfigSidebarItem(size_t item) -> void;
+        auto ConfigSidebarScrollbar(void) const -> ui::config_scrollbar;
         auto SaveConfigSelection(const settings_store& store) const -> void;
         auto LoadConfigSelection(const settings_store& store) -> void;
-        auto HasConfigSections(void) const -> bool
-        {
-            return const_cast<hud_runtime*>(this)->ActiveConfigPage().SectionCount() > 1;
-        }
         auto IsInventorySettings(void) const -> bool
         {
             for (const auto* module : this->inventory_pages_) if (this->config_.module == module) return true;

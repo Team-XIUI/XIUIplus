@@ -5,6 +5,19 @@
 
 namespace xiui
 {
+    auto target_child_module::ResetSettingsFrom(const hud_module& defaults, const ui::theme&) -> void
+    {
+        const auto& source = static_cast<const target_child_module&>(defaults);
+        this->parent_.ChildOptions(this->subtarget_) = source.parent_.ChildOptions(source.subtarget_);
+        this->State() = source.State();
+        if (this->subtarget_)
+        {
+            this->parent_.subtarget_placement_ = source.parent_.subtarget_placement_;
+            this->parent_.subtarget_statuses_ = source.parent_.subtarget_statuses_;
+            this->parent_.subtarget_status_text_ = source.parent_.subtarget_status_text_;
+        }
+    }
+
     auto target_child_module::State(void) -> module_state&
     {
         auto& state = this->subtarget_ ? this->parent_.subtarget_state_ : this->parent_.recipient_state_;
@@ -36,7 +49,7 @@ namespace xiui
     auto target_child_module::Save(const settings_store& store) const -> void
     { store.WriteRect(this->LayoutSection(), this->State().bounds); }
 
-    auto target_child_module::OptionCount(void) const -> size_t
+    auto target_child_module::ContentOptionCount(void) const -> size_t
     { return this->subtarget_ ? target_module::subtarget_option_count : target_of_target_settings::option_count; }
 
     auto target_child_module::ConfigSections(void) const -> std::span<const module_config_section>

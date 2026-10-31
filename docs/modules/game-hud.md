@@ -1,4 +1,4 @@
-# Native Game HUD
+# Native Menus
 
 Selectively hides native HUD elements while XIUI replaces them. Command placement and native macro execution have separate owners.
 

@@ -1,6 +1,7 @@
 #include "hud_runtime.hpp"
 #include "config/contributor_list.hpp"
 #include "config/option_layout.hpp"
+#include "config/basic_settings_layout.hpp"
 #include "config/config_window_resize.hpp"
 #include "input/keyboard_policy.hpp"
 #include "ui/sound_choices.hpp"
@@ -24,6 +25,11 @@ namespace xiui
         this->NormalizeConfigSelection();
         const auto x = static_cast<float>(this->mouse_x_), y = static_cast<float>(this->mouse_y_);
         const auto layout = this->ConfigLayout();
+        if (!this->config_.collapsed && Contains(layout.EditModeButton(), x, y)) return 0xD300000000000002ULL;
+        if (Contains(this->SettingsModeBounds(), x, y)) return 0xD300000000000001ULL;
+        if (this->config_.basic && !this->config_.collapsed)
+            for (size_t row = 0; row < ui::basic_settings_layout::control_count; ++row)
+                if (Contains(this->BasicSettingBounds(row), x, y)) return 0xD300000000000010ULL + row;
         if (this->config_.active_color != nullptr && Contains(layout.ColorEditor(viewport), x, y))
         {
             const auto part = ui::color_picker::HitTest(layout.ColorEditor(viewport), x, y);
@@ -33,30 +39,31 @@ namespace xiui
         if (Contains(layout.CloseButton(), x, y)) return 1;
         if (Contains(layout.HeaderAction(), x, y)) return 3;
         if (Contains(layout.HeaderAction(1), x, y)) return 4;
-        if (Contains(layout.SidebarToggle(), x, y)) return 6;
         if (this->ConfigResizeEdges(x, y) != 0) return 5;
         if (const auto input = this->InputModeControlTarget(viewport); input != 0) return input;
+        if (this->config_.basic) return 0;
+        if (Contains(layout.SidebarToggle(), x, y)) return 6;
         if (this->config_.collapsed) return 0;
-        const size_t pageCount = this->VisibleConfigPages().size();
-        for (size_t index = 0; index < pageCount; ++index)
-            if (Contains(layout.ModuleTab(index), x, y)) return 0x100 + index;
-
-        const auto page = this->ActiveConfigPage();
-        if (this->HasConfigSections())
-            for (size_t index = 0; index < page.SectionCount(); ++index)
-                if (Contains(layout.Section(index, page.SectionCount()), x, y))
-                    return (static_cast<uint64_t>(reinterpret_cast<uintptr_t>(page.primary)) << 32) | (0x200 + index);
+        if (Contains(this->ConfigSidebarBounds(), x, y))
+            for (const auto& row : this->ConfigSidebarRows())
+                if (row.available && Contains(row.bounds, x, y)) return 0x100000 + row.item;
         if (this->config_.module == nullptr) return 0;
         const auto key = static_cast<uint64_t>(reinterpret_cast<uintptr_t>(this->config_.module)) << 32;
+        if (this->IsAttribution())
+            for (size_t index = 0; index < std::size(ui::attribution_views); ++index)
+                if (Contains(ui::config_controls::Segment(layout.ContentTabs(), index, std::size(ui::attribution_views)), x, y))
+                    return key | (0x40000 + index);
         if (this->IsInventorySettings())
             for (size_t index = 0; index < this->inventory_pages_.size(); ++index)
                 if (Contains(ui::config_controls::Segment(layout.ContentTabs(), index, this->inventory_pages_.size()), x, y))
                     return (static_cast<uint64_t>(reinterpret_cast<uintptr_t>(this->inventory_pages_[0])) << 32) | (0x42000 + index);
-        const auto topics = this->config_.module->ConfigSections();
+        const auto topics = this->ConfigTopicRows();
         if (!topics.empty())
         {
             for (size_t index = 0; index < topics.size(); ++index)
-                if (Contains(layout.Submenu(index, topics.size()), x, y)) return key | (0x300 + index);
+                if (Contains(ui::SettingsTopicBounds(layout.Submenu(index, topics.size()), topics[index]), x, y))
+                    return key | (topics[index].subview >= 0 ? 0x31000 + topics[index].section * 16 + topics[index].subview :
+                        topics[index].parent ? 0x3FF : 0x300 + topics[index].section);
         }
         else
         {
@@ -66,12 +73,6 @@ namespace xiui
         }
         if (this->IsExperienceDisplay())
             if (const auto target = this->experience_display_.Target(this->experience_, layout, x, y)) return key | (0x20000 + target);
-        if (this->IsAttribution())
-            for (size_t index = 0; index < std::size(ui::attribution_views); ++index)
-                if (Contains(ui::config_controls::Segment(layout.ContentTabs(), index, std::size(ui::attribution_views)), x, y)) return key | (0x40000 + index);
-        if (this->IsGeneralAppearance())
-            for (size_t index = 0; index < std::size(general_module::appearance_tabs); ++index)
-                if (Contains(ui::config_controls::Segment(layout.ContentTabs(), index, std::size(general_module::appearance_tabs)), x, y)) return key | (0x44000 + index);
         if (this->IsXIUIContributors())
         {
             const auto member = ui::contributor_list_layout{layout, this->config_.scroll}.MemberAt(x, y);
@@ -100,6 +101,10 @@ namespace xiui
     {
         if (this->ProcessInputModeClick(viewport)) return true;
         if (this->ProcessProfileClick(viewport)) return true;
+        if (!this->config_.collapsed && Contains(this->ConfigLayout().EditModeButton(), this->mouse_x_, this->mouse_y_))
+        { this->ToggleLayoutEditMode(); return true; }
+        if (this->config_.basic) return this->ProcessBasicSettingsClick(viewport);
+        if (Contains(this->SettingsModeBounds(), this->mouse_x_, this->mouse_y_)) { this->SetBasicSettings(true); return true; }
         this->NormalizeConfigSelection();
         const float x = static_cast<float>(this->mouse_x_);
         const float y = static_cast<float>(this->mouse_y_);
@@ -110,7 +115,8 @@ namespace xiui
             if (Contains(editor, x, y))
             {
                 const auto part = ui::color_picker::HitTest(editor, x, y);
-                if (part == ui::color_picker::part::close) this->config_.active_color = nullptr;
+                if (part == ui::color_picker::part::close)
+                    this->BeginCloseInteraction(interaction::close_color, ui::color_picker_layout{editor}.Close());
                 else if (part == ui::color_picker::part::restore)
                 {
                     this->config_.color_picker.Restore();
@@ -122,8 +128,10 @@ namespace xiui
                     const auto* properties = this->core_ != nullptr ? this->core_->GetProperties() : nullptr;
                     this->config_.color_picker.CopyHex(properties != nullptr ? properties->GetFinalFantasyHwnd() : nullptr);
                 }
+                else if (part == ui::color_picker::part::hex) this->config_.color_picker.BeginHex();
                 else if (part == ui::color_picker::part::wheel || part == ui::color_picker::part::value || part == ui::color_picker::part::alpha)
                 {
+                    this->config_.color_picker.CancelHex();
                     this->config_.color_picker.BeginDrag(part);
                     this->interaction_ = interaction::color_pick;
                 }
@@ -183,7 +191,7 @@ namespace xiui
         const rect close = this->ConfigLayout().CloseButton();
         if (Contains(close, x, y))
         {
-            this->interaction_ = interaction::close_config;
+            this->BeginCloseInteraction(interaction::close_config, close);
             return true;
         }
 
@@ -191,28 +199,17 @@ namespace xiui
 
         if (this->ProcessConfigScrollbarClick()) return true;
 
-        const auto pages = this->VisibleConfigPages();
-        for (size_t index = 0; index < pages.size(); ++index)
-        {
-            const rect tab = this->ConfigLayout().ModuleTab(index);
-            if (Contains(tab, x, y))
-            {
-                this->config_.module = pages[index].SectionModule(0);
-                this->config_.module->SelectConfigView(0);
-                this->config_.active_color = nullptr;
-                this->config_.group = module_option_group::general;
-                this->config_.section = 0;
-                this->config_.scroll = 0;
-                return true;
-            }
-        }
+        if (Contains(this->ConfigSidebarBounds(), x, y))
+            for (const auto& row : this->ConfigSidebarRows())
+                if (row.available && Contains(row.bounds, x, y))
+                { this->SelectConfigSidebarItem(row.item); return true; }
 
-        const auto page = this->ActiveConfigPage();
-        if (page.SectionCount() > 1)
-            for (size_t index = 0; index < page.SectionCount(); ++index)
-                if (Contains(this->ConfigLayout().Section(index, page.SectionCount()), x, y))
+        if (this->IsAttribution())
+            for (size_t index = 0; index < std::size(ui::attribution_views); ++index)
+                if (Contains(ui::config_controls::Segment(this->ConfigLayout().ContentTabs(), index, std::size(ui::attribution_views)), x, y))
                 {
-                    this->SelectConfigModule(page.SectionModule(index), page.SectionView(index));
+                    this->general_.SelectAttributionView(index);
+                    this->config_.scroll = 0; this->config_.active_color = nullptr; this->config_.active_slider = nullptr;
                     return true;
                 }
 
@@ -224,13 +221,13 @@ namespace xiui
                     return true;
                 }
 
-        const auto topics = this->config_.module != nullptr ? this->config_.module->ConfigSections() : std::span<const module_config_section>{};
+        const auto topics = this->ConfigTopicRows();
         if (!topics.empty())
         {
             for (size_t index = 0; index < topics.size(); ++index)
-                if (Contains(this->ConfigLayout().Submenu(index, topics.size()), x, y))
+                if (Contains(ui::SettingsTopicBounds(this->ConfigLayout().Submenu(index, topics.size()), topics[index]), x, y))
                 {
-                    this->SelectConfigTopic(index);
+                    this->SelectConfigTopicRow(index);
                     return true;
                 }
         }
@@ -260,24 +257,6 @@ namespace xiui
                 return true;
             }
         }
-
-        if (this->IsAttribution())
-            for (size_t index = 0; index < std::size(ui::attribution_views); ++index)
-                if (Contains(ui::config_controls::Segment(this->ConfigLayout().ContentTabs(), index, std::size(ui::attribution_views)), x, y))
-                {
-                    this->general_.SelectAttributionView(index);
-                    this->config_.scroll = 0; this->config_.active_color = nullptr; this->config_.active_slider = nullptr;
-                    return true;
-                }
-
-        if (this->IsGeneralAppearance())
-            for (size_t index = 0; index < std::size(general_module::appearance_tabs); ++index)
-                if (Contains(ui::config_controls::Segment(this->ConfigLayout().ContentTabs(), index, std::size(general_module::appearance_tabs)), x, y))
-                {
-                    this->general_.SelectAppearanceTab(index);
-                    this->config_.scroll = 0; this->config_.active_color = nullptr; this->config_.active_slider = nullptr;
-                    return true;
-                }
 
         if (this->IsXIUIContributors())
         {
@@ -423,11 +402,13 @@ namespace xiui
         }
         if (this->ProfileSoundTarget(viewport) != 0) return cursor_shape::hand;
         if (this->profile_dropdown_) return cursor_shape::arrow;
+        if (Contains(this->SettingsModeBounds(), this->mouse_x_, this->mouse_y_)) return cursor_shape::hand;
         switch (this->interaction_)
         {
         case interaction::drag_module:
         case interaction::drag_config:
             return cursor_shape::move;
+        case interaction::scale_module: return cursor_shape::resize_diagonal;
         case interaction::resize_config:
             return (this->config_resize_edges_ & (ui::resize_left | ui::resize_right)) != 0
                 ? ((this->config_resize_edges_ & (ui::resize_top | ui::resize_bottom)) != 0 ? cursor_shape::resize_diagonal : cursor_shape::resize_horizontal)
@@ -451,17 +432,19 @@ namespace xiui
         const auto previewCursor = [&] {
             if (const auto toolbar = this->MovementToolbar(viewport); toolbar && Contains(toolbar->bounds, x, y))
                 return this->MovementToolbarTarget(viewport) != 0 ? cursor_shape::hand : cursor_shape::arrow;
+            if (this->EditGripAt(x, y) != nullptr) return cursor_shape::resize_diagonal;
             const auto& modules = this->modules_.All();
             for (auto module = modules.rbegin(); module != modules.rend(); ++module)
-                if ((*module)->HasEditableBounds() && (*module)->PreviewVisible() && Contains((*module)->State().EditBounds(), x, y))
+                if ((*module)->HasEditableBounds() && this->ModuleDisplayed(**module) && Contains(this->MovementBounds(**module), x, y))
                     return cursor_shape::move;
             return cursor_shape::arrow;
         };
         const auto layout = this->ConfigLayout();
         if (this->config_.collapsed)
         {
-            if (Contains(layout.CloseButton(), x, y) || Contains(layout.HeaderAction(), x, y) || Contains(layout.HeaderAction(1), x, y) || Contains(layout.SidebarToggle(), x, y)) return cursor_shape::hand;
-            if (Contains(layout.HeaderDragArea(), x, y)) return cursor_shape::move;
+            if (Contains(layout.CloseButton(), x, y) || Contains(layout.HeaderAction(), x, y) || Contains(layout.HeaderAction(1), x, y) ||
+                (!this->config_.basic && Contains(layout.SidebarToggle(), x, y))) return cursor_shape::hand;
+            if (Contains(this->ConfigHeaderDragArea(), x, y)) return cursor_shape::move;
             if (Contains(this->ConfigVisibleBounds(), x, y)) return cursor_shape::arrow;
             return previewCursor();
         }
@@ -472,29 +455,37 @@ namespace xiui
                 return ui::color_picker::HitTest(editor, x, y) == ui::color_picker::part::none ? cursor_shape::arrow : cursor_shape::hand;
         }
 
+        if (Contains(layout.EditModeButton(), x, y)) return cursor_shape::hand;
+        if (this->config_.basic)
+        {
+            if (Contains(this->SettingsModeBounds(), x, y) || Contains(layout.CloseButton(), x, y) ||
+                Contains(layout.HeaderAction(), x, y) || Contains(layout.HeaderAction(1), x, y)) return cursor_shape::hand;
+            for (size_t index = 0; index < ui::basic_settings_layout::control_count; ++index)
+            {
+                const auto row = this->BasicSettingBounds(index);
+                if (Contains(row, x, y)) return index == 2 && !Contains(ui::basic_settings_layout{this->config_.bounds}.ScaleValue(), x, y)
+                    ? cursor_shape::resize_horizontal : cursor_shape::hand;
+            }
+            if (Contains(this->ConfigHeaderDragArea(), x, y)) return cursor_shape::move;
+            return Contains(this->ConfigVisibleBounds(), x, y) ? cursor_shape::arrow : previewCursor();
+        }
+
         const auto scrollbar = this->ConfigScrollbar();
         if (scrollbar.Visible() && Contains(scrollbar.track, x, y)) return cursor_shape::hand;
+        const auto sidebarScrollbar = this->ConfigSidebarScrollbar();
+        if (sidebarScrollbar.Visible() && Contains(sidebarScrollbar.track, x, y)) return cursor_shape::hand;
         const rect close = layout.CloseButton();
         if (Contains(close, x, y) || Contains(layout.HeaderAction(), x, y) || Contains(layout.HeaderAction(1), x, y) || Contains(layout.SidebarToggle(), x, y))
             return cursor_shape::hand;
 
-        const size_t pageCount = this->VisibleConfigPages().size();
-        for (size_t index = 0; index < pageCount; ++index)
-        {
-            if (Contains(layout.ModuleTab(index), x, y))
-                return cursor_shape::hand;
-        }
-        if (this->HasConfigSections())
-        {
-            const size_t count = const_cast<hud_runtime*>(this)->ActiveConfigPage().SectionCount();
-            for (size_t index = 0; index < count; ++index)
-                if (Contains(layout.Section(index, count), x, y)) return cursor_shape::hand;
-        }
+        if (Contains(this->ConfigSidebarBounds(), x, y))
+            for (const auto& row : this->ConfigSidebarRows())
+                if (row.available && Contains(row.bounds, x, y)) return cursor_shape::hand;
         if (this->HasConfigSubmenu())
         {
-            const auto topics = this->config_.module->ConfigSections();
+            const auto topics = this->ConfigTopicRows();
             for (size_t index = 0; index < topics.size(); ++index)
-                if (Contains(layout.Submenu(index, topics.size()), x, y)) return cursor_shape::hand;
+                if (Contains(ui::SettingsTopicBounds(layout.Submenu(index, topics.size()), topics[index]), x, y)) return cursor_shape::hand;
         }
         else
         {
@@ -506,13 +497,10 @@ namespace xiui
         if (this->IsInventorySettings())
             for (size_t index = 0; index < this->inventory_pages_.size(); ++index)
                 if (Contains(ui::config_controls::Segment(layout.ContentTabs(), index, this->inventory_pages_.size()), x, y)) return cursor_shape::hand;
-        if (this->IsExperienceDisplay() && this->experience_display_.Target(this->experience_, layout, x, y) != 0) return cursor_shape::hand;
         if (this->IsAttribution())
             for (size_t index = 0; index < std::size(ui::attribution_views); ++index)
                 if (Contains(ui::config_controls::Segment(layout.ContentTabs(), index, std::size(ui::attribution_views)), x, y)) return cursor_shape::hand;
-        if (this->IsGeneralAppearance())
-            for (size_t index = 0; index < std::size(general_module::appearance_tabs); ++index)
-                if (Contains(ui::config_controls::Segment(layout.ContentTabs(), index, std::size(general_module::appearance_tabs)), x, y)) return cursor_shape::hand;
+        if (this->IsExperienceDisplay() && this->experience_display_.Target(this->experience_, layout, x, y) != 0) return cursor_shape::hand;
         if (this->IsXIUIContributors())
             if (ui::contributor_list_layout{layout, this->config_.scroll}.MemberAt(x, y)) return cursor_shape::hand;
 
@@ -537,7 +525,7 @@ namespace xiui
             }
         }
 
-        if (Contains(layout.HeaderDragArea(), x, y))
+        if (Contains(this->ConfigHeaderDragArea(), x, y))
             return cursor_shape::move;
         if (Contains(this->ConfigVisibleBounds(), x, y))
             return cursor_shape::arrow;
@@ -557,7 +545,8 @@ namespace xiui
     {
         if (this->config_.active_slider == nullptr)
             return;
-        const rect track = ui::config_layout::SliderTrack(this->config_.slider_row);
+        const rect track = this->config_.basic ? ui::basic_settings_layout{this->config_.bounds}.ScaleTrack() :
+            ui::config_layout::SliderTrack(this->config_.slider_row);
         const float ratio = std::clamp((static_cast<float>(this->mouse_x_) - track.x) / std::max(1.0f, track.width), 0.0f, 1.0f);
         float value = this->config_.slider_minimum + (this->config_.slider_maximum - this->config_.slider_minimum) * ratio;
         *this->config_.active_slider = ui::slider_value_input::Normalize(value, this->config_.slider_minimum, this->config_.slider_maximum, this->config_.slider_step);

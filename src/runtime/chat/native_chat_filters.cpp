@@ -108,6 +108,19 @@ namespace xiui
         }
     }
 
+    auto native_chat_filters::WindowHasRouting(const bool secondary) const -> std::optional<bool>
+    {
+        if (this->config_ == nullptr) return std::nullopt;
+        if (secondary)
+            if (const auto count = this->config_->ChatWindowCount(); count && *count < 2) return false;
+        const uint32_t id = secondary ? 187 : 185;
+        const auto low = this->config_->ChatFilterValue(id), high = this->config_->ChatFilterValue(id + 1);
+        if (!low || !high) return std::nullopt;
+        return std::any_of(std::begin(window_bits), std::end(window_bits), [&](const auto bit) {
+            return (((bit < 32 ? *low : *high) >> (bit % 32)) & 1) != 0;
+        });
+    }
+
     auto native_chat_filters::Visible(const size_t index) const -> bool
     { return index == 0 || (index <= global_count ? this->group_ == 0 : this->group_ != 0); }
 

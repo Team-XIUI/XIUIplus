@@ -1,0 +1,5 @@
+XIV 1.0 interface artwork
+
+Menu frame, fabric, gauge and ornamental artwork is adapted from Final Fantasy XIV 1.0 screenshots supplied by the user. Final Fantasy XIV and its original interface artwork are copyright Square Enix Co., Ltd. This optional theme is an unofficial adaptation for XIUI Native.
+
+Source crops and the deterministic atlas generator are maintained in assets/xiv1 and scripts/generate-xiv1-theme.py in the XIUI Native source repository.

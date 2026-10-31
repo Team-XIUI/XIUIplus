@@ -42,7 +42,7 @@ Read the note for the module you are changing, then follow its source links. The
 - [Time / Weather](world.md)
 - [Minimap](minimap.md)
 - [Command / Details](commands.md)
-- [Native Game HUD](game-hud.md)
-- [General settings](general.md)
+- [Native Menus](game-hud.md)
+- [Global settings](general.md)
 
 Party includes both Alliance lists; Target includes its cast, subtarget and recipient windows; Pet includes Pet Target. Healing and Mob Info are data services. The empty legacy `modules/container/` directory is not a registered HUD module.

@@ -118,12 +118,17 @@ namespace xiui
             this->SetChatMouseCapture(false);
             return true;
         }
+        if (message == WM_MOUSEMOVE && this->satchel_pointer_release_ != 0 && !this->satchel_.PointerDown())
+        {
+            this->SetChatMouseCapture(true);
+            return true;
+        }
         if (!this->SatchelInputAvailable(true)) return false;
         this->satchel_.SetHover(x, y);
         const bool owned = this->satchel_.PointerDown();
         if (!this->satchel_.HandleMouse(message, buttons, x, y, blocked))
         {
-            if (!owned && !Contains(this->satchel_.State().bounds, x, y) && this->chat_mouse_block_saved_ && this->chat_pointer_ == nullptr && !this->ready_check_.PointerDown())
+            if (!owned && !Contains(this->satchel_.State().transform.Map(this->satchel_.State().bounds), x, y) && this->chat_mouse_block_saved_ && this->chat_pointer_ == nullptr && !this->ready_check_.PointerDown())
                 this->SetChatMouseCapture(false);
             return false;
         }

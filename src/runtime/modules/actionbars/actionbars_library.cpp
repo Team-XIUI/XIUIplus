@@ -105,7 +105,7 @@ namespace xiui
         metrics.search_with_shortcut_width = std::ceil(design.MeasureText("Search actions and macros...", style(0.76f)) + design.MeasureText("Ctrl+F", style(0.64f))) +
             design.GetTheme().spacing.sm * 2 + design.GetTheme().spacing.md + 12;
         metrics.create_width = 96;
-        for (const auto* label : {"New macro", "Command", "Native macro"})
+        for (const auto* label : {"New macro", "Single command", "Game macro"})
             metrics.create_width = std::max(metrics.create_width, std::ceil(design.MeasureText(label, style(0.76f, true))) + 24);
         if (this->dialog_ == dialog::picker) this->SetScroll(static_cast<int>(this->result_scroll_));
     }
@@ -166,7 +166,7 @@ namespace xiui
         auto* icons = context.Icons(); ui::game_icon_view icon;
         if (icons)
         {
-            auto key = value.icon;
+            auto key = this->executor_ != nullptr ? this->executor_->SuggestedIcon(this->core_, value) : value.icon;
             if (key.empty() && value.id)
             {
                 if (value.kind == action_kind::spell) key = "spell:" + std::to_string(value.id);

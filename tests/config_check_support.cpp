@@ -92,6 +92,21 @@ namespace xiui::config_checks
             }
             const auto unicode = rasterizer.Rasterize(family, 23, 0x3042);
             if (!check(unicode && unicode->advance > 0 && unicode->ascent > 0, "Unicode fallback retains native size and baseline metrics")) return false;
+            for (float factor : {.125f,.75f,1.5f,2.0f,6.0f})
+            {
+                ui::text_style style; style.font = family; style.scale = 12 / ui::text_base_pixels;
+                const auto transform = ui::hud_transform::At(17.25f, 23.5f, factor, factor);
+                const auto scope = design.Transform(transform);
+                const int pixels = ui::ScaledTextPixelSize(style.scale, factor);
+                const auto metrics = rasterizer.Metrics(family, pixels);
+                if (!check(std::abs(design.MeasureText("WWW", style) * factor - rasterizer.Advance(family, pixels, 'W') * 3) < .001f &&
+                    std::abs(design.TextHeight(style) * factor - metrics.height) < .001f,
+                    "HUD text measures the final native font size for shrinking and enlarging")) return false;
+                const auto glyph = rasterizer.Rasterize(family, pixels, 'W');
+                if (!check(glyph && glyph->ascent == metrics.ascent && glyph->height > metrics.height &&
+                    std::all_of(glyph->masks.begin(), glyph->masks.end(), [&](const auto& mask) { return mask.size() == glyph->width * glyph->height; }),
+                    "base, outline and glow share final-size native glyph geometry")) return false;
+            }
         }
         float scale = 1;
         ui::slider_value_input input;
@@ -186,15 +201,23 @@ namespace xiui::config_checks
         const auto empty = ui::LayoutMeterSkin({10, 20, -1, 0}, skin);
         const auto uncapped = ui::LayoutMeterSkin({10, 20, 200, 16}, skin, false);
         const auto thin = ui::LayoutMeterSkin({10, 20, 1, 1}, skin, false);
-        if (!check(full.frame[0].width == 8 && full.frame[2].x == 202 && full.content.x == 19 && full.content.y == 22 &&
-            full.content.width == 182 && full.content.height == 12 && narrow.content.width == 0 && empty.content.width == 0 &&
+        if (!check(full.frame[0].width == 8 && full.frame[2].x == 202 && full.content.x == 19 && full.content.y == 20 &&
+            full.content.width == 182 && full.content.height == 16 && narrow.content.width == 0 && empty.content.width == 0 &&
             full.frame[1].x - (full.frame[0].x + full.frame[0].width) == 1 &&
             full.frame[2].x - (full.frame[1].x + full.frame[1].width) == 1,
-            "native caps keep their proportions with one pixel of clearance on each side of the body")) return false;
+            "native caps retain side clearance while color fills the entire bar height")) return false;
         if (!check(uncapped.frame[0].width == 0 && uncapped.frame[2].width == 0 && uncapped.frame[1].x == 10 &&
             uncapped.frame[1].width == 200 && uncapped.content.x == 10 && uncapped.content.width == 200 &&
-            uncapped.content.y == 22 && uncapped.content.height == 12 && thin.content.width == 1 && thin.content.height > 0,
-            "uncapped themed bars reclaim both caps and gaps while retaining the native vertical inset")) return false;
+            uncapped.content.y == 20 && uncapped.content.height == 16 && thin.content.width == 1 && thin.content.height == 1,
+            "uncapped themed bars fill their complete bounds without frame strips")) return false;
+        for (float height : {1.0f,16.0f,40.0f,80.0f})
+        {
+            const auto body = ui::LayoutMeterSkin({10,20,200,height},skin,false).content;
+            const auto filled = ui::LayoutMeterFill(body,.5f);
+            const auto overlay = ui::LayoutMeterRange(body,{.2f,.4f,0xFFFFFFFF,0xFFFFFFFF},.5f);
+            if (!check(body.y == 20 && filled.y == body.y && filled.height == height && overlay.y == body.y && overlay.height == height,
+                "short and tall themed fills and overlays retain full vertical coverage")) return false;
+        }
 
         const auto theme = ui::theme::CreateDefault();
         player_module player;
@@ -292,17 +315,17 @@ namespace xiui::config_checks
         const xiui::ui::rect themedBar{10, 20, 200, 20};
         const auto themed = xiui::ui::LayoutMeterText(themedBar, 16, 16, 32,
             xiui::ui::meter_text_anchor::automatic, xiui::ui::meter_text_anchor::automatic, &skin);
-        if (!check(themed.label.x == 25 && themed.value.x + themed.value.width == 195 && themed.label.y == 12 && themed.value.y == 20 &&
+        if (!check(themed.label.x == 25 && themed.value.x + themed.value.width == 193 && themed.label.y == 12 && themed.value.y == 20 &&
             themed.placement.x == 21 && themed.placement.width == 178,
             "themed labels straddle the top edge while labels and values stay inset beyond the caps")) return false;
         const auto uncapped = xiui::ui::LayoutMeterText(themedBar, 16, 16, 32,
             xiui::ui::meter_text_anchor::automatic, xiui::ui::meter_text_anchor::automatic, &skin, false);
         if (!check(uncapped.placement.x == 10 && uncapped.placement.width == 200 && uncapped.label.x == 14 &&
-            uncapped.value.x + uncapped.value.width == 206 && uncapped.label.y == themed.label.y,
+            uncapped.value.x + uncapped.value.width == 204 && uncapped.label.y == themed.label.y,
             "uncapped labels and values use the full bar with normal text padding and top-edge placement")) return false;
         const auto tall = xiui::ui::LayoutMeterText({10, 20, 200, 40}, 16, 16, 32,
             xiui::ui::meter_text_anchor::top, xiui::ui::meter_text_anchor::bottom, &skin);
-        if (!check(tall.label.x == 35 && tall.value.x + tall.value.width == 185 && tall.label.y == 12 && tall.value.y == 52,
+        if (!check(tall.label.x == 35 && tall.value.x + tall.value.width == 183 && tall.label.y == 12 && tall.value.y == 52,
             "themed text clearance scales with cap size and retains explicit above and below anchors")) return false;
         const auto narrow = xiui::ui::LayoutMeterText({10, 20, 4, 20}, 16, 16, 32,
             xiui::ui::meter_text_anchor::automatic, xiui::ui::meter_text_anchor::automatic, &skin);
@@ -314,12 +337,12 @@ namespace xiui::config_checks
             "player meter text keeps its existing placement")) return false;
         const auto target = xiui::ui::LayoutMeterText(bar, 16, 16, 32, xiui::ui::meter_text_anchor::bottom);
         if (!check(target.label.y == target.value.y && target.label.y == 22 &&
-            target.value.x + target.value.width == 206, "target HP and percent share the lower row with an inset right edge")) return false;
+            target.value.x + target.value.width == 204, "target HP and percent share the lower row with a six-pixel right inset")) return false;
         const auto above = xiui::ui::LayoutMeterText(bar, 16, 16, 32, xiui::ui::meter_text_anchor::top,
             xiui::ui::meter_text_anchor::top);
         const auto below = xiui::ui::LayoutMeterText(bar, 16, 16, 32, xiui::ui::meter_text_anchor::top,
             xiui::ui::meter_text_anchor::bottom);
-        return check(above.value.x == 14 && above.value.x + above.value.width == 206 &&
+        return check(above.value.x == 14 && above.value.x + above.value.width == 204 &&
             above.value.y == 12 && below.value.y == 22 && above.label.y == below.label.y &&
             above.value.x == below.value.x && above.value.width == below.value.width,
             "EXP info uses the bar inset at either edge without moving its independent label");

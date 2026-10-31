@@ -323,6 +323,7 @@ namespace xiui::ui
     auto design_system::EndFrame(void) -> void
     {
         this->tracking_content_bounds_ = false;
+        this->transform_ = {}; this->clip_bounds_.reset();
         if (!this->frame_active_ || this->device_ == nullptr)
             return;
 
@@ -528,6 +529,25 @@ namespace xiui::ui
         this->dark_backing_opacity_ = std::clamp(opacity, 0.0f, 1.0f);
     }
 
+    auto design_system::SetAppearanceTheme(const int value) -> void
+    {
+        const auto theme = AppearanceTheme(value);
+        if (this->appearance_theme_ == theme) return;
+        this->appearance_theme_ = theme;
+        this->ApplyWindowPalette();
+    }
+
+    auto design_system::ResolveHudText(const text_style& source) const -> text_style
+    {
+        auto style = source;
+        if (!this->IsXiv1Theme() || !style.theme_text) return style;
+        if (style.font != xiv1_font && style.font != xiv1_italic_font && style.font != xiv1_number_font) style.font = xiv1_font;
+        const auto alpha = std::max(style.top_color >> 24, style.bottom_color >> 24);
+        style.stroke = {true, std::min<D3DCOLOR>({240, alpha, style.stroke.color >> 24}) << 24};
+        style.shadow = {true, 1.5f, 1.5f, std::min<D3DCOLOR>({224, alpha, style.shadow.color >> 24}) << 24, false};
+        return style;
+    }
+
     auto design_system::SetWindowPalette(const D3DCOLOR background) -> void
     {
         if (background == this->window_background_) return;
@@ -546,6 +566,16 @@ namespace xiui::ui
         this->theme_ = this->configured_theme_;
         const auto defaults = theme::CreateDefault();
         auto& colors = this->theme_.colors;
+        if (this->IsXiv1Theme())
+        {
+            colors.chrome = 0xFA10132E; colors.surface = 0xEB0B1030; colors.surface_raised = 0xD2222B50;
+            colors.text = 0xFFF0EBD6; colors.muted = 0xFFBDB9A6;
+            colors.border = 0xFFA49B7F; colors.accent = 0xFFE1D6AD; colors.accent_dim = 0xFF9F9475;
+            colors.selected = 0x745F8FBC; colors.control = 0xFFBBB394; colors.control_selected = 0xFFE7DDAE;
+            this->theme_.accent_text.top_color = colors.accent;
+            this->theme_.accent_text.bottom_color = colors.accent_dim;
+            return;
+        }
         const auto automatic = [](D3DCOLOR& value, const D3DCOLOR original, const D3DCOLOR replacement) {
             if (value == original) value = replacement;
         };
@@ -780,7 +810,7 @@ namespace xiui::ui
         std::array<shape_vertex, 768> vertices{};
         size_t used{};
         const auto flush = [&] {
-            if (used != 0) this->device_->DrawPrimitiveUP(D3DPT_TRIANGLELIST, static_cast<UINT>(used / 3), vertices.data(), sizeof(shape_vertex));
+            if (used != 0) this->Submit(D3DPT_TRIANGLELIST, static_cast<UINT>(used / 3), vertices.data(), sizeof(shape_vertex));
             used = 0;
         };
         const auto line = [&](const rect& bounds, const int index) {
@@ -814,7 +844,7 @@ namespace xiui::ui
             {left, bottom, 0.0f, 1.0f, color},
             {right, bottom, 0.0f, 1.0f, color},
         };
-        this->device_->DrawPrimitiveUP(D3DPT_TRIANGLESTRIP, 2, vertices, sizeof(shape_vertex));
+        this->Submit(D3DPT_TRIANGLESTRIP, 2, vertices, sizeof(shape_vertex));
     }
 
     auto design_system::FillCircles(const std::span<const circle_fill> circles) const -> void
@@ -834,7 +864,7 @@ namespace xiui::ui
         std::array<shape_vertex, 32 * 9 * 16> vertices;
         size_t count{};
         const auto flush = [&] {
-            if (count != 0) this->device_->DrawPrimitiveUP(D3DPT_TRIANGLELIST, static_cast<UINT>(count / 3), vertices.data(), sizeof(shape_vertex));
+            if (count != 0) this->Submit(D3DPT_TRIANGLELIST, static_cast<UINT>(count / 3), vertices.data(), sizeof(shape_vertex));
             count = 0;
         };
         for (const auto& circle : circles)
@@ -843,7 +873,7 @@ namespace xiui::ui
             const size_t level = static_cast<size_t>(std::clamp(std::ceil(circle.radius * 0.8f), 8.0f, 18.0f)) - 8;
             const size_t segments = (level + 8) * 4;
             if (count + segments * 9 > vertices.size()) flush();
-            const float innerRadius = circle.radius - std::min(1.0f, circle.radius * 0.5f);
+            const float innerRadius = circle.radius - std::min(1.0f / std::max(this->transform_.x, this->transform_.y), circle.radius * 0.5f);
             const shape_vertex center{circle.center.x - 0.5f, circle.center.y - 0.5f, 0, 1, circle.color};
             const auto at = [&](const size_t index, const float radius, const D3DCOLOR color) -> shape_vertex {
                 const auto& direction = directions[level][index];
@@ -867,7 +897,7 @@ namespace xiui::ui
         this->ConfigureShapePipeline();
         const shape_vertex vertices[]{{x1 - 0.5f, y1 - 0.5f, 0, 1, color}, {x2 - 0.5f, y2 - 0.5f, 0, 1, color}, {x3 - 0.5f, y3 - 0.5f, 0, 1, color}};
         this->TrackContentBounds({std::min({x1, x2, x3}), std::min({y1, y2, y3}), std::max({x1, x2, x3}) - std::min({x1, x2, x3}), std::max({y1, y2, y3}) - std::min({y1, y2, y3})});
-        this->device_->DrawPrimitiveUP(D3DPT_TRIANGLELIST, 1, vertices, sizeof(shape_vertex));
+        this->Submit(D3DPT_TRIANGLELIST, 1, vertices, sizeof(shape_vertex));
     }
 
     auto design_system::DrawTriangleFan(const point center, const std::span<const point> arc, const D3DCOLOR centerColor, const D3DCOLOR edgeColor) const -> void
@@ -886,7 +916,7 @@ namespace xiui::ui
             vertices.push_back({arc[i].x - 0.5f, arc[i].y - 0.5f, 0, 1, edgeColor});
         }
         this->TrackContentBounds({left, top, right - left, bottom - top});
-        this->device_->DrawPrimitiveUP(D3DPT_TRIANGLELIST, static_cast<UINT>(arc.size() - 1), vertices.data(), sizeof(shape_vertex));
+        this->Submit(D3DPT_TRIANGLELIST, static_cast<UINT>(arc.size() - 1), vertices.data(), sizeof(shape_vertex));
     }
 
     auto design_system::DrawSlotDots(const std::span<const slot_dot> dots) const -> void
@@ -902,7 +932,7 @@ namespace xiui::ui
         size_t count{};
         const auto flush = [&]() {
             if (count == 0) return;
-            this->device_->DrawPrimitiveUP(D3DPT_TRIANGLELIST, static_cast<UINT>(count / 3), vertices.data(), sizeof(text_vertex));
+            this->Submit(D3DPT_TRIANGLELIST, static_cast<UINT>(count / 3), vertices.data(), sizeof(text_vertex));
             count = 0;
         };
         for (const auto& dot : dots)
@@ -963,9 +993,9 @@ namespace xiui::ui
         {
             std::vector<text_vertex> clipped;
             AppendClippedQuad(clipped, vertices, this->clip_bounds_);
-            if (!clipped.empty()) this->device_->DrawPrimitiveUP(D3DPT_TRIANGLELIST, static_cast<UINT>(clipped.size() / 3), clipped.data(), sizeof(text_vertex));
+            if (!clipped.empty()) this->Submit(D3DPT_TRIANGLELIST, static_cast<UINT>(clipped.size() / 3), clipped.data(), sizeof(text_vertex));
         }
-        else this->device_->DrawPrimitiveUP(D3DPT_TRIANGLESTRIP, 2, vertices.data(), sizeof(text_vertex));
+        else this->Submit(D3DPT_TRIANGLESTRIP, 2, vertices.data(), sizeof(text_vertex));
     }
 
     auto design_system::DrawTextureQuads(IDirect3DTexture8* texture, const std::span<const texture_quad> quads) const -> void
@@ -985,7 +1015,7 @@ namespace xiui::ui
             const auto modulation = paint.double_modulation ? D3DTOP_MODULATE2X : D3DTOP_MODULATE;
             this->device_->SetTextureStageState(0, D3DTSS_COLOROP, modulation);
             this->device_->SetTextureStageState(0, D3DTSS_ALPHAOP, modulation);
-            this->device_->DrawPrimitiveUP(D3DPT_TRIANGLELIST, static_cast<UINT>(vertices.size() / 3), vertices.data(), sizeof(text_vertex));
+            this->Submit(D3DPT_TRIANGLELIST, static_cast<UINT>(vertices.size() / 3), vertices.data(), sizeof(text_vertex));
             vertices.clear();
         };
         for (const auto& quad : quads)
@@ -1010,7 +1040,7 @@ namespace xiui::ui
         flush();
     }
 
-    auto design_system::DrawTextureDisc(IDirect3DTexture8* texture, const rect& bounds, const rect& uv, const D3DCOLOR color) const -> void
+    auto design_system::DrawTextureDisc(IDirect3DTexture8* texture, const rect& bounds, const rect& uv, const D3DCOLOR color, const float feather) const -> void
     {
         if (!this->frame_active_ || this->device_ == nullptr || texture == nullptr || bounds.width <= 0 || bounds.height <= 0) return;
         this->ConfigureImagePipeline(texture);
@@ -1020,18 +1050,30 @@ namespace xiui::ui
         this->device_->SetRenderState(D3DRS_DESTBLEND, D3DBLEND_INVSRCALPHA);
         this->device_->SetTextureStageState(0, D3DTSS_COLOROP, D3DTOP_MODULATE);
         this->device_->SetTextureStageState(0, D3DTSS_ALPHAOP, D3DTOP_MODULATE);
-        const auto vertex = [&](const float x, const float y) -> text_vertex {
-            return {bounds.x + bounds.width * x - 0.5f, bounds.y + bounds.height * y - 0.5f, 0, 1, color, uv.x + uv.width * x, uv.y + uv.height * y};
+        const auto vertex = [&](const float x, const float y, const float opacity = 1.0f) -> text_vertex {
+            return {bounds.x + bounds.width * x - 0.5f, bounds.y + bounds.height * y - 0.5f, 0, 1, WithAlpha(color, opacity), uv.x + uv.width * x, uv.y + uv.height * y};
         };
-        std::vector<text_vertex> vertices; vertices.reserve(96 * 9);
+        const float falloff = std::clamp(feather * 2 / std::min(bounds.width, bounds.height), 0.0f, 1.0f);
+        const int bands = falloff > 0 ? 6 : 0;
+        const float inner = 1 - falloff;
+        std::vector<text_vertex> vertices; vertices.reserve(96 * (6 + bands * 6));
         for (int i = 0; i < 96; ++i)
         {
             const float a = i * 6.283185307f / 96, b = (i + 1) * 6.283185307f / 96;
-            const auto center = vertex(0.5f, 0.5f), first = vertex(0.5f + std::cos(a) * 0.5f, 0.5f + std::sin(a) * 0.5f),
-                second = vertex(0.5f + std::cos(b) * 0.5f, 0.5f + std::sin(b) * 0.5f);
+            const float ax = std::cos(a) * .5f, ay = std::sin(a) * .5f, bx = std::cos(b) * .5f, by = std::sin(b) * .5f;
+            const auto center = vertex(0.5f, 0.5f), first = vertex(0.5f + ax * inner, 0.5f + ay * inner),
+                second = vertex(0.5f + bx * inner, 0.5f + by * inner);
             AppendClippedQuad(vertices, {center, first, second, second}, this->clip_bounds_);
+            for (int band = 0; band < bands; ++band)
+            {
+                const float t0 = static_cast<float>(band) / bands, t1 = static_cast<float>(band + 1) / bands;
+                const float r0 = inner + falloff * t0, r1 = inner + falloff * t1;
+                const float opacity0 = 1 - t0 * t0 * (3 - 2 * t0), opacity1 = 1 - t1 * t1 * (3 - 2 * t1);
+                AppendClippedQuad(vertices, {vertex(.5f + ax * r0, .5f + ay * r0, opacity0), vertex(.5f + bx * r0, .5f + by * r0, opacity0),
+                    vertex(.5f + ax * r1, .5f + ay * r1, opacity1), vertex(.5f + bx * r1, .5f + by * r1, opacity1)}, this->clip_bounds_);
+            }
         }
-        if (!vertices.empty()) this->device_->DrawPrimitiveUP(D3DPT_TRIANGLELIST, static_cast<UINT>(vertices.size() / 3), vertices.data(), sizeof(text_vertex));
+        if (!vertices.empty()) this->Submit(D3DPT_TRIANGLELIST, static_cast<UINT>(vertices.size() / 3), vertices.data(), sizeof(text_vertex));
     }
 
     auto design_system::DrawTextureRoundedRect(IDirect3DTexture8* texture, const rect& bounds, const rect& uv, const float radius, const D3DCOLOR color) const -> void
@@ -1058,7 +1100,7 @@ namespace xiui::ui
             const auto c = vertex(RoundedRectPoint(bounds, radius, i), color & 0xFFFFFF), d = vertex(RoundedRectPoint(bounds, radius, next), color & 0xFFFFFF);
             AppendClippedQuad(vertices, {a, b, c, d}, this->clip_bounds_);
         }
-        if (!vertices.empty()) this->device_->DrawPrimitiveUP(D3DPT_TRIANGLELIST, static_cast<UINT>(vertices.size() / 3), vertices.data(), sizeof(text_vertex));
+        if (!vertices.empty()) this->Submit(D3DPT_TRIANGLELIST, static_cast<UINT>(vertices.size() / 3), vertices.data(), sizeof(text_vertex));
     }
 
     auto design_system::DrawContour(const rect& bounds, const std::span<const point> contour, const contour_style& style, IDirect3DTexture8* texture, const rect& uv) const -> void
@@ -1085,7 +1127,7 @@ namespace xiui::ui
             const auto e = vertex(ContourPoint(bounds, contour[i]), c.color & 0xFFFFFF), f = vertex(ContourPoint(bounds, contour[next]), d.color & 0xFFFFFF);
             AppendClippedQuad(vertices, {c, d, e, f}, this->clip_bounds_);
         }
-        if (!vertices.empty()) this->device_->DrawPrimitiveUP(D3DPT_TRIANGLELIST, static_cast<UINT>(vertices.size() / 3), vertices.data(), sizeof(text_vertex));
+        if (!vertices.empty()) this->Submit(D3DPT_TRIANGLELIST, static_cast<UINT>(vertices.size() / 3), vertices.data(), sizeof(text_vertex));
     }
 
     auto design_system::DrawRing(const rect& bounds, const D3DCOLOR color, const float thickness) const -> void
@@ -1105,7 +1147,7 @@ namespace xiui::ui
             size_t offset = i * 6;
             for (const int index : {0, 1, 2, 1, 3, 2}) vertices[offset++] = quad[index];
         }
-        this->device_->DrawPrimitiveUP(D3DPT_TRIANGLELIST, 96 * 2, vertices.data(), sizeof(shape_vertex));
+        this->Submit(D3DPT_TRIANGLELIST, 96 * 2, vertices.data(), sizeof(shape_vertex));
     }
 
     auto design_system::GradientRect(const rect& bounds, const D3DCOLOR leftColor, const D3DCOLOR rightColor) const -> void
@@ -1129,7 +1171,7 @@ namespace xiui::ui
             {left, bottom, 0.0f, 1.0f, colors[2]},
             {right, bottom, 0.0f, 1.0f, colors[3]},
         };
-        this->device_->DrawPrimitiveUP(D3DPT_TRIANGLESTRIP, 2, vertices, sizeof(shape_vertex));
+        this->Submit(D3DPT_TRIANGLESTRIP, 2, vertices, sizeof(shape_vertex));
     }
 
     auto design_system::BorderRect(const rect& bounds, const D3DCOLOR color, const float thickness) const -> void
@@ -1166,7 +1208,7 @@ namespace xiui::ui
                 {left, bottom, 0.0f, 1.0f, bottomColor},
                 {right, bottom, 0.0f, 1.0f, bottomColor},
             };
-            this->device_->DrawPrimitiveUP(D3DPT_TRIANGLESTRIP, 2, vertices, sizeof(shape_vertex));
+            this->Submit(D3DPT_TRIANGLESTRIP, 2, vertices, sizeof(shape_vertex));
             return;
         }
 
@@ -1177,7 +1219,7 @@ namespace xiui::ui
         };
         constexpr float pi = 3.14159265358979323846f;
         const int segments = std::clamp(static_cast<int>(std::ceil(radius * 0.8f)), 8, 18);
-        const float fringe = std::min(1.0f, std::min(bounds.width, bounds.height) * 0.25f);
+        const float fringe = std::min(1.0f / std::max(this->transform_.x, this->transform_.y), std::min(bounds.width, bounds.height) * 0.25f);
         const float leftInset = roundedCorners == 0x3 ? 0.0f : fringe;
         const float rightInset = roundedCorners == 0xC ? 0.0f : fringe;
         const rect innerBounds{
@@ -1225,7 +1267,7 @@ namespace xiui::ui
             body[bodyCount++] = {point.x - 0.5f, point.y - 0.5f, 0.0f, 1.0f, colorAt(point.y)};
         }
         body[bodyCount++] = body[1];
-        this->device_->DrawPrimitiveUP(D3DPT_TRIANGLEFAN, static_cast<UINT>(bodyCount - 2), body.data(), sizeof(shape_vertex));
+        this->Submit(D3DPT_TRIANGLEFAN, static_cast<UINT>(bodyCount - 2), body.data(), sizeof(shape_vertex));
 
         std::array<shape_vertex, 160> fringeVertices{};
         size_t fringeCount{};
@@ -1239,7 +1281,7 @@ namespace xiui::ui
             fringeVertices[fringeCount++] = {inner.x - 0.5f, inner.y - 0.5f, 0.0f, 1.0f, innerColor};
             fringeVertices[fringeCount++] = {outer.x - 0.5f, outer.y - 0.5f, 0.0f, 1.0f, outerColor};
         }
-        this->device_->DrawPrimitiveUP(D3DPT_TRIANGLESTRIP, static_cast<UINT>(fringeCount - 2), fringeVertices.data(), sizeof(shape_vertex));
+        this->Submit(D3DPT_TRIANGLESTRIP, static_cast<UINT>(fringeCount - 2), fringeVertices.data(), sizeof(shape_vertex));
     }
 
     auto design_system::DrawPanel(const rect& bounds, const panel_style& style) const -> void
@@ -1354,11 +1396,13 @@ namespace xiui::ui
             contentRadius = 0;
             const float backingOpacity = style.track_opacity * this->dark_backing_opacity_;
             this->FillRect(layout.frame[1], WithAlpha(0xFF000000, backingOpacity));
-            drawTexture(skin->background, layout.frame[1], style.track_opacity);
+            drawTexture(skin->background, skin->xiv1 ? content : layout.frame[1], style.track_opacity);
             this->FillRect(content, WithAlpha(0x80000000, backingOpacity));
-            drawTexture(skin->frame, layout.frame[1], style.track_opacity);
-            this->DrawMeterCap(layout.frame[0], false, style.track_opacity);
-            this->DrawMeterCap(layout.frame[2], true, style.track_opacity);
+            if (!skin->xiv1)
+            {
+                this->DrawMeterCap(layout.frame[0], false, style.track_opacity);
+                this->DrawMeterCap(layout.frame[2], true, style.track_opacity);
+            }
         }
         else if (style.bookends)
         {
@@ -1439,6 +1483,7 @@ namespace xiui::ui
             this->GradientRoundedRect(rail, WithAlpha(Darken(strip.top, 0.4f), 0.6f), WithAlpha(Darken(strip.bottom, 0.4f), 0.6f), 0);
             this->GradientRoundedRect(LayoutMeterFill(rail, strip.ratio, fillFromRight), strip.top, strip.bottom, 0);
         }
+        if (themed && skin->xiv1) DrawXiv1MeterFrame(*this, bounds, *skin, style.themed_bookends, style.track_opacity);
     }
 
     auto design_system::DrawMeterStripes(const rect& bounds, const D3DCOLOR color, const float radius, const uint8_t roundedCorners) const -> void
@@ -1464,7 +1509,7 @@ namespace xiui::ui
         if (vertices.empty()) return;
         this->ConfigureShapePipeline();
         this->device_->SetVertexShader(text_vertex_format);
-        this->device_->DrawPrimitiveUP(D3DPT_TRIANGLELIST, static_cast<UINT>(vertices.size() / 3), vertices.data(), sizeof(text_vertex));
+        this->Submit(D3DPT_TRIANGLELIST, static_cast<UINT>(vertices.size() / 3), vertices.data(), sizeof(text_vertex));
     }
 
     auto design_system::DrawToggle(const rect& bounds, const bool enabled) const -> void
@@ -1520,7 +1565,7 @@ namespace xiui::ui
         std::array<shape_vertex, 4092> vertices;
         size_t used{};
         const auto flush = [&] {
-            if (used != 0) this->device_->DrawPrimitiveUP(D3DPT_TRIANGLELIST, static_cast<UINT>(used / 3), vertices.data(), sizeof(shape_vertex));
+            if (used != 0) this->Submit(D3DPT_TRIANGLELIST, static_cast<UINT>(used / 3), vertices.data(), sizeof(shape_vertex));
             used = 0;
         };
         const auto fill = [&](const rect& at, const D3DCOLOR color) {
@@ -1567,8 +1612,9 @@ namespace xiui::ui
 
     design_system::clip_scope::~clip_scope(void) { this->design_.clip_bounds_ = this->previous_; }
 
-    auto design_system::DrawText(const char* text, const rect& bounds, const text_style& style) const -> void
+    auto design_system::DrawText(const char* text, const rect& bounds, const text_style& source) const -> void
     {
+        const auto style = this->ResolveHudText(source);
         if (!this->frame_active_ || text == nullptr || text[0] == '\0' || !this->FontAvailable(0))
             return;
 
@@ -1626,7 +1672,8 @@ namespace xiui::ui
     auto design_system::DrawTextPass(const char* text, const float x, const float y, const float maxWidth, const text_style& style, const font_mask mask, const float offsetX, const float offsetY, const bool additive, const bool sheen) const -> void
     {
         if (this->device_ == nullptr || text == nullptr || maxWidth <= 0.0f) return;
-        const int pixels = TextPixelSize(style.scale);
+        const int pixels = ScaledTextPixelSize(style.scale, this->transform_.y);
+        const float rasterScale = 1 / this->transform_.y;
         const auto font = this->glyphs_.Metrics(style.font, pixels);
         const float tracking = style.letter_spacing * TextPixelScale(style.scale);
         IDirect3DTexture8* texture{};
@@ -1635,7 +1682,7 @@ namespace xiui::ui
         const auto flush = [&] {
             if (vertices.empty()) return;
             this->ConfigureTextPipeline(texture, additive);
-            this->device_->DrawPrimitiveUP(D3DPT_TRIANGLELIST, static_cast<UINT>(vertices.size() / 3), vertices.data(), sizeof(text_vertex));
+            this->Submit(D3DPT_TRIANGLELIST, static_cast<UINT>(vertices.size() / 3), vertices.data(), sizeof(text_vertex));
             vertices.clear();
         };
         double advance{};
@@ -1646,7 +1693,8 @@ namespace xiui::ui
         {
             auto codepoint = xiui::NextUtf8(content, position);
             if (codepoint < 32) codepoint = '?';
-            const auto metrics = TextGlyphMetrics(codepoint, this->glyphs_.Advance(style.font, pixels, codepoint), font.digit_advance, style.tabular_numbers);
+            const auto metrics = TextGlyphMetrics(codepoint, this->glyphs_.Advance(style.font, pixels, codepoint) * rasterScale,
+                font.digit_advance * rasterScale, style.tabular_numbers);
             if (advance + metrics.advance > maxWidth + 0.001) break;
             if (codepoint != ' ')
             {
@@ -1655,10 +1703,10 @@ namespace xiui::ui
                 if (texture != nextTexture) { flush(); texture = nextTexture; }
                 if (texture != nullptr)
                 {
-                    const float baselineOffset = font.ascent - glyph.ascent;
-                    const float left = std::round(x + static_cast<float>(advance) + metrics.offset + offsetX) - glyph.padding - 0.5f;
-                    const float top = std::round(y + baselineOffset + offsetY) - glyph.padding - 0.5f;
-                    const float right = left + glyph.width, bottom = top + glyph.height;
+                    const float baselineOffset = (font.ascent - glyph.ascent) * rasterScale;
+                    const float left = this->transform_.InverseX(std::round(this->transform_.X(x + static_cast<float>(advance) + metrics.offset + offsetX))) - glyph.padding * rasterScale - 0.5f;
+                    const float top = this->transform_.InverseY(std::round(this->transform_.Y(y + baselineOffset + offsetY))) - glyph.padding * rasterScale - 0.5f;
+                    const float right = left + glyph.width * rasterScale, bottom = top + glyph.height * rasterScale;
                     const D3DCOLOR topLeft = sheen ? SheenColor(style.sheen.color, left, sheenCenter, style.sheen.width) : style.top_color;
                     const D3DCOLOR topRight = sheen ? SheenColor(style.sheen.color, right, sheenCenter, style.sheen.width) : style.top_color;
                     const D3DCOLOR bottomLeft = sheen ? topLeft : style.bottom_color;
@@ -1672,10 +1720,33 @@ namespace xiui::ui
         flush();
     }
 
-    auto design_system::MeasureText(const char* text, const text_style& style) const -> float
+    auto design_system::TextHeight(const text_style& source) const -> float
     {
+        const auto style = this->ResolveHudText(source);
+        return this->glyphs_.Metrics(style.font, ScaledTextPixelSize(style.scale, this->transform_.y)).height / this->transform_.y;
+    }
+
+    auto design_system::Submit(const D3DPRIMITIVETYPE type, const UINT primitives, const void* vertices, const UINT stride) const -> void
+    {
+        if (this->transform_.Identity()) { this->device_->DrawPrimitiveUP(type, primitives, vertices, stride); return; }
+        const size_t count = type == D3DPT_TRIANGLELIST ? primitives * 3 : primitives + 2;
+        this->transformed_vertices_.resize(count * stride);
+        std::memcpy(this->transformed_vertices_.data(), vertices, count * stride);
+        for (size_t index = 0; index < count; ++index)
+        {
+            auto* vertex = this->transformed_vertices_.data() + index * stride;
+            float x{}, y{}; std::memcpy(&x, vertex, sizeof(float)); std::memcpy(&y, vertex + sizeof(float), sizeof(float));
+            x = this->transform_.X(x + .5f) - .5f; y = this->transform_.Y(y + .5f) - .5f;
+            std::memcpy(vertex, &x, sizeof(float)); std::memcpy(vertex + sizeof(float), &y, sizeof(float));
+        }
+        this->device_->DrawPrimitiveUP(type, primitives, this->transformed_vertices_.data(), stride);
+    }
+
+    auto design_system::MeasureText(const char* text, const text_style& source) const -> float
+    {
+        const auto style = this->ResolveHudText(source);
         if (text == nullptr) return 0;
-        const int pixels = TextPixelSize(style.scale);
+        const int pixels = ScaledTextPixelSize(style.scale, this->transform_.y);
         const auto font = this->glyphs_.Metrics(style.font, pixels);
         double width{};
         const std::string_view content{text};
@@ -1683,7 +1754,7 @@ namespace xiui::ui
         {
             auto codepoint = xiui::NextUtf8(content, position);
             if (codepoint < 32) codepoint = '?';
-            width += TextGlyphMetrics(codepoint, this->glyphs_.Advance(style.font, pixels, codepoint), font.digit_advance, style.tabular_numbers).advance;
+            width += TextGlyphMetrics(codepoint, this->glyphs_.Advance(style.font, pixels, codepoint), font.digit_advance, style.tabular_numbers).advance / this->transform_.y;
             if (position < content.size()) width += style.letter_spacing * TextPixelScale(style.scale);
         }
         return static_cast<float>(width);
@@ -1775,9 +1846,9 @@ namespace xiui::ui
             bottomFringe[bottomCount++] = {drawX, outerBottom, 0.0f, 1.0f, transparent};
         }
 
-        this->device_->DrawPrimitiveUP(D3DPT_TRIANGLESTRIP, static_cast<UINT>(topCount - 2), topFringe.data(), sizeof(shape_vertex));
-        this->device_->DrawPrimitiveUP(D3DPT_TRIANGLESTRIP, static_cast<UINT>(coreCount - 2), core.data(), sizeof(shape_vertex));
-        this->device_->DrawPrimitiveUP(D3DPT_TRIANGLESTRIP, static_cast<UINT>(bottomCount - 2), bottomFringe.data(), sizeof(shape_vertex));
+        this->Submit(D3DPT_TRIANGLESTRIP, static_cast<UINT>(topCount - 2), topFringe.data(), sizeof(shape_vertex));
+        this->Submit(D3DPT_TRIANGLESTRIP, static_cast<UINT>(coreCount - 2), core.data(), sizeof(shape_vertex));
+        this->Submit(D3DPT_TRIANGLESTRIP, static_cast<UINT>(bottomCount - 2), bottomFringe.data(), sizeof(shape_vertex));
     }
 
     auto design_system::LerpColor(const D3DCOLOR start, const D3DCOLOR end, const float amount) -> D3DCOLOR

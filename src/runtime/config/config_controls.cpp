@@ -97,6 +97,7 @@ namespace xiui::ui
     auto config_controls::TextStyle(const text_style& style, const bool button) -> text_style
     {
         auto plain = style;
+        plain.theme_text = false;
         plain.bottom_color = plain.top_color;
         plain.shadow = {true, 1.0f, 1.0f, 0xEE000000, false};
         plain.stroke = {button, 0xF0000000};
@@ -139,16 +140,22 @@ namespace xiui::ui
             icon, highlighted ? this->design_.GetTheme().colors.control_selected : this->design_.GetTheme().colors.text);
     }
 
-    auto config_controls::TextInput(const rect& bounds, const text_input& input, const bool invalid, const char* placeholder, const char* shortcut) const -> void
+    auto config_controls::TextInput(const rect& bounds, const text_input& input, const bool invalid, const char* placeholder, const char* shortcut,
+        const text_input_appearance* appearance) const -> void
     {
         const auto& theme = this->design_.GetTheme();
-        this->design_.FillRoundedRect(bounds, theme.colors.chrome, 3);
+        this->design_.FillRoundedRect(bounds, appearance != nullptr && appearance->background != 0 ? appearance->background : theme.colors.chrome, 3);
         this->design_.FillRoundedRect(bounds, 0x38000000, 3);
         if (input.Focused() || invalid)
             this->design_.FillRoundedRect({bounds.x + theme.spacing.sm, bounds.y + bounds.height - 3,
                 bounds.width - theme.spacing.sm * 2, 1.5f}, invalid ? 0xCCFF8080 : (theme.colors.control_selected & 0xFFFFFF) | 0x90000000, 0.75f);
         auto style = theme.body_text; style.scale = 0.76f; style.alignment = text_alignment::left;
         style = this->Style(style);
+        if (appearance != nullptr)
+        {
+            style.scale = std::max(style.scale, appearance->minimum_pixels / text_base_pixels);
+            if (appearance->foreground != 0) style.top_color = style.bottom_color = appearance->foreground;
+        }
         const auto& editor = input.Editor();
         const auto& text = editor.Text();
         const rect at{bounds.x + theme.spacing.sm, bounds.y, bounds.width - theme.spacing.sm * 2, bounds.height};
@@ -163,7 +170,7 @@ namespace xiui::ui
         if (input.Focused() && selectionBegin != selectionEnd) this->design_.FillRect({at.x + widthAt(selectionBegin), at.y + 4, std::min(at.width, widthAt(selectionEnd)) - widthAt(selectionBegin), at.height - 8}, theme.colors.selected);
         if (text.empty() && placeholder != nullptr)
         {
-            auto hint = style; hint.top_color = hint.bottom_color = theme.colors.muted;
+            auto hint = style; hint.top_color = hint.bottom_color = appearance != nullptr ? 0xFFA7ADB8 : theme.colors.muted;
             float shortcutWidth{};
             if (shortcut != nullptr)
             {
@@ -393,22 +400,31 @@ namespace xiui::ui
         }
     }
 
-    auto config_controls::Slider(const rect& row, const module_option& option, const bool hovered, const slider_value_input* input, const float labelWidth) const -> void
+    auto config_controls::Slider(const rect& row, const module_option& option, const bool hovered, const slider_value_input* input, const float labelWidth, const bool compact, const char* suffix) const -> void
     {
         const auto& theme = this->design_.GetTheme();
-        const rect track = config_layout::SliderTrack(row, labelWidth);
+        const rect track = config_layout::SliderTrack(row, labelWidth, compact);
         const float controlX = track.x;
         auto labelStyle = theme.body_text;
         if (!option.available) labelStyle.top_color = labelStyle.bottom_color = theme.colors.muted;
-        this->Row(row, option.label, option.description, controlX - row.x - 5.0f, hovered && option.available, labelStyle);
+        if (compact)
+        {
+            labelStyle.scale = .78f; labelStyle.alignment = text_alignment::left;
+            this->Text(option.label, {row.x, row.y, controlX - row.x - 12, row.height}, labelStyle);
+        }
+        else this->Row(row, option.label, option.description, controlX - row.x - 5.0f, hovered && option.available, labelStyle);
 
-        const auto field = config_layout::SliderValue(row);
+        const auto field = config_layout::SliderValue(row, compact);
         auto valueStyle = theme.caption_text;
-        valueStyle.scale = 0.68f;
+        valueStyle.scale = compact ? .76f : .68f;
         valueStyle.alignment = text_alignment::center;
         if (!option.available) valueStyle.top_color = valueStyle.bottom_color = theme.colors.muted;
         if (input == nullptr)
-            this->Button(field, slider_value_input::Format(*option.slider * option.display_scale, option.step * option.display_scale).c_str(), valueStyle, hovered);
+        {
+            auto value = slider_value_input::Format(*option.slider * option.display_scale, option.step * option.display_scale);
+            if (suffix != nullptr) value += suffix;
+            this->Button(field, value.c_str(), valueStyle, hovered);
+        }
         else
         {
             this->buttons_.Face(field, true);

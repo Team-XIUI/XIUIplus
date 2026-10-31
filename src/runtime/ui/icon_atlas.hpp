@@ -1,6 +1,7 @@
 #pragma once
 
 #include "Ashita.h"
+#include <array>
 
 namespace xiui::ui
 {
@@ -13,7 +14,7 @@ namespace xiui::ui
         compass, world, commands, reset, general, party, inventory, equipment, extras, gil, readycheck, castbar, castcost,
         chevron_down, chevron_up, add, close, more, play, attribution, github, target_arrow, eye, eye_closed,
         arrow_left, arrow_right, statuses, keyboard, controller, pet, minimap, search, center_x, center_y,
-        unknown
+        minus, unknown
     };
 
     class icon_atlas
@@ -29,6 +30,6 @@ namespace xiui::ui
 
     private:
         IDirect3DDevice8* device_{};
-        IDirect3DTexture8* texture_{};
+        std::array<IDirect3DTexture8*, 3> textures_{};
     };
 }

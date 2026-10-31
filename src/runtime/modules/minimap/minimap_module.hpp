@@ -9,6 +9,7 @@ namespace xiui
     class minimap_module final : public hud_module
     {
     public:
+        static constexpr float initial_zoom = 4;
         enum option : size_t
         {
             enabled_option, shape_option, artwork_option, width_option, zoom_option,
@@ -35,14 +36,14 @@ namespace xiui
         auto ResetDefaults(const ui::theme& theme) -> void override;
         auto Load(const settings_store& store) -> void override;
         auto Save(const settings_store& store) const -> void override;
-        auto OptionCount(void) const -> size_t override { return option_count; }
+        auto ContentOptionCount(void) const -> size_t override { return option_count; }
         auto NpcsEnabled(void) const -> bool { return this->npcs_; }
         auto EnemiesEnabled(void) const -> bool { return this->enemies_; }
         auto DistantPartyEnabled(void) const -> bool { return this->distant_party_; }
-        auto Option(size_t index) -> module_option override;
-        auto OnOptionChanged(size_t index) -> void override;
+        auto ContentOption(size_t index) -> module_option override;
+        auto OnContentOptionChanged(size_t index) -> void override;
         auto ConfigSections(void) const -> std::span<const module_config_section> override;
-        auto ConfigSectionContains(size_t section, size_t index) -> bool override;
+        auto ContentConfigSectionContains(size_t section, size_t index) -> bool override;
         auto HandleMouseWheel(int delta, float x, float y, bool& save) -> bool;
         auto Contains(float x, float y) const -> bool;
         auto ShouldRender(const hud_snapshot&) const -> bool override { return this->state_.enabled && this->data_ != nullptr && this->data_->zone != 0; }
@@ -52,7 +53,8 @@ namespace xiui
         const minimap_state* data_{};
         minimap_maps* maps_{};
         int shape_{}, artwork_{1}, selected_text_{}, edge_style_{}, player_icon_{};
-        float zoom_{2}, default_zoom_{2}, map_opacity_{1}, background_opacity_{0.8f}, frame_opacity_{1}, marker_size_{4}, marker_opacity_{1};
+        float zoom_{initial_zoom}, default_zoom_{initial_zoom}, map_opacity_{1}, background_opacity_{0.8f}, frame_opacity_{1}, marker_size_{4}, marker_opacity_{1};
+        bool xiv1_theme_{};
         bool frame_{true}, background_{true}, party_{true}, alliance_{true}, pet_{true}, target_{true}, zone_name_{true}, coordinates_{true}, north_{true};
         bool map_number_{true}, zoom_readout_{true};
         bool distant_party_{true};

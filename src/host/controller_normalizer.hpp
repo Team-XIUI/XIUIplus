@@ -134,6 +134,7 @@ namespace xiui
         }
 
         auto NavigationOnly(void) const -> bool { return this->navigation_only_; }
+        auto SetNativeWindowCycle(const bool enabled) -> void { this->native_cycle_ = enabled; }
         auto SetNavigationOnly(const bool enabled) -> void
         {
             if (this->navigation_only_ == enabled) return;
@@ -171,6 +172,7 @@ namespace xiui
         std::array<bool, 12> repeat_injected_{};
         std::array<bool, 176> navigation_fields_{};
         bool navigation_only_{};
+        bool native_cycle_{};
 
         auto RebuildNavigationFields(void) -> void
         {
@@ -181,7 +183,10 @@ namespace xiui
         }
 
         auto Owns(const uint32_t field, const bool captured) const -> bool
-        { return captured && (!this->navigation_only_ || (field < this->navigation_fields_.size() && this->navigation_fields_[field])); }
+        {
+            if (this->native_cycle_ && static_cast<int32_t>(field) == this->Field(this->Binding(controller_action::cycle_window))) return false;
+            return captured && (!this->navigation_only_ || (field < this->navigation_fields_.size() && this->navigation_fields_[field]));
+        }
 
         auto Field(const int32_t binding) const -> int32_t
         {

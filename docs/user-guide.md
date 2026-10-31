@@ -4,6 +4,7 @@ Installation and build instructions are in [Development](development.md). For so
 
 ## Features
 
+- First-load setup introduces profiles and helps you choose your core modules. Run `/xiui setup` to revisit it.
 - Player HP, MP, and TP meters in one horizontal row with top-edge overlay labels and live FFXI data
 - Player HP/MP value formats, independent resource text, configurable HP state gradients and TP-ready/overlay/flash colors
 - Shared selected-spell MP cost preview on Player and the actual local Party row; Player Bar → General and Party → Resources have independent switches, both on by default, independent of Cast Cost visibility
@@ -45,15 +46,22 @@ Installation and build instructions are in [Development](development.md). For so
 - Per-element native game HUD visibility controls, independent of XIUI module visibility
 - Explicit Direct3D8 state capture and restoration
 
+## Share profiles
+
+Open the three-dot menu beside the profile selector and choose **Share profile → Save file**. Attach the saved `.xiui` file in Discord or another message. It includes your layout and module settings; character bindings, session totals and local controller-device settings stay private.
+
+To use a shared file, choose **Import profile → Choose file**, select the `.xiui` file, choose a name and click **Import**. This creates and selects a separate profile while keeping your existing profiles. **Ctrl+O** opens the file chooser. **Paste old key** or **Ctrl+V** still accepts previously shared keys. XIUI Lua imports remain on the **XIUI Lua** tab.
+
 ## Commands
 
-- `/xiui` or `/xiui edit` — toggle edit mode
+- `/xiui` or `/xiui edit` — open or close settings
 - `/xiui show` — restore XIUI and the saved native HUD visibility choices
 - `/xiui hide` — temporarily hide XIUI and the native HUD, and leave edit mode
 - `/xiui toggleui` — toggle XIUI and the native HUD together
 - `/xiui reload` — force settings and theme reload
 - `/xiui reset` — reset settings and panel positions
 - `/xiui status` — show stable-host, runtime, text path, visibility, and edit status
+- `/xiui rings capture` — record a short Target Rings shader compatibility report; the saved file appears under `logs/xiui/`. Optional `stop` finishes early and `status` shows progress or the last saved path. See [Target Rings](reference/target-rings.md).
 - `/xiui focus` — open the controller focus picker; `focus chat|chat2|party|enemies|target|buffs|debuffs|config|readycheck|equipment|off` selects or leaves a surface
 - `/xiui controller` — open General → Input; `controller status` prints device and mapping observations
 - `/xiui chat` — configure the Chat module; `chat show|hide|clear|status` controls it
@@ -77,9 +85,13 @@ Installation and build instructions are in [Development](development.md). For so
 - `/xiui enemylist status` — report tracked enemies
 - `/xiui party` — configure Party, Alliance 1 and Alliance 2; drag each list independently in edit mode
 - `/xiui party status` — report live membership and embedded XIVParty icon availability
+- `/xiui preset classic|xiv` — restore the complete captured HUD setup, including positions and settings
+- `/xiui party preset classic|xiv` — apply the selected Party preset while keeping other modules
 - `/xiui statuses` or `/xiui buffs|debuffs` — configure the independently movable native status groups
 - `/xiui notify status` — report screen-space anchoring or the saved manual position
-- `/xiui theme` — control the game's Window Type (1–8) from General → Appearance
+- `/xiui theme` — open Global → Appearance; choose XI Theme or XIV 1.0 Theme under Theme (also available in Basic settings)
+- `/xiui theme xiv1` / `/xiui theme xi` — switch XIUI's theme while keeping saved layouts; `theme native` remains an alias for XI Theme
+- `/xiui theme 1` through `/xiui theme 8` — change the game's native Window Type
 - `/xiui general` — configure native game HUD visibility
 - `/xiui gamehud` — configure native game HUD visibility
 - `/xiui gamehud show all` — restore every native HUD element
@@ -105,7 +117,9 @@ Party job artwork is bundled from [XIVParty by Tylas](https://github.com/Tylas11
    **Classic** restores the complete captured Party setup in [config/party-classic.ini](../config/party-classic.ini), including text, bars, icon offsets, statuses and tickers.
 7. Drag the Configuration panel by its header. The **three-dot menu → Reset to defaults** restores all XIUI settings and positions, including the default **XIUI (Bahnschrift)** font. Its confirmation screen starts on Cancel; choose Reset to apply. Click **x**, or run `/xiui edit`, to save and exit.
 
-Edit mode captures mouse input over XIUI panels and throughout UI drags. The game cursor and mouse controls work outside the panels. Mouse input is restored when edit mode closes, the runtime swaps, or the plugin unloads.
+Settings start with **Edit Mode OFF**. Live modules stay visible; hover one to edit or drag it. Select a module's settings to preview it, or turn the footer's **Edit Mode** dot ON to preview all enabled modules. Turning it OFF clears previews. Hidden modules have no edit controls.
+
+Settings capture mouse input over XIUI panels and throughout UI drags. The game cursor and mouse controls work outside the panels. Mouse input is restored when settings close, the runtime swaps, or the plugin unloads.
 
 Target HP and its percentage share an inset row along the bottom of the bar; the name remains above. **HP label** hides its label. EXP uses the Player label/value styles, with **EXP label** to show or hide its label and **Info position → Above / Below** to inset its info along either bar edge. The EXP label stays at the upper edge independently. Enemy targets share the enemy name row and align right; long names shorten to fit their own space.
 
@@ -157,10 +171,10 @@ Kipling created [Cadence](https://github.com/KiplingFFXI/cadence) and [Momentum]
 
 Cursor artwork is from Kenney's CC0 Cursor Pack. The original notice is retained in `assets/cursors/LICENSE.txt`.
 
-Native command/details menus: `/xiui commands` opens their movable module. It preserves native actions, item/spell details, selections and cursor handling; disabling movement restores the game positions. HUD containers and the configuration UI follow **Menu → Config → Windows → Shared → Window Type**, using all eight installed DAT skins. `/xiui commands status` and `/xiui theme status` report native support and the selected skin.
+Native command/details menus: `/xiui commands` opens their movable module. It preserves native actions, item/spell details, selections and cursor handling; disabling movement restores the game positions. With **XI Theme**, HUD containers and the configuration UI follow **Menu → Config → Windows → Shared → Window Type**, using all eight installed DAT skins. **XIV 1.0 Theme** uses navy fabric, aged-metal frames, copper gauges, serif HUD text, transparent chat and a softly fading minimap. Choose it with **Theme** in Basic settings or **Global → Appearance**. Switching themes preserves saved module styling and placement. `/xiui commands status` and `/xiui theme status` report native support and the selected theme.
 
 Target includes **World Target Bar**, an optional small HP bar beneath the selected world target, and **Mob Info** group sub-tabs for combined rows, separate rows or independent movement. See [World Target Bar](reference/world-target-bar.md) and [Mob Info](archive/implementation/06-mob-information.md).
 
 Notifications support **2–6 groups** with per-kind routing and independent positions, text, appearance and animation. **Animation → Pin invitations** minimizes party/trade notices; hover or `/xiui focus notifications` reveals sender details. See [Notification groups](archive/implementation/22-notification-groups-and-pinning.md).
 
-**General → Appearance → HP Feedback** controls damage trails, healing segments and flashes, with separate switches, colors and timing. **General → Visibility → Hide overhead names** hides player/NPC/enemy names; turn it off to restore them.
+**Extras → HP Feedback** controls damage trails, healing segments and flashes, with separate switches, colors and timing. **Global → Visibility → Hide overhead names** hides player/NPC/enemy names; turn it off to restore them.

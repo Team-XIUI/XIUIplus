@@ -184,7 +184,7 @@ namespace xiui
         return sections;
     }
 
-    auto enemy_list_module::ConfigSectionContains(const size_t section, const size_t index) -> bool
+    auto enemy_list_module::ContentConfigSectionContains(const size_t section, const size_t index) -> bool
     {
         if (section >= this->ConfigSections().size() || index >= this->OptionCount()) return false;
         if (index >= status_options_start) return section == 8;
@@ -206,7 +206,7 @@ namespace xiui
         return topic == bar_config_section::general;
     }
 
-    auto enemy_list_module::Option(const size_t index) -> module_option
+    auto enemy_list_module::ContentOption(const size_t index) -> module_option
     {
         if (index >= status_options_start) return this->statuses_.Option(index - status_options_start);
         if (index >= layout_options_start)
@@ -408,8 +408,9 @@ namespace xiui
         return actor != nullptr ? std::span<const combat_status>{actor->statuses} : std::span<const combat_status>{};
     }
 
-    auto enemy_list_module::HitTarget(const float x, const float y, const uint64_t now) const -> std::pair<uint32_t, uint32_t>
+    auto enemy_list_module::HitTarget(const float screenX, const float screenY, const uint64_t now) const -> std::pair<uint32_t, uint32_t>
     {
+        const float x = this->State().transform.InverseX(screenX), y = this->State().transform.InverseY(screenY);
         if (!this->state_.enabled || !this->click_target_) return {};
         const auto& entries = this->source_.Entries();
         const auto layout = this->LayoutEntries(entries, now);
@@ -576,7 +577,7 @@ namespace xiui
             const auto statuses = this->Statuses(entry.id);
             const auto status = this->ControllerStatusIndex(statuses);
             if (!status) return {};
-            return ui::LayoutStatusStrip(statuses.size(), layout.entries[index].statuses, this->statuses_).Icon(*status);
+            return this->state_.transform.Map(ui::LayoutStatusStrip(statuses.size(), layout.entries[index].statuses, this->statuses_).Icon(*status));
         }
         return {};
     }
@@ -687,9 +688,10 @@ namespace xiui
                 if (!status || *status >= strip.count) return;
                 tooltip = ui::status_tooltip{statuses[*status], strip.Icon(*status)};
             }
-            else tooltip = ui::StatusStripHit(statuses, layout.entries[index].statuses, this->statuses_, x, y);
+            else tooltip = ui::StatusStripHit(statuses, layout.entries[index].statuses, this->statuses_, this->state_.transform.InverseX(x), this->state_.transform.InverseY(y));
             if (!tooltip) continue;
             tooltip->entity = entry.id;
+            tooltip->bounds = this->state_.transform.Map(tooltip->bounds);
             ui::DrawStatusTooltip(*tooltip, resources, this->text_[1], context);
             return;
         }

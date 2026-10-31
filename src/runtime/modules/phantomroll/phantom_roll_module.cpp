@@ -124,7 +124,7 @@ namespace xiui
 
     auto phantom_roll_module::ConfigSections(void) const -> std::span<const module_config_section> { return BarConfigSections(); }
 
-    auto phantom_roll_module::ConfigSectionContains(const size_t section, const size_t index) -> bool
+    auto phantom_roll_module::ContentConfigSectionContains(const size_t section, const size_t index) -> bool
     {
         if (section >= this->ConfigSections().size() || index >= this->OptionCount()) return false;
         const auto topic = static_cast<bar_config_section>(section);
@@ -135,7 +135,7 @@ namespace xiui
         return topic == bar_config_section::general;
     }
 
-    auto phantom_roll_module::Option(const size_t index) -> module_option
+    auto phantom_roll_module::ContentOption(const size_t index) -> module_option
     {
         static constexpr const char* layouts[]{"Side by side", "Stacked"};
         static constexpr const char* textNames[]{"Roll name", "Roll state", "Base potency", "Timer", "Die total"};
@@ -164,7 +164,7 @@ namespace xiui
         }
     }
 
-    auto phantom_roll_module::OnOptionChanged(const size_t index) -> void
+    auto phantom_roll_module::OnContentOptionChanged(const size_t index) -> void
     { if (index == preview) this->preview_ = !this->preview_; }
 
     auto phantom_roll_module::ShouldRender(const hud_snapshot&) const -> bool

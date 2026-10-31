@@ -5,6 +5,8 @@
 
 namespace xiui
 {
+    enum class native_keyboard_layout : uint8_t { full, compact1, compact2 };
+
     struct native_chat_window_settings
     {
         bool reactive{};
@@ -19,7 +21,9 @@ namespace xiui
         auto Type(void) const -> std::optional<uint8_t>;
         auto TimestampMode(void) const -> std::optional<uint8_t>;
         auto FullKeyboard(void) const -> std::optional<bool>;
+        auto KeyboardLayout(void) const -> std::optional<native_keyboard_layout>;
         auto ChatWindow(bool secondary = false) const -> std::optional<native_chat_window_settings>;
+        auto ChatWindowCount(void) const -> std::optional<unsigned>;
         auto SetType(int type) const -> bool;
         auto ChatFilterValue(uint32_t id) const -> std::optional<uint32_t>;
         auto SetChatFilterValue(uint32_t id, uint32_t value) const -> bool;

@@ -2,6 +2,10 @@
 
 Start with the [module index](modules/README.md) and read only the note for the area you are changing. Each note gives the source owners, important constraints and a focused check.
 
+## Active planning
+
+- [Basic settings and HUD scaling](plans/2026-10-20-basic-settings-and-hud-scale.md): implemented Basic/Advanced settings, Classic/XIV presets, global scale and element edit grips; includes the delivery record.
+
 ## Shared guidance
 
 - [Foundations](foundations.md): HUD text, containers, bars, configuration, input and persistence contracts.

@@ -263,7 +263,7 @@ namespace xiui
         static constexpr const char* views[]{"Avatar / spirit", "Jug pet", "Charmed pet", "Wyvern", "Automaton", "Pet Target"};
         return this->target_ ? std::span<const char* const>{} : std::span<const char* const>{views};
     }
-    auto pet_module::OptionCount(void) const -> size_t
+    auto pet_module::ContentOptionCount(void) const -> size_t
     { return this->TargetConfig() ? target_base_options + meter_style_option_count + text_profile_option_count : resource_extra_start + 5; }
     auto pet_module::ConfigSections(void) const -> std::span<const module_config_section>
     {
@@ -272,7 +272,7 @@ namespace xiui
             result[8] = {"Portrait", "Avatar artwork, independent image offsets, scale, opacity and clipping.", "portrait"}; result[9] = {"Recasts", "Ability visibility, ready/cooldown styles and icon layouts.", "recasts"}; return result; }();
         return this->TargetConfig() ? BarConfigSections() : std::span<const module_config_section>{sections};
     }
-    auto pet_module::ConfigSectionContains(const size_t section, const size_t index) -> bool
+    auto pet_module::ContentConfigSectionContains(const size_t section, const size_t index) -> bool
     {
         if (index >= this->OptionCount() || section >= this->ConfigSections().size()) return false;
         if (this->TargetConfig()) return this->TargetContains(section, index);
@@ -289,7 +289,7 @@ namespace xiui
         if (index == 11 || index == 12 || index == 13 || index == 18) return section == 1;
         return section == 0;
     }
-    auto pet_module::Option(const size_t index) -> module_option
+    auto pet_module::ContentOption(const size_t index) -> module_option
     {
         if (this->TargetConfig()) return this->TargetOption(index);
         auto& type = this->types_[this->view_];
@@ -601,7 +601,7 @@ namespace xiui
         if (settings.statuses.tooltips)
         {
             const auto layout = ui::LayoutStatusStrip(statuses.size(), this->status_bounds_, settings.statuses);
-            for (size_t index = 0; index < layout.count; ++index) this->status_hits_.push_back({statuses[index], layout.Icon(index), snapshot.pet.id});
+            for (size_t index = 0; index < layout.count; ++index) this->status_hits_.push_back({statuses[index], context.Design().Transform().Map(layout.Icon(index)), snapshot.pet.id});
         }
         y += ui::StatusStripHeight(statuses.size(), width, settings.statuses);
         this->DrawRecasts(kind, cooldowns, x, y, width, context);

@@ -1,4 +1,5 @@
 #include "text_rasterizer.hpp"
+#include "text_size.hpp"
 
 #include <cmath>
 #include <cstring>
@@ -87,14 +88,15 @@ namespace xiui::ui
 
     auto text_rasterizer::Face(const int font, const int pixels) -> face*
     {
-        const int family = std::clamp(font, 0, font_count), size = std::clamp(pixels, 6, 96);
-        const auto key = static_cast<uint32_t>(family * 128 + size);
+        const int family = std::clamp(font, 0, font_count), size = std::clamp(pixels, 1, text_max_raster_pixels);
+        const auto key = static_cast<uint32_t>(family * 1024 + size);
         if (auto found = this->faces_.find(key); found != this->faces_.end()) { found->second.touched = ++this->touched_; return &found->second; }
         if (this->dc_ == nullptr) this->dc_ = ::CreateCompatibleDC(nullptr);
         if (this->dc_ == nullptr || (family == 3 && !this->grammara_.Load())) return nullptr;
         const auto name = family == font_count ? "Yu Gothic UI" : font_faces[family].family;
         const int weight = family == font_count ? FW_BOLD : font_faces[family].weight;
-        auto handle = ::CreateFontA(-size * samples, 0, 0, 0, weight, FALSE, FALSE, FALSE,
+        const bool italic = family < font_count && font_faces[family].italic;
+        auto handle = ::CreateFontA(-size * samples, 0, 0, 0, weight, italic ? TRUE : FALSE, FALSE, FALSE,
             family == font_count ? DEFAULT_CHARSET : ANSI_CHARSET, OUT_TT_PRECIS, CLIP_DEFAULT_PRECIS,
             NONANTIALIASED_QUALITY, DEFAULT_PITCH, name);
         if (handle == nullptr) return nullptr;

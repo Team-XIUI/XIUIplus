@@ -5,6 +5,7 @@
 #include "chat/chat_text.hpp"
 #include "resources/auto_translate.hpp"
 #include "modules/chat/chat_module.hpp"
+#include "modules/chat/chat_theme.hpp"
 #include "hud_runtime.hpp"
 #include "ui/clipped_quad.hpp"
 #include "chat_stack_checks.hpp"
@@ -579,7 +580,8 @@ namespace xiui
             {
                 chat_event event{}; event.sequence = mode; event.windows = 1; event.mode = mode;
                 strcpy_s(event.text, "Example waves."); module.Receive(nullptr, event, false);
-                Check(ChatTypeIndex(mode) == 9 && ChatHistoryMatches(10, mode, 1) && !ChatHistoryMatches(10, mode, 0),
+                Check(ChatTypeIndex(mode) == 9 && ChatHistoryMatches(static_cast<size_t>(chat_history_tab::emotes), mode, 1) &&
+                    !ChatHistoryMatches(static_cast<size_t>(chat_history_tab::emotes), mode, 0),
                     "incoming and outgoing emotes use their own history category and retain native admission");
             }
             module.RebuildRows(design, 1500);
@@ -590,11 +592,17 @@ namespace xiui
         static auto ExpandedHistory(void) -> void
         {
             hud_runtime runtime; auto& chat = runtime.chat_;
+            runtime.chat_second_.State().enabled = true;
             chat.ApplyTextDefaults(ui::theme::CreateDefault());
             chat.SetHistoryViewport({0, 0, 1600, 900});
             const auto initial = chat.State().bounds;
             chat.editor_.Set("unsent draft");
-            const auto key = [&](const WPARAM value, const LPARAM flags = 0) { return runtime.HandleChatKey(value, flags, false, true, false, 0); };
+            const auto key = [&](const WPARAM value, const LPARAM flags = 0) {
+                const bool consumed = runtime.HandleChatKey(value, flags, false, true, false, 0);
+                if (consumed && value == VK_RETURN && (static_cast<uint32_t>(flags) & 0xC0000000u) == 0)
+                    runtime.HandleKey(value, static_cast<LPARAM>(0xC0000000u), false);
+                return consumed;
+            };
             Check(!runtime.HandleChatKey('F', 0, true, true, false, 0) && !runtime.HandleChatKey('F', 0, false, false, false, 0) &&
                 !chat.HistoryFocused(), "F respects existing input owners and native chat when replacement is off");
             Check(!key('F') && !chat.HistoryFocused() && !chat.HandleHistoryKey('F', 0, false, true, runtime.design_system_),
@@ -603,17 +611,77 @@ namespace xiui
                 "explicit history focus selects the log without opening a message editor");
             Check(key(VK_RETURN) && chat.HistoryExpanded() && chat.editor_.Text() == "unsent draft", "Enter expands history without submitting or changing a draft");
             const auto layout = chat.HistoryLayout(runtime.design_system_);
-            Check(layout.frame.width > 1500 && layout.frame.height > 800 && layout.log.y < layout.footer.y && layout.tabs.size() == 11,
+            Check(layout.frame.width > 1500 && layout.frame.height > 800 && layout.log.y < layout.footer.y && layout.tabs.size() == 12,
                 "expanded history fills the viewport with all requested channel tabs above the frame");
             for (const auto& tab : layout.tabs)
                 Check(tab.x >= 0 && tab.x + tab.width <= 1600 && tab.y + tab.height < layout.frame.y,
                     "all channel tab hit areas fit above the expanded log");
-            constexpr uint32_t modes[]{20, 9, 12, 13, 14, 214, 222, 220, 212, 10, 15};
+            constexpr uint32_t modes[]{20, 20, 9, 12, 13, 14, 214, 222, 220, 212, 10, 15};
             for (size_t tab = 0; tab < std::size(chat_history_tabs); ++tab)
             {
-                Check(ChatHistoryMatches(tab, modes[tab], 1) && !ChatHistoryMatches(tab, modes[tab], 0), "each history tab matches its admitted native channel");
-                if (tab > 0) Check(!ChatHistoryMatches(tab, modes[tab % 9 + 1], 1), "channel histories remain separate");
+                const uint32_t window = tab == static_cast<size_t>(chat_history_tab::window2) ? 2 : 1;
+                Check(ChatHistoryMatches(tab, modes[tab], window) && !ChatHistoryMatches(tab, modes[tab], 0), "each history tab matches its admitted native channel");
+                if (tab < 2) Check(!ChatHistoryMatches(tab, modes[tab], window ^ 3), "Window 1 and Window 2 retain separate native routing");
+                else Check(!ChatHistoryMatches(tab, modes[tab] == 9 ? 12 : 9, 1), "channel histories remain separate");
                 Check(key('F') && chat.history_view_.tab == (tab + 1) % std::size(chat_history_tabs), "F cycles the complete tab strip and wraps");
+            }
+            {
+                const keyboard_restore shift{false, false, true};
+                Check(key('F') && chat.history_view_.tab == static_cast<size_t>(chat_history_tab::emotes), "Shift+F wraps backward to Emotes");
+            }
+            Check(key('F') && chat.history_view_.tab == 0, "F wraps from Emotes to Window 1");
+            {
+                const auto window2 = static_cast<size_t>(chat_history_tab::window2), say = static_cast<size_t>(chat_history_tab::say);
+                runtime.chat_second_.State().enabled = false;
+                const auto hidden = chat.HistoryLayout(runtime.design_system_);
+                Check(hidden.tabs[window2].height == 0 && hidden.tabs[say].x == layout.tabs[window2].x,
+                    "disabled Window 2 has no tab or empty space in the expanded strip");
+                Check(key('F') && chat.history_view_.tab == say, "F skips disabled Window 2");
+                {
+                    const keyboard_restore shift{false, false, true};
+                    Check(key('F') && chat.history_view_.tab == 0, "Shift+F skips disabled Window 2 in reverse");
+                }
+                Check(chat.HandleControllerAction(controller_action::next_tab, false, runtime.design_system_) && chat.history_view_.tab == say &&
+                    chat.HandleControllerAction(controller_action::previous_tab, false, runtime.design_system_) && chat.history_view_.tab == 0,
+                    "controller navigation skips the same unavailable tab in both directions");
+                Check(chat.HistorySoundTarget(runtime.design_system_, hidden.tabs[say].x + 2, hidden.tabs[say].y + 2) == 200 + say,
+                    "mouse hit testing follows the compacted visible tab layout");
+                runtime.chat_second_.State().enabled = true;
+                std::array<std::array<uint32_t, 11>, 189> records{};
+                for (const auto id : {187u, 188u}) { records[id][1] = id; records[id][3] = 4; records[id][7] = UINT32_MAX; }
+                records[180][1] = 180; records[180][2] = 1; records[180][3] = 4; records[180][7] = 2;
+                const std::array<uintptr_t, 2> object{0, reinterpret_cast<uintptr_t>(records.data())};
+                const auto address = reinterpret_cast<uintptr_t>(object.data());
+                native_window_config config; config.config_slot_ = reinterpret_cast<uintptr_t>(&address); config.setter_ = 1;
+                native_chat_filters routing; routing.config_ = &config;
+                chat.SetNativeFilters(routing);
+                runtime.chat_second_.SetNativeFilters(routing);
+                Check(routing.WindowHasRouting(true) == false && !chat.HistoryTabAvailable(window2),
+                    "an enabled Window 2 with no configured message routing stays hidden");
+                records[187][2] = 1;
+                Check(routing.WindowHasRouting(true) == true && chat.Count() == 0 && chat.HistoryTabAvailable(window2),
+                    "configured but quiet Window 2 remains available before receiving any messages");
+                Check(key('F') && chat.history_view_.tab == window2, "newly configured Window 2 joins normal tab cycling");
+                records[187][2] = 0;
+                chat.HandleControllerAction(controller_action::next_tab, true, runtime.design_system_);
+                Check(chat.history_view_.tab == 0, "removing selected Window 2 routing returns to Window 1 without repeating navigation");
+                records[188][2] = 2;
+                Check(chat.HistoryTabAvailable(window2), "battle routing in the high mask also configures Window 2");
+                records[180][2] = 0;
+                const auto secondBounds = runtime.chat_second_.State().bounds;
+                Check(!chat.HistoryTabAvailable(window2) && !runtime.chat_second_.WindowVisible() && !runtime.chat_second_.ShouldRender({}) &&
+                    !runtime.chat_second_.HasEditableBounds() && runtime.chat_second_.State().enabled && chat.ShouldRender({}),
+                    "native single-window mode hides Window 2 rendering, browsing and edit controls without changing its saved enable choice");
+                records[180][2] = 1;
+                Check(runtime.chat_second_.WindowVisible() && runtime.chat_second_.ShouldRender({}) && chat.HistoryTabAvailable(window2) &&
+                    runtime.chat_second_.State().bounds.x == secondBounds.x && runtime.chat_second_.State().bounds.y == secondBounds.y &&
+                    runtime.chat_second_.State().bounds.width == secondBounds.width && runtime.chat_second_.State().bounds.height == secondBounds.height,
+                    "restoring native multi-window restores Window 2 without changing its saved position or size");
+                records[180][2] = 1; records[187][1] = 0;
+                Check(!routing.WindowHasRouting(true).has_value() && chat.HistoryTabAvailable(window2),
+                    "unavailable native routing does not hide an enabled user's window");
+                chat.SetNativeFilters(runtime.chat_filters_);
+                runtime.chat_second_.SetNativeFilters(runtime.chat_filters_);
             }
             chat.SetHistoryViewport({0, 0, 420, 520});
             const auto narrow = chat.HistoryLayout(runtime.design_system_);
@@ -642,9 +710,9 @@ namespace xiui
             Check(chat.HandleMouse(WM_MOUSEWHEEL, MAKEWPARAM(0, WHEEL_DELTA), full.log.x + 10, full.log.y + 10, false,
                 runtime.design_system_, chat.history_view_.viewport, save) && chat.CurrentScroll() == 3 && !save,
                 "expanded history retains normal mouse-wheel scrolling without changing window preferences");
-            const auto say = full.tabs[1];
+            const auto say = full.tabs[static_cast<size_t>(chat_history_tab::say)];
             Check(chat.HandleMouse(WM_LBUTTONDOWN, MK_LBUTTON, say.x + 2, say.y + 2, false, runtime.design_system_, chat.history_view_.viewport, save) &&
-                chat.history_view_.tab == 1 && chat.HandleMouse(WM_LBUTTONUP, 0, say.x + 2, say.y + 2, false, runtime.design_system_, chat.history_view_.viewport, save),
+                chat.history_view_.tab == static_cast<size_t>(chat_history_tab::say) && chat.HandleMouse(WM_LBUTTONUP, 0, say.x + 2, say.y + 2, false, runtime.design_system_, chat.history_view_.viewport, save),
                 "history tabs accept and retain a complete captured pointer click");
             const auto retainedTab = chat.history_view_.tab, retainedScroll = chat.CurrentScroll();
             Check(!key(VK_TAB, 0x20000000) && chat.HistoryExpanded(), "Alt+Tab leaves the expanded log visible and yields the shortcut");
@@ -677,26 +745,30 @@ namespace xiui
             second.history_view_.tab = 3; second.history_view_.scroll[3] = 7;
             Check(chat.BeginHistory() && chat.HistoryFocused() && !second.HistoryFocused(), "explicit entry selects the first visible chat window");
             Check(key('F', 0x40000000) && chat.HistoryFocused() && !second.HistoryFocused(), "held F cannot cycle windows repeatedly");
-            Check(key('F') && second.HistoryFocused() && !chat.HistoryFocused() && runtime.ChatFocused() &&
-                second.history_view_.tab == 3 && second.history_view_.scroll[3] == 7,
-                "F moves compact focus to Window 2 without changing its tab or scroll");
+            chat.SelectHistoryTab(static_cast<size_t>(chat_history_tab::window1));
+            chat_event windowTwo{101, ::GetTickCount64(), 20, 0xFFFFFFFF, 2}; strcpy_s(windowTwo.text, "Window two message");
+            chat.Receive(nullptr, windowTwo, false);
+            Check(key(VK_RETURN) && key('F') && chat.HistoryExpanded() && !second.HistoryFocused() &&
+                chat.history_view_.tab == static_cast<size_t>(chat_history_tab::window2),
+                "Window 2 is the second F tab in the expanded log, without changing focused HUD windows");
+            chat.RebuildRows(runtime.design_system_, 800);
+            Check(chat.rows_.size() == 1 && chat.rows_.front().sequence == windowTwo.sequence,
+                "the expanded Window 2 tab shows only messages routed to the second native log");
             runtime.SyncNativeChatInput(nullptr, true, true);
             runtime.UpdateControllerFocus();
-            Check(second.HistoryFocused() && second.history_view_.tab == 3 && second.history_view_.scroll[3] == 7,
-                "native combat-menu polling retains Window 2 focus between cycle presses");
-            Check(key(VK_RETURN) && second.HistoryExpanded() && !chat.HistoryExpanded(), "Enter expands the selected second window");
-            Check(key('F') && second.history_view_.tab == 4 && second.HistoryExpanded(), "F cycles tabs inside Window 2's expanded history");
-            Check(key(VK_ESCAPE) && second.HistoryFocused() && !second.HistoryExpanded() && !chat.HistoryFocused() && runtime.ChatFocused(),
-                "Escape from expanded Window 2 returns focus to compact Window 2");
-            Check(key(VK_ESCAPE, 0x40000000) && second.HistoryFocused() && second.history_view_.tab == 4 && chat.editor_.Text() == cyclingDraft,
-                "held Escape retains Window 2 focus, its history tab and the shared draft");
-            Check(key(VK_ESCAPE) && !runtime.ChatFocused(), "a second fresh Escape releases Window 2 focus");
+            Check(chat.HistoryExpanded() && chat.history_view_.tab == static_cast<size_t>(chat_history_tab::window2),
+                "native combat-menu polling retains the expanded Window 2 tab");
+            Check(key(VK_ESCAPE) && chat.HistoryFocused() && !chat.HistoryExpanded() && !second.HistoryFocused() && runtime.ChatFocused(),
+                "Escape from the Window 2 tab returns to compact chat");
+            Check(key(VK_ESCAPE, 0x40000000) && chat.HistoryFocused() && chat.editor_.Text() == cyclingDraft,
+                "held Escape retains compact focus and the shared draft");
+            Check(key(VK_ESCAPE) && !runtime.ChatFocused(), "a second fresh Escape releases compact chat focus");
             auto& player = const_cast<party_member&>(runtime.party_source_.Members()[0]);
             player.active = player.buffs_known = true; player.id = 50;
             player.buffs = {33, 40, 2}; player.buff_count = 3;
-            Check(chat.BeginHistory() && key('F') && second.HistoryFocused() && key('F') && runtime.buffs_.ControllerFocused() &&
-                !runtime.ChatFocused() && second.history_view_.tab == 4 && chat.editor_.Text() == cyclingDraft,
-                "F after Window 2 selects XIUI Buffs directly and retains chat tabs and drafts");
+            Check(chat.BeginHistory() && key('F') && runtime.buffs_.ControllerFocused() && !second.HistoryFocused() &&
+                !runtime.ChatFocused() && second.history_view_.tab == 3 && second.history_view_.scroll[3] == 7 && chat.editor_.Text() == cyclingDraft,
+                "the second compact F selects Buffs directly, retaining both windows' tabs and the shared draft");
             const auto firstBuff = runtime.buffs_.ControllerBounds();
             Check(key(VK_RIGHT) && runtime.buffs_.ControllerBounds().x > firstBuff.x,
                 "keyboard arrows move between the actual XIUI effect icons");
@@ -744,17 +816,21 @@ namespace xiui
             };
             Check(cycle(controller_action::cycle_window) && chat.HistoryFocused(), "controller cycle starts with Window 1");
             Check(cycle(controller_action::cycle_window, true) && chat.HistoryFocused(), "held controller cycle cannot change windows");
-            Check(cycle(controller_action::cycle_window) && second.HistoryFocused() && !chat.HistoryFocused(),
-                "controller cycle uses the same Window 2 focus handoff");
+            Check(cycle(controller_action::confirm) && chat.HistoryExpanded(), "controller Confirm expands the shared chat log");
+            chat.SelectHistoryTab(static_cast<size_t>(chat_history_tab::window1));
+            Check(cycle(controller_action::cycle_window) && chat.HistoryExpanded() && !second.HistoryFocused() &&
+                chat.history_view_.tab == static_cast<size_t>(chat_history_tab::window2),
+                "controller cycle selects Window 2 inside the expanded log");
             runtime.SyncNativeChatInput(nullptr, true);
             runtime.UpdateControllerFocus();
-            Check(second.HistoryFocused(), "native combat-menu polling retains controller focus on Window 2");
-            Check(cycle(controller_action::confirm) && second.HistoryExpanded(), "controller Confirm expands Window 2");
-            Check(cycle(controller_action::cycle_window) && second.HistoryExpanded() && second.history_view_.tab == 5,
-                "controller cycle retains tab navigation inside expanded Window 2");
+            Check(chat.HistoryExpanded(), "native combat-menu polling retains controller focus on the expanded log");
+            for (size_t tab = 2; tab < std::size(chat_history_tabs); ++tab)
+                Check(cycle(controller_action::cycle_window) && chat.HistoryExpanded() && chat.history_view_.tab == tab,
+                    "controller tab navigation reaches every channel including Shout and Emotes");
+            Check(cycle(controller_action::cycle_window) && chat.history_view_.tab == 0, "controller cycling wraps from Emotes to Window 1");
             cycle(controller_action::cancel);
             runtime.native_ui_.menu_visible = true;
-            Check(cycle(controller_action::cycle_window) && runtime.buffs_.ControllerFocused(), "controller cycle reaches XIUI Buffs after Chat 2");
+            Check(cycle(controller_action::cycle_window) && runtime.buffs_.ControllerFocused(), "controller cycle reaches Buffs directly after compact Chat");
             runtime.SyncNativeChatInput(nullptr, true);
             runtime.UpdateControllerFocus();
             const auto controllerBuff = runtime.buffs_.ControllerBounds();
@@ -770,15 +846,40 @@ namespace xiui
                 "controller focus wraps from status effects to Chat 1");
             runtime.native_ui_.menu_visible = false;
             cycle(controller_action::cancel);
-            Check(chat.BeginHistory() && key('F') && second.HistoryFocused() &&
+            Check(second.BeginHistory() && second.HistoryFocused() &&
                 !runtime.HandleChatKey('F', 0, false, true, false, 0x11) && !runtime.ChatFocused() &&
                 chat.editor_.Text() == cyclingDraft, "native text input releases both histories without changing the draft");
-            Check(chat.BeginHistory() && key('F') && key('F') && runtime.buffs_.ControllerFocused() &&
+            Check(chat.BeginHistory() && key('F') && runtime.buffs_.ControllerFocused() &&
                 !runtime.HandleChatKey(VK_RIGHT, 0, false, true, false, 0x11) && !runtime.ControllerCaptured(),
                 "native text ownership releases status inspection before handling navigation");
             runtime.editing_ = true;
             Check(!key('F') && !chat.HistoryFocused() && !second.HistoryFocused(), "config editing keeps F away from both chat histories");
             runtime.editing_ = false;
+        }
+
+        static auto SingleWindowHistory(void) -> void
+        {
+            {
+                hud_runtime single;
+                auto& combined = single.chat_;
+                single.chat_second_.State().enabled = false;
+                combined.ApplyTextDefaults(ui::theme::CreateDefault());
+                combined.timestamp_display_ = 1;
+                *combined.Option(8).choice = 2; combined.OnOptionChanged(8);
+                combined.editor_.Set("keep this draft");
+                chat_event message{}; message.sequence = 1; message.windows = 1; message.mode = 1;
+                strcpy_s(message.text, "First log"); combined.Receive(nullptr, message, false);
+                message.sequence = 2; message.windows = 2; strcpy_s(message.text, "Second log"); combined.Receive(nullptr, message, false);
+                combined.history_view_.focused = combined.history_view_.expanded = true;
+                combined.RebuildRows(single.design_system_, 500);
+                Check(combined.rows_.size() == 2 && std::strcmp(combined.HistoryTabName(0), "All") == 0 &&
+                    !combined.HistoryTabAvailable(1) && combined.editor_.Text() == "keep this draft",
+                    "single-window All history combines both native logs without a second window or draft changes");
+                *combined.Option(8).choice = 0; combined.OnOptionChanged(8);
+                combined.RebuildRows(single.design_system_, 500);
+                Check(combined.rows_.size() == 1 && std::strcmp(combined.HistoryTabName(0), "Window 1") == 0,
+                    "changing the source invalidates the combined history cache");
+            }
         }
 
         static auto WrappingWhitespace(void) -> void
@@ -945,6 +1046,24 @@ namespace xiui
             Check(cursor_sounds == 2 && alert_sounds == 1, "disabling keyword sound retains the channel sound");
             constexpr uint32_t modes[]{12, 4, 9, 13, 14, 214, 10, 11, 212, 15, 219, 20, 200};
             constexpr D3DCOLOR game = 0xFF80A0C0, inlineColor = 0xFFE08060, custom = 0xCC60C090;
+            const auto themedCombat = ChatThemeColor(20, game, true);
+            Check(ChatThemeColor(20, game, false) == game && themedCombat != game &&
+                module.colors_.Resolve(20, themedCombat, inlineColor) == inlineColor,
+                "XIV chat defaults affect only the selected theme and retain authored inline highlights");
+            module.colors_.enabled[11] = true; module.colors_.colors[11] = custom;
+            Check(module.colors_.Resolve(20, themedCombat, inlineColor) == custom,
+                "an explicit channel override remains authoritative over themed defaults");
+            module.colors_.enabled[11] = false;
+            ui::design_system themedDesign; themedDesign.SetAppearanceTheme(1);
+            auto chatStyle = ui::theme::CreateDefault().body_text;
+            chatStyle.font = ui::xiv1_font; chatStyle.scale = .85f; chatStyle.letter_spacing = .2f;
+            const auto trackedStyle = ChatThemeStyle(themedDesign, chatStyle);
+            Check(std::abs(trackedStyle.letter_spacing - .6f) < .001f &&
+                ChatThemeStyle(themedDesign, trackedStyle).letter_spacing == trackedStyle.letter_spacing && chatStyle.letter_spacing == .2f,
+                "XIV chat tracking is applied once without changing saved text preferences");
+            Check(std::abs(MeasureChatText(themedDesign, "Five!", trackedStyle) - MeasureChatText(themedDesign, "Five!", chatStyle) -
+                1.6f * ui::TextPixelScale(chatStyle.scale)) < .001f,
+                "chat wrapping and caret measurement use the rendered tracking at fractional font sizes");
             for (size_t i = 0; i < std::size(modes); ++i)
             {
                 Check(module.colors_.Resolve(modes[i], game, inlineColor) == inlineColor && module.colors_.Resolve(modes[i], game) == game,
@@ -1258,9 +1377,25 @@ namespace xiui
             const auto config = reinterpret_cast<uintptr_t>(manager.data());
             runtime.window_config_.config_slot_ = reinterpret_cast<uintptr_t>(&config); runtime.window_config_.setter_ = 1;
             auto& record = table[66]; record[1] = 66; record[3] = 4; record[7] = 2;
-            Check(runtime.window_config_.FullKeyboard() == true, "Full keyboard mode reads the native configuration");
-            Check(!runtime.HandleChatKey('F', 0, false, true, false, 0) && !runtime.ChatFocused(),
-                "a first f remains available to native Full-mode typing instead of opening history");
+            Check(runtime.window_config_.FullKeyboard() == true && runtime.window_config_.KeyboardLayout() == native_keyboard_layout::full,
+                "Full keyboard mode reads the native configuration");
+            Check(runtime.HandleChatKey('F', 0, false, true, false, 0) && runtime.chat_.Focused() && runtime.chat_.editor_.Text() == "f" &&
+                !runtime.chat_input_.HandoffAvailable() && chat.count == 0,
+                "Full-mode first-character typing opens XIUI directly without a native editor or sending");
+            Check(runtime.HandleChatKey('R', 0, false, true, false, 0) && runtime.chat_.editor_.Text() == "fr", "following letters enter the same draft once");
+            runtime.ReleaseChatInput();
+            Check(!runtime.HandleChatKey(VK_NUMPAD7, 0, false, true, false, 0) && !runtime.HandleChatKey(VK_F1, 0, false, true, false, 0) &&
+                !runtime.HandleChatKey('F', 0x40000000, false, true, false, 0) && !runtime.ChatFocused(),
+                "numpad movement, function keys and an already-held letter cannot start composition");
+            Check(!runtime.HandleChatKey('F', 0, true, true, false, 0) && !runtime.HandleChatKey('F', 0, false, false, false, 0) &&
+                !runtime.HandleChatKey('F', 0, false, true, false, 0x21), "blocked input, native chat and other native editors keep their keys");
+            runtime.native_ui_.menu_visible = true;
+            Check(!runtime.HandleChatKey('F', 0, false, true, false, 0), "native menus retain regular letters");
+            runtime.native_ui_.menu_visible = false;
+            Check(!runtime.HandleChatKey('F', 0, false, true, true, 0), "native targeting retains regular letters");
+            Check(runtime.HandleChatKey(VK_SPACE, 0, false, true, false, 0) && runtime.chat_.editor_.Text() == "fr",
+                "Space opens composition while preserving the unsent draft without adding a leading space");
+            runtime.ReleaseChatInput();
             auto& input = runtime.chat_input_;
             input.raw_offset_ = 16; input.state_offset_ = 0;
             input.reset_chat_ = reinterpret_cast<uintptr_t>(&ResetNative);
@@ -1291,9 +1426,13 @@ namespace xiui
             Check(runtime.ChatFocused() && chat.IsInputOpen() == 0 && runtime.chat_.editor_.Text() == "test",
                 "an empty native editor opens XIUI input while preserving the saved unsent draft");
             runtime.ReleaseChatInput();
+            auto& compactMember = const_cast<party_member&>(runtime.party_source_.Members()[0]);
+            compactMember.active = compactMember.buffs_known = true; compactMember.id = 50;
+            compactMember.buffs = {33}; compactMember.buff_count = 1;
             for (const uint32_t compact : {1u, 2u})
             {
                 record[2] = compact;
+                Check(runtime.window_config_.KeyboardLayout() == static_cast<native_keyboard_layout>(compact), "Compact 1 and Compact 2 remain distinct native layouts");
                 Check(runtime.window_config_.FullKeyboard() == false &&
                     runtime.HandleChatKey('F', 0, false, true, false, 0) && runtime.chat_.HistoryFocused(),
                     "both Compact layouts retain F-to-focus without opening the message editor");
@@ -1306,16 +1445,15 @@ namespace xiui
                 Check(runtime.chat_.HistoryFocused() && runtime.ChatFocusBounds().width > 0,
                     "disabled or disconnected gamepads cannot clear keyboard chat focus");
                 runtime.native_ui_.menu_visible = true;
-                Check(!runtime.ControllerCaptured() && runtime.ChatFocusBounds().width > 0,
-                    "visual chat focus follows the active log independently of controller capture");
+                Check(runtime.ControllerCapture() == controller_capture_mode::navigation && runtime.ChatFocusBounds().width > 0,
+                    "chat browsing retains navigation over native menus without taking movement input");
                 runtime.native_ui_.menu_visible = false;
                 Check(runtime.HandleChatKey('F', 0x40000000, false, true, false, 0) && runtime.chat_.HistoryFocused(),
                     "holding F cannot skip over a focused window");
                 runtime.chat_second_.State().enabled = true;
-                Check(runtime.HandleChatKey('F', 0, false, true, false, 0) && runtime.chat_second_.HistoryFocused() &&
-                    runtime.controller_surface_ == hud_runtime::controller_surface::chat2 &&
-                    runtime.ChatFocusBounds().y == runtime.chat_second_.ControllerBounds(runtime.design_system_).y,
-                    "F hands the shared focus and outline to Window 2");
+                Check(runtime.HandleChatKey('F', 0, false, true, false, 0) && runtime.buffs_.ControllerFocused() &&
+                    !runtime.chat_second_.HistoryFocused() && runtime.controller_surface_ == hud_runtime::controller_surface::buffs,
+                    "the next compact F selects status effects even with Window 2 enabled");
                 Check(runtime.HandleChatKey(VK_ESCAPE, 0, false, true, false, 0) && runtime.ChatFocusBounds().width == 0 &&
                     runtime.controller_surface_ == hud_runtime::controller_surface::none && !runtime.keyboard_window_focus_,
                     "Escape immediately releases the outline and keyboard browsing owner");
@@ -1378,11 +1516,13 @@ namespace xiui
         struct keyboard_restore
         {
             BYTE keys[256]{};
-            explicit keyboard_restore(const bool control = false)
+            explicit keyboard_restore(const bool control = false, const bool alt = false, const bool shift = false)
             {
                 Check(::GetKeyboardState(this->keys) != FALSE, "capture thread-local keyboard state");
                 BYTE neutral[256]{};
                 if (control) neutral[VK_CONTROL] = neutral[VK_LCONTROL] = 0x80;
+                if (alt) neutral[VK_MENU] = neutral[VK_LMENU] = 0x80;
+                if (shift) neutral[VK_SHIFT] = neutral[VK_LSHIFT] = 0x80;
                 Check(::SetKeyboardState(neutral) != FALSE, "set thread-local reply modifiers");
             }
             ~keyboard_restore(void) { ::SetKeyboardState(this->keys); }
@@ -1887,7 +2027,7 @@ namespace xiui
             Check(spans.size() == 1 && spans[0].text == text, "native caps survive incoming span parsing");
             ui::design_system design;
             auto style = ui::theme::CreateDefault().body_text; style.scale = 1.25f; style.letter_spacing = 2;
-            Check(MeasureChatText(design, text, style) == design.MeasureText("South", style) + (16 + 4) * style.scale,
+            Check(std::abs(MeasureChatText(design, text, style) - design.MeasureText("South", style) - 16 * style.scale - 4 * ui::TextPixelScale(style.scale)) < .001f,
                 "cap advances use the native eight pixels and configured text spacing");
             if (path == nullptr) return;
             std::ifstream file{path, std::ios::binary};
@@ -2239,6 +2379,7 @@ int main(int argc, char** argv)
         if (argc == 2 && std::strcmp(argv[1], "--history-only") == 0)
         {
             chat_test::ExpandedHistory();
+            chat_test::SingleWindowHistory();
             chat_test::WrappingWhitespace();
             std::puts("Chat history focus, expansion, channel tabs, wrapped-message/page/wheel scrolling and keyboard ownership passed.");
             return 0;

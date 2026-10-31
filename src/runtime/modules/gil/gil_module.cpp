@@ -86,13 +86,13 @@ namespace xiui
         return sections;
     }
 
-    auto gil_module::ConfigSectionContains(const size_t section, const size_t index) -> bool
+    auto gil_module::ContentConfigSectionContains(const size_t section, const size_t index) -> bool
     {
         if (index >= this->OptionCount() || index == hide_menu) return false;
         return section == (index <= reset ? size_t{0} : index <= spacing ? size_t{1} : index <= negative ? size_t{2} : size_t{3});
     }
 
-    auto gil_module::Option(const size_t index) -> module_option
+    auto gil_module::ContentOption(const size_t index) -> module_option
     {
         static constexpr const char* modes[]{"Session net", "Gil per hour"};
         static constexpr const char* profiles[]{"Gil balance", "Session tracking"};
@@ -123,7 +123,7 @@ namespace xiui
         }
     }
 
-    auto gil_module::OnOptionChanged(const size_t index) -> void
+    auto gil_module::OnContentOptionChanged(const size_t index) -> void
     {
         if (index == reset && this->source_ != nullptr) this->source_->ResetSession(::GetTickCount64());
         this->cached_mode_ = -1;

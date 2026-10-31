@@ -1,0 +1,18 @@
+{
+  "authored_at": "2026-10-31T20:50:20.980851+00:00",
+  "source": "Authored derivative of the named Classic HUD preset; no live capture",
+  "source_path": "config/hud-classic.ini",
+  "source_sha256": "9E94F4630820B3E947B13993AE060D1558AB9CF155E4C9332036B1BA65A3E45C",
+  "sections": 2667,
+  "preferences": 15709,
+  "defaults_sha256": "E0545882EA041AF037E5D20C4AC31673A9B946E3B677735555452DF7F48A83FD",
+  "amendments": {
+    "appearance.theme": "1 (XIV1.0 Theme)",
+    "chat.source": "2 (All messages from both native logs)",
+    "chat2.enabled": "0 (single combined chat window)"
+  },
+  "preserved": "Every other Classic HUD preference, including positions, scales and enabled modules.",
+  "compatibility_amended_at": "2026-10-31T20:46:01.799296+00:00",
+  "compatibility_amendment": "Make legacy direct-load semantics explicit when applying over newer settings: chat.native_windows_initialized=1 preserves the authored chat window count; minimap.zoom=4 and zoom_defaults_version=1 record the existing 3-to-4 default zoom migration.",
+  "authored_sha256": "E0545882EA041AF037E5D20C4AC31673A9B946E3B677735555452DF7F48A83FD"
+}

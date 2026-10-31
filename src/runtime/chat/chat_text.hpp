@@ -41,7 +41,7 @@ namespace xiui
         float width{};
         bool first = true;
         chat_text_detail::Runs(text, [&](const auto run, const int cap) {
-            if (!first) width += style.letter_spacing * style.scale;
+            if (!first) width += style.letter_spacing * ui::TextPixelScale(style.scale);
             width += cap >= 0 ? 8 * style.scale : design.MeasureText(std::string{run}.c_str(), style);
             first = false;
         });
@@ -69,7 +69,7 @@ namespace xiui
         const float capY = box.y + std::max(0.0f, (box.height - 18 * scale) * 0.5f) + scale;
         bool first = true;
         chat_text_detail::Runs(text, [&](const auto run, const int cap) {
-            if (!first) x += draw.style.letter_spacing * scale;
+            if (!first) x += draw.style.letter_spacing * ui::TextPixelScale(scale);
             const float available = std::max(0.0f, box.x + box.width - x);
             if (cap >= 0)
             {

@@ -12,14 +12,25 @@ The wrapper builds only the selected target, then runs its catalogued arguments.
 
 ## Useful starting points
 
+- Global XIV 1.0 appearance: `xiv1-theme` (persistence, native Window Type isolation, controller access and text fade preservation).
+
+- Explicit Edit Mode: `edit-mode` (live visibility, selected previews, hover controls, hidden input targets and shared toggle).
+- Full / Compact typing: `xiui_chat_smoke --full-keyboard-only` (first-key composition, native draft handoff, shortcut ownership, numpad movement and editor isolation).
+- First-load setup and native chat defaults: `setup-wizard` (navigation, exactly-once activation, native fallback, local progress and saved chat preservation).
+- HUD scale and Basic/Advanced: `hud-scaling` (geometry, shared gestures, representative input and preset preservation).
+- Complete captured setups: `hud-presets` (all preferences, Party-only Classic differences, independent reset baseline).
+- Edit-mode module resets: `module-menu` (shared dropdown, owned clicks, scoped resets and Cancel-first confirmation).
 - Config controls/input: `config-ui`, `choice-arrows`, `element-tabs`, `input-mode`.
 - Config geometry: `config-resize`, `config-sidebar`, `scrollbar`; lookup: `settings-search`.
+- Config navigation memory: `config-memory` (mode, last page, scroll and window placement through close/reopen and reload).
 - Text: `config-text`, `global-text`, `text-rasterization`.
-- Preferences/profiles: `settings` (dedicated store executable), `defaults` (passes the shipped INI automatically), `profile-delete`, `party-presets`, `lua-profile-import` (release writer fixtures and isolated import persistence).
+- Preferences/profiles: `settings` (dedicated store executable), `defaults` (passes the shipped INI automatically), `profile-sharing` (large files, corruption, failed writes, Unicode paths, controller routes, legacy keys and isolated imports), `profile-delete`, `party-presets`, `lua-profile-import` (release writer fixtures and isolated import persistence).
 - Controller: `controller-input` (host adapter/normalization), `controller-config` (shared config actions), `cursor-ownership` (pointer lifetime). Synthetic checks do not establish physical-device/native-keyboard acceptance.
+- Window focus and chat: `window-input` (hex editing, foreground draft/focus suspension, F → Enter over the combat menu, native full-log fallback and menu handoff); `xiui_keyboard_suppression_smoke` covers DirectInput reads before WM delivery and returning a fresh Enter to gameplay. `controller-input` also checks native cycle press/hold/release in both backends.
 - Minimap: `minimap`, including named IDs, pinned edge toggles and burnt contour geometry.
 - Fishing: `fishing` (module, Extras, controller settings and persistence), `native-fishing` (validated stamina reads with party suppression active).
 - Other feature boundaries: `all-ui-visibility`, `target-rings`, `notification-feedback`, `heal-prediction`, `experience-model`. See `-List` and the dispatcher for the rest.
+- World ring cameras: `target-ring-camera` exercises the host on an isolated Direct3D device with fixed-function and terrain-shader cameras, scene-end/copy boundaries, early-label rejection, frame lifetime and opt-in shader report saving/grouping/automatic completion.
 
 The dispatcher is [config_input_smoke.cpp](config_input_smoke.cpp). Fixture declarations live in [config_input_fixture.hpp](config_input_fixture.hpp), helpers in [config_check_support.cpp](config_check_support.cpp), and feature methods in `config_control_checks.cpp`, `config_navigation_checks.cpp`, `config_module_checks.cpp`, `config_profile_checks.cpp`, `config_render_checks.cpp` and `config_text_checks.cpp`. Existing specialized `*_checks.cpp` files remain separate. Keep new implementations with their feature rather than expanding the dispatcher.
 
@@ -50,6 +61,7 @@ Locked HUD pointer capture and native-menu coexistence have focused runtime chec
 Invoke-XiuiBuild -Targets xiui_satchel_ui_smoke,xiui_actionbars_ui_smoke
 ./bin/tests/xiui_satchel_ui_smoke.exe --input-ownership-only
 ./bin/tests/xiui_actionbars_ui_smoke.exe --input-ownership-only
+./bin/tests/xiui_actionbars_ui_smoke.exe --macro-editor-only
 ```
 
 ## Standalone packaging

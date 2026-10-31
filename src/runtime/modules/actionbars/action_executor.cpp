@@ -1,10 +1,12 @@
 #include "action_executor.hpp"
 #include "chat/chat_encoding.hpp"
 #include "combat/ability_recast.hpp"
+#include "native_target.hpp"
 
 #include <algorithm>
 #include <cmath>
 #include <cstdlib>
+#include <cstdio>
 #include <cstring>
 #include <set>
 
@@ -13,7 +15,7 @@ namespace
     auto PetType(const uint8_t type) -> bool { return type == 2 || type == 6 || type == 10 || type == 18; }
     auto Name(const char* const* names) -> std::string
     { const auto* name = names[2] != nullptr ? names[2] : names[0]; return name != nullptr ? xiui::FromGameText(name) : std::string{}; }
-    auto Guard(IAshitaCore* core, const bool presentation = false, const bool allowMacroPalette = false) -> std::string
+    auto Guard(IAshitaCore* core, const bool presentation = false, const bool allowNativeMenu = false) -> std::string
     {
         auto* memory = core != nullptr ? core->GetMemoryManager() : nullptr;
         auto* player = memory != nullptr ? memory->GetPlayer() : nullptr;
@@ -22,16 +24,16 @@ namespace
         auto* entity = memory != nullptr ? memory->GetEntity() : nullptr;
         xiui::action_guard_state state{};
         state.services = player != nullptr && party != nullptr && target != nullptr && entity != nullptr && core->GetResourceManager() != nullptr && core->GetChatManager() != nullptr;
-        if (!state.services) return xiui::ActionGuardReason(state, presentation, allowMacroPalette);
+        if (!state.services) return xiui::ActionGuardReason(state, presentation, allowNativeMenu);
         state.logged_in = player->GetLoginStatus() == static_cast<uint8_t>(Ashita::FFXI::Enums::LoginStatus::LoggedIn);
         state.zoning = player->GetIsZoning() != 0; state.has_character = party->GetMemberServerId(0) != 0; state.has_zone = party->GetMemberZone(0) != 0;
-        if (!state.logged_in || state.zoning || !state.has_character || !state.has_zone) return xiui::ActionGuardReason(state, presentation, allowMacroPalette);
+        if (!state.logged_in || state.zoning || !state.has_character || !state.has_zone) return xiui::ActionGuardReason(state, presentation, allowNativeMenu);
         const auto index = party->GetMemberTargetIndex(0);
         state.identity_valid = index != 0 && index < entity->GetEntityMapSize() && entity->GetServerId(index) == party->GetMemberServerId(0);
-        if (!state.identity_valid) return xiui::ActionGuardReason(state, presentation, allowMacroPalette);
+        if (!state.identity_valid) return xiui::ActionGuardReason(state, presentation, allowNativeMenu);
         state.dead = entity->GetStatus(index) == 4 || party->GetMemberHP(0) == 0;
-        state.menu_open = target->GetIsMenuOpen() != 0; state.action_target = target->GetActionTargetActive() != 0; state.subtarget = target->GetIsSubTargetActive() != 0;
-        return xiui::ActionGuardReason(state, presentation, allowMacroPalette);
+        state.menu_open = target->GetIsMenuOpen() != 0; state.action_target = xiui::NativeTargetSelectionActive(memory);
+        return xiui::ActionGuardReason(state, presentation, allowNativeMenu);
     }
     auto SpellKnown(IPlayer* player, const ISpell& spell) -> bool
     {
@@ -74,19 +76,38 @@ namespace
 
 namespace xiui
 {
-    auto ActionGuardReason(const action_guard_state& state, const bool presentation, const bool allowMacroPalette) -> std::string
+    auto ActionGuardReason(const action_guard_state& state, const bool presentation, const bool allowNativeMenu) -> std::string
     {
         if (!state.services) return "Action services are unavailable.";
         if (!state.logged_in || state.zoning || !state.has_character || !state.has_zone) return "Wait until your character has finished loading.";
         if (!state.identity_valid) return "Your character is unavailable.";
         if (state.dead) return "Actions are unavailable while KO'd.";
-        if (!presentation && (state.action_target || state.subtarget || (state.menu_open && !allowMacroPalette))) return "Finish the native menu or target selection first.";
+        if (!presentation && (state.action_target || state.subtarget || (state.menu_open && !allowNativeMenu))) return "Finish the native menu or target selection first.";
         return {};
     }
-    auto action_executor::Cancel(void) -> void
-    { this->pending_.clear(); this->next_ = 0; this->waiting_subtarget_ = false; this->saw_subtarget_ = false; this->due_ = 0; }
+    auto action_executor::Cancel(const std::string_view reason) -> void
+    {
+        if (!this->pending_.empty() && !reason.empty()) this->status_ = reason;
+        this->pending_.clear(); this->next_ = 0; this->waiting_subtarget_ = false; this->saw_subtarget_ = false; this->due_ = 0;
+    }
+    auto action_executor::Diagnostics(const uint64_t now) const -> std::string
+    {
+        char text[160]{};
+        if (this->pending_.empty()) std::snprintf(text, sizeof(text), "Macro trace: idle.");
+        else std::snprintf(text, sizeof(text), "Macro trace: %s; next line %zu/%zu; wait %llu ms.",
+            this->waiting_subtarget_ ? "target selection" : "running", this->next_ + 1, this->pending_.size(),
+            static_cast<unsigned long long>(now < this->due_ ? this->due_ - now : 0));
+        std::string result{text};
+        if (!this->last_command_.empty())
+        {
+            std::snprintf(text, sizeof(text), " Last queued line %zu/%zu (%llu ms ago): ", this->last_line_, this->last_total_,
+                static_cast<unsigned long long>(now >= this->last_dispatch_ ? now - this->last_dispatch_ : 0));
+            result += text; result += FromGameText(this->last_command_);
+        }
+        return result;
+    }
     auto action_executor::Clear(void) -> void
-    { this->Cancel(); this->catalog_.clear(); this->items_.clear(); this->next_inventory_ = 0; this->player_ = 0; this->native_macro_palette_ = false; this->status_.clear(); }
+    { this->Cancel(); this->catalog_.clear(); this->items_.clear(); this->next_inventory_ = 0; this->player_ = 0; this->native_menu_allowed_ = false; this->status_.clear(); this->last_command_.clear(); }
     auto action_executor::ReadItems(IAshitaCore* core) -> void
     {
         const auto now = GetTickCount64(); if (now < this->next_inventory_) return;
@@ -180,12 +201,13 @@ namespace xiui
         action_availability result{}; result.name = slot.label.empty() ? slot.name : slot.label; result.icon = slot.icon;
         result.reason = ValidateAction(slot); if (!result.reason.empty() || slot.Empty()) return result;
         if (!presentation && this->restricted_) { result.reason = "Close the editor or finish typing first."; return result; }
-        result.reason = Guard(core, presentation, this->native_macro_palette_); if (!result.reason.empty()) return result;
+        result.reason = Guard(core, presentation, this->native_menu_allowed_); if (!result.reason.empty()) return result;
         auto* memory = core->GetMemoryManager(); auto* player = memory->GetPlayer(); auto* resources = core->GetResourceManager(); auto* party = memory->GetParty(); auto* recast = memory->GetRecast();
         const auto index = party->GetMemberTargetIndex(0); uint32_t timer{}, chargeCost{}; float base{};
         if (slot.kind == action_kind::macro || slot.kind == action_kind::command)
         {
             result.known = result.learned = result.usable = true;
+            if (result.icon.empty()) result.icon = this->SuggestedIcon(core, slot);
             if (presentation && !slot.recast_disabled)
                 if (const auto representative = slot.recast_kind != action_kind::none ? std::optional<action_slot>{[&] { action_slot value{}; value.kind = slot.recast_kind; value.id = slot.recast_id; value.name = slot.recast_name; return value; }()} : RepresentativeAction(slot))
                 {
@@ -333,6 +355,49 @@ namespace xiui
         }
         return std::nullopt;
     }
+    auto action_executor::IconAction(const action_slot& slot) -> std::optional<action_slot>
+    {
+        if (slot.kind != action_kind::macro && slot.kind != action_kind::command)
+            return slot.Empty() || slot.kind == action_kind::native_macro ? std::nullopt : std::optional{slot};
+        std::optional<action_slot> selected;
+        const auto priority = [](const action_kind kind) {
+            return kind == action_kind::weapon_skill ? 4 : kind == action_kind::spell || kind == action_kind::item ? 3 : kind == action_kind::pet ? 2 : 1;
+        };
+        for (const auto& line : slot.lines)
+        {
+            action_slot single; single.kind = action_kind::macro; single.lines = {line};
+            if (auto action = RepresentativeAction(single); action && (!selected || priority(action->kind) > priority(selected->kind))) selected = std::move(action);
+        }
+        return selected;
+    }
+
+    auto action_executor::SuggestedIcon(IAshitaCore* core, const action_slot& slot) const -> std::string
+    {
+        if (!slot.icon.empty()) return slot.icon;
+        if (!slot.macro_id.empty())
+        {
+            const auto expanded = this->macro_resolver_ ? this->macro_resolver_(slot) : slot;
+            return expanded.macro_id.empty() ? this->SuggestedIcon(core, expanded) : std::string{};
+        }
+        const auto action = IconAction(slot);
+        const auto* resources = core != nullptr ? core->GetResourceManager() : nullptr;
+        if (!action || resources == nullptr) return {};
+        std::string name;
+        if (!action->name.empty() && !ToGameText(action->name, name)) return {};
+        if (action->kind == action_kind::spell)
+        {
+            const auto* spell = action->id ? resources->GetSpellById(action->id) : resources->GetSpellByName(name.c_str(), 2);
+            return spell != nullptr ? "spell:" + std::to_string(spell->Index) : std::string{};
+        }
+        if (action->kind == action_kind::item || action->kind == action_kind::equip)
+        {
+            const auto* item = action->id ? resources->GetItemById(action->id) : resources->GetItemByName(name.c_str(), 2);
+            return item != nullptr ? "item:" + std::to_string(item->Id) : std::string{};
+        }
+        const auto* ability = action->id ? resources->GetAbilityById(action->id) : resources->GetAbilityByName(name.c_str(), 2);
+        return ability != nullptr ? "ability:" + std::to_string(ability->Id) : std::string{};
+    }
+
     auto action_executor::Commands(const action_slot& slot, const std::string& resourceName) -> std::vector<std::string>
     {
         if (!ValidateAction(slot).empty() || slot.Empty()) return {};
@@ -401,7 +466,7 @@ namespace xiui
         { this->Cancel(); this->status_ = "Macro cancelled because the input or character context changed."; return; }
         if (this->waiting_subtarget_)
         {
-            const bool active = target->GetIsSubTargetActive() || target->GetActionTargetActive();
+            const bool active = NativeTargetSelectionActive(memory);
             this->saw_subtarget_ = this->saw_subtarget_ || active;
             if (active)
             { if (now >= this->subtarget_deadline_) { this->Cancel(); this->status_ = "Macro cancelled after target selection timed out."; } return; }
@@ -409,10 +474,14 @@ namespace xiui
             this->waiting_subtarget_ = false; this->due_ = now + this->pending_[this->next_ - 1].delay;
         }
         if (now < this->due_) return;
-        const auto guard = Guard(core, false, this->native_macro_palette_); if (!guard.empty()) { this->Cancel(); this->status_ = guard; return; }
+        const auto guard = Guard(core, false, this->native_menu_allowed_); if (!guard.empty()) { this->Cancel(); this->status_ = guard; return; }
         if (this->next_ >= this->pending_.size()) { this->Cancel(); return; }
         const auto& step = this->pending_[this->next_++];
-        if (!step.command.empty()) core->GetChatManager()->QueueCommand(QueueMode(step.command), step.command.c_str());
+        if (!step.command.empty())
+        {
+            this->last_command_ = step.command; this->last_dispatch_ = now; this->last_line_ = this->next_; this->last_total_ = this->pending_.size();
+            core->GetChatManager()->QueueCommand(QueueMode(step.command), step.command.c_str());
+        }
         if (step.subtarget)
         { this->waiting_subtarget_ = true; this->saw_subtarget_ = false; this->due_ = now + 1000; this->subtarget_deadline_ = now + 120000; }
         else this->due_ = now + step.delay;

@@ -179,7 +179,7 @@ namespace xiui
         return sections;
     }
 
-    auto satchel_module::ConfigSectionContains(const size_t section, const size_t index) -> bool
+    auto satchel_module::ContentConfigSectionContains(const size_t section, const size_t index) -> bool
     {
         if (index >= this->OptionCount()) return false;
         if (index <= autosort) return section == 0;
@@ -188,7 +188,7 @@ namespace xiui
         return section == 3;
     }
 
-    auto satchel_module::Option(const size_t index) -> module_option
+    auto satchel_module::ContentOption(const size_t index) -> module_option
     {
         static constexpr const char* profiles[]{"Title", "Captions", "Stack quantities", "Item details"};
         switch (index)
@@ -214,7 +214,7 @@ namespace xiui
         }
     }
 
-    auto satchel_module::OnOptionChanged(const size_t index) -> void
+    auto satchel_module::OnContentOptionChanged(const size_t index) -> void
     {
         if (index == columns) this->width_ = 0;
         if (index == rows) this->height_ = 0;
@@ -537,8 +537,8 @@ namespace xiui
         if (this->width_ <= 0) this->width_ = chrome + static_cast<float>(oldColumns) * pitch - this->spacing_ +
             (this->cells_.size() > oldColumns * oldRows ? scroll_gutter : 0);
         if (this->height_ <= 0) this->height_ = 120 + inset + static_cast<float>(oldRows) * pitch - this->spacing_;
-        if (this->viewport_.width > 0) this->width_ = std::min(this->width_, this->viewport_.width);
-        if (this->viewport_.height > 0) this->height_ = std::min(this->height_, this->viewport_.height);
+
+
         this->width_ = std::max(std::max(this->state_.minimum_width, chrome + this->icon_size_ + 8), this->width_);
         this->height_ = std::max(std::max(this->state_.minimum_height, 120 + inset + this->icon_size_ + 8), this->height_);
         const auto cell = this->icon_size_ + 8;
@@ -567,11 +567,12 @@ namespace xiui
         auto& bounds = this->state_.bounds;
         if (this->window_action_ == window_action::move)
         {
-            bounds.x += dx; bounds.y += dy;
+            bounds.x += dx * (this->pointer_down_ ? this->pointer_transform_.x : 1); bounds.y += dy * (this->pointer_down_ ? this->pointer_transform_.y : 1);
             if (this->viewport_.width > 0)
             {
-                bounds.x = std::clamp(bounds.x, this->viewport_.x, std::max(this->viewport_.x, this->viewport_.x + this->viewport_.width - bounds.width));
-                bounds.y = std::clamp(bounds.y, this->viewport_.y, std::max(this->viewport_.y, this->viewport_.y + this->viewport_.height - bounds.height));
+                const auto viewport = this->state_.transform.Map(this->viewport_);
+                bounds.x = std::clamp(bounds.x, viewport.x, std::max(viewport.x, viewport.x + viewport.width - bounds.width * this->state_.transform.x));
+                bounds.y = std::clamp(bounds.y, viewport.y, std::max(viewport.y, viewport.y + viewport.height - bounds.height * this->state_.transform.y));
             }
         }
         else if (this->window_action_ == window_action::resize)
@@ -604,11 +605,11 @@ namespace xiui
 
     auto satchel_module::DialogBounds(void) const -> ui::rect
     {
-        const auto b = this->state_.bounds;
+        const auto b = this->state_.transform.Map(this->state_.bounds);
         if (this->dialog_ == dialog::characters)
         {
-            const auto viewport = this->viewport_.width > 0 ? this->viewport_ : b;
-            const auto anchor = this->CharacterBounds();
+            const auto viewport = this->viewport_.width > 0 ? this->state_.transform.Map(this->viewport_) : b;
+            const auto anchor = this->state_.transform.Map(this->CharacterBounds());
             const float width = std::min(240.0f, std::max(80.0f, viewport.width - 16));
             const float height = 16 + static_cast<float>(std::min(picker_rows, this->picks_.size())) * 28 + (this->picks_.size() > picker_rows ? 24 : 0);
             const float x = std::clamp(anchor.x + anchor.width - width, viewport.x + 8,
@@ -990,9 +991,9 @@ namespace xiui
         return this->HandleControllerAction(action, repeated);
     }
 
-    auto satchel_module::HandleMouse(const uint32_t message, const WPARAM value, const float x, const float y, const bool blocked) -> bool
+    auto satchel_module::LayoutHandleMouse(const uint32_t message, const WPARAM value, const float x, const float y, const bool blocked) -> bool
     {
-        this->SetHover(x, y);
+        this->hover_x_ = x; this->hover_y_ = y;
         const bool release = message == WM_LBUTTONUP;
         if (release && this->discard_pointer_release_)
         { this->pointer_down_ = this->discard_pointer_release_ = false; this->scrolling_ = scroll_area::none; return true; }
@@ -1336,10 +1337,11 @@ namespace xiui
         {
             auto focus = this->FocusBounds();
             if (this->region_ == region::bags || this->region_ == region::slips) focus = Intersect(focus, this->SidebarBounds());
-            if (focus.width > 0 && focus.height > 0) context.Design().DrawFocusFrame(focus, this->focus_style_);
+            if (focus.width > 0 && focus.height > 0) context.Design().DrawFocusFrame(this->state_.transform.Map(focus), this->focus_style_);
         }
         if (this->dragging_ && this->down_item_.id)
         {
+            const auto transform = context.Design().Transform(this->state_.transform);
             if (auto* texture = context.Icons() ? context.Icons()->Item(this->down_item_.id) : nullptr)
                 context.Design().DrawTexture(texture, {this->hover_x_ - this->icon_size_ * 0.5f, this->hover_y_ - this->icon_size_ * 0.5f, this->icon_size_, this->icon_size_}, 0xCCFFFFFF);
             return;
@@ -1365,7 +1367,7 @@ namespace xiui
             for (const auto& hint : hints) width = std::max(width, design.MeasureText(hint.c_str(), profile.style));
             width = std::min(width + 26, std::max(80.0f, viewport.width - 16));
             const float height = lineHeight * std::size(hints) + 26;
-            const auto anchor = showMinimize ? this->MinimizeBounds() : showHelp ? this->HelpBounds() : this->CharacterBounds();
+            const auto anchor = this->state_.transform.Map(showMinimize ? this->MinimizeBounds() : showHelp ? this->HelpBounds() : this->CharacterBounds());
             const float x = std::clamp(anchor.x + anchor.width - width, viewport.x + 8,
                 std::max(viewport.x + 8, viewport.x + viewport.width - width - 8));
             const float y = std::clamp(anchor.y + anchor.height + 6, viewport.y + 8,
@@ -1386,8 +1388,9 @@ namespace xiui
             this->DrawTooltip(this->cells_[*index].item, this->CellBounds(*index), context);
     }
 
-    auto satchel_module::DrawTooltip(const satchel_item& item, const ui::rect& anchor, const module_render_context& context) -> void
+    auto satchel_module::DrawTooltip(const satchel_item& item, const ui::rect& localAnchor, const module_render_context& context) -> void
     {
+        const auto anchor = this->state_.transform.Map(localAnchor);
         const auto* resources = this->core_ ? this->core_->GetResourceManager() : nullptr;
         const auto* resource = resources ? resources->GetItemById(item.id) : nullptr;
         const auto& viewport = context.Viewport(); const auto& design = context.Design();

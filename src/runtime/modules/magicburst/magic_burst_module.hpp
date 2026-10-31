@@ -18,10 +18,10 @@ namespace xiui
         auto ResetDefaults(const ui::theme& theme) -> void override;
         auto Load(const settings_store& store) -> void override;
         auto Save(const settings_store& store) const -> void override;
-        auto OptionCount(void) const -> size_t override { return base_options + text_profile_option_count; }
-        auto Option(size_t index) -> module_option override;
+        auto ContentOptionCount(void) const -> size_t override { return base_options + text_profile_option_count; }
+        auto ContentOption(size_t index) -> module_option override;
         auto ConfigSections(void) const -> std::span<const module_config_section> override;
-        auto ConfigSectionContains(size_t section, size_t index) -> bool override;
+        auto ContentConfigSectionContains(size_t section, size_t index) -> bool override;
         auto ShouldRender(const hud_snapshot&) const -> bool override;
         auto Render(const hud_snapshot&, const module_render_context& context) -> void override;
     private:

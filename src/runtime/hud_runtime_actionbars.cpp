@@ -1,5 +1,6 @@
 #include "hud_runtime.hpp"
 #include "input/keyboard_policy.hpp"
+#include "native_target.hpp"
 
 #include <algorithm>
 #include <cctype>
@@ -9,22 +10,44 @@ namespace xiui
     auto hud_runtime::ActionBarsNativePaletteOwned(const bool candidate) const -> bool
     {
         return (candidate || this->actionbars_.ReplaceNativeMacros() || this->actionbars_.NativeMacroKeysOwned()) && this->visibility_context_.macro_available &&
-            this->visibility_context_.macro_palette && !this->native_ui_.menu_visible;
+            this->visibility_context_.macro_palette && this->visibility_context_.menu_available && this->visibility_context_.window_focus == native_window_focus::other;
+    }
+
+    auto hud_runtime::ActionBarsNativeMenuAllowed(const bool keyboardReplacement) const -> bool
+    {
+        return (this->visibility_context_.menu_available && this->visibility_context_.window_focus == native_window_focus::commands &&
+            !this->visibility_context_.menu_open) || this->ActionBarsNativePaletteOwned(keyboardReplacement);
+    }
+
+    auto hud_runtime::PrepareActionBarsExecutor(const bool keyboardReplacement) -> void
+    {
+        this->action_executor_.SetNativeMenuAllowed(this->ActionBarsNativeMenuAllowed(keyboardReplacement));
+        if (this->ActionBarsExecutionAvailable(keyboardReplacement)) { this->action_executor_.SetRestricted(false); return; }
+        std::string reason = "Macro cancelled because the action input context changed.";
+        if (!this->GameWindowFocused()) reason = "Macro cancelled because the game window lost focus.";
+        else if (this->editing_) reason = "Macro cancelled because Configuration opened.";
+        else if (this->actionbars_.DialogOpen()) reason = "Macro cancelled because an action-bar editor opened.";
+        else if (this->ControllerNativeMenuOpen() && !this->ActionBarsNativeMenuAllowed(keyboardReplacement))
+            reason = "Macro cancelled because a native menu opened: " + std::string{reinterpret_cast<const char*>(&this->visibility_context_.window_focus_name), 8};
+        this->action_executor_.SetRestricted(true, reason);
     }
 
     auto hud_runtime::NativeHudHiddenMask(void) const -> uint32_t
     {
         auto mask = this->visible_ ? this->game_hud_.HiddenMask() : (uint32_t{1} << native_hud_options.size()) - 1;
+        if (this->SetupVisible()) mask = this->SetupNativeHudMask();
         // NPC dialogue uses the native logs even when XIUI replaces normal chat.
         if (this->visible_ && this->visibility_context_.event_active)
             mask &= ~(NativeHudBit(native_hud_element::chat1) | NativeHudBit(native_hud_element::chat2) | NativeHudBit(native_hud_element::chatlog));
+        if (this->visible_ && this->visibility_context_.window_focus == native_window_focus::chatlog)
+            mask &= ~NativeHudBit(native_hud_element::chatlog);
         return mask | (this->actionbars_.ReplaceNativeMacros() ? native_keyboard_macro_palette : 0);
     }
 
     auto hud_runtime::ActionBarsInputAvailable(const bool keyboardReplacement, const bool pointer) const -> bool
     {
-        return this->visible_ && this->GameWindowFocused() &&
-            !this->ControllerNativeBusy() && (pointer || !this->ControllerNativeMenuOpen() || this->ActionBarsNativePaletteOwned(keyboardReplacement)) && !this->satchel_.InputFocused() &&
+        return this->visible_ && !this->SetupVisible() && this->GameWindowFocused() &&
+            !this->ControllerNativeBusy() && (pointer || !this->ControllerNativeMenuOpen() || this->ActionBarsNativeMenuAllowed(keyboardReplacement)) && !this->satchel_.InputFocused() &&
             this->controller_surface_ != controller_surface::picker && !this->controller_pointer_down_ &&
             !this->ChatFocused() && !this->chat_.HistoryExpanded() && !this->chat_second_.HistoryExpanded();
     }
@@ -32,7 +55,7 @@ namespace xiui
     auto hud_runtime::ActionBarsPointerOwns(const float x, const float y) const -> bool
     {
         if (!this->ActionBarsInputAvailable(false, true)) return false;
-        if (this->actionbars_.PointerDown()) return true;
+        if (this->actionbar_pointer_release_ != 0 || this->actionbars_.PointerDown()) return true;
         if (this->editing_ && (this->mouse_down_ || this->interaction_ != interaction::none || this->profile_name_.Focused() || this->profile_dropdown_ ||
             this->profile_actions_ || this->config_.choice_input.Opened() || this->config_.search_open || this->config_.input_mode_menu || this->config_.active_color != nullptr)) return false;
         if (this->actionbars_.ModalDialogOpen() || !this->actionbars_.FloatingWindowOpen()) return this->actionbars_.InputFocused();
@@ -51,17 +74,17 @@ namespace xiui
             !this->chat_.HistoryExpanded() && !this->chat_second_.HistoryExpanded() && !this->satchel_.InputFocused() &&
             !this->actionbars_.DialogOpen() && !this->actionbars_.KeyboardFocused() &&
             (this->controller_surface_ == controller_surface::none || this->controller_surface_ == controller_surface::hotbar || this->controller_surface_ == controller_surface::crossbar) &&
-            (!this->ControllerNativeMenuOpen() || this->ActionBarsNativePaletteOwned(keyboardReplacement)) && !this->visibility_context_.event_active && !this->visibility_context_.map_open &&
+            (!this->ControllerNativeMenuOpen() || this->ActionBarsNativeMenuAllowed(keyboardReplacement)) && !this->visibility_context_.event_active && !this->visibility_context_.map_open &&
             !this->visibility_context_.interface_hidden && !this->party_source_.InCutscene();
     }
 
     auto hud_runtime::CrossbarSettings(void) const -> controller_crossbar_settings
     {
         auto settings = this->actionbars_.ControllerBindings();
-        settings.enabled = settings.enabled && this->actionbars_.ReplaceNativeMacros() && this->ActionBarsExecutionAvailable() && !this->actionbars_.InputFocused() && !this->ControllerNativeBusy() && !this->ControllerNativeMenuOpen() &&
+        settings.enabled = settings.enabled && !this->SetupVisible() && this->actionbars_.ReplaceNativeMacros() && this->ActionBarsExecutionAvailable() && !this->actionbars_.InputFocused() && !this->ControllerNativeBusy() &&
             this->ContextVisible(this->actionbar_children_.back()) && this->actionbars_.BarState(action_bar_count).enabled;
-        settings.suppress_native_macros = this->actionbars_.ReplaceNativeMacros() && this->visible_ && this->GameWindowFocused() &&
-            !this->ControllerNativeBusy() && (!this->ControllerNativeMenuOpen() || this->ActionBarsNativePaletteOwned()) &&
+        settings.suppress_native_macros = this->actionbars_.ReplaceNativeMacros() && !this->SetupVisible() && this->visible_ && this->GameWindowFocused() &&
+            !this->ControllerNativeBusy() && (!this->ControllerNativeMenuOpen() || this->ActionBarsNativeMenuAllowed()) &&
             !this->editing_ && !this->visibility_context_.event_active && !this->visibility_context_.map_open &&
             !this->visibility_context_.interface_hidden && !this->party_source_.InCutscene();
         return settings;
@@ -78,7 +101,7 @@ namespace xiui
         }
         else this->actionbars_.SuspendInput();
         this->actionbars_.SetHover(-1, -1);
-        this->action_executor_.Cancel();
+        this->action_executor_.Cancel("Macro cancelled because action-bar input was suspended.");
         if (pointer) { this->ReleasePointerCapture(); this->SetChatMouseCapture(false); }
     }
 
@@ -111,7 +134,7 @@ namespace xiui
         for (size_t i = 0; i < this->actionbar_children_.size(); ++i)
             available[i + 1] = this->ContextVisible(this->actionbar_children_[i]);
         this->actionbars_.SetSurfaceAvailability(available);
-        this->actionbars_.SetPreview(this->editing_ && this->actionbars_.ConfigView() == action_bar_count);
+        this->actionbars_.SetPreview(this->ConfigPreview(this->actionbar_children_.back()));
         this->actionbars_.SetFocusStyle(this->general_.FocusStyle());
         this->actionbars_.SetConfigText(&this->general_.ConfigText());
         if (this->actionbars_.PointerDown())
@@ -135,8 +158,7 @@ namespace xiui
             this->actionbars_.SetHover(-1, -1);
             if (pointer) { this->ReleasePointerCapture(); this->SetChatMouseCapture(false); }
         }
-        this->action_executor_.SetNativeMacroPalette(this->ActionBarsNativePaletteOwned());
-        this->action_executor_.SetRestricted(!this->ActionBarsExecutionAvailable());
+        this->PrepareActionBarsExecutor();
         this->action_executor_.Update(this->core_, now);
         this->actionbars_.Update(now);
         if (const auto requested = this->actionbars_.TakeConfigurationRequest())
@@ -182,9 +204,18 @@ namespace xiui
             else if (!this->controller_status_.crossbar_mapping_known) crossbarState = "controller mappings are not ready";
             else if (!this->CrossbarSettings().enabled) crossbarState = "paused: another window owns input";
             if (this->core_ != nullptr && this->core_->GetChatManager() != nullptr)
+            {
+                const auto* memory = this->core_->GetMemoryManager();
+                const auto* party = memory != nullptr ? memory->GetParty() : nullptr;
                 this->core_->GetChatManager()->Writef(1, false, "[XIUI] Action Bars: %zu palettes, %zu shared actions, 7 stored crossbar banks; crossbar %s; native macro replacement %s. %s",
                     this->action_store_.AllPalettes().size(), this->action_store_.Macros().size(),
                     crossbarState, this->actionbars_.ReplaceNativeMacros() ? "on" : "off", this->action_executor_.Status().c_str());
+                this->core_->GetChatManager()->Writef(1, false, "[XIUI] Action input: native window %.8s; native menu permission %s; target selection %s; runtime execution %s.",
+                    reinterpret_cast<const char*>(&this->visibility_context_.window_focus_name), this->ActionBarsNativeMenuAllowed() ? "allowed" : "blocked",
+                    NativeTargetSelectionActive(memory) ? "active" : "idle", this->ActionBarsExecutionAvailable() ? "ready" : "paused");
+                this->core_->GetChatManager()->Writef(1, false, "[XIUI] Current TP: %u. %s", party != nullptr ? party->GetMemberTP(0) : 0,
+                    this->action_executor_.Diagnostics(::GetTickCount64()).c_str());
+            }
             if (const auto library = this->actionbars_.LibraryStatus(); !library.empty() && this->core_ != nullptr && this->core_->GetChatManager() != nullptr)
                 this->core_->GetChatManager()->Writef(1, false, "[XIUI] %s", library.c_str());
             return true;
@@ -231,8 +262,7 @@ namespace xiui
             this->controller_surface_ != controller_surface::hotbar && this->controller_surface_ != controller_surface::crossbar) return false;
         const bool owned = key < this->actionbar_key_release_.size() && this->actionbar_key_release_[key];
         if (!owned && !this->actionbars_.InputFocused() && !KeyboardAllowsGlobalBinding(this->window_config_.FullKeyboard(), key, flags)) return false;
-        this->action_executor_.SetNativeMacroPalette(this->ActionBarsNativePaletteOwned(replacement));
-        this->action_executor_.SetRestricted(!this->ActionBarsExecutionAvailable(replacement));
+        this->PrepareActionBarsExecutor(replacement);
         const bool consumed = this->actionbars_.HandleKey(key, flags);
         if (consumed && replacement) this->actionbars_.ObserveNativeMacroKey(key, flags, true);
         if (consumed && key < this->actionbar_key_release_.size()) this->actionbar_key_release_[key] = true;
@@ -247,6 +277,17 @@ namespace xiui
         {
             this->actionbar_pointer_release_ &= ~release;
             this->ReleasePointerCapture(); this->SetChatMouseCapture(false); return true;
+        }
+        if (message == WM_MOUSEMOVE && this->actionbar_pointer_release_ != 0 && !this->actionbars_.PointerDown())
+        {
+            if (this->editing_)
+            {
+                D3DVIEWPORT8 viewport{};
+                if (this->device_ != nullptr) this->device_->GetViewport(&viewport);
+                this->UpdateMouseCapture(viewport, this->mouse_buttons_);
+            }
+            else this->SetChatMouseCapture(true);
+            return true;
         }
         if (!this->ActionBarsInputAvailable(false, true)) return false;
         const bool press = message == WM_LBUTTONDOWN || message == WM_LBUTTONDBLCLK || message == WM_RBUTTONDOWN || message == WM_RBUTTONDBLCLK;
@@ -282,7 +323,7 @@ namespace xiui
             return true;
         }
         this->actionbars_.SetHover(x, y);
-        this->action_executor_.SetRestricted(!this->ActionBarsExecutionAvailable());
+        this->PrepareActionBarsExecutor();
         if (!this->actionbars_.HandleMouse(message, buttons, x, y, blocked, this->editing_))
         {
             if (this->editing_ && !this->actionbars_.InputFocused()) this->actionbars_.SetHover(-1, -1);

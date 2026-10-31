@@ -59,6 +59,8 @@ The script verifies loaded XIUI with AgentLink, requests `/xiui save sync`, and 
 
 The C++ utility uses `settings_store::VisitPreferences`, the same boundary as portable settings, to omit session, profile metadata and local controller-device data. It also removes retired container demos and empty sections while preserving empty preference values, disabled states, Unicode and positions. UTF-8 and UTF-16LE saved files are supported.
 
+Basic's named presets embed `config/hud-xiv.ini` and `config/hud-classic.ini` independently of the latest reset defaults. Refresh a named preset only when requested, using `-OutputPath` for that preset. To author a matching pair, capture the XIV setup first, apply `/xiui party preset classic`, then capture Classic with `-OutputPath "$PWD/config/hud-classic.ini" -ThemeOutputPath "$PWD/out/hud-classic-theme.ini"`. Confirm that only Party preferences differ before rebuilding. The October 20 source captures had 15,705 preferences each, with 79 Party fields changed and no differences elsewhere. The later Classic spacing correction amends only Party layout/offset preferences and adds its migration marker; the companion metadata records that amendment and the updated hash.
+
 For an explicitly selected saved snapshot:
 
 ```powershell

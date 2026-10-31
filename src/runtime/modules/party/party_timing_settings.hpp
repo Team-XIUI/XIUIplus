@@ -25,6 +25,6 @@ namespace xiui
         auto Option(size_t index) -> module_option;
         auto ApplyTextDefaults(const ui::theme& theme) -> void;
         auto VisitTextSettings(const text_settings_visitor& visit) -> void;
-        auto CountdownWidth(size_t ticker) const -> float;
+        auto CountdownWidth(size_t ticker, const ui::text_style* resolved = nullptr) const -> float;
     };
 }

@@ -2,6 +2,56 @@
 
 ## Unreleased
 
+## 1.0.7-alpha.1 — 2026-10-31
+
+- Keep XIV 1.0 Party labels independent of XI label visibility and offsets, preserving moved positions when switching themes.
+
+- Add XIVClassic as a third Basic HUD preset and expose an independent XI Theme / XIV 1.0 Theme selector. Give numeric bar values a six-pixel right inset.
+
+- Use bold serif faces for XIV 1.0 chat, labels and names while retaining the existing text sizes and spacing.
+
+- Give XIV 1.0 chat slightly wider letter spacing and themed default colors, while retaining explicit channel overrides, inline highlights and saved native settings.
+
+- Restore the XIV 1.0 window frame's complete double rails and curled corners from a full menu reference, with clean nine-slice joins.
+
+- Correct XIV 1.0 TP presentation with a single blue gauge and compact Party number-only row, omit Party job icons for this theme, and slightly reduce resource value text. Match Player TP gauge/value sizing to HP/MP and tint small resource labels champagne gold.
+
+- Refine XIV 1.0 gauges with slimmer cylindrical endcaps, sharper bronze rails, reference-sampled colors and taller aligned Party HP/MP bars. Center labels and lining-number values across the lower rim; keep combined single-window chat complete in expanded history.
+
+- Add a global XIV 1.0 window / bar theme with screenshot-derived navy and aged-metal frames, copper gauges, overlapping serif resource text, decorated target/cast windows, transparent chat and a feathered minimap. Switch with Global → Appearance or `/xiui theme xiv1`; `/xiui theme native` restores the existing presentation without replacing saved layouts or the game's Window Type.
+
+- Preserve macro-workspace mouse capture across native chat polling, fixing drags and New macro clicks interrupted by combat/command menus. Clarify Single command and Game macro labels and help; retain legacy import names.
+
+- Rework Create/Edit Macro around the Lua editor's field order, upper-right icon preview, eight readable command rows, optional recast settings and Save/Cancel. Move native extras to More options; fix skipped rows during paging and support bounded multiline paste and keyboard row navigation.
+- Add Game and original XIUI artwork alongside Vincerno in the icon picker. Infer automatic macro artwork from its main action, preferring Combo over a preparatory Boost, while retaining explicit icon choices and existing recast behavior.
+
+- Preserve delayed macro execution while Ctrl/Alt opens the replaced native macro palette above the command menu, so later lines such as weapon skills are not silently cancelled. Keep a timed-line trace and cancellation reason in Action Bars status.
+
+- Keep hotbars and macros usable during auto-attack by distinguishing its native target flag from an actual action/subtarget selector. Share the check across host/controller input, activation and delayed macro execution.
+
+- Allow assigned action-bar macros and actions while the verified native Attack/command menu is open, across shortcuts, clicks, crossbar activation and delayed macro lines. Preserve other native menu and target-selection guards.
+
+- Put Global's topics in a second navigation column, with Appearance and text pages as direct entries. Remove unused top-row space from settings pages. Put Controller Focus, HP Feedback and Native Menus (formerly Game HUD) under Extras. Keep Attribution on its top-right button and use minus/plus to collapse/restore Configuration. Preserve saved selections, previews and shared mouse/controller routes.
+- Unify module visual settings under Appearance with nested categories, rename Display to Content, and keep text and functional topics separate. Move destination buttons into animated left-side submenus with independent scrolling and shared pointer/controller routes. Preserve saved values, positions and topic IDs.
+- Default Replace native macros to off in Action Bars, resets and bundled setups, preserving explicit saved choices.
+- Hide Action Bars from the configuration sidebar when all hotbars and the crossbar are disabled; any enabled bar keeps its settings available.
+- Hide the normal second chat window and its input/edit controls when native Multi-Window is Off or has no message routing, preserving its saved settings for re-enabling.
+- Hide empty read-only comment windows while command placement is active, preserving real comments, comment editors and native input ownership.
+- Exclude Equipment, Inspect and their shared item descriptions from command placement so native layout updates cannot pull them into the command slot. Move bazaar comments to the command anchor so they stay clear of chat.
+- Hide the expanded Window 2 tab when disabled or unconfigured, skip it during keyboard/controller navigation, and return a removed selection to Window 1. Keep configured quiet logs available.
+- Reserve chat/status navigation before native DirectInput polling so Enter cannot also open a hidden native full log. Release XIUI focus and restore the native log's visibility if it becomes active, preserving saved preferences and ordinary attack/menu input.
+- Cycle compact chat focus directly to status effects, and add Window 2 as the second expanded-log tab. Keep expanded history focused through native-menu updates and cycle all channel tabs through Shout and Emotes.
+- Restore F → Enter chat-log opening over the combat command menu, share the same route with controller Cycle/Confirm, and keep Enter owned through release. Preserve native cycling in Equipment and inventory.
+- Share profiles as self-contained `.xiui` files through Save/Open dialogs, including large customized setups. Keep old share keys importable and preserve existing profiles when importing; reject damaged files and preserve existing files if export fails.
+- Add an explicit Edit Mode ON/OFF toggle. Settings start with live modules only; selecting a module previews it, and visible modules retain hover editing. Hidden modules have no drag handles or controller movement entries.
+- Open XIUI chat directly from the first text key in Full keyboard mode, preserve Compact gameplay controls and numpad movement, and report Full / Compact 1 / Compact 2 distinctly in chat input diagnostics.
+- Add a first-load setup guide with profiles, highlighted previews of the six core modules, native HUD fallback choices, and optional modules. Reopen it with `/xiui setup`.
+- Start fresh chat layouts at 620×180 with one window, adopt a second when native Multi-Window is enabled, and follow native reactive sizing. Preserve existing saved chat layouts.
+- Add Basic/Advanced settings, whole-HUD Classic/XIV appearance presets, and rename the General category to Global while retaining its saved identity.
+- Add Global Scale and independent X/Y element scales with proportion locking, edit grips, shared keyboard/controller adjustment, cancellation and profile persistence. Preserve authored positions and existing preferences.
+- Default minimap zoom to 4× and clear captured development zone overrides from the shipped preset. Upgrade the old 3× starting value once, retaining saved per-zone zoom and other custom starting values.
+- Keep the main Buy/Sell choice and sell confirmation at the command-menu anchor while excluding shop item lists, shop item-detail and gil panels from movement. Preserve native shop input and keep excluded panels out of saved command bounds.
+- Keep an open macro/action workspace focused when Configuration closes, preserving its draft and allowing mouse, Escape and controller dismissal.
 - Add a movable Fishing stamina bar under Extras, enabled by default while a fish is hooked. Read the client's live stamina independently of native party rendering so hiding the party list no longer removes the fishing gauge.
 
 ## 1.0.6-alpha.1 — 2026-10-19

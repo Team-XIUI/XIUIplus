@@ -21,6 +21,9 @@ int main(void)
         {1500, {1, 0.5f, 0}}, {2000, {1, 1, 0}}, {2500, {1, 1, 0.5f}}, {3000, {1, 1, 1}}, {4000, {1, 1, 1}}};
     for (const auto& sample : samples)
     {
+        const auto themed = xiui::ui::Xiv1TPMeterFill(sample.tp / 3000, top, bottom, 0, false);
+        if (!Check(Near(themed.ratio, std::clamp(sample.tp / 3000, 0.0f, 1.0f)) && themed.top == top && themed.bottom == bottom,
+            "XIV 1.0 TP fills its 0-3000 track once and retains the blue palette and alpha")) return 1;
         const auto layers = xiui::ui::TPMeterLayers(sample.tp / 3000, top, bottom, 0, false);
         for (size_t index = 0; index < layers.size(); ++index)
             if (!Check(Near(layers[index].ratio, sample.fills[index]) && (layers[index].top >> 24) == (top >> 24) &&

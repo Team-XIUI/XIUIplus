@@ -6,10 +6,26 @@ namespace xiui
     {
         this->config_.choice_input.Cancel();
         this->config_.choice_module = nullptr;
+        this->module_menu_target_ = nullptr; this->module_menu_pressed_.reset();
     }
 
     auto hud_runtime::SelectChoiceInput(const int selected) -> void
     {
+        if (auto* target = this->module_menu_target_)
+        {
+            const bool valid = this->ModuleMenuAvailable(*target) && selected >= 0 && selected < this->config_.choice_input.VisibleCount();
+            const int action = !target->SupportsScale() && selected == 1 ? 2 : selected;
+            this->CloseChoiceInput();
+            if (!valid) return;
+            if (action == 0) this->ResetModule(*target, false);
+            else if (action == 1)
+            {
+                target->State().scale = target->State().scale_checkpoint = {};
+                this->ResolveHudTransforms(this->hud_viewport_); this->SaveSettings();
+            }
+            else if (action == 2) this->ConfirmModuleReset(*target);
+            return;
+        }
         auto* module = this->config_.choice_module;
         const auto index = this->config_.choice_option;
         if (module != nullptr && module == this->config_.module && index < module->OptionCount())
@@ -30,6 +46,11 @@ namespace xiui
     {
         if (!this->config_.choice_input.Opened()) return false;
         if ((static_cast<uint32_t>(flags) & 0x80000000u) != 0) return true;
+        if (this->module_menu_target_ != nullptr && (key == VK_ESCAPE || key == VK_TAB || key == VK_RETURN))
+        {
+            if ((static_cast<uint32_t>(flags) & 0x40000000u) != 0) return true;
+            this->confirmation_key_release_ = key;
+        }
         if (key == VK_ESCAPE || key == VK_TAB) this->CloseChoiceInput();
         else if (key == VK_SPACE && (static_cast<uint32_t>(flags) & 0x40000000u) == 0)
             this->PreviewChoiceInput(this->config_.choice_input.Highlighted());
@@ -63,6 +84,12 @@ namespace xiui
     {
         if (!this->config_.choice_input.Opened()) return false;
         const auto index = this->config_.choice_input.IndexAt(static_cast<float>(this->mouse_x_), static_cast<float>(this->mouse_y_), viewport);
+        if (this->module_menu_target_ != nullptr)
+        {
+            this->module_menu_pressed_ = index;
+            if (!index) this->CloseChoiceInput();
+            return true;
+        }
         if (index && this->config_.choice_input.PreviewAt(static_cast<float>(this->mouse_x_), static_cast<float>(this->mouse_y_), viewport))
         {
             this->PreviewChoiceInput(*index);

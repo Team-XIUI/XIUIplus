@@ -2,6 +2,17 @@ add_executable(xiui_single_dll_smoke tests/single_dll_smoke.cpp)
 configure_xiui_target(xiui_single_dll_smoke)
 set_target_properties(xiui_single_dll_smoke PROPERTIES RUNTIME_OUTPUT_DIRECTORY "${CMAKE_SOURCE_DIR}/bin/tests")
 
+set(XIUI_SCENE_TEST_SOURCES ${XIUI_HOST_SOURCES})
+list(FILTER XIUI_SCENE_TEST_SOURCES EXCLUDE REGEX "\\.def$")
+add_executable(xiui_world_overlay_smoke tests/world_overlay_smoke.cpp ${XIUI_SCENE_TEST_SOURCES})
+configure_xiui_target(xiui_world_overlay_smoke)
+target_compile_definitions(xiui_world_overlay_smoke PRIVATE XIUI_ENABLE_SCENE_TESTS)
+target_link_libraries(xiui_world_overlay_smoke PRIVATE xiui_minhook "${ASHITA_D3D8_LIB_DIR}/d3d8.lib")
+set_target_properties(xiui_world_overlay_smoke PROPERTIES RUNTIME_OUTPUT_DIRECTORY "${CMAKE_SOURCE_DIR}/bin/tests")
+if (MSVC)
+    target_link_options(xiui_world_overlay_smoke PRIVATE /SAFESEH:NO)
+endif()
+
 add_executable(xiui_capture_defaults tools/capture_defaults.cpp src/runtime/settings/settings_store.cpp)
 configure_xiui_target(xiui_capture_defaults)
 set_target_properties(xiui_capture_defaults PROPERTIES RUNTIME_OUTPUT_DIRECTORY "${CMAKE_SOURCE_DIR}/bin/tools")
@@ -45,12 +56,17 @@ target_link_libraries(xiui_timing_smoke PRIVATE "${ASHITA_D3D8_LIB_DIR}/d3d8.lib
 set_target_properties(xiui_timing_smoke PROPERTIES RUNTIME_OUTPUT_DIRECTORY "${CMAKE_SOURCE_DIR}/bin/tests")
 
 add_executable(xiui_config_input_smoke
+    tests/setup_wizard_checks.cpp
     tests/config_input_smoke.cpp
+    tests/module_menu_checks.cpp
+    tests/edit_mode_checks.cpp
+    tests/window_input_checks.cpp
     tests/config_check_support.cpp
     tests/config_profile_checks.cpp
     tests/lua_profile_checks.cpp
     tests/config_text_checks.cpp
     tests/config_navigation_checks.cpp
+    tests/hud_scale_checks.cpp
     tests/config_module_checks.cpp
     tests/config_render_checks.cpp
     tests/config_control_checks.cpp

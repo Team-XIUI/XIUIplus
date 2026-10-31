@@ -213,10 +213,10 @@ auto RunMinimapChecks(void) -> bool
         bool save{};
         Check(!module.HandleMouseWheel(WHEEL_DELTA, 122, 300, save) && !save &&
             !module.HandleMouseWheel(WHEEL_DELTA, 200, 460, save) &&
-            !module.HandleMouseWheel(WHEEL_DELTA, 124, 235, save) && *module.Option(minimap_module::zoom_option).slider == 2,
+            !module.HandleMouseWheel(WHEEL_DELTA, 124, 235, save) && *module.Option(minimap_module::zoom_option).slider == 4,
             "wheel input outside the map, over its caption or beyond rounded corners leaves zoom and gameplay input alone");
-        Check(module.HandleMouseWheel(WHEEL_DELTA, 200, 300, save) && save && *module.Option(minimap_module::zoom_option).slider == 2.25f &&
-            module.HandleMouseWheel(-2 * WHEEL_DELTA, 200, 300, save) && save && *module.Option(minimap_module::zoom_option).slider == 1.75f,
+        Check(module.HandleMouseWheel(WHEEL_DELTA, 200, 300, save) && save && *module.Option(minimap_module::zoom_option).slider == 4.25f &&
+            module.HandleMouseWheel(-2 * WHEEL_DELTA, 200, 300, save) && save && *module.Option(minimap_module::zoom_option).slider == 3.75f,
             "hovered wheel zoom uses the shared quarter-step slider in both directions");
         Check(module.HandleMouseWheel(100 * WHEEL_DELTA, 200, 300, save) && save && *module.Option(minimap_module::zoom_option).slider == 8 &&
             module.HandleMouseWheel(WHEEL_DELTA, 200, 300, save) && !save &&
@@ -231,7 +231,7 @@ auto RunMinimapChecks(void) -> bool
         *module.Option(minimap_module::shape_option).choice = 0;
         *module.Option(minimap_module::zoom_option).slider = 3.75f; module.OnOptionChanged(minimap_module::zoom_option);
         live.zone = 238; module.Render({}, context);
-        Check(*module.Option(minimap_module::zoom_option).slider == 2, "a new zone starts at its default zoom");
+        Check(*module.Option(minimap_module::zoom_option).slider == 4, "a new zone starts at the 4x default zoom");
         *module.Option(minimap_module::zoom_option).slider = 5.5f; module.OnOptionChanged(minimap_module::zoom_option);
         *module.Option(minimap_module::shape_option).choice = 2; *module.Option(minimap_module::artwork_option).choice = 0;
         Check(module.EnemiesEnabled() && module.Option(minimap_module::enemies_option).available &&
@@ -275,10 +275,10 @@ auto RunMinimapChecks(void) -> bool
         live.zone = 100; loaded.Render({}, context);
         Check(*loaded.Option(minimap_module::zoom_option).slider == 3.75f, "returning to another zone restores its own zoom");
         live.zone = 201;
-        Check(loaded.HandleMouseWheel(WHEEL_DELTA, 200, 280, save) && save && *loaded.Option(minimap_module::zoom_option).slider == 2.25f,
+        Check(loaded.HandleMouseWheel(WHEEL_DELTA, 200, 280, save) && save && *loaded.Option(minimap_module::zoom_option).slider == 4.25f,
             "wheel input synchronizes a new zone before changing its zoom, even before the next render");
         loaded.Save(store); loaded.Load(store); loaded.Render({}, context);
-        Check(*loaded.Option(minimap_module::zoom_option).slider == 2.25f, "wheel zoom survives the normal settings/profile round trip");
+        Check(*loaded.Option(minimap_module::zoom_option).slider == 4.25f, "wheel zoom survives the normal settings/profile round trip");
         *loaded.Option(minimap_module::edge_style_option).choice = 2;
         Check(!loaded.Option(minimap_module::corner_radius_option).visible && !loaded.Option(minimap_module::frame_option).visible && !loaded.Option(coordinateEdges).visible,
             "Burnt replaces the rounded contour, native frame and coordinate strips without changing their saved preferences");
@@ -291,6 +291,15 @@ auto RunMinimapChecks(void) -> bool
         minimap_module legacy;
         legacy.Load(settings_store::FromIniText("[minimap]\nrounded_corners=1\n"));
         Check(*legacy.Option(minimap_module::edge_style_option).choice == 1, "existing rounded-corner preferences migrate to the edge style selector");
+        auto oldZoom = settings_store::FromIniText("[minimap]\nzoom=3\n[minimap.zoom]\n7=0 0 6.5\n");
+        legacy.Load(oldZoom); legacy.Save(oldZoom);
+        Check(oldZoom.ReadFloat("minimap", "zoom", 0) == 4 && oldZoom.ReadInt("minimap", "zoom_defaults_version", 0) == 1 &&
+            oldZoom.ReadString("minimap.zoom", "7").starts_with("0 0 6.5 "),
+            "the old starting zoom migrates once while saved per-zone choices remain intact");
+        oldZoom.WriteFloat("minimap", "zoom", 3); legacy.Load(oldZoom);
+        Check(*legacy.Option(minimap_module::zoom_option).slider == 3, "a later explicit 3x choice survives reload");
+        legacy.Load(settings_store::FromIniText("[minimap]\nzoom=5.5\n"));
+        Check(*legacy.Option(minimap_module::zoom_option).slider == 5.5f, "other saved starting zoom choices remain unchanged");
         *loaded.Option(minimap_module::enabled_option).toggle = false;
         Check(!loaded.ShouldRender({}) && !loaded.PreviewVisible() && !loaded.HandleMouseWheel(WHEEL_DELTA, 200, 280, save),
             "disabled minimaps leave gameplay, wheel input and edit mode");
@@ -298,7 +307,7 @@ auto RunMinimapChecks(void) -> bool
         Check(loaded.EnemiesEnabled(), "reset restores enemy dots without a profile migration");
         Check(*loaded.Option(minimap_module::player_icon_option).choice == 0, "reset restores the Triangle player icon");
         module.Load(store); module.Render({}, context);
-        Check(*module.Option(minimap_module::zoom_option).slider == 2 && module.State().bounds.x == 123 && module.State().bounds.y == 234,
+        Check(*module.Option(minimap_module::zoom_option).slider == 4 && module.State().bounds.x == 123 && module.State().bounds.y == 234,
             "reset clears remembered zoom while preserving the movement anchor");
         minimap_source source; source.Update(nullptr, 100);
         Check(!source.State().available && source.State().zone == 0, "logout and missing native state clear map identity and markers");

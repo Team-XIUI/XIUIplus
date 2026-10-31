@@ -16,8 +16,10 @@ namespace xiui::ui
 
     struct meter_skin
     {
-        meter_texture frame{}, fill{}, background{};
-        float cap_ratio{0.5f}, top_inset{0.125f}, bottom_inset{0.125f}, cap_gap{1.0f};
+        meter_texture fill{}, background{};
+        float cap_ratio{0.5f}, cap_gap{1.0f};
+        bool xiv1{};
+        meter_texture left_cap{}, right_cap{}, rim{};
     };
 
     struct meter_geometry
@@ -57,10 +59,26 @@ namespace xiui::ui
         const float cap = bookends ? std::clamp(height * skin.cap_ratio, 0.0f, width * 0.5f) : 0;
         const float gap = bookends ? std::clamp(skin.cap_gap, 0.0f, (width - cap * 2) * 0.5f) : 0;
         const float bodyWidth = std::max(0.0f, width - (cap + gap) * 2);
-        const float top = std::clamp(height * skin.top_inset, 0.0f, height);
-        const float bottom = std::clamp(height * skin.bottom_inset, 0.0f, height - top);
+        const float inset = skin.xiv1 ? std::min(height * (3.0f / 14), std::max(0.0f, (height - 1) * .5f)) : 0;
         return {{{{bounds.x, bounds.y, cap, height}, {bounds.x + cap + gap, bounds.y, bodyWidth, height},
             {bounds.x + width - cap, bounds.y, cap, height}}},
-            {bounds.x + cap + gap, bounds.y + top, bodyWidth, height - top - bottom}};
+            {bounds.x + cap + gap, bounds.y + inset, bodyWidth, std::max(0.0f, height - inset * 2)}};
+    }
+
+    inline auto DrawXiv1MeterFrame(const design_system& design, const rect& bounds, const meter_skin& skin, const bool bookends, const float opacity) -> void
+    {
+        const auto geometry = LayoutMeterSkin(bounds, skin, bookends);
+        const auto draw = [&](const meter_texture& image, const rect& target) {
+            auto paint = image.style;
+            for (auto& color : paint.colors)
+                color = (color & 0xFFFFFF) | (static_cast<uint32_t>((color >> 24) * std::clamp(opacity, 0.0f, 1.0f)) << 24);
+            design.DrawTexture(image.texture, target, image.uv, paint);
+        };
+        draw(skin.rim, geometry.frame[1]);
+        if (bookends)
+        {
+            draw(skin.left_cap, geometry.frame[0]);
+            draw(skin.right_cap, geometry.frame[2]);
+        }
     }
 }

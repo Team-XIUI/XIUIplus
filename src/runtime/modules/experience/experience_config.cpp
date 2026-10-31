@@ -15,6 +15,7 @@ namespace xiui
     auto experience_module::ApplyMeterDefaults(const ui::meter_style& style) -> void
     {
         this->settings_.style = style;
+        if (this->settings_.style.height <= 0) this->settings_.style.height = 12;
     }
 
     auto experience_module::ApplyTextDefaults(const ui::theme& theme) -> void
@@ -63,6 +64,8 @@ namespace xiui
         this->settings_.color_top = store.ReadArgb("meter.experience", "fill_top", MeterGradientTop(colorFallback));
         this->settings_.color = store.ReadArgb("meter.experience", "fill_bottom", colorFallback);
         this->settings_.style = LoadMeterStyle(store, "meter.experience", this->settings_.style);
+        if (this->settings_.style.height <= 0 || (store.ReadInt("exp", "bar_height_version", 0) < 2 && this->settings_.style.height == 80))
+            this->settings_.style.height = 12;
         this->settings_.header_text = LoadTextProfile(store, "text.experience.header", this->settings_.header_text);
         this->settings_.details_text = LoadTextProfile(store, "text.experience.details", this->settings_.details_text);
         if (store.ReadInt("exp", "text_layout_version", 0) < 1)
@@ -144,6 +147,7 @@ namespace xiui
     auto experience_module::Save(const settings_store& store) const -> void
     {
         store.WriteBool("exp", "enabled", this->state_.enabled);
+        store.WriteInt("exp", "bar_height_version", 2);
         store.WriteBool("exp", "show_current", this->settings_.show_current);
         store.WriteBool("exp", "show_percent", this->settings_.show_percent);
         store.WriteBool("exp", "show_remaining", this->settings_.show_remaining);
@@ -184,26 +188,28 @@ namespace xiui
         store.WriteRect("layout.exp", this->state_.bounds);
     }
 
-    auto experience_module::OptionCount(void) const -> size_t { return option_count; }
+    auto experience_module::ContentOptionCount(void) const -> size_t { return option_count; }
 
     auto experience_module::ConfigSections(void) const -> std::span<const module_config_section>
     {
         static constexpr module_config_section sections[]{
             {"General", "Choose the progression mode, pause tracking or save and reset the session.", "general"},
-            {"Display", "Current progress on the bar; session stats, job details and timers below it.", "display"},
-            {"Appearance", "Bar style, bookends, fill and track colors.", "appearance"},
+            {"Content", "Current progress on the bar; session stats, job details and timers below it.", "display"},
+            {"Appearance", "Bar style, bookends, fill and track colors.", "appearance", "Bar Style"},
             {"Effects", "Fill animation, highlights, shadows and glow.", "effects"},
             {"Text", "Independent label, bar-info and readout text styles.", "text"},
             {"Tracking", "Rate calculation, recent rewards, EXP or merit goals and Level Sync planning.", "tracking"},
             {"Alerts", "Optional local notices and chimes. All alerts start disabled.", "alerts"},
-            {"History", "The last ten completed sessions for this character.", "history"}};
+            {"History", "The last ten completed sessions for this character.", "history"},
+            {"Layout", "Bar dimensions, readout placement, offsets and spacing.", "layout"}};
         return sections;
     }
 
-    auto experience_module::ConfigSectionContains(const size_t section, const size_t index) -> bool
+    auto experience_module::ContentConfigSectionContains(const size_t section, const size_t index) -> bool
     {
         if (section >= this->ConfigSections().size() || index >= this->OptionCount()) return false;
         if (index == stable_numbers_option) return section == text;
+        if (this->DisplayOption(experience_display_view::layout, index)) return section == layout;
         if (index >= bar_gap_option) return section == display;
         if (index >= history_option) return section == history;
         if (index >= alert_food_option && index <= mute_paused_option) return section == alerts;
@@ -225,7 +231,7 @@ namespace xiui
         return section == display;
     }
 
-    auto experience_module::Option(const size_t index) -> module_option
+    auto experience_module::ContentOption(const size_t index) -> module_option
     {
         if (index == stable_numbers_option)
             return module_option::Toggle("Stable numbers", "Equal-width digits and steady readout slots keep timers and changing values from shifting nearby text.", &this->settings_.stable_numbers, module_option_group::text);

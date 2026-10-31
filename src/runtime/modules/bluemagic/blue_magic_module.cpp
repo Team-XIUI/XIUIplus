@@ -95,7 +95,7 @@ namespace xiui
         return sections;
     }
 
-    auto blue_magic_module::ConfigSectionContains(const size_t section, const size_t index) -> bool
+    auto blue_magic_module::ContentConfigSectionContains(const size_t section, const size_t index) -> bool
     {
         if (index >= this->OptionCount()) return false;
         if (index >= base_options) return section == 2;
@@ -103,7 +103,7 @@ namespace xiui
         return section == 0;
     }
 
-    auto blue_magic_module::Option(const size_t index) -> module_option
+    auto blue_magic_module::ContentOption(const size_t index) -> module_option
     {
         switch (index)
         {
@@ -117,7 +117,7 @@ namespace xiui
         }
     }
 
-    auto blue_magic_module::OnOptionChanged(const size_t index) -> void
+    auto blue_magic_module::OnContentOptionChanged(const size_t index) -> void
     {
         if (index == enabled && !this->state_.enabled) this->Clear();
         if (index == sound && !this->sound_) this->audio_.Stop();

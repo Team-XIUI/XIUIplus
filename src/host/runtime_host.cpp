@@ -66,7 +66,7 @@ namespace xiui
         std::lock_guard lock(this->mutex_);
         this->controller_mailbox_.CrossbarSettings({});
         this->controller_mailbox_.Reset();
-        this->keyboard_focused_ = false;
+        this->keyboard_input_state_ = 0;
         if (this->instance_ != nullptr && this->api_.destroy != nullptr)
             this->api_.destroy(this->instance_);
         this->instance_ = nullptr;
@@ -241,7 +241,7 @@ namespace xiui
 
     auto runtime_host::ChatFocused(void) const -> bool
     {
-        return this->keyboard_focused_.load(std::memory_order_acquire);
+        return (this->KeyboardInputState() & keyboard_capture_all) != 0;
     }
 
     auto runtime_host::CrossbarSettings(void) const -> controller_crossbar_settings
@@ -273,10 +273,10 @@ namespace xiui
         {
             this->controller_mailbox_.CrossbarSettings({});
             this->controller_mailbox_.Reset();
-            this->keyboard_focused_ = false;
+            this->keyboard_input_state_ = 0;
             return;
         }
-        this->keyboard_focused_.store(this->api_.chat_focused(this->instance_) != FALSE, std::memory_order_release);
+        this->keyboard_input_state_.store(this->api_.keyboard_input_state(this->instance_), std::memory_order_release);
         controller_crossbar_settings crossbar{};
         if (this->api_.crossbar_settings != nullptr) this->api_.crossbar_settings(this->instance_, &crossbar);
         this->controller_mailbox_.CrossbarSettings(crossbar);
@@ -602,7 +602,7 @@ namespace xiui
             api.is_visible != nullptr &&
             api.is_gpu_shader_active != nullptr &&
             api.native_hud_hidden_mask != nullptr && api.menu_layout != nullptr &&
-            api.handle_chat != nullptr && api.handle_key != nullptr && api.chat_focused != nullptr &&
+            api.handle_chat != nullptr && api.handle_key != nullptr && api.chat_focused != nullptr && api.keyboard_input_state != nullptr &&
             api.handle_controller != nullptr && api.controller_input_state != nullptr && api.update_controller_status != nullptr &&
             api.crossbar_settings != nullptr;
     }

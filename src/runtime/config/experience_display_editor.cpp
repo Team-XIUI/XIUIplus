@@ -5,7 +5,7 @@
 
 namespace
 {
-    constexpr const char* views[]{"Bar info", "Readouts", "Layout"};
+    constexpr const char* views[]{"Bar info", "Readouts"};
     constexpr const char* filters[]{"All", "Session", "Combat", "Progress", "Bonuses"};
     auto Inside(const xiui::ui::rect& bounds, const float x, const float y) -> bool
     { return x >= bounds.x && y >= bounds.y && x < bounds.x + bounds.width && y < bounds.y + bounds.height; }
@@ -110,7 +110,7 @@ namespace xiui::ui
     auto experience_display_editor::Activate(const uint32_t target, experience_module& module, const config_layout& layout) -> result
     {
         if (target == 0) return result::none;
-        if (target <= 3) { this->view_ = static_cast<experience_display_view>(target - 1); return result::navigation; }
+        if (target <= std::size(views)) { this->view_ = static_cast<experience_display_view>(target - 1); return result::navigation; }
         if (target >= 10 && target < 15) { this->filter_ = target - 10; this->available_scroll_ = 0; return result::navigation; }
         if (target >= 0x100 && target < 0x200) { this->selected_ = target - 0x100; return result::navigation; }
         if (target >= 0x200)

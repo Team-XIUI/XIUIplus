@@ -26,6 +26,7 @@ namespace xiui::ui
             rect shown{}, available{}, actions{}, filters{}, details{}, presets{}, shown_title{}, available_title{};
             bool stacked{};
             int rows{};
+            static auto MinimumHeight(float width) -> float { return width < 560 ? 246.0f : 196.0f; }
             explicit geometry(const config_layout& layout);
             auto Row(bool enabled, int index) const -> rect;
         };

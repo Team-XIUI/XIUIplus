@@ -49,6 +49,31 @@ namespace xiui::ui
 
     auto button_renderer::Face(const rect& bounds, const bool highlighted, const button_tone tone) const -> void
     {
+        if (this->design_.IsXiv1Theme())
+        {
+            if (bounds.width <= 0 || bounds.height <= 0) return;
+            const float radius = std::min(bounds.width, bounds.height) * .5f;
+            const float step = std::min(1.0f, radius / 5);
+            const auto layer = [&](const float inset, const D3DCOLOR color, const float yOffset = 0) {
+                this->design_.FillRoundedRect({bounds.x + inset, bounds.y + inset + yOffset,
+                    std::max(0.0f, bounds.width - inset * 2), std::max(0.0f, bounds.height - inset * 2)},
+                    color, std::max(0.0f, radius - inset));
+            };
+            layer(0, 0xA005060D, 1);
+            layer(0, 0xFF645D4D);
+            layer(step, highlighted ? 0xFFE7DFC1 : 0xFFC3BEA5);
+            layer(step * 2, 0xFF45433A);
+            layer(step * 3, highlighted ? 0xFFB6BCA6 : 0xFFAAA284);
+            const auto fill = tone == button_tone::danger ? (highlighted ? 0xFF542E45 : 0xFF301C32) :
+                tone == button_tone::positive ? (highlighted ? 0xFF294746 : 0xFF142A31) : highlighted ? 0xFF273F71 : 0xFF10132D;
+            layer(step * 4, fill);
+            if (highlighted)
+            {
+                const auto clip = this->design_.Clip({bounds.x, bounds.y + bounds.height * .5f, bounds.width, bounds.height * .5f});
+                layer(step * 4, tone == button_tone::normal ? 0xFF1B2850 : fill);
+            }
+            return;
+        }
         const auto color = FaceColor(this->design_.GetTheme(), highlighted, tone);
         if (this->assets_ != nullptr) this->assets_->DrawControl(this->design_, bounds, highlighted, color);
         else this->design_.FillRoundedRect(bounds, color, 3);

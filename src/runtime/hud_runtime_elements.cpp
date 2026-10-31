@@ -37,22 +37,28 @@ namespace xiui
 
     auto hud_runtime::ConfigLayout(void) const -> ui::config_layout
     {
+        if (this->config_.basic) return ui::config_layout::Basic(this->config_.bounds);
         const auto pageCount = this->VisibleConfigPages().size();
-        const bool sections = this->HasConfigSections(), submenu = this->HasConfigSubmenu();
-        float extra = this->IsGeneralAppearance() || this->IsExperienceDisplay() || this->IsAttribution() || this->IsInventorySettings() ? 40.0f : 0;
+        const bool sections = false, submenu = !this->ConfigTopicRows().empty();
+        const auto submenuCount = this->ConfigTopicRows().size();
+        float extra = this->IsExperienceDisplay() || this->IsInventorySettings() ? 40.0f : 0;
+        if (this->ConfigCategories().count != 0) extra += ui::config_layout::category_height;
         if (this->IsGeneralAppearance() && (this->general_.AppearanceTab() == 1 || this->general_.AppearanceTab() == 3)) extra += 56;
-        const ui::config_layout base{this->config_.bounds, pageCount, sections, submenu, extra, 0, false, -1, 0, this->config_.sidebar_collapsed};
+        if (this->IsAttribution()) extra += 40;
+        const ui::config_layout base{this->config_.bounds, pageCount, sections, submenu, extra, 0, false, -1, 0, this->config_.sidebar_collapsed, submenuCount};
         const auto height = this->ElementSelectorLayout(this->ElementSelector(), base).height;
         int firstCardRow = -1;
         const auto slots = this->GroupOptionSlots();
         for (size_t slot = 0; this->config_.module != nullptr && slot < slots.size(); ++slot)
             if (slots[slot] < this->config_.module->OptionCount() && this->config_.module->Option(slots[slot]).card)
             { firstCardRow = base.RowForSlot(static_cast<int>(slot)); break; }
-        const ui::config_layout layout{this->config_.bounds, pageCount, sections, submenu, extra, height, false, firstCardRow, base.RowForSlot(this->config_.scroll), this->config_.sidebar_collapsed};
+        const ui::config_layout layout{this->config_.bounds, pageCount, sections, submenu, extra, height, false, firstCardRow, base.RowForSlot(this->config_.scroll), this->config_.sidebar_collapsed, submenuCount};
         const bool customLists = this->IsExperienceDisplay() && this->experience_display_.View() == experience_display_view::readouts;
         const bool scrollbar = this->IsXIUIContributors() ? ui::contributor_list_layout{layout}.MaximumScroll() > 0 :
             !customLists && slots.size() > static_cast<size_t>(layout.VisibleSlots());
-        return ui::config_layout{this->config_.bounds, pageCount, sections, submenu, extra, height, scrollbar, firstCardRow, base.RowForSlot(this->config_.scroll), this->config_.sidebar_collapsed};
+        auto result = ui::config_layout{this->config_.bounds, pageCount, sections, submenu, extra, height, scrollbar, firstCardRow, base.RowForSlot(this->config_.scroll), this->config_.sidebar_collapsed, submenuCount};
+        if (customLists) result = result.WithMinimumContentHeight(ui::experience_display_editor::geometry::MinimumHeight(result.ContentArea().width));
+        return result;
     }
 
     auto hud_runtime::ElementSelectorTarget(void) const -> uint64_t

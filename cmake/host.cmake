@@ -7,6 +7,8 @@ set(XIUI_HOST_SOURCES
     src/shared/controller_input.hpp
     src/host/plugin.cpp
     src/host/plugin.hpp
+    src/host/ring_shader_capture.cpp
+    src/host/ring_shader_capture.hpp
     src/host/native_hud_controller.cpp
     src/host/native_hud_controller.hpp
     src/runtime/modules/actionbars/native_macros.cpp

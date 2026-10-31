@@ -21,7 +21,7 @@ namespace xiui
     {
         std::vector<hud_module*> modules;
         for (auto* module : this->modules_.All())
-            if (module->State().enabled && module->HasEditableBounds() && module->PreviewVisible() && module->PositionBoundsReady()) modules.push_back(module);
+            if (module->State().enabled && module->HasEditableBounds() && this->ModuleDisplayed(*module) && module->PositionBoundsReady()) modules.push_back(module);
         std::sort(modules.begin(), modules.end(), [](const auto* left, const auto* right) { return std::strcmp(left->DisplayName(), right->DisplayName()) < 0; });
         return modules;
     }
@@ -72,6 +72,7 @@ namespace xiui
         if (value == action::left || value == action::right) focus.move_desired.x += Direction(value) * step;
         else focus.move_desired.y += Direction(value) * step;
         module.State().bounds = focus.move_desired;
+        this->ResolveHudTransforms(focus.viewport);
         ClampMovementPosition(module.State().bounds, this->MovementBounds(module), focus.viewport);
         focus.move_desired = module.State().bounds;
         this->layout_snap_ = {};
@@ -110,7 +111,7 @@ namespace xiui
                 this->config_controls_.NavigationItem(bounds.Row(row), module->DisplayName(), focus.id == module->Id(), false);
             }
             auto caption = text; caption.scale = 0.65f;
-            this->config_controls_.Text("Confirm: move selected module", {bounds.bounds.x + 10, bounds.bounds.y + bounds.bounds.height - 30, bounds.bounds.width - 20, 22}, caption);
+            this->config_controls_.Text("Confirm: move / scale   Actions: reset options", {bounds.bounds.x + 10, bounds.bounds.y + bounds.bounds.height - 30, bounds.bounds.width - 20, 22}, caption);
             return;
         }
         const auto found = std::find_if(modules.begin(), modules.end(), [&](const auto* module) { return focus.moving_id == module->Id(); });

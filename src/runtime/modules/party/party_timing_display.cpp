@@ -1,4 +1,5 @@
 #include "party_module.hpp"
+#include "ui/xiv1_resource_layout.hpp"
 
 #include <cmath>
 #include <cstdio>
@@ -11,22 +12,28 @@ namespace xiui
         const size_t kind = slots.swing ? 0 : 1;
         const auto& ticker = this->tickers_.tickers[kind];
         if (ticker.display == 0) return;
-        const auto hp = ui::LayoutMeterTrack(layout.bars[0], this->meters_[0]);
+        auto meter = this->meters_[0];
+        if (this->xiv1_theme_) meter.height = ui::xiv1_resource_height;
+        const auto hp = ui::LayoutMeterTrack(layout.bars[0], meter);
+        const auto textStyle = this->TextStyle(ticker.text);
+        const float countdownWidth = this->tickers_.CountdownWidth(kind, &textStyle);
         auto& at = layout.ticker_text;
         if (ticker.display == 1)
-            at = {hp.x + hp.width + 6, layout.bars[0].y, this->tickers_.CountdownWidth(kind), layout.bars[0].height};
+            at = {hp.x + hp.width + 6, layout.bars[0].y, countdownWidth, layout.bars[0].height};
         else
         {
             auto& mp = layout.bars[1];
-            if (slots.mp && mp.y + mp.height * 0.5f > hp.y + hp.height * 0.5f)
+            if (this->xiv1_theme_)
+                at = {hp.x, top + layout.height + 3, hp.width, ResolvedLineHeight(ticker.text)};
+            else if (slots.mp && mp.y + mp.height * 0.5f > hp.y + hp.height * 0.5f)
             {
                 constexpr float gap = 4;
-                const float needed = hp.x + this->tickers_.CountdownWidth(kind) + gap - mp.x;
+                const float needed = hp.x + countdownWidth + gap - mp.x;
                 const float inset = std::min(std::max(0.0f, needed), std::max(0.0f, mp.width - 24));
                 mp.x += inset; mp.width -= inset;
                 at = {hp.x, mp.y, std::max(0.0f, mp.x - hp.x - gap), mp.height};
             }
-            else at = {hp.x, hp.y + hp.height + 2, hp.width, LineHeight(ticker.text)};
+            else at = {hp.x, hp.y + hp.height + 2, hp.width, ResolvedLineHeight(ticker.text)};
         }
         layout.height = std::max(layout.height, at.y + at.height + std::max(0.0f, ticker.text.offset_y) - top);
     }

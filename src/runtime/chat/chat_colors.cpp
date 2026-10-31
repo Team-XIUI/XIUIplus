@@ -2,6 +2,19 @@
 
 namespace xiui
 {
+    auto ChatThemeColor(const uint32_t mode, const D3DCOLOR nativeColor, const bool xiv1) -> D3DCOLOR
+    {
+        if (!xiv1) return nativeColor;
+        constexpr D3DCOLOR ivory = 0xFFEDE7D8, gold = 0xFFE0D17E, lavender = 0xFFBCA0D6, peach = 0xFFE3AF99;
+        constexpr std::array<D3DCOLOR, std::size(chat_types)> palette{
+            lavender, peach, ivory, 0xFFB4D4E1, 0xFFB5D0AF, 0xFFD8C6A0,
+            peach, peach, 0xFFD3D4AB, lavender, ivory, gold, gold};
+        auto color = (mode & 255) == 8 ? peach : palette[ChatTypeIndex(mode)];
+        const auto red = (nativeColor >> 16) & 255, green = (nativeColor >> 8) & 255, blue = nativeColor & 255;
+        if (ChatTypeIndex(mode) >= 11 && blue > green + 20 && red > green + 10) color = lavender;
+        return (color & 0xFFFFFF) | (nativeColor != 0 ? nativeColor & 0xFF000000 : 0xFF000000);
+    }
+
     auto chat_color_overrides::Load(const settings_store& store) -> void
     {
         const chat_color_overrides defaults;

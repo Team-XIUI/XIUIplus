@@ -10,6 +10,12 @@
 
 namespace xiui
 {
+    auto target_mob_info_module::ResetSettingsFrom(const hud_module& defaults, const ui::theme&) -> void
+    {
+        const auto& source = static_cast<const target_mob_info_module&>(defaults);
+        this->parent_.settings_.mob_info.groups[this->group_] = source.parent_.settings_.mob_info.groups[source.group_];
+    }
+
     namespace
     {
         constexpr const char* groupNames[]{"Behavior", "Links", "Detection", "Physical damage", "Element damage", "Element ranks", "Status ranks", "Immunities", "Server ID", "Spawn interval"};

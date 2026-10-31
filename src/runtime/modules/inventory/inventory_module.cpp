@@ -121,7 +121,7 @@ namespace xiui
         return sections;
     }
 
-    auto inventory_module::ConfigSectionContains(const size_t section, const size_t index) -> bool
+    auto inventory_module::ContentConfigSectionContains(const size_t section, const size_t index) -> bool
     {
         if (index >= this->OptionCount() || index == hide_menu) return false;
         if (index <= count_mode) return section == 0;
@@ -131,7 +131,7 @@ namespace xiui
         return section == 4;
     }
 
-    auto inventory_module::Option(const size_t index) -> module_option
+    auto inventory_module::ContentOption(const size_t index) -> module_option
     {
         static constexpr const char* counts[]{"Used / capacity", "Free slots"};
         static constexpr const char* modes[]{"Percent full", "Used slots"};
@@ -171,7 +171,7 @@ namespace xiui
         }
     }
 
-    auto inventory_module::OnOptionChanged(const size_t index) -> void
+    auto inventory_module::OnContentOptionChanged(const size_t index) -> void
     {
         if (index == warning)
         {

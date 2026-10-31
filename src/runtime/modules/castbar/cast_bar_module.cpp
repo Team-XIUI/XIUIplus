@@ -1,5 +1,6 @@
 #include "cast_bar_module.hpp"
 #include "modules/bar_config.hpp"
+#include "modules/target/xiv1_cast_chrome.hpp"
 
 #include <algorithm>
 #include <cstdio>
@@ -61,7 +62,7 @@ namespace xiui
 
     auto cast_bar_module::ConfigSections(void) const -> std::span<const module_config_section> { return BarConfigSections(); }
 
-    auto cast_bar_module::ConfigSectionContains(size_t section, size_t index) -> bool
+    auto cast_bar_module::ContentConfigSectionContains(size_t section, size_t index) -> bool
     {
         if (section >= this->ConfigSections().size() || index >= this->OptionCount()) return false;
         const auto topic = static_cast<bar_config_section>(section);
@@ -72,7 +73,7 @@ namespace xiui
         return topic == bar_config_section::general;
     }
 
-    auto cast_bar_module::Option(size_t index) -> module_option
+    auto cast_bar_module::ContentOption(size_t index) -> module_option
     {
         static constexpr const char* profiles[]{"Spell / item name", "Progress"};
         switch (index)
@@ -124,6 +125,23 @@ namespace xiui
         const ui::rect row{bounds.x, bounds.y + 4, bounds.width, std::max(18.0f, this->meter_.height) + 2};
         auto nameText = interrupted ? TintTextProfile(this->text_[0], this->interrupted_) : this->text_[0];
         auto progressText = interrupted ? TintTextProfile(this->text_[1], this->interrupted_) : this->text_[1];
+        if (context.Design().IsXiv1Theme())
+        {
+            ui::game_icon_view icon;
+            if (context.Icons() != nullptr)
+                icon = context.Icons()->ActionIcon(cast != nullptr ? (cast->item ? "item:" : "spell:") + std::to_string(cast->id) : "spell:3");
+            this->state_.bounds.height = this->state_.minimum_height = 56;
+            const ui::rect frame{bounds.x, bounds.y + 2, bounds.width, 52};
+            DrawXiv1Cast(context, frame, this->show_name_ || interrupted ? name : "", progress,
+                interrupted ? this->interrupted_ : 0xFFEDCAB5, interrupted ? this->interrupted_ : 0xFFB98370, this->meter_, nameText, icon);
+            if (this->show_percent_)
+            {
+                progressText.style.scale *= .8f;
+                const ui::rect value{frame.x + frame.width - 70, frame.y + 45, 65, context.Design().TextHeight(progressText.style)};
+                context.DrawText(percentage, value, value, progressText);
+            }
+            return;
+        }
         context.DrawMeter(row, this->show_name_ || interrupted ? name : "", percentage, progress,
             interrupted ? this->interrupted_ : this->top_, interrupted ? this->interrupted_ : this->bottom_, this->meter_, this->animation_, true,
             &nameText, &progressText, ui::meter_text_anchor::bottom);

@@ -130,7 +130,7 @@ namespace xiui::ui
             else std::snprintf(text, sizeof(text), "<%u", seconds);
             return text;
         }
-        if (seconds >= 3600) std::snprintf(text, sizeof(text), "%uh%02u", seconds / 3600, seconds / 60 % 60);
+        if (seconds >= 3600) std::snprintf(text, sizeof(text), "%uh%02um", seconds / 3600, seconds / 60 % 60);
         else if (seconds >= 60) std::snprintf(text, sizeof(text), "%u:%02u", seconds / 60, seconds % 60);
         else std::snprintf(text, sizeof(text), "%u", seconds);
         return text;

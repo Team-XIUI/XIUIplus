@@ -100,7 +100,7 @@ namespace xiui
 {
     auto ActionKindName(const action_kind kind) -> const char*
     {
-        constexpr const char* names[]{"Empty", "Spell", "Ability", "Weapon skill", "Item", "Equip", "Pet", "Macro", "Native macro", "Command"};
+        constexpr const char* names[]{"Empty", "Spell", "Ability", "Weapon skill", "Item", "Equip", "Pet", "Macro", "Game macro", "Single command"};
         return static_cast<size_t>(kind) < std::size(names) ? names[static_cast<size_t>(kind)] : "Unknown";
     }
     auto ActionKindFromName(const std::string& name) -> action_kind
@@ -114,8 +114,8 @@ namespace xiui
         if (key == "equip" || key == "equipment") return action_kind::equip;
         if (key == "pet" || key == "petability" || key == "petcommand" || key == "rage" || key == "ward" || key == "bloodpactrage" || key == "bloodpactward") return action_kind::pet;
         if (key == "macro") return action_kind::macro;
-        if (key == "native_macro" || key == "native macro") return action_kind::native_macro;
-        if (key == "command") return action_kind::command;
+        if (key == "native_macro" || key == "native macro" || key == "game macro") return action_kind::native_macro;
+        if (key == "command" || key == "single command") return action_kind::command;
         return action_kind::none;
     }
     auto ValidateAction(const action_slot& slot) -> std::string
@@ -123,7 +123,7 @@ namespace xiui
         if (static_cast<unsigned>(slot.kind) > static_cast<unsigned>(action_kind::command)) return "Unknown action type.";
         if (slot.Empty()) return {};
         const auto safe = [](const std::string& value, size_t max) { return value.size() <= max && value.find_first_of("\r\n\0", 0, 3) == std::string::npos; };
-        if (!safe(slot.recast_name, 240) || (slot.recast_kind != action_kind::none && slot.recast_kind != action_kind::spell && slot.recast_kind != action_kind::ability && slot.recast_kind != action_kind::pet && slot.recast_kind != action_kind::item)) return "Choose a spell, ability, pet action or item cooldown source.";
+        if (!safe(slot.recast_name, 240) || (slot.recast_kind != action_kind::none && slot.recast_kind != action_kind::spell && slot.recast_kind != action_kind::ability && slot.recast_kind != action_kind::weapon_skill && slot.recast_kind != action_kind::pet && slot.recast_kind != action_kind::item)) return "Choose a spell, ability, weapon skill, pet action or item cooldown source.";
         if (slot.recast_kind != action_kind::none && slot.recast_id == 0 && slot.recast_name.empty()) return "Enter a cooldown source action.";
         if (!safe(slot.name, 240) || !safe(slot.label, 120) || !safe(slot.icon, 240) || !safe(slot.equipment_slot, 24) || !safe(slot.macro_id, 120)) return "Action text is too long or contains a line break.";
         constexpr const char* targets[]{"", "<t>", "<me>", "<st>", "<stpc>", "<stnpc>", "<stpt>", "<stal>", "<bt>", "<pet>", "<lastst>", "<p0>", "<p1>", "<p2>", "<p3>", "<p4>", "<p5>"};

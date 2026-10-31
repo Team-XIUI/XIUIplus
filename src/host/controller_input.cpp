@@ -1,4 +1,5 @@
 #include "controller_input.hpp"
+#include "native_target.hpp"
 #include "runtime_host.hpp"
 
 #include <algorithm>
@@ -162,8 +163,7 @@ namespace xiui
         const auto* memory = this->core_ != nullptr ? this->core_->GetMemoryManager() : nullptr;
         const auto* player = memory != nullptr ? memory->GetPlayer() : nullptr;
         if (player != nullptr && player->GetLoginStatus() != static_cast<uint8_t>(Ashita::FFXI::Enums::LoginStatus::LoggedIn)) return true;
-        const auto* target = memory != nullptr ? memory->GetTarget() : nullptr;
-        return target != nullptr && (target->GetActionTargetActive() != 0 || target->GetIsSubTargetActive() != 0);
+        return NativeTargetSelectionActive(memory);
     }
 
     auto controller_input::NativeMenuOpen(void) const -> bool
@@ -177,6 +177,8 @@ namespace xiui
     {
         if (this->runtime_ != nullptr && this->NativeBusy()) this->runtime_->SuspendControllerInput();
         const auto mode = this->runtime_ != nullptr ? this->runtime_->ControllerCapture(this->NativeMenuOpen()) : controller_capture_mode::none;
+        const bool nativeCycle = this->runtime_ != nullptr && this->runtime_->NativeWindowCycle();
+        this->direct_.SetNativeWindowCycle(nativeCycle); this->xinput_.SetNativeWindowCycle(nativeCycle);
         this->direct_.SetNavigationOnly(mode == controller_capture_mode::navigation);
         this->xinput_.SetNavigationOnly(mode == controller_capture_mode::navigation);
         return mode != controller_capture_mode::none;

@@ -1,8 +1,78 @@
 #include "config_input_fixture.hpp"
+#include "ui/xiv1_resource_layout.hpp"
 
 namespace xiui
 {
     using namespace config_checks;
+
+    auto config_input_test::Xiv1Theme(void) -> bool
+    {
+        hud_runtime runtime;
+        runtime.editing_ = true;
+        runtime.config_.basic = false;
+        runtime.config_.bounds = {40, 40, 820, 430};
+        runtime.config_.module = &runtime.general_;
+        runtime.config_.section = general_module::appearance_section;
+        runtime.general_.UpdateWindowType(3);
+        const auto index = runtime.general_.AppearanceThemeOption();
+        auto option = runtime.general_.Option(index);
+        if (!check(option.available && option.choice_count == 2 && *option.choice == ui::native_appearance,
+            "XIV 1.0 is an additional global theme with Native as fallback")) return false;
+        const auto items = runtime.ControllerConfigItems(config_controller_region::options);
+        if (!check(std::any_of(items.begin(), items.end(), [index](const auto& item) { return item.index == index; }),
+            "global theme uses shared controller option navigation")) return false;
+        *option.choice = ui::xiv1_appearance;
+        runtime.general_.OnOptionChanged(index);
+        auto settings = settings_store::FromIniText("[player]\nx=123\ny=456\n[custom]\nuntouched=yes\n");
+        runtime.general_.Save(settings);
+        general_module restored;
+        restored.Load(settings);
+        if (!check(restored.AppearanceTheme() == ui::xiv1_appearance && !runtime.general_.TakeWindowTypeRequest() &&
+            settings.ReadInt("player", "x", 0) == 123 && settings.ReadString("custom", "untouched") == "yes",
+            "theme saves independently of native Window Type, positions and unknown preferences")) return false;
+        auto& design = runtime.design_system_;
+        const auto original = design.GetTheme().colors;
+        design.SetAppearanceTheme(ui::xiv1_appearance);
+        auto style = ui::theme::CreateDefault().body_text;
+        style.top_color = style.bottom_color = 0x40EEDDBB;
+        style.shadow.color = 0x38000000;
+        const auto themed = design.ResolveHudText(style), repeated = design.ResolveHudText(themed);
+        if (!check(themed.font == ui::xiv1_font && themed.stroke.enabled && themed.shadow.enabled &&
+            themed.stroke.color >> 24 <= 64 && themed.shadow.color >> 24 <= 56 &&
+            themed.shadow.color == repeated.shadow.color && themed.top_color == style.top_color,
+            "theme text keeps color, fade opacity and idempotent effect resolution")) return false;
+        style.font = ui::xiv1_italic_font;
+        if (!check(design.ResolveHudText(style).font == ui::xiv1_italic_font,
+            "italic name and meter profiles retain their font")) return false;
+        style.font = ui::xiv1_number_font;
+        if (!check(design.ResolveHudText(style).font == ui::xiv1_number_font,
+            "lining meter numerals keep their consistent baseline")) return false;
+        const auto hpTrack = ui::Xiv1ResourceTrack({0, 0, 120, 20}, 0);
+        const auto tpTrack = ui::Xiv1ResourceTrack({0, 0, 120, 20}, 2);
+        if (!check(hpTrack.y == tpTrack.y && hpTrack.height == tpTrack.height,
+            "XIV resource gauges share the same vertical geometry")) return false;
+        const auto values = ui::LayoutXiv1ResourceText(hpTrack, 14, 18);
+        if (!check(hpTrack.x + hpTrack.width - values.value.x - values.value.width == 6,
+            "XIV bar values retain a six-pixel right inset")) return false;
+        party_module party;
+        party.ResetDefaults(ui::theme::CreateDefault());
+        party.xiv1_theme_ = true; party.job_icons_ = true; party.tp_display_ = 1; party.labels_ = true;
+        const auto entry = party.LayoutEntry({0, 0, 240, 0}, true, {true, true, true, true}, false);
+        if (!check(entry.icon.width == 0 && entry.icon.height == 0 && party.job_icons_,
+            "XIV 1.0 omits party job icons without changing the saved preference")) return false;
+        const auto tp = ui::LayoutXiv1TPNumber(entry.resources.bars[2], 16, 36, 14, 16);
+        if (!check(tp.label.x + tp.label.width < tp.value.x && tp.value.x + tp.value.width <= entry.resources.bars[2].x + entry.resources.bars[2].width &&
+            std::abs(tp.label.y + tp.label.height / 2 - tp.value.y - tp.value.height / 2) < .01f,
+            "number-only TP keeps its label and value together on one row")) return false;
+        const auto plain = ui::config_controls::TextStyle(style);
+        if (!check(!plain.theme_text && design.ResolveHudText(plain).font == plain.font,
+            "configuration typography remains independent")) return false;
+        design.SetAppearanceTheme(ui::native_appearance);
+        restored.SetAppearanceTheme(999);
+        return check(design.GetTheme().colors.border == original.border && design.ResolveHudText(style).font == style.font &&
+            restored.AppearanceTheme() == ui::native_appearance,
+            "switching back restores the native palette and invalid themes fall back safely");
+    }
 
     auto config_input_test::WindowFrame(const char* dat) -> bool
     {

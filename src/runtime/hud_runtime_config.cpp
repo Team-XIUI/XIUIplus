@@ -36,6 +36,12 @@ namespace xiui
         this->SaveSettings();
     }
 
+    auto hud_runtime::ConfigHeaderDragArea(void) const -> rect
+    {
+        const float searchWidth = this->config_.basic || this->config_.collapsed ? 0 : this->SettingsSearchBounds().width;
+        return this->ConfigLayout().HeaderDragArea(searchWidth);
+    }
+
     auto hud_runtime::ConfigResizeEdges(const float x, const float y) const -> uint8_t
     {
         if (!this->editing_ || this->config_.collapsed || this->profile_name_.Focused() || this->profile_dropdown_ ||
@@ -75,6 +81,9 @@ namespace xiui
 
     auto hud_runtime::FocusModuleConfig(hud_module& module) -> void
     {
+        this->config_.preview_selected = true;
+        if (this->config_.basic) { this->config_.layout_selection = &module; return; }
+        if (&module == &this->world_target_scale_) { this->FocusModuleConfig(this->target_); this->target_.SelectConfigView(3); this->config_.section = 1; return; }
         for (size_t i = 0; i < this->actionbar_children_.size(); ++i)
             if (&module == &this->actionbar_children_[i])
             {
@@ -128,7 +137,7 @@ namespace xiui
 
     auto hud_runtime::ConfigPages(void) -> std::array<config_page, config_page_count>
     {
-        return {{{"general", "General", &this->general_},
+        return {{{"general", "Global", &this->general_},
             {"hotbar", "Action Bars", &this->actionbars_, nullptr, nullptr, this->actionbar_members_, 1, "Hotbars", 0, action_bar_count},
             {"casting", "Casting", &this->cast_bar_, &this->cast_cost_, &this->recast_},
             {"chat", "Chat", &this->chat_, &this->chat_second_, &this->chat_bubbles_},
@@ -148,8 +157,13 @@ namespace xiui
     auto hud_runtime::ConfigPageVisible(const config_page& page) const -> bool
     {
         if (this->config_.search_revealed_module == this->config_.module && page.Contains(this->config_.search_revealed_module)) return true;
-        if (page.primary == &this->general_) return true;
-        if (page.primary == &this->actionbars_) return true;
+        if (page.primary == &this->general_ || page.primary == &this->compass_) return true;
+        if (page.primary == &this->actionbars_)
+        {
+            for (size_t index = 0; index <= action_bar_count; ++index)
+                if (this->actionbars_.BarState(index).enabled) return true;
+            return false;
+        }
         if (page.primary == &this->party_) return this->general_.PartyEnabled();
         if (page.primary == &this->target_) return general_module::Enabled(*page.primary) ||
             general_module::Enabled(*page.secondary) || general_module::Enabled(*page.tertiary);
@@ -171,17 +185,28 @@ namespace xiui
     auto hud_runtime::ActiveConfigPage(void) -> config_page
     {
         for (const auto& page : this->ConfigPages())
-            if (page.Contains(this->config_.module)) return page;
+            if (this->ConfigPageActive(page)) return page;
         return {};
+    }
+
+    auto hud_runtime::ConfigPageActive(const config_page& page) const -> bool
+    {
+        if (this->IsGeneralAppearance() && this->general_.AppearanceTab() >= 3)
+            return page.primary == &this->compass_;
+        return page.Contains(this->config_.module);
     }
 
     auto hud_runtime::SaveConfigSelection(const settings_store& store) const -> void
     {
-        store.WriteString("session.config", "module", this->config_.module != nullptr ? this->config_.module->Id() : "general");
-        store.WriteInt("session.config", "view", this->config_.module != nullptr ? static_cast<int>(this->config_.module->ConfigView()) : 0);
-        store.WriteInt("session.config", "section", static_cast<int>(this->config_.section));
-        const auto sections = this->config_.module != nullptr ? this->config_.module->ConfigSections() : std::span<const module_config_section>{};
-        store.WriteString("session.config", "topic_id", this->config_.section < sections.size() ? std::string{sections[this->config_.section].Id()} : "");
+        const auto* module = this->config_.basic && this->config_.advanced_module != nullptr ? this->config_.advanced_module : this->config_.module;
+        const auto section = this->config_.basic ? this->config_.advanced_section : this->config_.section;
+        store.WriteBool("session.config", "basic", this->config_.basic);
+        store.WriteInt("session.config", "scroll", this->config_.basic ? static_cast<int>(this->config_.advanced_scroll) : this->config_.scroll);
+        store.WriteString("session.config", "module", module != nullptr ? module->Id() : "general");
+        store.WriteInt("session.config", "view", module != nullptr ? static_cast<int>(module->ConfigView()) : 0);
+        store.WriteInt("session.config", "section", static_cast<int>(section));
+        const auto sections = module != nullptr ? module->ConfigSections() : std::span<const module_config_section>{};
+        store.WriteString("session.config", "topic_id", section < sections.size() ? std::string{sections[section].Id()} : "");
         store.WriteInt("session.config", "party_presets_general", 1);
         store.WriteInt("session.config", "party_presets_location", 2);
         store.WriteInt("session.config", "actionbar_keybinds_topic", 1);
@@ -190,6 +215,8 @@ namespace xiui
 
     auto hud_runtime::LoadConfigSelection(const settings_store& store) -> void
     {
+        const bool basic = store.ReadBool("session.config", "basic", this->config_.basic);
+        this->config_.basic = false;
         this->config_.module = &this->general_;
         const auto id = store.ReadString("session.config", "module", "general");
         for (auto* module : this->modules_.All())
@@ -199,8 +226,6 @@ namespace xiui
         this->config_.module->SelectConfigView(views.empty() ? 0 : std::min(view, views.size() - 1));
         auto section = static_cast<size_t>(std::max(0, store.ReadInt("session.config", "section", 0)));
         auto topic = store.ReadString("session.config", "topic_id");
-        if (this->config_.module == &this->game_hud_)
-        { this->config_.module = &this->general_; section = general_module::game_hud_section; topic = "game-hud"; }
         if (topic.empty())
         {
             if (store.ReadInt("session.config", "party_presets_general", 0) == 0 &&
@@ -217,6 +242,8 @@ namespace xiui
                 if (section >= firstMoved) ++section;
             }
         }
+        if (this->config_.module == &this->general_ && (topic == "game-hud" || (topic.empty() && section == general_module::game_hud_section)))
+        { this->config_.module = &this->game_hud_; section = 0; topic = "general"; }
         const auto sections = this->config_.module->ConfigSections();
         if (!topic.empty())
         {
@@ -224,12 +251,20 @@ namespace xiui
             section = found != sections.end() ? static_cast<size_t>(found - sections.begin()) : 0;
         }
         this->config_.section = section < sections.size() ? section : 0;
+        this->config_.scroll = std::max(0, store.ReadInt("session.config", "scroll", 0));
         this->general_.SelectAppearanceTab(static_cast<size_t>(std::max(0, store.ReadInt("session.config", "appearance_tab", 0))));
         this->NormalizeConfigSelection();
+        this->ClampOptionScroll();
+        this->SetBasicSettings(basic, false);
     }
 
     auto hud_runtime::SelectConfigTopic(const size_t index) -> void
     {
+        if (this->config_.module == nullptr || index >= this->config_.module->ConfigSections().size()) return;
+        const auto& section = this->config_.module->ConfigSections()[index];
+        if (this->config_.module != &this->general_ && ui::AppearanceCategory(section) != nullptr)
+            this->config_.appearance_topics[std::string{this->config_.module->Id()} + ":" + std::to_string(this->config_.module->ConfigView())] = section.Id();
+        this->config_.preview_selected = true;
         this->config_.section = index;
         this->config_.active_color = nullptr;
         this->config_.scroll = 0;
@@ -237,17 +272,174 @@ namespace xiui
             this->FinishActionBarsLaunch();
     }
 
+    auto hud_runtime::ConfigTopicRows(void) const -> std::vector<ui::settings_topic_row>
+    {
+        if (this->config_.module == nullptr || this->config_.module == &this->game_hud_) return {};
+        if (this->config_.module == &this->general_)
+        {
+            if (this->IsAttribution() || (this->IsGeneralAppearance() && this->general_.AppearanceTab() >= 3)) return {};
+            std::vector<ui::settings_topic_row> rows;
+            const auto sections = this->general_.ConfigSections();
+            for (size_t section = 0; section < sections.size(); ++section)
+            {
+                if (section == general_module::attribution_section || section == general_module::game_hud_section) continue;
+                const auto& topic = sections[section];
+                const auto id = std::string{"general/"} + std::string{topic.Id()};
+                const bool selected = this->config_.section == section;
+                if (section == general_module::appearance_section)
+                    for (size_t tab = 0; tab < 3; ++tab)
+                        rows.push_back({id + "/" + std::to_string(tab), tab == 0 ? "Appearance" : general_module::appearance_tabs[tab], topic.description,
+                            section, false, false, selected && this->general_.AppearanceTab() == tab, static_cast<int>(tab)});
+                else rows.push_back({id, topic.name, topic.description, section, false, false, selected});
+            }
+            return rows;
+        }
+        const auto key = std::string{this->config_.module->Id()} + ":" + std::to_string(this->config_.module->ConfigView());
+        const auto remembered = this->config_.appearance_topics.find(key);
+        return ui::SettingsTopics(this->config_.module->ConfigSections(), this->config_.section,
+            remembered != this->config_.appearance_topics.end() ? remembered->second : std::string_view{}, this->config_.module != &this->general_);
+    }
+
+    auto hud_runtime::SelectConfigTopicRow(const size_t row) -> void
+    {
+        const auto topics = this->ConfigTopicRows();
+        if (row >= topics.size()) return;
+        this->SelectConfigTopic(topics[row].section);
+        if (this->config_.module == &this->general_ && topics[row].subview >= 0)
+            this->general_.SelectAppearanceTab(static_cast<size_t>(topics[row].subview));
+    }
+
+    auto hud_runtime::ConfigSidebarBounds(void) const -> rect
+    {
+        const auto layout = this->ConfigLayout();
+        auto bounds = layout.ModuleTab(0);
+        bounds.height = std::max(1.0f, layout.FooterBackground().y - bounds.y - 8);
+        return bounds;
+    }
+
+    auto hud_runtime::ConfigSidebarRows(void) const -> std::vector<ui::settings_sidebar_row>
+    {
+        const auto pages = this->VisibleConfigPages();
+        auto& animation = this->config_.sidebar_animation;
+        const auto now = ::GetTickCount64();
+        for (const auto& page : pages)
+            if (this->ConfigPageActive(page)) { animation.Select(page.id, now); break; }
+        const auto globalTopics = this->general_.ConfigSections();
+        struct destination
+        {
+            std::string id;
+            const char* label{};
+            const char* help{};
+            size_t section{};
+            int subview{-1}, depth{1};
+            float progress{1};
+            bool selected{}, available{true};
+        };
+        const auto destinations = [&](const config_page& page) {
+            std::vector<destination> result;
+            if (page.SectionCount() > 1)
+            {
+                constexpr const char* chatNames[]{"Window 1", "Window 2", "Bubbles"};
+                for (size_t section = 0; section < page.SectionCount(); ++section)
+                {
+                    const bool selected = page.primary == &this->actionbars_ && this->actionbars_.FloatingWindowOpen() && this->actionbars_.WindowFocused() ?
+                        page.SectionView(section) == this->actionbars_.WindowConfigView() : page.SectionContains(section, this->config_.module);
+                    const auto* label = std::strcmp(page.id, "chat") == 0 ? chatNames[section] : page.SectionName(section);
+                    result.push_back({std::string{page.id} + "/" + std::to_string(section), label, label, section, -1, 1, 1, selected});
+                }
+                if (page.primary == &this->compass_)
+                    for (size_t tab = 3; tab < std::size(general_module::appearance_tabs); ++tab)
+                        result.push_back({std::string{page.id} + "/appearance/" + std::to_string(tab), general_module::appearance_tabs[tab],
+                            globalTopics[general_module::appearance_section].description, general_module::appearance_section, static_cast<int>(tab), 1, 1,
+                            this->IsGeneralAppearance() && this->general_.AppearanceTab() == tab});
+            }
+            return result;
+        };
+        const auto bounds = this->ConfigSidebarBounds();
+        float total = static_cast<float>(pages.size()) * 30;
+        for (const auto& page : pages)
+            if (!this->config_.sidebar_collapsed)
+                for (const auto& target : destinations(page)) total += 24 * target.progress * animation.Expansion(page.id, now);
+        animation.content_height = total;
+        animation.scroll = std::clamp(animation.scroll, 0.0f, std::max(0.0f, total - bounds.height));
+        const float width = bounds.width - (total > bounds.height ? 10 : 0);
+        float y = bounds.y - animation.scroll;
+        std::vector<ui::settings_sidebar_row> rows;
+        for (size_t at = 0; at < pages.size(); ++at)
+        {
+            const auto& page = pages[at];
+            const bool active = this->ConfigPageActive(page);
+            rows.push_back({page.id, page.name, {bounds.x, y, width, 28}, at, 0, at * 256, false, active});
+            y += 30;
+            const float expansion = this->config_.sidebar_collapsed ? 0 : animation.Expansion(page.id, now);
+            if (expansion <= 0) continue;
+            for (const auto& target : destinations(page))
+            {
+                const float progress = expansion * target.progress;
+                const float indent = 12 * target.depth + 8 * (1 - progress);
+                const size_t item = at * 256 + (target.subview < 0 ? target.section + 1 : 128 + target.section * 16 + static_cast<size_t>(target.subview));
+                rows.push_back({target.id, target.label, {bounds.x + indent, y, width - indent, 22 * progress}, at, target.section, item,
+                    true, active && target.selected, active && expansion >= .99f && target.available, target.subview, target.help});
+                y += 24 * progress;
+            }
+        }
+        if (animation.reveal)
+        {
+            const auto first = std::find_if(rows.begin(), rows.end(), [](const auto& row) { return !row.child && row.selected; });
+            if (first != rows.end())
+            {
+                auto last = first;
+                while (last + 1 != rows.end() && (last + 1)->child) ++last;
+                const float delta = first->bounds.y < bounds.y ? first->bounds.y - bounds.y :
+                    std::min(std::max(0.0f, last->bounds.y + last->bounds.height - bounds.y - bounds.height), std::max(0.0f, first->bounds.y - bounds.y));
+                const float before = animation.scroll;
+                animation.scroll = std::clamp(before + delta, 0.0f, std::max(0.0f, total - bounds.height));
+                for (auto& row : rows) row.bounds.y -= animation.scroll - before;
+                if (this->config_.sidebar_collapsed || animation.Expansion(animation.active, now) >= .9999f)
+                    animation.reveal = false;
+            }
+        }
+        return rows;
+    }
+
+    auto hud_runtime::SelectConfigSidebarItem(const size_t item) -> void
+    {
+        const auto rows = this->ConfigSidebarRows();
+        const auto row = std::find_if(rows.begin(), rows.end(), [&](const auto& value) { return value.item == item && value.available; });
+        if (row == rows.end()) return;
+        const auto pages = this->VisibleConfigPages();
+        const auto& page = pages[row->page];
+        this->FinishConfigInput(true, false);
+        if ((page.primary == &this->general_ || row->subview >= 0) && row->child)
+        {
+            this->SelectConfigModule(&this->general_);
+            this->SelectConfigTopic(row->section);
+            if (row->subview >= 0)
+            {
+                if (row->section == general_module::appearance_section) this->general_.SelectAppearanceTab(static_cast<size_t>(row->subview));
+                else if (row->section == general_module::attribution_section) this->general_.SelectAttributionView(static_cast<size_t>(row->subview));
+            }
+        }
+        else
+        {
+            this->SelectConfigModule(page.SectionModule(row->section), page.SectionView(row->section));
+            if (page.primary == &this->general_ && this->IsGeneralAppearance() && this->general_.AppearanceTab() >= 3)
+                this->general_.SelectAppearanceTab(0);
+        }
+        if (this->config_.sidebar_collapsed && page.SectionCount() > 1)
+            this->ToggleConfigSidebar(this->config_.focus.viewport.Width != 0 ? this->config_.focus.viewport : this->hud_viewport_);
+    }
+
     auto hud_runtime::SelectConfigModule(hud_module* module, const std::optional<size_t> view) -> void
     {
-        const bool gameHud = module == &this->game_hud_;
-        if (gameHud) module = &this->general_;
+        this->config_.preview_selected = true;
         const auto previousTopics = this->config_.module != nullptr ? this->config_.module->ConfigSections() : std::span<const module_config_section>{};
         const auto previousTopic = this->config_.section < previousTopics.size() ? std::string{previousTopics[this->config_.section].Id()} : std::string{};
         if (view && !module->ConfigViews().empty()) module->SelectConfigView(*view);
         this->config_.module = module;
         const auto nextTopics = module->ConfigSections();
-        this->config_.section = gameHud ? general_module::game_hud_section : 0;
-        for (size_t topic = 0; !gameHud && !previousTopic.empty() && topic < nextTopics.size(); ++topic)
+        this->config_.section = 0;
+        for (size_t topic = 0; !previousTopic.empty() && topic < nextTopics.size(); ++topic)
             if (previousTopic == nextTopics[topic].Id()) { this->config_.section = topic; break; }
         this->config_.active_color = nullptr; this->config_.active_slider = nullptr;
         this->config_.group = module_option_group::general;
@@ -275,6 +467,15 @@ namespace xiui
 
     auto hud_runtime::NormalizeConfigSelection(void) -> void
     {
+        if (this->config_.module == &this->general_ && this->config_.section == general_module::game_hud_section)
+        { this->config_.module = &this->game_hud_; this->config_.section = 0; }
+        if (this->module_menu_target_ != nullptr && !this->ModuleMenuAvailable(*this->module_menu_target_)) this->CloseChoiceInput();
+        if (this->config_.module != nullptr)
+        {
+            auto* target = this->MovementSelectionModule();
+            this->config_.module->BindConfigScale(target != nullptr ? &target->State() : nullptr, target != nullptr && target->HasEditableBounds());
+        }
+        if (this->config_.basic) return;
         if ((this->config_.active_color != nullptr || this->config_.active_slider != nullptr) && this->config_.module != nullptr && this->config_.option < this->config_.module->OptionCount() &&
             !this->config_.module->Option(this->config_.option).visible)
         {
@@ -293,7 +494,7 @@ namespace xiui
             this->config_.active_slider = nullptr;
             this->config_.scroll = 0;
         }
-        if (this->config_.choice_input.Opened() && (this->config_.module == nullptr || this->config_.choice_module != this->config_.module ||
+        if (this->module_menu_target_ == nullptr && this->config_.choice_input.Opened() && (this->config_.module == nullptr || this->config_.choice_module != this->config_.module ||
             this->config_.choice_option >= this->config_.module->OptionCount() || !this->MatchesConfigOption(this->config_.choice_option) ||
             !this->config_.module->Option(this->config_.choice_option).available ||
             this->config_.module->Option(this->config_.choice_option).choice != this->config_.choice_input.Option().choice)) this->CloseChoiceInput();
@@ -325,7 +526,18 @@ namespace xiui
 
     auto hud_runtime::MatchesConfigOption(const size_t index) const -> bool
     {
+        if (this->config_.basic) return this->config_.module == &this->general_ && index >= this->general_.HudScaleStart() && index < this->general_.OptionCount();
         if (this->config_.module == nullptr || index >= this->config_.module->OptionCount() || !this->config_.module->Option(index).visible) return false;
+        if (index >= this->config_.module->ContentOptionCount())
+        {
+            if (this->config_.module == &this->target_ && this->target_.ConfigView() == 4) return false;
+            auto* target = this->MovementSelectionModule();
+            if (target == nullptr || !target->SupportsScale()) return false;
+            this->config_.module->BindConfigScale(target != nullptr ? &target->State() : nullptr, target != nullptr && target->HasEditableBounds());
+            if (target != nullptr && target != this->config_.module && this->config_.module == &this->target_ && this->target_.ConfigView() == 0)
+                return this->config_.section == 9 || this->config_.section == 11;
+        }
+        if (index >= this->config_.module->ContentOptionCount() && this->IsExperienceDisplay()) return false;
         if (this->IsExperienceDisplay()) return this->experience_.DisplayOption(this->experience_display_.View(), index);
         if (this->IsAttribution()) return this->general_.AttributionOption(index);
         if (this->IsGeneralAppearance()) return this->general_.AppearanceOption(index);
@@ -349,7 +561,7 @@ namespace xiui
             cards.push_back(entry); return true;
         });
         const auto empty = this->config_.module->OptionCount();
-        const int columns = ui::config_layout{this->config_.bounds, 0, this->HasConfigSections(), this->HasConfigSubmenu(), 0, 0, false, -1, 0, this->config_.sidebar_collapsed}.Columns();
+        const int columns = ui::config_layout{this->config_.bounds, 0, false, !this->ConfigTopicRows().empty(), 0, 0, false, -1, 0, this->config_.sidebar_collapsed}.Columns();
         auto slots = ui::ArrangeConfigOptions(std::move(entries), empty, columns);
         if (!cards.empty() && slots.size() % columns != 0) slots.push_back(empty);
         for (const auto& card : cards) slots.push_back(card.index);

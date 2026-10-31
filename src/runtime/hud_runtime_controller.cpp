@@ -1,4 +1,6 @@
 #include "hud_runtime.hpp"
+#include "input/keyboard_policy.hpp"
+#include "native_target.hpp"
 
 #include <algorithm>
 #include <array>
@@ -17,8 +19,71 @@ namespace xiui
         return properties == nullptr || ::GetForegroundWindow() == properties->GetFinalFantasyHwnd();
     }
 
+    auto hud_runtime::SuspendWindowInput(void) -> void
+    {
+        if (this->window_input_suspended_) return;
+        this->window_input_suspended_ = true;
+        ++this->controller_input_revision_;
+        this->FinishScale(false); this->FinishControllerMove(false); this->FinishConfigResize(false);
+        this->FinishInteraction();
+        this->chat_.CancelPointer(); this->chat_second_.CancelPointer(); this->ready_check_.CancelPointer();
+        this->chat_pointer_ = nullptr; this->mouse_down_ = false; this->mouse_buttons_ = 0;
+        this->confirmation_key_release_ = 0; this->chat_activation_enter_down_ = false;
+        this->setup_.pressed = ui::setup_control::none; this->setup_.pointer_buttons = 0; this->setup_.key_releases.reset();
+        this->ReleasePointerCapture(); this->SetChatMouseCapture(false);
+    }
+
+    auto hud_runtime::NativeWindowCycle(void) const -> bool
+    {
+        if (this->SetupVisible()) return false;
+        if (!this->native_window_cycle_ || this->editing_ || this->chat_.Focused() ||
+            this->chat_.HistoryExpanded() || this->chat_second_.HistoryExpanded()) return false;
+        if (this->controller_surface_ == controller_surface::buffs && this->ContextVisible(this->debuffs_) && this->debuffs_.ShouldRender({})) return false;
+        return this->controller_surface_ == controller_surface::none || this->controller_surface_ == controller_surface::chat ||
+            this->controller_surface_ == controller_surface::chat2 || this->controller_surface_ == controller_surface::buffs || this->controller_surface_ == controller_surface::debuffs;
+    }
+
+    auto hud_runtime::UpdateNativeWindowFocus(void) -> void
+    {
+        if (this->SetupVisible()) return;
+        if (!this->GameWindowFocused() || this->window_input_suspended_) return;
+        const auto focused = this->visibility_context_.window_focus;
+        this->native_window_cycle_ = !this->editing_ && this->ControllerNativeMenuOpen() &&
+            focused != native_window_focus::unknown && focused != native_window_focus::commands;
+        if (!this->editing_ && focused == native_window_focus::chatlog)
+        {
+            this->ReleaseChatInput();
+            this->ReleaseControllerFocus();
+            return;
+        }
+        if (!this->native_window_cycle_) { this->observed_native_focus_ = native_window_focus::unknown; return; }
+        if (!this->visible_ || this->ControllerNativeBusy() || this->chat_.Focused() ||
+            (focused == this->observed_native_focus_ && this->visibility_context_.window_focus_id == this->observed_native_focus_id_ &&
+             this->visibility_context_.window_focus_name == this->observed_native_focus_name_)) return;
+        this->observed_native_focus_ = focused;
+        this->observed_native_focus_id_ = this->visibility_context_.window_focus_id;
+        this->observed_native_focus_name_ = this->visibility_context_.window_focus_name;
+        if (this->chat_.HistoryExpanded() || this->chat_second_.HistoryExpanded()) return;
+        const auto hidden = this->game_hud_.HiddenMask();
+        const bool keyboard = this->keyboard_window_focus_;
+        bool adopted{};
+        if (focused == native_window_focus::chat && (hidden & NativeHudBit(native_hud_element::chat1)) != 0)
+            adopted = this->BeginControllerFocus(controller_surface::chat, false);
+        else if (focused == native_window_focus::chat2 && (hidden & NativeHudBit(native_hud_element::chat2)) != 0)
+            adopted = this->BeginControllerFocus(controller_surface::chat2, false);
+        else if (focused == native_window_focus::statuses && (hidden & NativeHudBit(native_hud_element::status)) != 0)
+        {
+            adopted = this->BeginControllerFocus(controller_surface::buffs, false) || this->BeginControllerFocus(controller_surface::debuffs, false);
+        }
+        else if (this->controller_surface_ == controller_surface::chat || this->controller_surface_ == controller_surface::chat2 ||
+            this->controller_surface_ == controller_surface::buffs || this->controller_surface_ == controller_surface::debuffs)
+            this->ReleaseControllerFocus();
+        if (adopted) { this->keyboard_window_focus_ = keyboard; this->controller_presented_ = !keyboard; }
+    }
+
     auto hud_runtime::ControllerNativeBusy(void) const -> bool
     {
+        if (this->window_input_suspended_) return true;
         if (this->core_ == nullptr) return false;
         if (!this->GameWindowFocused()) return true;
         const auto* chat = this->core_->GetChatManager();
@@ -26,9 +91,8 @@ namespace xiui
         const auto* memory = this->core_->GetMemoryManager();
         const auto* player = memory != nullptr ? memory->GetPlayer() : nullptr;
         if (player != nullptr && player->GetLoginStatus() != static_cast<uint8_t>(Ashita::FFXI::Enums::LoginStatus::LoggedIn)) return true;
-        const auto* target = memory != nullptr ? memory->GetTarget() : nullptr;
-        return this->visibility_context_.event_active || this->visibility_context_.map_open || this->visibility_context_.interface_hidden || this->party_source_.InCutscene() || (target != nullptr &&
-            (target->GetActionTargetActive() != 0 || target->GetIsSubTargetActive() != 0));
+        return this->visibility_context_.event_active || this->visibility_context_.map_open || this->visibility_context_.interface_hidden ||
+            this->visibility_context_.window_focus == native_window_focus::chatlog || this->party_source_.InCutscene() || NativeTargetSelectionActive(memory);
     }
 
     auto hud_runtime::ControllerNativeMenuOpen(void) const -> bool
@@ -40,13 +104,15 @@ namespace xiui
 
     auto hud_runtime::ControllerCapture(void) const -> controller_capture_mode
     {
+        if (this->SetupVisible()) return controller_capture_mode::exclusive;
         if (!this->visible_ || !this->ControllerSurfaceVisible() || this->ControllerNativeBusy()) return controller_capture_mode::none;
         if (this->editing_) return controller_capture_mode::exclusive;
         if (this->ControllerNativeMenuOpen())
         {
-            const bool statusBrowse = !this->keyboard_window_focus_ &&
-                (this->controller_surface_ == controller_surface::buffs || this->controller_surface_ == controller_surface::debuffs);
-            return statusBrowse ? controller_capture_mode::navigation : controller_capture_mode::none;
+            const bool windowBrowse = this->chat_.HistoryFocused() || this->chat_second_.HistoryFocused() || this->chat_.Focused() ||
+                ((!this->keyboard_window_focus_ || this->native_window_cycle_) &&
+                 (this->controller_surface_ == controller_surface::buffs || this->controller_surface_ == controller_surface::debuffs));
+            return windowBrowse ? controller_capture_mode::navigation : controller_capture_mode::none;
         }
         if (this->ActionBarsInputAvailable() && this->actionbars_.InputFocused()) return controller_capture_mode::exclusive;
         if (this->ChatFocused()) return controller_capture_mode::navigation;
@@ -56,8 +122,10 @@ namespace xiui
     auto hud_runtime::ControllerInputState(void) const -> uint32_t
     {
         const uint32_t revision = (this->controller_input_revision_ << 16) & controller_revision_mask;
+        if (this->SetupVisible()) return revision | static_cast<uint32_t>(controller_capture_mode::exclusive);
         if (!this->visible_ || this->ControllerNativeBusy()) return revision;
         uint32_t state = revision | static_cast<uint32_t>(this->ControllerCapture());
+        if (this->NativeWindowCycle()) state |= controller_native_cycle;
         if ((this->controller_surface_ == controller_surface::party || this->controller_surface_ == controller_surface::satchel || this->controller_surface_ == controller_surface::treasure) && this->ControllerSurfaceVisible()) state |= controller_party_input;
         state |= ControllerEntryBit(controller_action::focus);
         if ((this->ContextVisible(this->chat_) && this->chat_.WindowVisible()) ||
@@ -67,13 +135,34 @@ namespace xiui
         return state;
     }
 
+    auto hud_runtime::KeyboardInputState(void) const -> uint32_t
+    {
+        if (this->KeyboardFocused()) return keyboard_capture_all;
+        if (!this->visible_ || this->editing_ || this->ControllerNativeBusy() || !this->GameWindowFocused()) return 0;
+        if ((this->ContextVisible(this->chat_) && this->chat_.HistoryFocused()) ||
+            (this->ContextVisible(this->chat_second_) && this->chat_second_.HistoryFocused())) return keyboard_capture_history;
+        if ((this->controller_surface_ == controller_surface::buffs || this->controller_surface_ == controller_surface::debuffs) &&
+            this->ControllerSurfaceVisible()) return keyboard_capture_status;
+        const bool cycleAvailable = (this->ContextVisible(this->chat_) && this->chat_.WindowVisible()) ||
+            (this->ContextVisible(this->chat_second_) && this->chat_second_.WindowVisible()) ||
+            (this->ContextVisible(this->buffs_) && this->buffs_.ShouldRender({})) ||
+            (this->ContextVisible(this->debuffs_) && this->debuffs_.ShouldRender({}));
+        if (KeyboardAllowsCharacterShortcuts(this->window_config_.FullKeyboard()) && !this->NativeWindowCycle() &&
+            (!this->ControllerNativeMenuOpen() || this->visibility_context_.window_focus == native_window_focus::commands) &&
+            cycleAvailable && this->chat_capture_available_ && (this->game_hud_.HiddenMask() & NativeHudBit(native_hud_element::chat1)) != 0)
+            return keyboard_capture_cycle;
+        return 0;
+    }
+
     auto hud_runtime::UpdateControllerStatus(const controller_status& status) -> void
     {
+        if (this->native_window_cycle_ && status.last_input_at > this->controller_status_.last_input_at) this->keyboard_window_focus_ = false;
         this->controller_status_ = status;
         this->general_.SetControllerStatus(status);
         this->actionbars_.UpdateControllerStatus(status);
         if ((status.suspended || (status.connection_known && !status.connected)) && this->actionbars_.SuspendCrossbarInput())
-            this->action_executor_.Cancel();
+            this->action_executor_.Cancel("Macro cancelled because the controller disconnected or was suspended.");
+        if (!this->GameWindowFocused() || this->window_input_suspended_) return;
         if (this->config_.focus.resizing && this->config_.focus.resize_keyboard)
         {
             if (!this->visible_ || !this->editing_ || this->ControllerNativeBusy()) this->ReleaseControllerFocus(!this->GameWindowFocused());
@@ -152,7 +241,7 @@ namespace xiui
         }
     }
 
-    auto hud_runtime::BeginControllerFocus(const controller_surface surface) -> bool
+    auto hud_runtime::BeginControllerFocus(const controller_surface surface, const bool playSound) -> bool
     {
         this->UpdateVisibilityContext();
         if (!this->visible_ || this->ControllerNativeBusy()) return false;
@@ -179,10 +268,10 @@ namespace xiui
             this->config_.focus.active = true;
             break;
         case controller_surface::chat:
-            if (!this->chat_.BeginControllerHistory()) return false;
+            if (!this->chat_.BeginControllerHistory(playSound)) return false;
             break;
         case controller_surface::chat2:
-            if (!this->chat_second_.BeginControllerHistory()) return false;
+            if (!this->chat_second_.BeginControllerHistory(playSound)) return false;
             break;
         case controller_surface::party:
         {
@@ -224,7 +313,7 @@ namespace xiui
         }
         this->controller_surface_ = surface;
         this->controller_presented_ = true;
-        this->ui_sounds_.MenuOpened(::GetTickCount64());
+        this->ui_sounds_.MenuOpened(::GetTickCount64(), playSound);
         return true;
     }
 
@@ -243,6 +332,7 @@ namespace xiui
 
     auto hud_runtime::UpdateControllerFocus(void) -> void
     {
+        if (!this->GameWindowFocused() || this->window_input_suspended_) return;
         if (this->controller_surface_ == controller_surface::notifications && !this->notifications_.Detail(this->controller_notification_id_))
             this->controller_notification_id_ = this->notifications_.FirstDetail();
         if (this->controller_surface_ == controller_surface::none) return;
@@ -273,23 +363,30 @@ namespace xiui
     auto hud_runtime::HandleController(const controller_event& event) -> bool
     {
         this->UpdateVisibilityContext();
+        if (this->SetupVisible())
+        {
+            if (event.backend != controller_backend::none) this->controller_presented_ = true;
+            return event.pressed ? this->HandleSetupAction(event.action, event.repeated) : true;
+        }
         const bool captured = this->ControllerCaptured();
         if (event.action == controller_action::crossbar_bank || event.action == controller_action::crossbar_slot ||
             event.action == controller_action::palette_previous || event.action == controller_action::palette_next)
         {
             if (!this->CrossbarSettings().enabled) return false;
-            this->action_executor_.SetRestricted(!this->ActionBarsExecutionAvailable());
+            this->PrepareActionBarsExecutor();
             this->controller_presented_ = true;
             return this->actionbars_.HandleCrossbarEvent(event);
         }
-        if (!this->visible_ || this->ControllerNativeBusy()) { this->ReleaseControllerFocus(!this->GameWindowFocused()); return false; }
+        if (!this->GameWindowFocused() || this->window_input_suspended_) return false;
+        if (!this->visible_ || this->ControllerNativeBusy()) { this->ReleaseControllerFocus(); return false; }
         if (!event.pressed || event.action == controller_action::none) return captured;
+        if (event.action == controller_action::cycle_window && this->NativeWindowCycle()) return false;
         if (event.backend != controller_backend::none) this->keyboard_window_focus_ = false;
         if (event.repeated && event.action != controller_action::up && event.action != controller_action::down &&
             event.action != controller_action::left && event.action != controller_action::right) return captured;
         if (this->ActionBarsInputAvailable() && this->actionbars_.InputFocused())
         {
-            this->action_executor_.SetRestricted(!this->ActionBarsExecutionAvailable());
+            this->PrepareActionBarsExecutor();
             const bool consumed = this->actionbars_.HandleControllerAction(event.action, event.repeated);
             this->UpdateControllerFocus();
             return consumed;
@@ -564,7 +661,7 @@ namespace xiui
         if (this->controller_surface_ == controller_surface::party)
         {
             const std::array<const party_module*, 3> groups{&this->party_, &this->alliance_first_, &this->alliance_second_};
-            const auto focus = this->controller_status_details_ ? this->ControllerStatusBounds() : groups[this->controller_party_group_]->ControllerBounds();
+            const auto focus = this->controller_status_details_ ? this->ControllerStatusBounds() : groups[this->controller_party_group_]->State().transform.Map(groups[this->controller_party_group_]->ControllerBounds());
             this->design_system_.DrawFocusFrame(focus, this->general_.FocusStyle());
             return;
         }
@@ -577,7 +674,7 @@ namespace xiui
         const char* prompt{};
         if (this->controller_surface_ == controller_surface::enemies)
         {
-            focus = this->controller_status_details_ ? this->ControllerStatusBounds() : this->enemy_list_.ControllerBounds();
+            focus = this->controller_status_details_ ? this->ControllerStatusBounds() : this->enemy_list_.State().transform.Map(this->enemy_list_.ControllerBounds());
             prompt = this->controller_status_details_ ? "Directions: status effect   Cancel: enemy row" :
                 "Directions: enemy   Confirm: target   Actions: status details   Cancel: back";
         }
@@ -595,7 +692,7 @@ namespace xiui
         }
         else if (this->controller_surface_ == controller_surface::equipment)
         {
-            focus = this->equipment_.SlotBounds(this->controller_equipment_slot_);
+            focus = this->equipment_.State().transform.Map(this->equipment_.SlotBounds(this->controller_equipment_slot_));
             this->equipment_.RenderTooltip(context, focus.x + focus.width / 2, focus.y + focus.height / 2);
             prompt = "Directions: equipment slot   Cancel: back";
         }

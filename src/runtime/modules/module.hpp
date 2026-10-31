@@ -121,6 +121,7 @@ namespace xiui
         const char* name{};
         const char* description{};
         const char* id{};
+        const char* category{};
         auto Id(void) const -> std::string_view { return this->id != nullptr ? this->id : this->name; }
     };
 
@@ -136,6 +137,7 @@ namespace xiui
     };
 
     enum class meter_fill_mode : uint8_t { single, tp, tp_blink, health };
+    enum class edit_grip_kind : uint8_t { scale, resize, none };
 
     struct module_state
     {
@@ -145,6 +147,9 @@ namespace xiui
         float minimum_height{};
         float maximum_width{4096.0f};
         ui::rect content_bounds{};
+        ui::hud_scale scale{};
+        ui::hud_scale scale_checkpoint{};
+        ui::hud_transform transform{};
 
         auto EditBounds(void) const -> ui::rect
         {
@@ -173,7 +178,7 @@ namespace xiui
         explicit module_render_context(ui::design_system& design, ui::container_renderer* containers = nullptr, bool editing = false, ui::game_icon_cache* icons = nullptr, const ui::rect& viewport = {}, ui::native_ui_assets* nativeAssets = nullptr, const ui::health_feedback_style* feedback = nullptr);
         auto Design(void) const -> const ui::design_system& { return this->design_; }
         auto Containers(void) const -> const ui::container_renderer* { return this->containers_; }
-        auto Viewport(void) const -> const ui::rect& { return this->viewport_; }
+        auto Viewport(void) const -> ui::rect { return this->design_.Transform().Inverse(this->viewport_); }
         auto Icons(void) const -> ui::game_icon_cache* { return this->icons_; }
         auto NativeAssets(void) const -> ui::native_ui_assets* { return this->native_assets_; }
         auto DrawButton(const ui::rect& bounds, const char* label, bool highlighted, const module_text_profile& profile, ui::button_tone tone = ui::button_tone::normal) const -> void;
@@ -231,6 +236,9 @@ namespace xiui
         virtual auto State(void) -> module_state& = 0;
         virtual auto State(void) const -> const module_state& = 0;
         virtual auto HasEditableBounds(void) const -> bool { return true; }
+        virtual auto CanMove(void) const -> bool { return this->HasEditableBounds(); }
+        virtual auto ConfigScaleEditable(void) const -> bool { return this->HasEditableBounds(); }
+        virtual auto ConfigScaleVisible(void) const -> bool { return true; }
         virtual auto PositionBoundsReady(void) const -> bool { return true; }
         virtual auto PreviewVisible(void) const -> bool { return this->State().enabled; }
         virtual auto ApplyMeterDefaults(const ui::meter_style&) -> void {}
@@ -239,17 +247,35 @@ namespace xiui
         virtual auto ResetDefaults(const ui::theme& themeDefaults) -> void = 0;
         virtual auto Load(const settings_store& settings) -> void = 0;
         virtual auto Save(const settings_store& settings) const -> void = 0;
-        virtual auto OptionCount(void) const -> size_t = 0;
-        virtual auto Option(size_t index) -> module_option = 0;
+        virtual auto ResetSettingsFrom(const hud_module& defaults, const ui::theme& theme) -> void;
+        virtual auto ContentOptionCount(void) const -> size_t = 0;
+        virtual auto ContentOption(size_t index) -> module_option = 0;
+        virtual auto SupportsScale(void) const -> bool { return true; }
+        virtual auto SupportsNonUniformScale(void) const -> bool { return true; }
+        virtual auto EditGrip(void) const -> edit_grip_kind { return edit_grip_kind::scale; }
+        virtual auto EditGripBounds(const ui::design_system&) const -> std::optional<ui::rect> { return std::nullopt; }
+        virtual auto OnBoundsResized(const ui::rect&) -> void {}
+        virtual auto ConfigScaleState(void) -> module_state& { return this->State(); }
+        auto BindConfigScale(module_state* state, bool editable) -> void { this->config_scale_state_ = state; this->config_scale_editable_ = editable; }
+        auto ActiveScaleState(void) -> module_state& { return this->config_scale_state_ != nullptr ? *this->config_scale_state_ : this->ConfigScaleState(); }
+        auto OptionCount(void) const -> size_t { return this->ContentOptionCount() + (this->SupportsScale() ? 4 : 0); }
+        auto Option(size_t index) -> module_option;
         virtual auto ConfigViews(void) const -> std::span<const char* const> { return {}; }
         virtual auto ConfigView(void) const -> size_t { return 0; }
         virtual auto SelectConfigView(size_t) -> void {}
         virtual auto ConfigSections(void) const -> std::span<const module_config_section> { return {}; }
-        virtual auto ConfigSectionContains(size_t, size_t) -> bool { return false; }
-        virtual auto OnOptionChanged(size_t) -> void {}
+        virtual auto ContentConfigSectionContains(size_t, size_t) -> bool { return false; }
+        auto ConfigSectionContains(size_t section, size_t index) -> bool;
+        virtual auto OnContentOptionChanged(size_t) -> void {}
+        auto OnOptionChanged(size_t index) -> void;
+        virtual auto LoadScale(const settings_store& store) -> void;
+        auto SaveScale(const settings_store& store) const -> void;
         virtual auto PreviewChoice(size_t, size_t) -> bool { return false; }
         virtual auto OnPositionChanged(void) -> void {}
         virtual auto ShouldRender(const hud_snapshot& snapshot) const -> bool = 0;
         virtual auto Render(const hud_snapshot& snapshot, const module_render_context& context) -> void = 0;
+    private:
+        module_state* config_scale_state_{};
+        bool config_scale_editable_{true};
     };
 } // namespace xiui

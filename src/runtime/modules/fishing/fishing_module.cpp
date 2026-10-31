@@ -56,7 +56,7 @@ namespace xiui
 
     auto fishing_module::ConfigSections(void) const -> std::span<const module_config_section> { return BarConfigSections(); }
 
-    auto fishing_module::ConfigSectionContains(const size_t section, const size_t index) -> bool
+    auto fishing_module::ContentConfigSectionContains(const size_t section, const size_t index) -> bool
     {
         if (section >= this->ConfigSections().size() || index >= this->OptionCount()) return false;
         const auto topic = static_cast<bar_config_section>(section);
@@ -67,7 +67,7 @@ namespace xiui
         return topic == bar_config_section::general;
     }
 
-    auto fishing_module::Option(const size_t index) -> module_option
+    auto fishing_module::ContentOption(const size_t index) -> module_option
     {
         static constexpr const char* profiles[]{"Label", "Stamina percentage"};
         switch (index)

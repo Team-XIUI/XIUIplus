@@ -117,8 +117,6 @@ namespace xiui::ui
             auto scaled = resources::UpscaleMenuTexture(*region, 4);
             this->images_[static_cast<size_t>(id)] = scaled ? std::move(scaled) : std::move(region);
         };
-        const auto& frame = this->meters_[0]->front();
-        extract(frame[2], native_ui_image::gauge_center);
         extract(this->meters_[1]->front().front(), native_ui_image::gauge_fill);
     }
 
@@ -179,8 +177,8 @@ namespace xiui::ui
     {
         if (!this->meters_[0] || !this->meters_[1] ||
             this->meters_[0]->front().size() != 3 || this->meters_[1]->front().size() != 1) return std::nullopt;
-        constexpr std::array ids{native_ui_image::gauge_center, native_ui_image::gauge_fill};
-        for (const auto id : ids) if (this->Texture(id) == nullptr || !this->images_[static_cast<size_t>(id)]) return std::nullopt;
+        constexpr auto fillImage = native_ui_image::gauge_fill;
+        if (this->Texture(fillImage) == nullptr || !this->images_[static_cast<size_t>(fillImage)]) return std::nullopt;
         const auto patch = [&](const resources::menu_sprite_quad& quad, const native_ui_image id) -> meter_texture {
             const auto& image = this->images_[static_cast<size_t>(id)];
             const float sourceWidth = static_cast<float>(std::bit_ceil(uint32_t{quad.width} + 2));
@@ -199,11 +197,9 @@ namespace xiui::ui
         const auto& fill = this->meters_[1]->front().front();
         for (const auto& quad : frame) if (quad.texture != "gauge   ") return std::nullopt;
         if (fill.texture != "gauge   ") return std::nullopt;
-        meter_skin result{patch(frame[2], ids[0]), patch(fill, ids[1])};
+        meter_skin result{patch(fill, fillImage)};
         const float height = std::max(1.0f, static_cast<float>(frame[0].points[5] - frame[0].points[1]));
         result.cap_ratio = static_cast<float>(frame[0].points[2] - frame[0].points[0]) / height;
-        result.top_inset = static_cast<float>(fill.v - frame[2].v) / height;
-        result.bottom_inset = 1 - result.top_inset - static_cast<float>(fill.height) / height;
         return result;
     }
 

@@ -8,8 +8,13 @@
 
 namespace xiui
 {
+    enum class native_window_focus : uint8_t { unknown, other, chat, chat2, statuses, commands, chatlog };
+
     struct module_visibility_context
     {
+        native_window_focus window_focus{};
+        uintptr_t window_focus_id{};
+        uint64_t window_focus_name{};
         bool event_active{};
         bool dialogue_active{};
         bool menu_open{};

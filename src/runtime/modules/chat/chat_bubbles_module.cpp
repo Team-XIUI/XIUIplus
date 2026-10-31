@@ -1,4 +1,5 @@
 #include "chat_bubbles_module.hpp"
+#include "chat_theme.hpp"
 #include "chat/chat_encoding.hpp"
 #include "chat/chat_text.hpp"
 #include "utf8.hpp"
@@ -111,13 +112,13 @@ namespace xiui
         return sections;
     }
 
-    auto chat_bubbles_module::ConfigSectionContains(const size_t section, const size_t index) -> bool
+    auto chat_bubbles_module::ContentConfigSectionContains(const size_t section, const size_t index) -> bool
     {
         if (index >= this->OptionCount() || section >= this->ConfigSections().size()) return false;
         return section == (index >= text_start ? 3 : index >= channel_start ? 1 : index >= 3 ? 2 : 0);
     }
 
-    auto chat_bubbles_module::Option(const size_t index) -> module_option
+    auto chat_bubbles_module::ContentOption(const size_t index) -> module_option
     {
         if (index >= text_start) return TextProfileOption(index - text_start, this->text_);
         if (index >= channel_start)
@@ -136,7 +137,7 @@ namespace xiui
         }
     }
 
-    auto chat_bubbles_module::OnOptionChanged(size_t) -> void
+    auto chat_bubbles_module::OnContentOptionChanged(size_t) -> void
     {
         if (!this->state_.enabled) this->Clear();
         std::erase_if(this->bubbles_, [this](const auto& value) { return !this->channels_[static_cast<size_t>(value.channel)]; });
@@ -269,7 +270,7 @@ namespace xiui
 
     auto chat_bubbles_module::RebuildRows(bubble& value, const ui::design_system& design, const float width) const -> void
     {
-        const auto& style = this->text_.style;
+        const auto style = ChatThemeStyle(design, this->text_.style);
         if (value.cache_font == style.font && value.cache_width == width && value.cache_scale == style.scale && value.cache_spacing == style.letter_spacing) return;
         value.rows.clear();
         bubble_row row{};
@@ -289,7 +290,7 @@ namespace xiui
                 if (end == std::string::npos) end = span.text.size();
                 auto token = span.text.substr(at, end - at); at = end;
                 std::replace(token.begin(), token.end(), '\t', ' ');
-                const float measured = MeasureChatText(design, token, style) + style.letter_spacing * style.scale;
+                const float measured = MeasureChatText(design, token, style) + ChatThemeTracking(style);
                 if (row.width > 0 && row.width + measured > width) finish();
                 if (row.width == 0 && token == " ") continue;
                 if (measured <= width) append(token, span.color_index, measured);
@@ -297,7 +298,7 @@ namespace xiui
                 {
                     const auto begin = pos; NextUtf8(token, pos);
                     const auto glyph = token.substr(begin, pos - begin);
-                    const float glyphWidth = MeasureChatText(design, glyph, style) + style.letter_spacing * style.scale;
+                    const float glyphWidth = MeasureChatText(design, glyph, style) + ChatThemeTracking(style);
                     if (row.width > 0 && row.width + glyphWidth > width) finish();
                     append(glyph, span.color_index, glyphWidth);
                 }
@@ -315,6 +316,7 @@ namespace xiui
 
     auto chat_bubbles_module::Render(const hud_snapshot& snapshot, const module_render_context& context) -> void
     {
+        const auto screen = context.Design().Transform({});
         if (!this->ShouldRender(snapshot) || !this->text_.visible || this->core_ == nullptr) return;
         const auto* memory = this->core_->GetMemoryManager();
         const auto* entities = memory != nullptr ? memory->GetEntity() : nullptr;
@@ -338,6 +340,7 @@ namespace xiui
             const float height = (race == 5 || race == 6 ? 1.0f : race == 3 || race == 4 || race == 8 ? 2.1f : 1.7f) * scale;
             const std::array<float, 3> head{entities->GetLocalPositionX(index), entities->GetLocalPositionZ(index) - height, entities->GetLocalPositionY(index)};
             if (!ProjectWorldPoint(head, snapshot.scene_view, snapshot.scene_projection, projectionViewport, value.x, value.y)) continue;
+            const auto transform = context.Design().Transform(ui::hud_transform::At(value.x, value.y, this->state_.transform.x, this->state_.transform.y));
             float contentWidth{}; for (const auto& row : value.rows) contentWidth = std::max(contentWidth, row.width);
             const bool prompt = value.prompt && !value.retiring && this->dialogue_active_ && value.id == this->npc_id_;
             contentWidth = std::min(innerWidth, contentWidth);
@@ -367,12 +370,12 @@ namespace xiui
                     {
                         const auto base = snapshot.chat_colors.available ? snapshot.chat_colors.modes[value.mode & 255] : value.color;
                         const auto inlineColor = snapshot.chat_colors.available && span.color_index >= 0 && static_cast<size_t>(span.color_index) < snapshot.chat_colors.colors.size() ? snapshot.chat_colors.colors[span.color_index] : 0;
-                        color = this->colors_ != nullptr ? this->colors_->Resolve(value.mode, base, inlineColor) : inlineColor != 0 ? inlineColor : base;
+                        color = this->colors_ != nullptr ? this->colors_->Resolve(value.mode, ChatThemeColor(value.mode, base, context.Design().IsXiv1Theme()), inlineColor) : inlineColor != 0 ? inlineColor : ChatThemeColor(value.mode, base, context.Design().IsXiv1Theme());
                     }
                     auto profile = FadeBubbleText(TintTextProfile(this->text_, color), fade);
                     profile.placement = 0; profile.style.alignment = ui::text_alignment::left;
                     const ui::rect textBounds{x, y, bounds.x + bounds.width - this->padding_ - x, lineHeight};
-                    DrawChatText(context, span.text, textBounds, profile);
+                    DrawThemedChatText(context, span.text, textBounds, profile);
                     x += span.width;
                 }
                 if (prompt && rowIndex + 1 == value.rows.size())
@@ -381,7 +384,7 @@ namespace xiui
                     const ui::rect marker{x + 2, y - bounce, std::max(0.0f, bounds.x + bounds.width - x - 4), lineHeight};
                     auto profile = FadeBubbleText(this->text_, fade);
                     profile.placement = 0; profile.style.alignment = ui::text_alignment::left;
-                    DrawChatText(context, "\xE2\x96\xBC", marker, profile);
+                    DrawThemedChatText(context, "\xE2\x96\xBC", marker, profile);
                 }
             }
         }

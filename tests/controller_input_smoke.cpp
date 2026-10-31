@@ -1,4 +1,5 @@
 #include "controller_normalizer.hpp"
+#include "controller_mailbox.hpp"
 
 #include <cstdio>
 #include <limits>
@@ -11,6 +12,28 @@ namespace
     {
         if (!condition) std::fprintf(stderr, "Controller check failed: %s\n", message);
         return condition;
+    }
+
+    auto CheckNativeWindowCycle(void) -> bool
+    {
+        for (const auto backend : {controller_backend::xinput, controller_backend::direct_input})
+        {
+            controller_normalizer input; input.Configure(backend, {}); input.SetNavigationOnly(true); input.SetNativeWindowCycle(true);
+            controller_mailbox mailbox;
+            mailbox.Publish(static_cast<uint32_t>(controller_capture_mode::navigation) | controller_native_cycle | ControllerEntryBit(controller_action::cycle_window));
+            const auto dispatch = [&](const controller_event& event) { return mailbox.Submit(event, true); };
+            const uint32_t cycle = backend == controller_backend::xinput ? 15 : 51;
+            const uint32_t confirm = backend == controller_backend::xinput ? 12 : 49;
+            if (!require(!input.Raw(cycle, 1, 10, false, false, true, dispatch) && !input.Suppress(cycle, 1, true) &&
+                !input.Raw(cycle, 0, 20, false, false, true, dispatch) && !input.Suppress(cycle, 0, true),
+                "native window cycle press, held state and release remain available in both backends")) return false;
+            if (!require(input.Raw(confirm, 1, 30, false, false, true, dispatch) && input.Suppress(confirm, 1, true),
+                "native cycle handoff retains ownership of chat confirmation")) return false;
+            const auto batch = mailbox.Take();
+            if (!require(batch.count == 1 && batch.events[0].action == controller_action::confirm,
+                "native cycling queues no duplicate XIUI cycle action")) return false;
+        }
+        return true;
     }
 
     auto CheckMappings(void) -> bool
@@ -281,7 +304,7 @@ namespace
 
 auto main(void) -> int
 {
-    if (!CheckMappings() || !CheckOwnership() || !CheckStateAndPov() || !CheckOpeningCapture() || !CheckNavigationCapture() || !CheckChatTabTriggers()) return 1;
+    if (!CheckNativeWindowCycle() || !CheckMappings() || !CheckOwnership() || !CheckStateAndPov() || !CheckOpeningCapture() || !CheckNavigationCapture() || !CheckChatTabTriggers()) return 1;
     std::puts("Controller input checks passed.");
     return 0;
 }

@@ -18,8 +18,10 @@ namespace
 
 namespace xiui::ui
 {
-    auto design_system::DrawFocusFrame(const rect& bounds, const focus_frame_style& style) const -> void
+    auto design_system::DrawFocusFrame(const rect& localBounds, const focus_frame_style& style) const -> void
     {
+        const auto bounds = this->transform_.Map(localBounds);
+        const auto screen = this->Transform({});
         if (!this->frame_active_ || this->device_ == nullptr || bounds.width <= 0 || bounds.height <= 0) return;
         const rect frame{bounds.x - style.padding, bounds.y - style.padding,
             bounds.width + style.padding * 2, bounds.height + style.padding * 2};

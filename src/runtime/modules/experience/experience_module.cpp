@@ -18,7 +18,7 @@ namespace xiui
         this->progression_ = next;
     }
 
-    auto experience_module::OnOptionChanged(const size_t index) -> void
+    auto experience_module::OnContentOptionChanged(const size_t index) -> void
     {
         this->info_dirty_ = true; this->next_readouts_ = 0;
         this->readout_widths_.fill(0);
@@ -181,7 +181,7 @@ namespace xiui
     auto experience_module::Render(const hud_snapshot& snapshot, const module_render_context& context) -> void
     {
         const auto& panel = this->state_.bounds;
-        if (this->settings_.style.height <= 0) this->settings_.style.height = std::clamp(panel.height - 39, 16.0f, 80.0f);
+        if (this->settings_.style.height <= 0) this->settings_.style.height = 12;
         const progression_input fallback{0, 0, snapshot.exp_current, snapshot.exp_needed};
         const auto progress = this->progression_ready_ ? this->progression_ : SelectProgression(fallback, static_cast<progression_mode>(this->settings_.mode));
         const auto flags = static_cast<uint8_t>((this->settings_.show_current ? 1 : 0) | (this->settings_.show_percent ? 2 : 0) |

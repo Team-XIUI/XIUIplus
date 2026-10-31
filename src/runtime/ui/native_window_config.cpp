@@ -69,11 +69,27 @@ namespace xiui
 
     auto native_window_config::FullKeyboard(void) const -> std::optional<bool>
     {
+        const auto layout = this->KeyboardLayout();
+        return layout ? std::optional{*layout == native_keyboard_layout::full} : std::nullopt;
+    }
+
+    auto native_window_config::KeyboardLayout(void) const -> std::optional<native_keyboard_layout>
+    {
         uintptr_t config{}, table{};
         std::array<uint32_t, 8> record{};
         if (this->setter_ == 0 || !Read(this->config_slot_, config) || !Read(config + 4, table) || table == 0 ||
             !Read(table + 66 * 44, record) || record[1] != 66 || record[3] != 4 || record[6] != 0 || record[7] != 2 || record[2] > 2) return std::nullopt;
-        return record[2] == 0;
+        return static_cast<native_keyboard_layout>(record[2]);
+    }
+
+    auto native_window_config::ChatWindowCount(void) const -> std::optional<unsigned>
+    {
+        uintptr_t config{}, table{};
+        std::array<uint32_t, 8> record{};
+        if (this->setter_ == 0 || !Read(this->config_slot_, config) || !Read(config + 4, table) || table == 0 ||
+            !Read(table + 180 * 44, record) || record[1] != 180 || record[3] != 4 || record[6] != 0 || record[7] != 2 || record[2] > 2)
+            return std::nullopt;
+        return record[2] == 0 ? 1u : 2u;
     }
 
     auto native_window_config::ChatWindow(const bool secondary) const -> std::optional<native_chat_window_settings>

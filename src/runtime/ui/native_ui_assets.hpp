@@ -10,7 +10,7 @@
 namespace xiui::ui
 {
     enum class native_ui_image : size_t { button, compass, fire, earth, water, wind, ice, lightning, light, dark, directions, marker, auto_translate_green, auto_translate_red,
-        gauge, gauge_center, gauge_fill, selection_frame, selection_arrow, count };
+        gauge, gauge_fill, selection_frame, selection_arrow, count };
 
     class native_ui_assets
     {

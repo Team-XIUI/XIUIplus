@@ -66,6 +66,8 @@ namespace xiui
         auto ControllerBindings(void) const -> const controller_crossbar_settings& { return this->controller_settings_; }
         auto BarState(size_t index) -> module_state& { return this->bars_[std::min(index, action_bar_count)].state; }
         auto BarState(size_t index) const -> const module_state& { return this->bars_[std::min(index, action_bar_count)].state; }
+        auto ConfigScaleState(void) -> module_state& override { return this->BarState(this->SelectedBar()); }
+        auto ConfigScaleEditable(void) const -> bool override { return this->SelectedBar() <= action_bar_count; }
         auto BarVisible(size_t) const -> bool;
         auto RenderBar(size_t, const module_render_context&) -> void;
         auto RenderOverlay(const module_render_context&) -> void;
@@ -117,20 +119,22 @@ namespace xiui
         auto ConfigView(void) const -> size_t override { return this->view_; }
         auto SelectConfigView(size_t value) -> void override;
         auto ConfigSections(void) const -> std::span<const module_config_section> override;
-        auto ConfigSectionContains(size_t, size_t) -> bool override;
-        auto OptionCount(void) const -> size_t override { return base_options + text_profile_option_count; }
-        auto Option(size_t) -> module_option override;
-        auto OnOptionChanged(size_t) -> void override;
+        auto ContentConfigSectionContains(size_t, size_t) -> bool override;
+        auto ContentOptionCount(void) const -> size_t override { return base_options + text_profile_option_count; }
+        auto ContentOption(size_t) -> module_option override;
+        auto OnContentOptionChanged(size_t) -> void override;
         auto ApplyTextDefaults(const ui::theme&) -> void override;
         auto VisitTextSettings(const text_settings_visitor& visitor) -> void override
         { VisitTextProfiles(visitor, this->text_); VisitTextProfiles(visitor, this->global_.text); for (auto& bar : this->bars_) VisitTextProfiles(visitor, bar.text); for (auto& bar : this->local_visuals_) VisitTextProfiles(visitor, bar.text); this->ApplyGlobalVisuals(); }
         auto ResetDefaults(const ui::theme&) -> void override;
+        auto ResetSettingsFrom(const hud_module& defaults, const ui::theme&) -> void override;
         auto Load(const settings_store&) -> void override;
         auto Save(const settings_store&) const -> void override;
         auto ShouldRender(const hud_snapshot&) const -> bool override { return this->BarVisible(0); }
         auto Render(const hud_snapshot&, const module_render_context& context) -> void override { this->RenderBar(0, context); }
 
     private:
+        friend class actionbar_module;
 #if defined(XIUI_ENABLE_ACTIONBAR_TESTS)
         friend struct actionbars_ui_test;
 #endif
@@ -147,7 +151,16 @@ namespace xiui
             slot_apply_all, slot_reset, crossbar_animations, skillchain_predictions, skillchain_rules, magic_burst_settings, keybinds, shared_expanded, vertical_gap, per_bar_text, label_wrap, diamond_spacing, group_spacing, button_icons, prompt_size, prompt_gap_x, prompt_gap_y, visibility_mode, visibility_delay, visibility_fade, use_global, base_options };
         enum class dialog : uint8_t { none, picker, editor, palettes, name, delete_palette, delete_macro, import, setup, palette_dropdown, slot_menu, bar_menu, keybinds, icons };
         enum class control_kind : uint8_t { button, field, choice, list, toggle, label, slider, dropdown, icon };
-        enum icon_control : int { field_icon_query = 8, command_icon_picker = 566, command_icon_default = 567, command_icon_back = 568, icon_first = 100000 };
+        enum icon_control : int { field_icon_query = 8, command_icon_picker = 566, command_icon_default = 567, command_icon_back = 568, icon_source_first = 900, icon_first = 100000 };
+        enum editor_control : int
+        {
+            field_query = 1, field_name = 2, field_label = 3, field_target = 4, field_icon = 5, field_path = 6, field_recast = 7,
+            line_first = 400, command_cancel = 500, command_save = 501, command_picker = 502, command_clear = 503, command_binding = 504, command_unbind = 505,
+            command_previous = 520, command_next = 521, command_more_lines = 522, command_remove_line = 523,
+            command_pet = 533, command_kind = 540, command_target = 541, command_equipment = 542, command_native_book = 543, command_native_set = 544,
+            command_native_slot = 545, command_native_alt = 546, command_macro_copy = 547, command_macro_delete = 548,
+            command_recast = 563, command_available = 564, command_library = 565, command_editor_options = 569, command_editor_recast = 570
+        };
         enum class window_gesture : uint8_t { none, move, resize };
         enum class slot_pass : uint8_t { all, background, content, foreground };
         enum setup_control : int
@@ -193,6 +206,13 @@ namespace xiui
             ui::rect search{}, list{}, scrollbar{}, details{}, back{}, defaults{};
             size_t rows{}, columns{};
         };
+        struct editor_layout
+        {
+            ui::rect icon{}, type{}, commands{}, recast{}, label{}, footer{};
+            size_t rows{};
+            float pitch{26};
+        };
+        struct icon_entry { std::string key, label, category; int source{}; std::string search; };
         std::array<actionbar_presentation, action_bar_count + 1> bars_{};
         static constexpr size_t global_view = action_bar_count + 4;
         actionbar_presentation global_{};
@@ -235,6 +255,9 @@ namespace xiui
         action_import_preview import_preview_{};
         std::vector<action_slot> results_{};
         std::string icon_query_{};
+        std::vector<icon_entry> icon_catalog_{};
+        bool icon_catalog_game_ready_{};
+        int icon_source_{};
         std::vector<size_t> icon_results_{};
         size_t icon_scroll_{};
         std::optional<action_slot> library_drag_{};
@@ -256,7 +279,8 @@ namespace xiui
         float crossbar_delay_{5}, crossbar_fade_{0.15f}, crossbar_alpha_{1};
         uint64_t last_trigger_{}, visibility_updated_{};
         bool library_draft_{}, library_edit_{};
-        bool settings_changed_{}, binding_capture_{}, inactive_{true}, prompts_{true}, allow_native_keys_{true}, only_learned_{true}, draft_pet_{}, scrolling_{};
+        bool editor_options_{}, editor_recast_{}, editor_new_{};
+        bool settings_changed_{}, binding_capture_{}, inactive_{true}, prompts_{true}, allow_native_keys_{}, only_learned_{true}, draft_pet_{}, scrolling_{};
         bool placing_{}, crossbar_preview_{}, trigger_controls_{};
         bool crossbar_animations_{true};
         float scroll_grab_{};
@@ -280,6 +304,8 @@ namespace xiui
         auto Presentation(const address& value) const -> const actionbar_presentation& { return this->bars_[value.surface == action_surface::crossbar ? action_bar_count : value.bar]; }
         auto Layout(size_t) -> void;
         auto SlotBounds(const address&) const -> ui::rect;
+        auto ScreenSlotBounds(const address& value) const -> ui::rect
+        { return this->bars_[value.surface == action_surface::crossbar ? action_bar_count : value.bar].state.transform.Map(this->SlotBounds(value)); }
         auto BarNumberBounds(size_t) const -> ui::rect;
         auto LockBounds(size_t) const -> ui::rect;
         auto MenuBounds(size_t) const -> ui::rect;
@@ -310,6 +336,13 @@ namespace xiui
         auto DrawWindowChrome(const module_render_context&) const -> void;
         auto PaletteRows(void) const -> size_t;
         auto Controls(void) const -> std::vector<control>;
+        auto EditorLayout(void) const -> editor_layout;
+        auto EditorControls(void) const -> std::vector<control>;
+        auto RevealEditorLine(size_t line) -> void;
+        auto PasteEditorLines(std::string_view text) -> bool;
+        auto EditorChoices(int id) const -> std::vector<std::pair<int, std::string>>;
+        auto EditorChoiceValue(int id) const -> int;
+        auto SelectEditorChoice(int id, int value) -> bool;
         auto SetupControls(const ui::rect&) const -> std::vector<control>;
         auto KeybindControls(const ui::rect&) const -> std::vector<control>;
         auto KeybindRows(void) const -> size_t;
@@ -341,6 +374,7 @@ namespace xiui
         auto OpenIconPicker(void) -> void;
         auto CloseIconPicker(void) -> void;
         auto RebuildIconResults(void) -> void;
+        auto BuildIconCatalog(void) -> void;
         auto IconPickerLayout(void) const -> icon_picker_layout;
         auto IconControls(void) const -> std::vector<control>;
         auto MoveIconControl(int, int) -> bool;
@@ -381,10 +415,11 @@ namespace xiui
         auto State(void) -> module_state& override { return this->owner_.BarState(this->index_); }
         auto State(void) const -> const module_state& override { return this->owner_.BarState(this->index_); }
         auto ResetDefaults(const ui::theme&) -> void override {}
+        auto ResetSettingsFrom(const hud_module& defaults, const ui::theme&) -> void override;
         auto Load(const settings_store&) -> void override {}
         auto Save(const settings_store&) const -> void override {}
-        auto OptionCount(void) const -> size_t override { return 0; }
-        auto Option(size_t) -> module_option override { return {}; }
+        auto ContentOptionCount(void) const -> size_t override { return 0; }
+        auto ContentOption(size_t) -> module_option override { return {}; }
         auto ShouldRender(const hud_snapshot&) const -> bool override { return this->owner_.BarVisible(this->index_); }
         auto Render(const hud_snapshot&, const module_render_context& context) -> void override { this->owner_.RenderBar(this->index_, context); }
     private:

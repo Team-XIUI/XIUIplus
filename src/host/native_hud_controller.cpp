@@ -326,6 +326,11 @@ namespace xiui
 
     auto native_hud_controller::ShouldHide(const uintptr_t primitive) -> bool
     {
+        if (this->menus_.ShouldHide(primitive))
+        {
+            this->skipped_.fetch_add(1, std::memory_order_relaxed);
+            return true;
+        }
         this->menus_.BeforeDraw(primitive);
         const auto mask = this->hidden_.load(std::memory_order_acquire);
         uintptr_t owner{};

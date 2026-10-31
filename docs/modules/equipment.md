@@ -8,4 +8,6 @@ Displays the sixteen equipped slots using native item artwork, with independent 
 
 **Focused check:** `xiui_inventory_smoke`.
 
+Native Equipment's Storage Options remain part of the native F/Cycle Window sequence, as does native inventory Sort. Shared window-focus routing mirrors replaced chat/status windows without consuming those native cycle stops; see [input ownership](../reference/input.md).
+
 [Shared foundations](../foundations.md) · [Check commands](../../tests/README.md)

@@ -11,4 +11,6 @@ The font, size, color, effects, Alignment and X/Y offsets below apply to both li
 
 Existing configurations retain inline, name-anchored text until changed. Party/Alliance settings save `stack_jobs` and `job_anchor` independently, including profiles, resets, preference copies and presets. New controls reuse the shared mouse, keyboard and controller configuration paths.
 
+**Party → Layout → Resource layout → Classic (HP above MP and TP)** places HP across the top, with TP below left and MP below right. Classic presets use this layout and position the job icon at the normal content edge, removing the former empty TP gutter while retaining their bar sizes and text styles. Existing settings with the exact old Classic spacing are corrected once via `classic_layout_version`; custom layouts retain their values. The separate **MP below HP, TP left** choice keeps its original left column.
+
 Focused verification: `xiui_config_input_smoke --party-entry-only` covers formatting, stacked height, hidden subjobs, HP anchoring independent of the name, settings ownership and persistence, plus the existing party entry checks.

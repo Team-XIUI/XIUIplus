@@ -5,6 +5,7 @@
 #include "config/config_controls.hpp"
 #include "config/config_scrollbar.hpp"
 #include "config/config_window_resize.hpp"
+#include "config/clipboard.hpp"
 #include "ui/recast_icons.hpp"
 
 #include <algorithm>
@@ -23,8 +24,8 @@ namespace xiui
         constexpr const char* config_views[]{"Hotbar 1", "Hotbar 2", "Hotbar 3", "Hotbar 4", "Hotbar 5", "Hotbar 6", "Hotbar 7", "Hotbar 8", "Hotbar 9", "Hotbar 10", "Crossbar", "Actions & Macros", "Action Sets", "Import", "Global"};
         constexpr const char* bar_ids[]{"hotbar", "hotbar2", "hotbar3", "hotbar4", "hotbar5", "hotbar6", "hotbar7", "hotbar8", "hotbar9", "hotbar10", "crossbar", "global"};
         constexpr const char* bank_names[]{"Left trigger", "Right trigger", "Left then right", "Right then left", "Double left", "Double right", "Shared expanded"};
-        constexpr std::array<size_t, 10> crossbar_sections{0, 6, 9, 1, 2, 3, 4, 5, 7, 8};
-        constexpr std::array<size_t, 9> hotbar_sections{0, 9, 1, 2, 3, 4, 5, 7, 8};
+        constexpr std::array<size_t, 11> crossbar_sections{0, 6, 9, 1, 2, 3, 4, 5, 7, 8, 10};
+        constexpr std::array<size_t, 10> hotbar_sections{0, 9, 1, 2, 3, 4, 5, 7, 8, 10};
         constexpr const char* profile_sections[]{"text.actionbars.title", "text.actionbars.label", "text.actionbars.binding", "text.actionbars.timer", "text.actionbars.tooltip", "text.actionbars.count", "text.actionbars.cost"};
         constexpr const char* workspace_sections[]{"layout.action_library", "layout.action_sets", "layout.action_editor", "layout.action_controller", "layout.action_keybinds"};
         constexpr int window_move = 700, window_resize = 701, window_close = 702;
@@ -34,16 +35,11 @@ namespace xiui
         constexpr const char* target_labels[]{"Current target <t>", "Self <me>", "Choose player <stpc>", "Choose enemy <stnpc>", "Choose target <st>", "Battle target <bt>", "Last subtarget <lastst>", "Choose alliance <stal>", "Choose party <stpt>", "Pet <pet>", "Party 1 <p0>", "Party 2 <p1>", "Party 3 <p2>", "Party 4 <p3>", "Party 5 <p4>", "Party 6 <p5>"};
         constexpr const char* equipment_slots[]{"main", "sub", "range", "ammo", "head", "body", "hands", "legs", "feet", "neck", "waist", "ear1", "ear2", "ring1", "ring2", "back"};
         constexpr size_t visible_results = 9;
-        constexpr int field_query = 1, field_name = 2, field_label = 3, field_target = 4, field_icon = 5, field_path = 6, field_recast = 7;
-        constexpr int result_first = 10000, category_first = 200, palette_first = 3000, line_first = 400;
-        constexpr int command_cancel = 500, command_save = 501, command_picker = 502, command_clear = 503, command_binding = 504, command_unbind = 505;
+        constexpr int result_first = 10000, category_first = 200, palette_first = 3000;
         constexpr int command_new = 510, command_copy = 511, command_rename = 512, command_delete = 513, command_up = 514, command_down = 515, command_select = 516;
-        constexpr int command_previous = 520, command_next = 521, command_more_lines = 522, command_remove_line = 523;
-        constexpr int command_preview = 530, command_import = 531, command_learned = 532, command_pet = 533, command_all_actions = 534;
-        constexpr int command_kind = 540, command_target = 541, command_equipment = 542, command_native_book = 543, command_native_set = 544, command_native_slot = 545, command_native_alt = 546;
-        constexpr int command_macro_copy = 547, command_macro_delete = 548;
+        constexpr int command_preview = 530, command_import = 531, command_learned = 532, command_all_actions = 534;
         constexpr int menu_library = 550, menu_edit = 551, menu_palettes = 552, menu_lock = 553, menu_shape = 554, menu_settings = 555, menu_keybinds = 556;
-        constexpr int new_macro = 560, new_command = 561, new_native = 562, command_recast = 563, command_available = 564, command_library = 565;
+        constexpr int new_macro = 560, new_command = 561, new_native = 562;
         constexpr int setup_enable = 600;
 
         auto Contains(const ui::rect& bounds, const float x, const float y) -> bool
@@ -139,7 +135,8 @@ namespace xiui
         this->global_ = {}; this->global_.custom_text = true; this->use_global_.fill(false);
         this->bars_[action_bar_count].size = 32; this->bars_[action_bar_count].slots = this->bars_[action_bar_count].columns = 8;
         this->bars_[0].state.enabled = true;
-        this->inactive_ = this->prompts_ = this->allow_native_keys_ = this->crossbar_animations_ = true;
+        this->inactive_ = this->prompts_ = this->crossbar_animations_ = true;
+        this->allow_native_keys_ = false;
         this->shared_expanded_ = false; this->crossbar_visibility_ = 0; this->crossbar_delay_ = 5; this->crossbar_fade_ = .15f; this->crossbar_alpha_ = 1;
         this->skillchain_predictions_ = true;
         this->local_combat_settings_.ResetDefaults();
@@ -147,6 +144,25 @@ namespace xiui
         this->container_ = {1, 5, 8, false};
         this->ApplyTextDefaults(theme); this->global_.text = this->text_;
         for (size_t index = 0; index < this->bars_.size(); ++index) this->Layout(index);
+    }
+
+    auto actionbars_module::ResetSettingsFrom(const hud_module& defaults, const ui::theme&) -> void
+    {
+        const auto& source = static_cast<const actionbars_module&>(defaults);
+        this->bars_[0] = source.bars_[0]; this->use_global_[0] = source.use_global_[0]; this->local_visuals_[0] = source.local_visuals_[0];
+        this->Layout(0); this->settings_changed_ = true;
+    }
+
+    auto actionbar_module::ResetSettingsFrom(const hud_module& defaults, const ui::theme&) -> void
+    {
+        const auto& source = static_cast<const actionbar_module&>(defaults);
+        this->owner_.bars_[this->index_] = source.owner_.bars_[source.index_];
+        if (this->index_ < action_bar_count)
+        {
+            this->owner_.use_global_[this->index_] = source.owner_.use_global_[source.index_];
+            this->owner_.local_visuals_[this->index_] = source.owner_.local_visuals_[source.index_];
+        }
+        this->owner_.Layout(this->index_); this->owner_.settings_changed_ = true;
     }
 
     auto actionbars_module::Load(const settings_store& settings) -> void
@@ -219,7 +235,7 @@ namespace xiui
         this->prompts_ = settings.ReadBool("actionbars", "controller_prompts", true);
         this->crossbar_animations_ = settings.ReadBool("actionbars", "crossbar_animations", true);
         this->prompt_theme_ = std::clamp(settings.ReadInt("actionbars", "prompt_theme", 0), 0, 4);
-        this->allow_native_keys_ = settings.ReadBool("actionbars", "replace_native_macros", true);
+        this->allow_native_keys_ = settings.ReadBool("actionbars", "replace_native_macros", false);
         this->container_.opacity = std::clamp(settings.ReadFloat("actionbars", "opacity", 1), 0.1f, 1.0f);
         this->container_.padding = std::clamp(settings.ReadFloat("actionbars", "padding", 8), 0.0f, 24.0f);
         if (settings.ReadInt("actionbars", "presentation_version", 0) < 1 && this->container_.padding == 8 && this->container_.opacity == 1)
@@ -382,7 +398,8 @@ namespace xiui
             {"Slots", "Frame, corners, artwork and colors.", "slots"}, {"Effects", "Unavailable actions, highlights and cooldowns.", "effects"}, {"Overlays", "Key bindings, counts, MP costs and recast text.", "overlays"},
             {"Controller", "Trigger controls and device setup.", "controller"}, {"Text", "Fonts, colors and effects for each text element.", "text"},
             {"Skillchains", "Shared skillchain and Magic Burst predictions for all hotbars and the crossbar. Timings are estimates.", "skillchains"},
-            {"Keybinds", "Rebind hotbar slots and crossbar controller buttons.", "keybinds"} };
+            {"Keybinds", "Rebind hotbar slots and crossbar controller buttons.", "keybinds"},
+            {"Window", "Bar background, inner padding and opacity.", "window"} };
         static const auto crossbarSections = [] {
             std::array<module_config_section, crossbar_sections.size()> result{};
             for (size_t index = 0; index < result.size(); ++index) result[index] = sections[crossbar_sections[index]];
@@ -395,7 +412,7 @@ namespace xiui
             for (size_t index = 0; index < result.size(); ++index) result[index] = sections[hotbar_sections[index]];
             return result;
         }();
-        static const std::array<module_config_section, 6> globalSections{sections[1], sections[2], sections[3], sections[4], sections[5], sections[7]};
+        static const std::array<module_config_section, 7> globalSections{sections[1], sections[2], sections[3], sections[4], sections[5], sections[7], sections[10]};
         if (this->view_ == global_view) return globalSections;
         return this->view_ == action_bar_count ? std::span<const module_config_section>{crossbarSections} : std::span<const module_config_section>{hotbarSections};
     }
@@ -405,7 +422,7 @@ namespace xiui
         this->OpenKeybinds(this->Surface() == action_surface::crossbar, this->ConfigBar());
         return true;
     }
-    auto actionbars_module::ConfigSectionContains(size_t section, const size_t index) -> bool
+    auto actionbars_module::ContentConfigSectionContains(size_t section, const size_t index) -> bool
     {
         if (section >= this->ConfigSections().size() || index >= this->OptionCount()) return false;
         const auto topic = this->ConfigSections()[section].Id();
@@ -430,11 +447,12 @@ namespace xiui
             return topic == "slots";
         }
         if (index == bindings || index == resources || index == cooldowns) return topic == "overlays";
+        if (index == background || index == opacity || index == padding) return topic == "window";
         if (index >= columns && index <= gap || index == bank || index == shape) return topic == "layout";
         if (index >= heading && index <= padding) return topic == "display";
         return topic == "actions";
     }
-    auto actionbars_module::Option(const size_t index) -> module_option
+    auto actionbars_module::ContentOption(const size_t index) -> module_option
     {
         auto result = this->PresentationOption(index);
         if (this->view_ < action_bar_count && this->use_global_[this->view_] && VisualOption(index) && index != selected_text)
@@ -566,7 +584,7 @@ namespace xiui
         default: return {};
         }
     }
-    auto actionbars_module::OnOptionChanged(const size_t index) -> void
+    auto actionbars_module::OnContentOptionChanged(const size_t index) -> void
     {
         if (index == per_bar_text && this->ConfigPresentation().custom_text) this->ConfigPresentation().text = this->text_;
         if (index == shared_expanded) this->SuspendInput();
@@ -685,6 +703,7 @@ namespace xiui
 {
     auto actionbars_module::OpenEditor(const bool crossbar, const size_t bar, const size_t slot) -> void
     {
+        this->editor_options_ = this->editor_recast_ = this->editor_new_ = false;
         this->library_edit_ = false;
         this->CommitField(); this->binding_capture_ = false;
         this->selected_ = {crossbar ? action_surface::crossbar : action_surface::hotbar, std::min(bar, crossbar ? action_crossbar_banks - 1 : action_bar_count - 1), std::min(slot, crossbar ? action_crossbar_slots - 1 : action_bar_slots - 1)};
@@ -698,7 +717,7 @@ namespace xiui
         }
         else this->draft_ = {};
         this->draft_pet_ = this->store_ && this->store_->PetAware(this->selected_.surface, this->selected_.bar) && !this->store_->Context().pet.empty();
-        this->line_scroll_ = 0; this->dialog_ = dialog::editor; this->focused_control_ = command_picker;
+        this->line_scroll_ = 0; this->dialog_ = dialog::editor; this->focused_control_ = command_kind;
         this->SetWindowFocused(true);
         this->message_.clear(); this->SyncStorage();
         if (this->draft_.Empty()) this->OpenPicker();
@@ -772,7 +791,8 @@ namespace xiui
         this->CommitField(); const auto& source = this->results_[index];
         this->draft_ = this->store_->ExpandMacro(source); this->draft_.macro_id = source.macro_id;
         this->library_edit_ = this->library_draft_ = true; this->line_scroll_ = 0; this->dialog_ = dialog::editor;
-        this->focused_control_ = field_name; this->message_.clear(); this->SetWindowFocused(true); return true;
+        this->editor_options_ = this->editor_recast_ = this->editor_new_ = false;
+        this->focused_control_ = command_kind; this->message_.clear(); this->SetWindowFocused(true); return true;
     }
     auto actionbars_module::ChooseResult(const size_t index) -> void
     {
@@ -784,17 +804,19 @@ namespace xiui
     }
     auto actionbars_module::NewDraft(const action_kind kind) -> void
     {
+        this->editor_options_ = this->editor_recast_ = false; this->editor_new_ = true;
         this->library_edit_ = false; this->library_draft_ = kind == action_kind::macro;
         this->draft_ = {}; this->draft_.kind = kind; this->draft_.target = "<t>";
         if (kind == action_kind::macro || kind == action_kind::command) this->draft_.lines = {""};
         if (kind == action_kind::equip) this->draft_.equipment_slot = "main";
-        this->line_scroll_ = 0; this->dialog_ = dialog::editor; this->focused_control_ = field_name;
+        this->line_scroll_ = 0; this->dialog_ = dialog::editor; this->focused_control_ = command_kind;
         this->SetWindowFocused(true);
     }
     auto actionbars_module::SaveDraft(void) -> void
     {
         this->CommitField();
         this->draft_.name = Trim(this->draft_.name); this->draft_.label = Trim(this->draft_.label); this->draft_.target = Trim(this->draft_.target);
+        while (this->draft_.lines.size() > 1 && Trim(this->draft_.lines.back()).empty()) this->draft_.lines.pop_back();
         const auto error = ValidateAction(this->draft_);
         if (!error.empty()) { this->Notice(error); return; }
         if (this->store_ && (this->library_draft_ || !this->draft_.macro_id.empty()))
@@ -846,7 +868,8 @@ namespace xiui
         else if (id == field_icon) this->draft_.icon = std::move(value);
         else if (id == field_recast) { this->draft_.recast_name = Trim(std::move(value)); this->draft_.recast_id = Numeric(this->draft_.recast_name); if (this->draft_.recast_id) this->draft_.recast_name.clear(); }
         else if (id == field_path) { this->import_path_ = std::move(value); this->import_preview_ = {}; }
-        else if (id >= line_first && id < line_first + 32) { const auto line = static_cast<size_t>(id - line_first); if (line < this->draft_.lines.size()) this->draft_.lines[line] = std::move(value); }
+        else if (id >= line_first && id < line_first + 32)
+        { const auto line = static_cast<size_t>(id - line_first); if (line >= this->draft_.lines.size()) this->draft_.lines.resize(line + 1); this->draft_.lines[line] = std::move(value); }
     }
     auto actionbars_module::BeginField(const int id) -> void
     {
@@ -888,6 +911,8 @@ namespace xiui
         const auto control = std::find_if(found.begin(), found.end(), [&](const auto& value) { return value.id == id; });
         if (control == found.end() || !control->enabled) return;
         if (this->HandleWindowControl(id)) return;
+        if (id >= icon_source_first && id < icon_source_first + 4)
+        { this->CommitField(); this->icon_source_ = id - icon_source_first; this->RebuildIconResults(); this->focused_control_ = id; return; }
         if (control->kind == control_kind::field) { this->BeginField(id); return; }
         if (control->kind == control_kind::dropdown) { this->OpenSetupChoice(*control); return; }
         if (control->kind == control_kind::slider) { this->setup_slider_adjust_ = this->setup_slider_adjust_ ? 0 : id; return; }
@@ -914,6 +939,8 @@ namespace xiui
 
         switch (id)
         {
+        case command_editor_options: this->editor_options_ = !this->editor_options_; this->focused_control_ = command_editor_options; break;
+        case command_editor_recast: this->editor_recast_ = !this->editor_recast_; this->line_scroll_ = 0; this->focused_control_ = command_editor_recast; break;
         case command_icon_picker: this->OpenIconPicker(); break;
         case command_icon_back: this->CloseIconPicker(); break;
         case command_icon_default: this->draft_.icon.clear(); this->CloseIconPicker(); break;
@@ -979,10 +1006,12 @@ namespace xiui
             else if (this->store_ && this->store_->Select(this->selected_.surface, this->palette_id_, this->selected_.bar)) this->CloseDialog();
             break;
         case command_previous: case command_next:
-            this->line_scroll_ = static_cast<size_t>(std::clamp(static_cast<int>(this->line_scroll_) + (id == command_previous ? -5 : 5), 0, std::max(0, static_cast<int>(this->draft_.lines.size()) - 5)));
+            this->line_scroll_ = static_cast<size_t>(std::clamp(static_cast<int>(this->line_scroll_) + (id == command_previous ? -static_cast<int>(this->EditorLayout().rows) : static_cast<int>(this->EditorLayout().rows)),
+                0, std::max(0, static_cast<int>(this->draft_.lines.size()) - static_cast<int>(this->EditorLayout().rows))));
+            this->focused_control_ = line_first + static_cast<int>(this->line_scroll_);
             break;
-        case command_more_lines: this->draft_.lines.push_back(""); this->line_scroll_ = this->draft_.lines.size() > 5 ? this->draft_.lines.size() - 5 : 0; break;
-        case command_remove_line: this->draft_.lines.pop_back(); this->line_scroll_ = std::min(this->line_scroll_, this->draft_.lines.size() > 5 ? this->draft_.lines.size() - 5 : 0); break;
+        case command_more_lines: this->draft_.lines.push_back(""); this->RevealEditorLine(this->draft_.lines.size() - 1); this->BeginField(this->focused_control_); break;
+        case command_remove_line: this->draft_.lines.pop_back(); this->line_scroll_ = std::min(this->line_scroll_, this->draft_.lines.size() > this->EditorLayout().rows ? this->draft_.lines.size() - this->EditorLayout().rows : 0); this->RevealEditorLine(this->draft_.lines.size() - 1); break;
         case command_preview: this->PreviewImport(); break;
         case command_import:
             if (this->dialog_ == dialog::palettes) this->OpenImport();
@@ -1007,7 +1036,7 @@ namespace xiui
             this->draft_.recast_kind = kinds[index]; this->draft_.recast_disabled = index == 1; this->draft_.recast_id = 0; break;
         }
         case command_pet: this->draft_pet_ = !this->draft_pet_; break;
-        case command_macro_copy: this->draft_.macro_id.clear(); this->library_draft_ = true; this->draft_.name += " copy"; break;
+        case command_macro_copy: this->draft_.macro_id.clear(); this->library_draft_ = true; this->draft_.name += " copy"; this->focused_control_ = field_name; break;
         case command_macro_delete: this->dialog_ = dialog::delete_macro; this->focused_control_ = command_cancel; break;
         case command_kind:
             this->draft_.kind = static_cast<action_kind>((std::max(1, static_cast<int>(this->draft_.kind)) - 1 + adjustment + 9) % 9 + 1);
@@ -1077,9 +1106,6 @@ namespace xiui
         const auto field = [&](int id, float y, const std::string& caption, const std::string& value) {
             result.push_back({id, {left + 124, y, right - left - 124, 28}, value, caption, control_kind::field});
         };
-        const auto choice = [&](int id, float y, const std::string& caption, const std::string& value, bool selected = false) {
-            result.push_back({id, {left + 228, y, right - left - 228, 28}, value, caption, control_kind::choice, true, selected});
-        };
         const auto footer = [&]() { button(command_cancel, right - 208, bounds.y + bounds.height - 44, 96, "Cancel"); };
         if (this->dialog_ == dialog::none) return result;
         if (this->dialog_ == dialog::keybinds) return this->KeybindControls(bounds);
@@ -1140,69 +1166,15 @@ namespace xiui
                     layout.list.y + static_cast<float>(offset / layout.columns) * layout.row_pitch, layout.column_width, layout.row_height};
                 result.push_back({result_first + static_cast<int>(index), cell, entry.label.empty() ? entry.name : entry.label, this->category_ == 0 ? ActionKindName(entry.kind) : "", control_kind::list, true, index == this->focused_result_});
             }
-            result.push_back({new_macro, layout.create[0], "New macro", {}, control_kind::button});
-            result.push_back({new_command, layout.create[1], "Command", {}, control_kind::button});
-            result.push_back({new_native, layout.create[2], "Native macro", {}, control_kind::button});
+            result.push_back({new_macro, layout.create[0], "New macro", "Create a sequence of commands, including waits.", control_kind::button});
+            result.push_back({new_command, layout.create[1], "Single command", "Run one command, such as /ws \"Combo\" <t>.", control_kind::button});
+            result.push_back({new_native, layout.create[2], "Game macro", "Run a macro from FFXI's existing book, set and Ctrl/Alt row.", control_kind::button});
             result.push_back({command_cancel, layout.done, "Done", {}, control_kind::button});
             return result;
         }
         if (this->dialog_ == dialog::editor)
         {
-            field(field_name, top, "Action / name", this->draft_.name);
-            field(field_label, top + 34, "Display label", this->draft_.label);
-            choice(command_kind, top + 68, "Action type", ActionKindName(this->draft_.kind));
-            if (this->draft_.kind != action_kind::macro && this->draft_.kind != action_kind::command && this->draft_.kind != action_kind::native_macro && this->draft_.kind != action_kind::equip)
-            {
-                const auto target = std::find(std::begin(targets), std::end(targets), this->draft_.target);
-                choice(command_target, top + 102, "Target", target == std::end(targets) ? this->draft_.target : target_labels[target - std::begin(targets)]);
-            }
-            field(field_icon, top + 136, "Icon override", this->draft_.icon);
-            result.back().bounds.width -= 144;
-            button(command_icon_picker, right - 100, top + 136, 100, "Choose...");
-            if (this->draft_.kind != action_kind::macro && this->draft_.kind != action_kind::command) choice(command_library, top + 170, "Shared library", this->library_draft_ ? "Shared action" : "Slot only");
-            if (this->draft_.kind == action_kind::equip) choice(command_equipment, top + 204, "Equipment slot", this->draft_.equipment_slot.empty() ? "main" : this->draft_.equipment_slot);
-            if (this->draft_.kind == action_kind::macro || this->draft_.kind == action_kind::command)
-            {
-                choice(command_library, top + 102, "Shared library", this->library_draft_ || !this->draft_.macro_id.empty() ? "Shared action" : "Slot only");
-                choice(command_recast, top + 170, "Cooldown source", this->draft_.recast_disabled ? "None" : this->draft_.recast_kind == action_kind::none ? "Automatic" : ActionKindName(this->draft_.recast_kind));
-                if (this->draft_.recast_kind != action_kind::none) field(field_recast, top + 204, "Cooldown action", this->draft_.recast_name.empty() && this->draft_.recast_id ? std::to_string(this->draft_.recast_id) : this->draft_.recast_name);
-                choice(command_available, top + 238, "Availability", this->draft_.always_available ? "Always available" : "Follow action");
-                const size_t count = this->draft_.kind == action_kind::command ? 1 : 3;
-                for (size_t row = 0; row < count && row + this->line_scroll_ < this->draft_.lines.size(); ++row)
-                    field(line_first + static_cast<int>(row + this->line_scroll_), top + 272 + static_cast<float>(row) * 31, "Line " + std::to_string(row + this->line_scroll_ + 1), this->draft_.lines[row + this->line_scroll_]);
-                if (this->draft_.kind == action_kind::macro)
-                {
-                    button(command_previous, left, bounds.y + bounds.height - 116, 80, "Previous", this->line_scroll_ > 0);
-                    button(command_next, left + 88, bounds.y + bounds.height - 116, 80, "Next", this->line_scroll_ + 3 < this->draft_.lines.size());
-                    button(command_more_lines, left + 176, bounds.y + bounds.height - 116, 94, "Add line", this->draft_.lines.size() < 32);
-                    button(command_remove_line, left + 278, bounds.y + bounds.height - 116, 108, "Remove last", this->draft_.lines.size() > 1);
-                }
-            }
-            if (this->draft_.kind == action_kind::native_macro)
-            {
-                choice(command_native_book, top + 174, "Native book", std::to_string(this->draft_.native.book));
-                choice(command_native_set, top + 208, "Native set", std::to_string(this->draft_.native.set));
-                choice(command_native_slot, top + 242, "Native slot", std::to_string(this->draft_.native.slot));
-                choice(command_native_alt, top + 276, "Native row", this->draft_.native.alt ? "Alt" : "Ctrl");
-            }
-            if (!this->draft_.macro_id.empty())
-            {
-                button(command_macro_copy, left + 394, bounds.y + bounds.height - 116, 116, "Make a copy");
-                button(command_macro_delete, left + 518, bounds.y + bounds.height - 116, right - left - 518, "Delete shared...", true, false, true);
-            }
-            button(command_picker, left, bounds.y + bounds.height - 78, 136, "Choose action...", !this->library_edit_);
-            if (this->selected_.surface == action_surface::hotbar && !this->library_edit_)
-            {
-                button(command_binding, left + 144, bounds.y + bounds.height - 78, 186, this->binding_capture_ ? "Press a key..." : "Binding: " + this->BindingLabel(this->Binding(this->selected_)));
-                button(command_unbind, left + 338, bounds.y + bounds.height - 78, 88, "Unbind", this->Binding(this->selected_).key != 0);
-                if (this->store_ && this->store_->PetAware(this->selected_.surface, this->selected_.bar) && !this->store_->Context().pet.empty())
-                    button(command_pet, left + 434, bounds.y + bounds.height - 78, right - left - 434, this->draft_pet_ ? "Current pet" : "All pets");
-            }
-            else if (this->store_ && this->store_->PetAware(this->selected_.surface, this->selected_.bar) && !this->store_->Context().pet.empty())
-                button(command_pet, left + 144, bounds.y + bounds.height - 78, 260, this->draft_pet_ ? "Save for pet: " + this->store_->Context().pet : "Save for all pets");
-            button(command_clear, left, bounds.y + bounds.height - 44, 96, "Clear slot", !this->library_edit_, false, true);
-            footer(); button(command_save, right - 104, bounds.y + bounds.height - 44, 104, this->library_edit_ ? "Save shared" : "Save action");
-            return result;
+            auto editor = this->EditorControls(); result.insert(result.end(), editor.begin(), editor.end()); return result;
         }
         if (this->dialog_ == dialog::palettes)
         {
@@ -1579,6 +1551,21 @@ namespace xiui
         {
             this->owned_keys_[key] = true;
             if (key == VK_ESCAPE) { this->input_.Cancel(); this->editing_field_ = 0; return true; }
+            if (this->dialog_ == dialog::editor && this->draft_.kind == action_kind::macro && this->editing_field_ >= line_first && this->editing_field_ < line_first + 32)
+            {
+                const auto line = static_cast<size_t>(this->editing_field_ - line_first);
+                if ((modifiers & 3) == 1 && key == 'V')
+                {
+                    const auto window = this->core_ && this->core_->GetProperties() ? this->core_->GetProperties()->GetFinalFantasyHwnd() : nullptr;
+                    if (const auto text = ui::ReadClipboardText(window, 32 * 242); text && this->PasteEditorLines(*text)) return true;
+                }
+                if (key == VK_UP || key == VK_DOWN || (key == VK_RETURN && !repeated))
+                {
+                    this->CommitField();
+                    const auto next = key == VK_UP ? (line > 0 ? line - 1 : 0) : std::min<size_t>(31, line + 1);
+                    this->RevealEditorLine(next); this->BeginField(this->focused_control_); return true;
+                }
+            }
             if (key == VK_RETURN || key == VK_TAB) { if (!repeated) { this->CommitField(); if (key == VK_TAB) this->HandleControllerAction((modifiers & 4) ? controller_action::previous_tab : controller_action::next_tab, false); } return true; }
             this->input_.HandleKey(key, flags, this->core_ && this->core_->GetProperties() ? this->core_->GetProperties()->GetFinalFantasyHwnd() : nullptr);
             this->SetFieldValue(this->editing_field_, this->input_.Editor().Text()); return true;
@@ -1813,7 +1800,7 @@ namespace xiui
         if (this->dialog_ == dialog::picker) this->UpdateLibraryMetrics(design);
         if (this->placing_)
         {
-            const auto focus = this->SlotBounds(this->selected_); design.DrawFocusFrame(focus, this->focus_style_);
+            const auto focus = this->ScreenSlotBounds(this->selected_); design.DrawFocusFrame(focus, this->focus_style_);
             const ui::rect instructions{this->viewport_.x + (this->viewport_.width - 480) / 2, this->viewport_.y + 32, 480, 68};
             context.DrawTooltip(instructions);
             const auto text = "Place " + this->draft_.name + "  /  " + (this->selected_.surface == action_surface::crossbar ? std::string{bank_names[this->selected_.bar]} : std::string{bar_names[this->selected_.bar]}) + " / " + std::to_string(this->selected_.slot + 1);
@@ -1825,7 +1812,7 @@ namespace xiui
         {
             if (this->browsing_ && this->navigation_focus_ && this->BarVisible(this->selected_.surface == action_surface::crossbar ? action_bar_count : this->selected_.bar))
             {
-                const auto focus = this->SlotBounds(this->selected_); design.DrawFocusFrame(focus, this->focus_style_);
+                const auto focus = this->ScreenSlotBounds(this->selected_); design.DrawFocusFrame(focus, this->focus_style_);
                 this->DrawTooltip(this->selected_, focus, context);
             }
             else if (!this->pointer_down_)
@@ -1851,7 +1838,7 @@ namespace xiui
             }
             if (!this->message_.empty())
             {
-                const auto anchor = this->SlotBounds(this->selected_); const auto viewport = context.Viewport();
+                const auto anchor = this->ScreenSlotBounds(this->selected_); const auto viewport = context.Viewport();
                 const ui::rect bounds{std::clamp(anchor.x, viewport.x + 8, std::max(viewport.x + 8, viewport.x + viewport.width - 376)), std::max(viewport.y + 8, anchor.y - 48), 368, 40};
                 context.DrawTooltip(bounds); context.DrawText(this->message_.c_str(), {bounds.x + 12, bounds.y + 8, bounds.width - 24, 24}, bounds, this->text_[4]);
             }
@@ -1879,7 +1866,7 @@ namespace xiui
             switch (this->dialog_)
             {
             case dialog::picker: title = "Actions & Macros"; break;
-            case dialog::editor: title = std::string{this->selected_.surface == action_surface::crossbar ? bank_names[this->selected_.bar] : bar_names[this->selected_.bar]} + "  /  Slot " + std::to_string(this->selected_.slot + 1); break;
+            case dialog::editor: title = this->editor_new_ ? "Create Macro" : "Edit Macro"; break;
             case dialog::palettes: title = this->selected_.surface == action_surface::crossbar ? "Crossbar action sets" : "Hotbar action sets (all bars)"; break;
             case dialog::name: title = this->name_action_ == command_copy ? "Duplicate palette" : this->name_action_ == command_rename ? "Rename palette" : "New palette"; break;
             case dialog::delete_palette: title = "Delete palette?"; break;
@@ -1887,7 +1874,7 @@ namespace xiui
             case dialog::import: title = "Import action palettes"; break;
             case dialog::setup: title = "Controller Setup"; break;
             case dialog::keybinds: title = "Keybinds"; break;
-            case dialog::icons: title = "Custom icons  /  Vincerno"; break;
+            case dialog::icons: title = "Choose Icon"; break;
             default: break;
             }
             if (floating)
@@ -1903,10 +1890,17 @@ namespace xiui
             const auto layout = this->LibraryLayout(); const auto clip = design.Clip(layout.list);
             controls.Text("No matching actions.", {layout.list.x + 6, layout.list.y + 6, layout.list.width - 12, layout.name_height + 8}, captionText);
         }
-        if (this->dialog_ == dialog::editor && !this->draft_.macro_id.empty())
-            controls.Text("Shared action: edits update every slot using it.", {bounds.x + 16, bounds.y + 36, bounds.width - 32, 16}, captionText);
+        if (this->dialog_ == dialog::editor && bounds.height >= 500 && this->message_.empty() && !this->draft_.macro_id.empty())
+            controls.Text("Shared action: edits update every slot using it.", {bounds.x + 16, bounds.y + bounds.height - 68, bounds.width - 32, 16}, captionText);
         if (this->dialog_ == dialog::editor)
-            this->DrawLibraryIcon(this->draft_, {bounds.x + bounds.width - 152, bounds.y + 188, 28, 28}, context);
+        {
+            const auto editor = this->EditorLayout(); this->DrawLibraryIcon(this->draft_, editor.icon, context);
+            if (!this->editor_options_ && (this->draft_.kind == action_kind::macro || this->draft_.kind == action_kind::command))
+            {
+                design.FillRoundedRect({editor.commands.x, editor.commands.y - 2, editor.commands.width, editor.commands.height + 2}, 0xEF0D101A, 3);
+                design.BorderRect({editor.commands.x, editor.commands.y - 2, editor.commands.width, editor.commands.height + 2}, 0x90696B84);
+            }
+        }
         if (this->dialog_ == dialog::icons) this->DrawIconPickerDetails(context);
         if (this->dialog_ == dialog::delete_palette || this->dialog_ == dialog::delete_macro)
         {
@@ -1947,7 +1941,14 @@ namespace xiui
             auto style = managementText; style.alignment = popup ? ui::text_alignment::left : ui::text_alignment::center;
             if (!control.enabled) { style.top_color = style.bottom_color = theme.colors.muted; }
             if (control.kind == control_kind::label)
-                controls.Text(control.text.c_str(), control.bounds, captionText);
+            {
+                if (this->dialog_ == dialog::editor)
+                {
+                    auto caption = controls.Style(theme.accent_text); caption.scale = std::max(caption.scale, 13 / ui::text_base_pixels);
+                    design.DrawText(control.text.c_str(), control.bounds, caption);
+                }
+                else controls.Text(control.text.c_str(), control.bounds, captionText);
+            }
             else if (control.kind == control_kind::dropdown)
                 controls.Dropdown(control.bounds, control.text.c_str(), this->setup_choice_input_.Opened() && this->setup_control_ == control.id, hovered);
             else if (control.kind == control_kind::slider)
@@ -1960,11 +1961,18 @@ namespace xiui
             else if (control.kind == control_kind::field)
             {
                 const auto caption = ui::rect{bounds.x + 16, control.bounds.y, control.bounds.x - bounds.x - 24, control.bounds.height};
-                if (!control.hint.empty()) controls.Text(control.hint.c_str(), caption, captionText);
+                if (!control.hint.empty())
+                {
+                    if (this->dialog_ == dialog::editor)
+                    { auto number = controls.Style(captionText); number.scale = std::max(number.scale, 12 / ui::text_base_pixels); design.DrawText(control.hint.c_str(), caption, number); }
+                    else controls.Text(control.hint.c_str(), caption, captionText);
+                }
                 const char* placeholder = control.id == field_icon_query ? "Search icons by name, job or magic type..." : control.id == field_query ? "Search actions and macros..." : control.id == field_icon ? "Default artwork" : control.id == field_label ? "Use action name" : "";
                 const char* shortcut = control.id == field_icon_query || (control.id == field_query && control.bounds.width >= this->library_metrics_.search_with_shortcut_width) ? "Ctrl+F" : nullptr;
-                if (this->input_.Focused() && this->editing_field_ == control.id) controls.TextInput(control.bounds, this->input_, false, placeholder, shortcut);
-                else { ui::text_input display; display.Open(control.text, 2048); display.Cancel(); controls.TextInput(control.bounds, display, false, placeholder, shortcut); }
+                const ui::text_input_appearance editorInput{14, this->editing_field_ == control.id && this->input_.Focused() ? 0xFF292A40 : 0xFF121520, 0xFFF4F4F8};
+                const auto* appearance = this->dialog_ == dialog::editor ? &editorInput : nullptr;
+                if (this->input_.Focused() && this->editing_field_ == control.id) controls.TextInput(control.bounds, this->input_, false, placeholder, shortcut, appearance);
+                else { ui::text_input display; display.Open(control.text, 2048); display.Cancel(); controls.TextInput(control.bounds, display, false, placeholder, shortcut, appearance); }
             }
             else if (control.kind == control_kind::icon)
             {
@@ -1992,7 +2000,9 @@ namespace xiui
                 if (!control.hint.empty()) controls.Text(control.hint.c_str(), {bounds.x + 16, control.bounds.y, control.bounds.x - bounds.x - 24, control.bounds.height}, captionText);
                 const auto label = "< " + control.text + " >"; controls.Button(control.bounds, label.c_str(), style, hovered);
             }
-            else controls.Button(control.bounds, control.text.c_str(), style, hovered || control.selected, control.danger ? ui::button_tone::danger : ui::button_tone::normal);
+            else controls.Button(control.bounds, control.text.c_str(), style, hovered || control.selected,
+                control.danger ? ui::button_tone::danger : (this->dialog_ == dialog::editor && control.id == command_save) ||
+                    (this->dialog_ == dialog::picker && control.id == new_macro) ? ui::button_tone::positive : ui::button_tone::normal);
         }
         const auto scrollbar = this->Scrollbar(); if (scrollbar.Visible()) controls.Scrollbar(scrollbar, Contains(scrollbar.track, this->hover_x_, this->hover_y_), this->scrolling_);
         if (this->navigation_focus_ && !this->KeyboardFocused() && !this->setup_choice_input_.Opened())
@@ -2000,10 +2010,11 @@ namespace xiui
             const auto focused = std::find_if(controlList.begin(), controlList.end(), [&](const auto& control) { return control.id == this->focused_control_ && control.enabled; });
             if (focused != controlList.end()) design.DrawFocusFrame(focused->bounds, this->focus_style_);
         }
-        if (this->dialog_ == dialog::picker && !this->pointer_down_ && !this->input_.Focused())
+        if ((this->dialog_ == dialog::picker || this->dialog_ == dialog::editor) && !this->pointer_down_ && !this->input_.Focused())
         {
             const auto help = std::find_if(controlList.begin(), controlList.end(), [&](const auto& control) {
-                return (control.id == command_learned || control.id == command_all_actions) &&
+                return (control.id == command_learned || control.id == command_all_actions || control.id == new_macro || control.id == new_command || control.id == new_native ||
+                    this->dialog_ == dialog::editor && control.kind == control_kind::button && !control.hint.empty()) &&
                     (Contains(control.bounds, this->hover_x_, this->hover_y_) || this->navigation_focus_ && control.id == this->focused_control_);
             });
             if (help != controlList.end())
@@ -2023,7 +2034,7 @@ namespace xiui
             design.FillRect({bounds.x + 10, bounds.y + bounds.height - 28, bounds.width - 36, 22}, theme.colors.surface);
             controls.Text(help, {bounds.x + 16, bounds.y + bounds.height - 24, bounds.width - 48, 20}, captionText);
         }
-        else if (!this->message_.empty()) controls.Text(this->message_.c_str(), {bounds.x + 16, bounds.y + bounds.height - 24, bounds.width - 32, 20}, captionText);
+        else if (!this->message_.empty()) controls.Text(this->message_.c_str(), {bounds.x + 16, bounds.y + bounds.height - (this->dialog_ == dialog::editor ? 68 : 24), bounds.width - 32, 20}, captionText);
         if (this->library_drag_)
         {
             this->DrawLibraryIcon(*this->library_drag_, {this->hover_x_ - 18, this->hover_y_ - 18, 36, 36}, context);

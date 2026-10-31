@@ -43,6 +43,7 @@ namespace xiui::ui
     {
         this->original_ = color;
         this->color_ = FromColor(color);
+        this->CancelHex();
         this->EndDrag();
     }
 
@@ -55,7 +56,8 @@ namespace xiui::ui
         if (Contains(layout.Value(), x, y)) return part::value;
         if (Contains(layout.Alpha(), x, y)) return part::alpha;
         if (Contains(layout.Original(), x, y)) return part::restore;
-        if (Contains(layout.Hex(), x, y)) return part::copy;
+        if (Contains(layout.Hex(), x, y)) return part::hex;
+        if (Contains(layout.Copy(), x, y)) return part::copy;
         if (Contains(layout.Close(), x, y)) return part::close;
         return part::none;
     }
@@ -79,6 +81,30 @@ namespace xiui::ui
             this->color_.value = 1 - std::clamp((y - layout.Value().y) / std::max(1.0f, layout.Value().height), 0.0f, 1.0f);
         else if (this->drag_ == part::alpha)
             this->color_.alpha = std::clamp((x - layout.Alpha().x) / std::max(1.0f, layout.Alpha().width), 0.0f, 1.0f);
+        this->CancelHex();
+    }
+
+    auto color_picker::ParseHex(std::string_view text) -> std::optional<D3DCOLOR>
+    {
+        if (text.starts_with('#')) text.remove_prefix(1);
+        if (text.size() != 6 && text.size() != 8) return {};
+        uint32_t value{};
+        for (const unsigned char c : text)
+        {
+            const int digit = c >= '0' && c <= '9' ? c - '0' : c >= 'a' && c <= 'f' ? c - 'a' + 10 : c >= 'A' && c <= 'F' ? c - 'A' + 10 : -1;
+            if (digit < 0) return {};
+            value = (value << 4) | static_cast<uint32_t>(digit);
+        }
+        return text.size() == 6 ? 0xFF000000u | value : (value >> 8) | (value << 24);
+    }
+
+    auto color_picker::CommitHex(void) -> bool
+    {
+        const auto color = ParseHex(this->hex_.Editor().Text());
+        this->invalid_hex_ = !color;
+        if (!color) return false;
+        this->SetColor(*color);
+        return true;
     }
 
     auto color_picker::Hex(void) const -> std::string
@@ -211,14 +237,15 @@ namespace xiui::ui
 
         controls.Text("Current", layout.Place({16, 340, 50, 16}), label);
         controls.Text("Original", layout.Place({74, 340, 50, 16}), label);
-        controls.Text("HEX / COPY", layout.Place({134, 338, 140, 16}), label);
+        controls.Text("HEX", layout.Place({134, 338, 140, 16}), label);
         const auto swatch = [&](const rect& bounds, const D3DCOLOR color, const bool active) {
             this->Checker(design, bounds); design.FillRect(bounds, color);
             design.BorderRect(bounds, active ? theme.colors.control_selected : theme.colors.border);
         };
         swatch(layout.Current(), this->Color(), false);
         swatch(layout.Original(), this->original_, hovered == part::restore);
-        auto hex = theme.body_text; hex.scale = 0.78f * scale; hex.alignment = text_alignment::center;
-        controls.Button(layout.Hex(), this->Hex().c_str(), hex, hovered == part::copy);
+        controls.TextInput(layout.Hex(), this->hex_, this->invalid_hex_);
+        auto copy = theme.body_text; copy.scale = .65f * scale; copy.alignment = text_alignment::center;
+        controls.Button(layout.Copy(), "Copy", copy, hovered == part::copy);
     }
 }

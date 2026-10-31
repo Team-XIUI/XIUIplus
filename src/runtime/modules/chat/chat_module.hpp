@@ -28,29 +28,39 @@ namespace xiui
         auto ApplyTextDefaults(const ui::theme& theme) -> void override;
         auto ResetDefaults(const ui::theme& theme) -> void override;
         auto Load(const settings_store& store) -> void override;
+        auto LoadScale(const settings_store& store) -> void override;
+        auto SupportsNonUniformScale(void) const -> bool override { return false; }
+        auto EditGrip(void) const -> edit_grip_kind override { return this->MatchingWindow1() ? edit_grip_kind::none : edit_grip_kind::resize; }
+        auto EditGripBounds(const ui::design_system& design) const -> std::optional<ui::rect> override
+        { const auto scope = design.Transform(this->state_.transform); return this->state_.transform.Map(this->Grip(design)); }
+        auto OnBoundsResized(const ui::rect& original) -> void override;
         auto Save(const settings_store& store) const -> void override;
-        auto OptionCount(void) const -> size_t override { return this->CollapseOptionStart() + 6; }
-        auto Option(size_t index) -> module_option override;
+        auto ContentOptionCount(void) const -> size_t override { return this->CollapseOptionStart() + 6; }
+        auto ContentOption(size_t index) -> module_option override;
         auto ConfigSections(void) const -> std::span<const module_config_section> override;
-        auto ConfigSectionContains(size_t section, size_t index) -> bool override;
-        auto OnOptionChanged(size_t index) -> void override;
+        auto ContentConfigSectionContains(size_t section, size_t index) -> bool override;
+        auto OnContentOptionChanged(size_t index) -> void override;
         auto PreviewChoice(size_t index, size_t choice) -> bool override;
         auto HasEditableBounds(void) const -> bool override { return !this->secondary_ || this->WindowVisible(); }
-        auto WindowVisible(void) const -> bool { return this->state_.enabled && (this->parent_ == nullptr || this->parent_->state_.enabled); }
+        auto WindowVisible(void) const -> bool
+        { return this->state_.enabled && (this->parent_ == nullptr || this->parent_->state_.enabled) &&
+            (!this->secondary_ || this->native_filters_ == nullptr || this->native_filters_->WindowHasRouting(true) != false); }
         auto ShouldRender(const hud_snapshot&) const -> bool override { return this->WindowVisible(); }
         auto Render(const hud_snapshot& snapshot, const module_render_context& context) -> void override;
         auto Receive(IAshitaCore* core, const chat_event& event, bool audible = true) -> void;
         auto ObserveTellPacket(uint16_t id, std::span<const uint8_t> packet) -> void;
         auto SetInputContext(IChatManager* chat) -> void;
         auto SetDialogueActive(bool active) -> void;
-        auto HandleKey(IAshitaCore* core, WPARAM key, LPARAM flags, bool blocked, bool replaceNative, std::span<const std::string> replyTargets = {}) -> bool;
+        auto HandleKey(IAshitaCore* core, WPARAM key, LPARAM flags, bool blocked, bool replaceNative, std::span<const std::string> replyTargets = {}, bool startTyping = false) -> bool;
         auto OpenTell(std::string_view recipient) -> bool;
         auto AdoptDraft(chat_draft draft) -> bool;
         auto AdoptTell(chat_draft draft, std::string_view recipient = {}) -> bool;
         auto LoadCompletions(IAshitaCore* core) -> void;
         auto DescribeCompletions(IAshitaCore* core, std::string_view prefix) -> std::string;
         auto DescribeColors(const chat_palette& palette) const -> std::string;
-        auto HandleMouse(uint32_t message, WPARAM wParam, float x, float y, bool editing, const ui::design_system& design, const ui::rect& viewport, bool& save, IChatManager* chat = nullptr) -> bool;
+        auto LayoutHandleMouse(uint32_t message, WPARAM wParam, float x, float y, bool editing, const ui::design_system& design, const ui::rect& viewport, bool& save, IChatManager* chat) -> bool;
+        auto HandleMouse(uint32_t message, WPARAM keys, float x, float y, bool editing, const ui::design_system& design, const ui::rect& viewport, bool& save, IChatManager* chat = nullptr) -> bool
+        { const auto scope = design.Transform(this->state_.transform); return this->LayoutHandleMouse(message, keys, this->state_.transform.InverseX(x), this->state_.transform.InverseY(y), editing, design, this->state_.transform.Inverse(viewport), save, chat); }
         auto Focus(bool focused, bool preserveExpandedHistory = false) -> void;
         auto Focused(void) const -> bool { return this->focused_ && this->state_.enabled; }
         auto Resizing(void) const -> bool { return this->resizing_; }
@@ -62,6 +72,7 @@ namespace xiui
         { const auto& lines = this->History().Lines(); return !lines.empty() && lines.back().sequence == sequence ? &lines.back() : nullptr; }
         auto ColorOverrides(void) const -> const chat_color_overrides& { return this->Colors(); }
         auto AttachSecondWindow(chat_module& second) -> void;
+        auto InitializeNativeWindows(std::optional<unsigned> count) -> bool;
         auto EnsureWindowDefaults(void) -> void;
         auto ViewName(void) const -> const char* { return chat_tab_names[this->active_tab_]; }
         auto TabsVisible(void) const -> bool { return this->visible_tabs_[0] || this->visible_tabs_[1]; }
@@ -80,19 +91,23 @@ namespace xiui
             if (this->second_window_ != nullptr && this->second_window_->MatchingWindow1()) this->second_window_->ResetCollapse();
         }
         auto VisualBounds(const ui::design_system& design) const -> ui::rect;
-        auto HitTest(const ui::design_system& design, float x, float y) const -> bool;
-        auto SoundTarget(const ui::design_system& design, float x, float y, bool editing) const -> uint32_t;
+        auto LayoutHitTest(const ui::design_system& design, float x, float y) const -> bool;
+        auto HitTest(const ui::design_system& design, float x, float y) const -> bool
+        { return this->LayoutHitTest(design, this->state_.transform.InverseX(x), this->state_.transform.InverseY(y)); }
+        auto LayoutSoundTarget(const ui::design_system& design, float x, float y, bool editing) const -> uint32_t;
+        auto SoundTarget(const ui::design_system& design, float x, float y, bool editing) const -> uint32_t
+        { return this->LayoutSoundTarget(design, this->state_.transform.InverseX(x), this->state_.transform.InverseY(y), editing); }
         auto SetSounds(ui::native_ui_sounds* sounds) -> void { this->sounds_ = sounds; }
         auto SetHovered(bool hovered) -> void { this->hovered_ = hovered; }
         auto SetNativeTimestamps(std::optional<uint8_t> mode) -> void { this->native_timestamp_mode_ = mode.value_or(0); }
         auto SetNativeFilters(native_chat_filters& filters) -> void { this->native_filters_ = &filters; }
         auto HistoryFocused(void) const -> bool { return this->history_view_.focused && this->WindowVisible(); }
         auto HistoryExpanded(void) const -> bool { return this->HistoryFocused() && this->history_view_.expanded; }
-        auto ControllerBounds(const ui::design_system& design) const -> ui::rect { return this->HistoryExpanded() ? this->HistoryLayout(design).frame : this->VisualBounds(design); }
-        auto SetHistoryViewport(const ui::rect& viewport) -> void { this->history_view_.viewport = viewport; }
+        auto ControllerBounds(const ui::design_system& design) const -> ui::rect { return this->state_.transform.Map(this->HistoryExpanded() ? this->HistoryLayout(design).frame : this->VisualBounds(design)); }
+        auto SetHistoryViewport(const ui::rect& viewport) -> void { this->history_view_.viewport = this->state_.transform.Inverse(viewport); }
         auto HandleHistoryKey(WPARAM key, LPARAM flags, bool blocked, bool replaceNative, const ui::design_system& design) -> bool;
-        auto BeginHistory(bool controller = false) -> bool;
-        auto BeginControllerHistory(void) -> bool { return this->BeginHistory(true); }
+        auto BeginHistory(bool controller = false, bool playSound = true) -> bool;
+        auto BeginControllerHistory(bool playSound = true) -> bool { return this->BeginHistory(true, playSound); }
         auto BeginControllerCompose(void) -> bool;
         auto ControllerComposing(void) const -> bool { return this->controller_composition_ && this->Focused(); }
         auto HandleControllerAction(controller_action action, bool repeated, const ui::design_system& design, IChatManager* chat = nullptr) -> bool;
@@ -105,6 +120,7 @@ namespace xiui
 #endif
 #if defined(XIUI_ENABLE_INPUT_TESTS)
         friend struct controller_module_test;
+        friend struct config_input_test;
 #endif
         struct tab_state { size_t scroll{}; uint32_t unread{}; };
         struct rendered_span { std::string text; int color{-1}; float width{}; bool timestamp{}, dialogue_prompt{}; };
@@ -128,7 +144,7 @@ namespace xiui
             bool timestamp_color_enabled{};
             D3DCOLOR timestamp_color{};
         };
-        module_state state_{true, {18.0f, -1.0f, 560.0f, 260.0f}, 380.0f, 160.0f};
+        module_state state_{true, {18.0f, -1.0f, 560.0f, 260.0f}, 380.0f, 64.0f};
         ui::container_style container_{};
         module_text_profile text_{};
         module_text_profile chrome_{};
@@ -149,6 +165,7 @@ namespace xiui
         const chat_model* shared_model_{};
         chat_module* parent_{};
         bool defaults_initialized_{};
+        bool native_windows_initialized_{true};
         bool match_window1_{};
         std::optional<window_settings> independent_settings_{};
         float matched_width_{}, matched_height_{};
@@ -194,8 +211,9 @@ namespace xiui
         ui::rect resize_bounds_{};
         std::vector<rendered_row> rows_{};
         uint64_t cache_revision_{UINT64_MAX};
-        float cache_width_{}, cache_scale_{}, cache_spacing_{};
+        float cache_width_{}, cache_scale_{}, cache_spacing_{}, cache_hud_scale_{};
         int cache_font_{-1};
+        bool cache_xiv1_{};
         int cache_tab_{-1};
         int cache_timestamp_mode_{-1};
         uint64_t cache_last_sequence_{};
@@ -220,7 +238,7 @@ namespace xiui
         auto CollapsePinned(void) const -> bool;
         auto ResetCollapse(void) -> void;
         auto TrackCollapse(const chat_event& event, uint32_t previousWindows, uint64_t now) -> void;
-        auto SpanColor(const rendered_row& row, const rendered_span& span, const chat_palette& palette) const -> D3DCOLOR;
+        auto SpanColor(const rendered_row& row, const rendered_span& span, const chat_palette& palette, bool xiv1 = false) const -> D3DCOLOR;
         auto Alerts(void) -> chat_alerts& { return this->parent_ != nullptr ? this->parent_->alerts_ : this->alerts_; }
         auto Colors(void) -> chat_color_overrides& { return this->parent_ != nullptr ? this->parent_->colors_ : this->colors_; }
         auto Colors(void) const -> const chat_color_overrides& { return this->parent_ != nullptr ? this->parent_->colors_ : this->colors_; }
@@ -236,7 +254,13 @@ namespace xiui
         auto RebuildRows(const ui::design_system& design, float width) -> void;
         auto DialoguePromptActive(uint64_t sequence) const -> bool;
         auto HistoryLayout(const ui::design_system& design) const -> history_layout;
-        auto HistoryTabName(size_t index) const -> const char* { return index == 0 && this->secondary_ ? "Window 2" : chat_history_tabs[index]; }
+        auto CombinedHistory(void) const -> bool
+        { return this->secondary_ ? this->parent_ != nullptr && this->parent_->source_ == 2 : this->source_ == 2; }
+        auto HistoryTabName(size_t index) const -> const char*
+        { return index == 0 && this->CombinedHistory() ? "All" : chat_history_tabs[index]; }
+        auto HistoryTabMatches(size_t index, uint32_t mode, uint32_t windows) const -> bool
+        { return index == 0 && this->CombinedHistory() ? ChatTabMatches(chat_tab::all, mode, windows) : ChatHistoryMatches(index, mode, windows); }
+        auto HistoryTabAvailable(size_t index) const -> bool;
         auto SelectHistoryTab(size_t index) -> void;
         auto ScrollMessage(int direction) -> void;
         auto NavigateHistory(controller_action action, bool repeated, const ui::design_system& design, bool layered) -> bool;
@@ -244,7 +268,11 @@ namespace xiui
         auto ActivateControllerCompose(IChatManager* chat) -> bool;
         auto AdjustControllerChannel(int direction) -> void;
         auto CurrentScroll(void) -> size_t& { return this->HistoryExpanded() ? this->history_view_.scroll[this->history_view_.tab] : this->tabs_[this->active_tab_].scroll; }
-        auto RowFilter(void) const -> int { return this->HistoryExpanded() ? static_cast<int>(100 + this->history_view_.tab) : this->active_tab_; }
+        auto RowFilter(void) const -> int
+        {
+            if (!this->HistoryExpanded()) return this->active_tab_;
+            return this->history_view_.tab == 0 && this->CombinedHistory() ? 200 : static_cast<int>(100 + this->history_view_.tab);
+        }
         auto DrawLog(const hud_snapshot& snapshot, const module_render_context& context, const ui::rect& log, const ui::rect& scrollbar) -> void;
         auto HandleHistoryMouse(uint32_t message, WPARAM wParam, float x, float y, const ui::design_system& design) -> bool;
         auto HistorySoundTarget(const ui::design_system& design, float x, float y) const -> uint32_t;

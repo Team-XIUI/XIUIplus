@@ -59,13 +59,13 @@ namespace xiui
         static constexpr module_config_section sections[]{{"General", "Native treasure items and explicit lot/pass decisions.", "general"}, {"Appearance", "Content visibility, size and native window styling.", "appearance"}, {"Text", "Independent title, item, details, timer and button profiles.", "text"}};
         return sections;
     }
-    auto treasure_module::ConfigSectionContains(size_t section, size_t index) -> bool
+    auto treasure_module::ContentConfigSectionContains(size_t section, size_t index) -> bool
     {
         if (index >= this->OptionCount()) return false;
-        if (index >= visibility_start) return section == 1;
+        if (index >= visibility_start) return section == 0;
         return section == (index >= selected_text ? 2 : index >= width ? 1 : 0);
     }
-    auto treasure_module::Option(size_t index) -> module_option
+    auto treasure_module::ContentOption(size_t index) -> module_option
     {
         static constexpr const char* profiles[]{"Title", "Items", "Details", "Buttons", "Timers"};
         if (index >= visibility_start)
@@ -90,7 +90,7 @@ namespace xiui
         default: return TextProfileOption(index - base_options, this->text_[this->selected_text_]);
         }
     }
-    auto treasure_module::OnOptionChanged(size_t index) -> void
+    auto treasure_module::OnContentOptionChanged(size_t index) -> void
     { if (index == open) this->Open(); if (!this->state_.enabled) this->EndInput(); }
     auto treasure_module::ShouldRender(const hud_snapshot&) const -> bool
     { return this->state_.enabled && (this->forced_ || (this->automatic_ && this->source_ != nullptr && this->source_->Ready() && this->source_->Count() != 0)); }
@@ -99,11 +99,11 @@ namespace xiui
         this->core_ = core; this->available_ = available && this->state_.enabled;
         if (!this->available_ || this->source_ == nullptr || !this->source_->Ready() || this->source_->Count() == 0) this->EndInput();
     }
-    auto treasure_module::Contains(float x, float y) const -> bool
+    auto treasure_module::LayoutContains(float x, float y) const -> bool
     { return this->ShouldRender({}) && Inside(this->state_.bounds, x, y); }
-    auto treasure_module::SoundTarget(float x, float y) const -> uint64_t
+    auto treasure_module::LayoutSoundTarget(float x, float y) const -> uint64_t
     {
-        if (!this->available_ || !this->Contains(x, y)) return 0;
+        if (!this->available_ || !this->LayoutContains(x, y)) return 0;
         for (const auto& control : this->controls_)
             if (control.available && Inside(control.bounds, x, y)) return (control.generation << 8) ^ (control.slot << 4) ^ (static_cast<uint64_t>(control.kind) + 1);
         return 0;
@@ -194,13 +194,13 @@ namespace xiui
         else if (action == controller_action::right || action == controller_action::next_tab) this->MoveFocus(1);
         return true;
     }
-    auto treasure_module::HandleMouse(uint32_t message, float x, float y) -> bool
+    auto treasure_module::LayoutHandleMouse(uint32_t message, float x, float y) -> bool
     {
         this->mouse_x_ = x;
         this->mouse_y_ = y;
         if (message == WM_LBUTTONDOWN || message == WM_LBUTTONDBLCLK)
         {
-            if (!this->Contains(x, y)) return false;
+            if (!this->LayoutContains(x, y)) return false;
             this->EndInput();
             this->pointer_down_ = true;
             for (const auto& control : this->controls_)
@@ -222,7 +222,7 @@ namespace xiui
                 this->Activate(pressed->target, &pressed->batch);
             return true;
         }
-        return this->Contains(x, y) && message == WM_MOUSEWHEEL;
+        return this->LayoutContains(x, y) && message == WM_MOUSEWHEEL;
     }
     auto treasure_module::Render(const hud_snapshot&, const module_render_context& context) -> void
     {
@@ -379,7 +379,7 @@ namespace xiui
         {
             const auto& control = this->controls_[i];
             if (!control.available || (control.kind != action::expand && control.kind != action::close && !(control.kind == action::details && control.generation == 0))) continue;
-            if (Inside(control.bounds, mouseX, mouseY)) { selected = &control; break; }
+            if (Inside(this->state_.transform.Map(control.bounds), mouseX, mouseY)) { selected = &control; break; }
             if (this->browse_ && i == this->focus_) selected = &control;
         }
         if (selected == nullptr) return;
@@ -389,6 +389,6 @@ namespace xiui
         const D3DVIEWPORT8 viewport{static_cast<DWORD>(std::max(0.0f, bounds.x)), static_cast<DWORD>(std::max(0.0f, bounds.y)),
             static_cast<DWORD>(std::max(1.0f, bounds.width)), static_cast<DWORD>(std::max(1.0f, bounds.height)), 0, 1};
         ui::config_controls controls{context.Design(), nullptr, context.NativeAssets()};
-        controls.SetTextSettings(text); controls.Tooltip(help, selected->bounds, viewport);
+        controls.SetTextSettings(text); controls.Tooltip(help, this->state_.transform.Map(selected->bounds), viewport);
     }
 }

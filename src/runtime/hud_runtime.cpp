@@ -84,6 +84,7 @@ namespace xiui
         this->recast_.SetSource(&this->recast_source_);
         this->modules_.Add(this->recast_);
         this->modules_.Add(this->target_);
+        this->modules_.Add(this->world_target_scale_);
         this->modules_.Add(this->target_cast_);
         this->modules_.Add(this->target_recipient_);
         this->modules_.Add(this->subtarget_);
@@ -159,7 +160,7 @@ namespace xiui
         this->modules_.Add(this->world_info_);
         for (auto& part : this->world_parts_) this->modules_.Add(part);
         this->modules_.Add(this->commands_);
-        this->extras_pages_ = {&this->compass_, &this->world_info_, &this->commands_, &this->blue_magic_, &this->phantom_roll_, &this->ready_check_, &this->magic_burst_, &this->fishing_};
+        this->extras_pages_ = {&this->compass_, &this->world_info_, &this->commands_, &this->blue_magic_, &this->phantom_roll_, &this->ready_check_, &this->magic_burst_, &this->fishing_, &this->game_hud_};
         this->ready_check_.SetSource(&this->party_source_);
         this->ready_check_.SetSounds(&this->ui_sounds_);
         this->modules_.Add(this->ready_check_);
@@ -328,6 +329,7 @@ namespace xiui
         SeedEmbeddedFile(602, notices + "\\XIUI-Blue-Magic.txt");
         SeedEmbeddedFile(806, notices + "\\XIUI-Icon-Themes-GPL-3.0.txt");
         SeedEmbeddedFile(807, notices + "\\XIUI-Icon-Themes.txt");
+        SeedEmbeddedFile(851, notices + "\\XIUI-XIV-1.0-Artwork.txt");
         SeedEmbeddedFile(901, notices + "\\XIUI-Pet-Portraits.txt");
         SeedEmbeddedFile(1001, notices + "\\XIUI-Minimap.txt");
         SeedEmbeddedFile(1002, notices + "\\Remapster-CC-BY-SA-4.0.txt");
@@ -443,6 +445,7 @@ namespace xiui
     {
         const bool blocked = this->PointerInputBlocked(inputBlocked);
         this->UpdateVisibilityContext();
+        if (!this->SetupVisible() && this->setup_.pointer_buttons != 0 && this->HandleSetupMouse(message, wParam, blocked, this->hud_viewport_)) return true;
         if (!this->satchel_.PointerDown())
         {
             if (message == WM_LBUTTONDOWN || message == WM_LBUTTONDBLCLK) this->satchel_pointer_release_ &= ~MK_LBUTTON;
@@ -500,14 +503,30 @@ namespace xiui
         }
         this->mouse_x_ = cursor.x;
         this->mouse_y_ = cursor.y;
+        D3DVIEWPORT8 viewport{};
+        if (FAILED(this->device_->GetViewport(&viewport))) return false;
+        this->EnsureLayout(viewport);
+        if (this->HandleSetupMouse(message, wParam, blocked, viewport))
+        {
+            if (this->setup_.pointer_buttons != 0)
+            {
+                ::SetCapture(gameWindow);
+                if (::GetCapture() == gameWindow) this->mouse_capture_window_ = gameWindow;
+            }
+            return true;
+        }
+        if (!blocked && (message == WM_RBUTTONDOWN || message == WM_RBUTTONDBLCLK) && this->TryOpenModuleMenu(viewport))
+        {
+            constexpr uint32_t buttons = MK_LBUTTON | MK_RBUTTON | MK_MBUTTON | MK_XBUTTON1 | MK_XBUTTON2;
+            this->UpdateMouseCapture(viewport, static_cast<uint32_t>(wParam) & buttons);
+            ::SetCapture(gameWindow);
+            if (::GetCapture() == gameWindow) this->mouse_capture_window_ = gameWindow;
+            return true;
+        }
         if (this->HandleSatchelMouse(message, wParam, static_cast<float>(cursor.x), static_cast<float>(cursor.y), blocked)) return true;
         if (this->HandleActionBarsMouse(message, wParam, static_cast<float>(cursor.x), static_cast<float>(cursor.y), blocked)) return true;
         if (this->HandleTreasureMouse(message, static_cast<float>(cursor.x), static_cast<float>(cursor.y), blocked)) return true;
 
-        D3DVIEWPORT8 viewport{};
-        if (FAILED(this->device_->GetViewport(&viewport)))
-            return false;
-        this->EnsureLayout(viewport);
         if (this->HandleControllerPointer(message, static_cast<float>(cursor.x), static_cast<float>(cursor.y), viewport))
         {
             if (message == WM_LBUTTONDOWN)
@@ -577,8 +596,7 @@ namespace xiui
             if (resizing) { this->chat_pointer_ = nullptr; this->ReleasePointerCapture(); }
         }
         if (message == WM_MOUSEWHEEL && !blocked && !overConfig && this->interaction_ == interaction::none &&
-            this->chat_pointer_ == nullptr && this->ContextVisible(this->minimap_) &&
-            (this->editing_ ? this->minimap_.PreviewVisible() : this->minimap_.ShouldRender({})))
+            this->chat_pointer_ == nullptr && this->ModuleDisplayed(this->minimap_))
         {
             bool save{};
             if (this->minimap_.HandleMouseWheel(static_cast<short>(HIWORD(wParam)), static_cast<float>(cursor.x), static_cast<float>(cursor.y), save))
@@ -625,9 +643,6 @@ namespace xiui
                         if (Contains(layout.Control(12), static_cast<float>(this->mouse_x_), static_cast<float>(this->mouse_y_))) this->profile_lua_report_.Scroll(-(delta / WHEEL_DELTA) * 3);
                         return captured;
                     }
-                    const ui::profile_dialog_layout dialog{this->config_.bounds, viewport, true};
-                    if (Contains(dialog.Key(), static_cast<float>(this->mouse_x_), static_cast<float>(this->mouse_y_)))
-                        this->profile_key_view_.Scroll(-(delta / WHEEL_DELTA) * 3);
                 }
                 return captured;
             }
@@ -635,6 +650,13 @@ namespace xiui
             if (this->profile_dropdown_ && Contains(this->ConfigLayout().ProfileMenu(this->profiles_.Entries().size()), static_cast<float>(this->mouse_x_), static_cast<float>(this->mouse_y_)))
             {
                 this->profile_scroll_ = std::clamp(this->profile_scroll_ - delta / WHEEL_DELTA, 0, std::max(0, static_cast<int>(this->profiles_.Entries().size()) - 7));
+                return captured;
+            }
+            if (!this->config_.basic && Contains(this->ConfigSidebarBounds(), static_cast<float>(this->mouse_x_), static_cast<float>(this->mouse_y_)))
+            {
+                this->config_.sidebar_animation.reveal = false;
+                this->config_.sidebar_animation.scroll -= static_cast<float>(delta / WHEEL_DELTA) * 48;
+                this->ConfigSidebarRows();
                 return captured;
             }
             if (this->IsExperienceDisplay() && this->experience_display_.Scroll(this->experience_, this->ConfigLayout(),
@@ -651,15 +673,15 @@ namespace xiui
     {
         if (this->ContextVisible(this->chat_) && this->chat_.HistoryExpanded() && this->chat_.HitTest(this->design_system_, x, y)) return &this->chat_;
         if (this->ContextVisible(this->chat_second_) && this->chat_second_.WindowVisible() && this->chat_second_.HitTest(this->design_system_, x, y)) return &this->chat_second_;
-        if (this->ContextVisible(this->chat_) && (this->editing_ || this->chat_.WindowVisible()) && this->chat_.HitTest(this->design_system_, x, y)) return &this->chat_;
+        if (this->ModuleDisplayed(this->chat_) && this->chat_.HitTest(this->design_system_, x, y)) return &this->chat_;
         return nullptr;
     }
 
     auto hud_runtime::ChatResizeAt(const float x, const float y) -> bool
     {
-        if (this->chat_.HistoryExpanded()) return false;
+        if (this->editing_ || this->chat_.HistoryExpanded()) return false;
         const auto* chat = this->ChatAt(x, y);
-        return chat != nullptr && Contains(chat->Grip(this->design_system_), x, y);
+        return chat != nullptr && Contains(chat->State().transform.Map(chat->Grip(this->design_system_)), x, y);
     }
 
     auto hud_runtime::MinimapPointerOwns(const float x, const float y) const -> bool
@@ -712,8 +734,14 @@ namespace xiui
         this->chat_.CancelPointer();
         this->chat_second_.CancelPointer();
         this->chat_pointer_ = nullptr;
-        this->SetChatMouseCapture(false);
-        if (!this->editing_) this->ReleasePointerCapture();
+        const bool live = this->visible_ && !this->window_input_suspended_ && this->GameWindowFocused();
+        // Chat cleanup must not release another surface's held gesture.
+        const bool otherGesture = live && (this->actionbars_.PointerDown() || this->actionbar_pointer_release_ != 0 ||
+            this->satchel_.PointerDown() || this->satchel_pointer_release_ != 0 || this->treasure_.PointerDown());
+        const auto x = static_cast<float>(this->mouse_x_), y = static_cast<float>(this->mouse_y_);
+        const bool otherHover = live && (this->ActionBarsPointerOwns(x, y) || (this->SatchelInputAvailable(true) && this->satchel_.PointerOwns(x, y)));
+        if (!otherGesture && !otherHover) this->SetChatMouseCapture(false);
+        if (!this->editing_ && !otherGesture) this->ReleasePointerCapture();
         if (this->controller_surface_ == controller_surface::chat || this->controller_surface_ == controller_surface::chat2)
             this->ReleaseControllerFocus(preserveExpandedHistory);
     }
@@ -833,6 +861,7 @@ namespace xiui
     auto hud_runtime::HandleKey(const WPARAM key, const LPARAM flags, const bool blocked) -> bool
     {
         this->UpdateVisibilityContext();
+        if (this->HandleSetupKey(key, flags, blocked)) return true;
         if (this->confirmation_key_release_ == key && key != 0)
         {
             if ((static_cast<uint32_t>(flags) & 0x80000000u) != 0)
@@ -841,6 +870,31 @@ namespace xiui
                 if (key == VK_RETURN) this->chat_activation_enter_down_ = false;
             }
             return true;
+        }
+        if (key < this->scale_key_release_.size() && this->scale_key_release_[key])
+        {
+            if ((static_cast<uint32_t>(flags) & 0x80000000u) != 0) { this->scale_key_release_[key] = false; return true; }
+            if (this->scale_gesture_.module == nullptr) return true;
+        }
+        if (this->editing_ && this->scale_gesture_.module != nullptr && !blocked)
+        {
+            const bool released = (static_cast<uint32_t>(flags) & 0x80000000u) != 0;
+            const auto action = key == VK_LEFT ? controller_action::left : key == VK_RIGHT ? controller_action::right :
+                key == VK_UP ? controller_action::up : key == VK_DOWN ? controller_action::down :
+                key == VK_RETURN ? controller_action::confirm : key == VK_ESCAPE ? controller_action::cancel : key == VK_SPACE ? controller_action::actions : controller_action::none;
+            if (action != controller_action::none)
+            {
+                if (!released) { this->HandleScaleAction(action, (static_cast<uint32_t>(flags) & 0x40000000u) != 0); if (key < this->scale_key_release_.size()) this->scale_key_release_[key] = true; }
+                return true;
+            }
+        }
+        if (this->editing_ && !blocked && (key == VK_APPS || (key == VK_F10 && (::GetKeyState(VK_SHIFT) & 0x8000) != 0)) &&
+            (static_cast<uint32_t>(flags) & 0xC0000000u) == 0 && this->GameWindowFocused() && !this->ControllerNativeBusy() &&
+            !this->config_.choice_input.Opened() && !this->profile_name_.Focused() && !this->config_.slider_input.Focused() && !this->config_.text_input.Focused())
+        {
+            if (auto* module = this->MovementSelectionModule(); module != nullptr &&
+                this->OpenModuleMenu(*module, this->ScaleGrip(*module)))
+            { this->confirmation_key_release_ = key; return true; }
         }
         if (this->HandleActionBarsKey(key, flags, blocked)) return true;
         if (this->HandleSatchelKey(key, flags, blocked)) return true;
@@ -864,7 +918,7 @@ namespace xiui
         if (!this->visible_ || this->device_ == nullptr) return false;
         auto* properties = this->core_ != nullptr ? this->core_->GetProperties() : nullptr;
         if (properties == nullptr || ::GetForegroundWindow() != properties->GetFinalFantasyHwnd())
-        { this->ReleaseChatInput(true); this->FinishConfigInput(false); return false; }
+        { this->SuspendWindowInput(); this->FinishConfigInput(false); return false; }
         if (this->editing_ && !blocked && key == 'F' && (::GetKeyState(VK_CONTROL) & 0x8000) != 0 &&
             (static_cast<uint32_t>(flags) & 0x80000000u) == 0 && !this->profile_name_.Focused() &&
             !this->config_.slider_input.Focused() && !this->config_.text_input.Focused() && !this->ControllerNativeBusy())
@@ -873,6 +927,12 @@ namespace xiui
         {
             if (this->ControllerNativeBusy()) { this->CloseSettingsSearch(); return false; }
             return this->HandleSettingsSearchKey(key, flags, properties->GetFinalFantasyHwnd());
+        }
+        if (this->editing_ && !blocked && key == VK_F9 && (static_cast<uint32_t>(flags) & 0x20000000u) != 0)
+        {
+            if ((static_cast<uint32_t>(flags) & 0xC0000000u) == 0 && this->MovementSelectionModule() != nullptr)
+            { this->BeginScale(*this->MovementSelectionModule(), true); this->scale_key_release_[key] = true; }
+            return true;
         }
         if (this->editing_ && !blocked && (this->config_.focus.resizing ||
             (key == VK_F8 && (static_cast<uint32_t>(flags) & 0x20000000u) != 0)))
@@ -897,6 +957,19 @@ namespace xiui
         }
         if (this->editing_ && this->HandleProfileKey(key, flags)) return true;
         if (this->editing_ && this->HandleChoiceKey(key, flags)) return true;
+        if (this->editing_ && this->config_.active_color != nullptr && this->config_.color_picker.EditingHex())
+        {
+            if ((static_cast<uint32_t>(flags) & 0x80000000u) != 0) return true;
+            if (key == VK_ESCAPE || key == VK_RETURN || key == VK_TAB)
+            {
+                if ((static_cast<uint32_t>(flags) & 0x40000000u) != 0) return true;
+                this->confirmation_key_release_ = key;
+                if (key == VK_ESCAPE) this->config_.color_picker.CancelHex();
+                else if (this->config_.color_picker.CommitHex()) { this->ApplyPickedColor(); this->SaveSettings(); }
+            }
+            else this->config_.color_picker.HexInput().HandleKey(key, flags, properties->GetFinalFantasyHwnd());
+            return true;
+        }
         const bool replacement = this->chat_capture_available_ && (this->game_hud_.HiddenMask() & NativeHudBit(native_hud_element::chat1)) != 0;
         auto* manager = this->core_->GetChatManager();
         const auto* memory = this->core_->GetMemoryManager();
@@ -930,11 +1003,15 @@ namespace xiui
         }
         auto& history = this->chat_second_.HistoryFocused() ? this->chat_second_ : this->chat_;
         const auto keyFlags = static_cast<uint32_t>(flags);
+        if (!this->editing_ && !blocked && key == 'F' && this->NativeWindowCycle() && !targeting &&
+            (::GetKeyState(VK_CONTROL) & 0x8000) == 0 && (::GetKeyState(VK_MENU) & 0x8000) == 0 && (keyFlags & 0x20000000u) == 0)
+        { this->controller_presented_ = false; this->keyboard_window_focus_ = true; return false; }
         const bool statusFocused = this->controller_surface_ == controller_surface::buffs || this->controller_surface_ == controller_surface::debuffs;
         const bool compactKeyboard = KeyboardAllowsCharacterShortcuts(this->window_config_.FullKeyboard());
         if (!this->editing_ && !blocked && key == 'F' && (keyFlags & 0x80000000u) == 0 &&
-            (history.HistoryFocused() || statusFocused || (!targeting && !this->native_ui_.menu_visible)) &&
+            (history.HistoryFocused() || statusFocused || !targeting) &&
             (compactKeyboard || history.HistoryFocused() || statusFocused) &&
+            (!this->ControllerNativeMenuOpen() || this->visibility_context_.window_focus == native_window_focus::commands || history.HistoryFocused() || statusFocused) &&
             !this->chat_.Focused() && !history.HistoryExpanded() && (replacement || history.HistoryFocused() || statusFocused) &&
             (::GetKeyState(VK_CONTROL) & 0x8000) == 0 && (::GetKeyState(VK_MENU) & 0x8000) == 0 &&
             (keyFlags & 0x20000000u) == 0 && ((::GetKeyState(VK_SHIFT) & 0x8000) == 0 || history.HistoryFocused() || statusFocused))
@@ -968,6 +1045,11 @@ namespace xiui
         }
         if (!this->editing_ && history.HistoryFocused() && this->ContextVisible(history) && history.HandleHistoryKey(key, flags, blocked, replacement, this->design_system_))
         {
+            if (key == VK_RETURN && (keyFlags & 0xC0000000u) == 0)
+            {
+                this->confirmation_key_release_ = key;
+                this->chat_activation_enter_down_ = false;
+            }
             this->chat_native_context_suspended_ = targeting || this->native_ui_.menu_visible;
             if (!history.HistoryFocused() && !this->chat_.Focused()) this->ReleaseControllerFocus();
             else
@@ -992,8 +1074,11 @@ namespace xiui
             this->ReleaseChatInput();
             return false;
         }
+        const bool startTyping = !this->editing_ && !targeting && !this->native_ui_.menu_visible &&
+            this->controller_surface_ == controller_surface::none && !this->ControllerNativeBusy() &&
+            KeyboardStartsChat(this->window_config_.FullKeyboard(), key, flags);
         const bool consumed = this->chat_.HandleKey(this->core_, key, flags, blocked, replacement,
-            reply ? this->chat_input_.ReplyTargets() : std::vector<std::string>{});
+            reply ? this->chat_input_.ReplyTargets() : std::vector<std::string>{}, startTyping);
         if (consumed && key == VK_RETURN && (keyFlags & 0x80000000u) == 0)
         {
             this->confirmation_key_release_ = key;
@@ -1004,12 +1089,13 @@ namespace xiui
 
     auto hud_runtime::CycleWindowFocus(const bool controller) -> bool
     {
-        constexpr std::array windows{controller_surface::chat, controller_surface::chat2, controller_surface::buffs, controller_surface::debuffs};
-        const auto current = this->chat_second_.HistoryFocused() ? controller_surface::chat2 :
-            this->chat_.HistoryFocused() ? controller_surface::chat : this->controller_surface_;
+        const auto available = this->ControllerSurfaces();
+        const auto chat = std::find(available.begin(), available.end(), controller_surface::chat) != available.end() ? controller_surface::chat : controller_surface::chat2;
+        const std::array windows{chat, controller_surface::buffs, controller_surface::debuffs};
+        const auto current = this->chat_.HistoryFocused() || this->chat_second_.HistoryFocused() ||
+            this->controller_surface_ == controller_surface::chat || this->controller_surface_ == controller_surface::chat2 ? chat : this->controller_surface_;
         const auto found = std::find(windows.begin(), windows.end(), current);
         const size_t start = found != windows.end() ? static_cast<size_t>(found - windows.begin()) : windows.size() - 1;
-        const auto available = this->ControllerSurfaces();
         for (size_t step = 1; step <= windows.size(); ++step)
         {
             const auto surface = windows[(start + step) % windows.size()];
@@ -1085,6 +1171,11 @@ namespace xiui
         if (command != nullptr && this->HandleSatchelCommand(command)) return true;
         if (command == nullptr)
             return false;
+        if (::_stricmp(command, "setup") == 0)
+        {
+            this->BeginSetup();
+            return true;
+        }
         if (::_stricmp(command, "toggleui") == 0)
         {
             this->SetVisible(!this->visible_);
@@ -1101,6 +1192,25 @@ namespace xiui
             return true;
         }
         if (this->ControllerCommand(command)) return true;
+        for (size_t preset = 0; preset < ui::hud_presets.size(); ++preset)
+            if (::_stricmp(command, ui::hud_presets[preset].command) == 0)
+            {
+                if (!this->ApplyHudPreset(preset)) return false;
+                if (this->core_ != nullptr && this->core_->GetChatManager() != nullptr)
+                    this->core_->GetChatManager()->Writef(1, false, "[XIUI] %s full HUD preset applied.", ui::hud_presets[preset].name);
+                return true;
+            }
+        if (::_stricmp(command, "party preset classic") == 0 || ::_stricmp(command, "party preset xiv") == 0)
+        {
+            const bool classic = ::_stricmp(command, "party preset classic") == 0;
+            this->FinishScale(false); this->FinishControllerMove(false); this->FinishConfigInput(false);
+            this->CloseChoiceInput(); this->CloseProfileControls();
+            this->party_.ApplyPreset(classic ? 0 : 2);
+            this->ResolveHudTransforms(this->hud_viewport_); this->SaveSettings();
+            if (this->core_ != nullptr && this->core_->GetChatManager() != nullptr)
+                this->core_->GetChatManager()->Writef(1, false, "[XIUI] %s Party preset applied; other modules kept.", classic ? "Classic" : "XIV");
+            return true;
+        }
         const char* message{};
         if (::_stricmp(command,"rings status")==0)
         {
@@ -1205,6 +1315,13 @@ namespace xiui
             this->config_.active_color = nullptr; this->config_.scroll = 0;
             this->SetVisible(true); this->SetEditing(true);
             return true;
+        }
+        else if (::_stricmp(command, "theme xiv1") == 0 || ::_stricmp(command, "theme xi") == 0 || ::_stricmp(command, "theme native") == 0)
+        {
+            const bool xiv1 = ::_stricmp(command, "theme xiv1") == 0;
+            this->general_.SetAppearanceTheme(xiv1 ? ui::xiv1_appearance : ui::native_appearance);
+            this->SaveSettings();
+            message = xiv1 ? "[XIUI] XIV 1.0 Theme enabled." : "[XIUI] XI Theme enabled.";
         }
         else if (::_strnicmp(command, "theme ", 6) == 0 && command[6] >= '1' && command[6] <= '8' && command[7] == '\0')
         {
@@ -1315,6 +1432,8 @@ namespace xiui
         }
         else if (::_stricmp(command, "commands status") == 0 || ::_stricmp(command, "theme status") == 0)
         {
+            if (this->core_ != nullptr && this->core_->GetChatManager() != nullptr)
+                this->core_->GetChatManager()->Writef(1, false, "[XIUI] Window / bar theme: %s.", ui::appearance_themes[this->general_.AppearanceTheme()]);
             const auto& state = this->native_ui_;
             if (this->core_ != nullptr && this->core_->GetChatManager() != nullptr)
                 this->core_->GetChatManager()->Writef(1, false, "[XIUI] Native UI: Window Type %u (%s); command module %s; %u active command panels; anchor %s; movement %s; themed bars %s.",
@@ -1474,11 +1593,13 @@ namespace xiui
                 const auto* keyboard = input != nullptr ? input->GetKeyboard() : nullptr;
                 const auto* memory = this->core_->GetMemoryManager();
                 const auto* target = memory != nullptr ? memory->GetTarget() : nullptr;
-                const auto fullKeyboard = this->window_config_.FullKeyboard();
+                const auto layout = this->window_config_.KeyboardLayout();
+                const char* layoutName = !layout ? "unavailable" : *layout == native_keyboard_layout::full ? "Full" :
+                    *layout == native_keyboard_layout::compact1 ? "Compact 1" : "Compact 2";
                 this->core_->GetChatManager()->Writef(1, false, "[XIUI] Chat input: reply lookup %s; native chat handoff %s; native input status %u; editor %s; keyboard %s; layout %s.",
                     this->chat_input_.ReplyAvailable() ? "available" : "unavailable", this->chat_input_.HandoffAvailable() ? "available" : "unavailable",
                     this->core_->GetChatManager()->IsInputOpen(), this->ChatFocused() ? "focused" : "idle",
-                    keyboard != nullptr && keyboard->GetBlockInput() ? "blocked" : "available", fullKeyboard ? (*fullKeyboard ? "Full" : "Compact") : "unavailable");
+                    keyboard != nullptr && keyboard->GetBlockInput() ? "blocked" : "available", layoutName);
                 this->core_->GetChatManager()->Writef(1, false, "[XIUI] Chat routing: replacement %s; native menu %s; subtarget %u; action target %u; target menu %u; action type %u; action ID %u.",
                     this->chat_capture_available_ && (this->game_hud_.HiddenMask() & NativeHudBit(native_hud_element::chat1)) != 0 ? "enabled" : "disabled",
                     this->native_ui_.menu_visible ? "visible" : "hidden", target != nullptr ? target->GetIsSubTargetActive() : 0,
@@ -1548,7 +1669,7 @@ namespace xiui
             if (message == nullptr)
             {
                 this->SaveSettings();
-                message = "[XIUI] Game HUD visibility updated.";
+                message = "[XIUI] Native menu visibility updated.";
             }
         }
         else if (::_stricmp(command, "notify test") == 0)
@@ -1655,7 +1776,10 @@ namespace xiui
         this->config_.module = &this->general_;
         this->interaction_module_ = nullptr;
         this->interaction_ = interaction::none;
+        this->config_.sidebar_scrolling = false;
         this->config_.collapsed = false;
+        this->config_.edit_mode = false;
+        this->config_.preview_selected = false;
         this->config_.input_mode_menu = false;
         this->config_.bounds = {-1.0f, 20.0f, ui::config_layout::default_width, ui::config_layout::default_height};
         this->config_.sidebar_collapsed = false;
@@ -1694,6 +1818,8 @@ namespace xiui
 
     auto hud_runtime::SetEditing(const bool editing, const bool playSound) -> bool
     {
+        if (editing && this->setup_.open) this->FinishSetup();
+        this->FinishScale(false);
         if (editing) this->SuspendSatchelInput();
         if (!editing)
             this->cursor_renderer_.ReleaseNativeCursorOnOwnerThread();
@@ -1709,6 +1835,8 @@ namespace xiui
         this->CloseProfileControls();
 
         this->config_.collapsed = false;
+        this->config_.edit_mode = false;
+        this->config_.preview_selected = false;
         this->interaction_ = interaction::none;
         this->hud_target_pressed_ = false;
         this->interaction_module_ = nullptr;
@@ -1735,6 +1863,8 @@ namespace xiui
                 this->mouse_->SetBlockInput(this->previous_mouse_blocked_);
                 this->mouse_block_state_saved_ = false;
             }
+            if (this->actionbars_.FloatingWindowOpen() && this->ActionBarsInputAvailable(false, true))
+                this->actionbars_.SetWindowFocused(true);
             this->SaveSettings();
         }
         return true;
@@ -1748,6 +1878,8 @@ namespace xiui
 
         const auto attributes = ::GetFileAttributesA(this->settings_path_.c_str());
         const auto error = attributes == INVALID_FILE_ATTRIBUTES ? ::GetLastError() : ERROR_SUCCESS;
+        this->config_.basic = error == ERROR_FILE_NOT_FOUND || error == ERROR_PATH_NOT_FOUND;
+        this->LoadSetup(settings_store::CachedFile(this->settings_path_), this->config_.basic);
         if (!this->default_settings_text_.empty() && (error == ERROR_FILE_NOT_FOUND || error == ERROR_PATH_NOT_FOUND))
         {
             this->LoadSettings(settings_store::FromIniText(this->default_settings_text_));
@@ -1764,6 +1896,7 @@ namespace xiui
             D3DVIEWPORT8 actual{};
             if (SUCCEEDED(this->device_->GetViewport(&actual))) viewport = {static_cast<int>(actual.Width), static_cast<int>(actual.Height)};
         }
+        this->FinishScale(false);
         const auto defaults = settings_store::FromIniText(this->default_settings_text_);
         const auto store = FitLayoutViewport(source, defaults, viewport);
         this->game_hud_.SetDefaults(defaults);
@@ -1781,8 +1914,8 @@ namespace xiui
         this->CloseProfileControls();
         ++this->controller_input_revision_;
         this->ReleaseControllerFocus();
-        for (auto* module : this->modules_.All())
-            module->Load(store);
+        for (auto* module : this->modules_.All()) module->Load(store);
+        for (auto* module : this->modules_.All()) module->LoadScale(store);
         this->config_.bounds = store.ReadRect("layout.config", {-1.0f, 20.0f, ui::config_layout::default_width, ui::config_layout::default_height});
         this->config_.sidebar_collapsed = store.ReadBool("layout.config", "sidebar_collapsed", false);
         if (!store.ReadBool("layout.config", "sidebar_labels", false) && this->config_.bounds.width == 680.0f)
@@ -1807,8 +1940,15 @@ namespace xiui
         settings_store store{this->settings_path_};
         this->action_store_.Save(store);
         this->heal_prediction_source_.Save(store);
-        for (const auto* module : this->modules_.All())
-            module->Save(store);
+        for (const auto* module : this->modules_.All()) module->Save(store);
+        for (const auto* module : this->modules_.All()) module->SaveScale(store);
+        if (this->scale_gesture_.module != nullptr)
+        {
+            const auto section = std::string{"hud.scale."} + this->scale_gesture_.module->Id();
+            store.WriteFloat(section.c_str(), "x", this->scale_gesture_.original.x);
+            store.WriteFloat(section.c_str(), "y", this->scale_gesture_.original.y);
+            store.WriteRect((std::string{"layout."} + this->scale_gesture_.module->Id()).c_str(), this->scale_gesture_.original_bounds);
+        }
         this->combat_settings_.Save(store);
         if (this->config_.focus.moving)
             store.WriteRect((std::string{"layout."} + this->config_.focus.moving_id).c_str(), this->config_.focus.move_original);
@@ -1820,6 +1960,10 @@ namespace xiui
         store.WriteInt("layout.config", "width_version", 1);
         store.WriteInt("layout.config", "height_version", 1);
         this->SaveConfigSelection(store);
+        store.WriteBool("session.setup", "pending", this->setup_.pending);
+        store.WriteInt("session.setup", "step", static_cast<int>(this->setup_.step));
+        store.WriteInt("session.setup", "revealed", static_cast<int>(this->setup_.revealed));
+        store.WriteInt("session.setup", "version", 1);
         WriteLayoutViewport(store, this->layout_viewport_);
         return store;
     }
@@ -1949,20 +2093,8 @@ namespace xiui
             value.y = std::clamp(value.y, 0.0f, std::max(0.0f, static_cast<float>(viewport.Height) - value.height));
         };
         for (auto* module : this->modules_.All())
-        {
-            if (!module->HasEditableBounds())
-                continue;
-            auto& state = module->State();
-            state.maximum_width = std::max(state.minimum_width, static_cast<float>(viewport.Width));
-            state.bounds.width = std::clamp(state.bounds.width, state.minimum_width, state.maximum_width);
-            auto* chat = module == &this->chat_ ? &this->chat_ : module == &this->chat_second_ ? &this->chat_second_ : nullptr;
-            const float tabsHeight = chat != nullptr ? state.bounds.y - chat->VisualBounds(this->design_system_).y : 0.0f;
-            state.bounds.height = std::clamp(state.bounds.height, state.minimum_height, std::max(state.minimum_height, static_cast<float>(viewport.Height) - tabsHeight));
-            if (!module->PositionBoundsReady()) continue;
-            const rect editBounds = this->MovementBounds(*module);
-            state.bounds.x += std::clamp(editBounds.x, 0.0f, std::max(0.0f, static_cast<float>(viewport.Width) - editBounds.width)) - editBounds.x;
-            state.bounds.y += std::clamp(editBounds.y, 0.0f, std::max(0.0f, static_cast<float>(viewport.Height) - editBounds.height)) - editBounds.y;
-        }
+            module->State().maximum_width = std::max(module->State().minimum_width, static_cast<float>(viewport.Width));
+        this->ResolveHudTransforms(viewport);
         auto visibleConfig = this->ConfigVisibleBounds();
         clampRect(visibleConfig, std::min(this->ConfigLayout().MinimumWidth(), static_cast<float>(viewport.Width)),
             std::min(this->config_.collapsed ? 32.0f : this->ConfigLayout().MinimumHeight(), static_cast<float>(viewport.Height)));
@@ -1975,6 +2107,7 @@ namespace xiui
     {
         if (!this->visible_) return 0;
         const auto x = static_cast<float>(this->mouse_x_), y = static_cast<float>(this->mouse_y_);
+        if (const auto* module = this->EditGripAt(x, y)) return 0x600000000ULL | reinterpret_cast<uintptr_t>(module);
         if (this->TreasureInputAvailable(true))
             if (const auto target = this->treasure_.SoundTarget(x, y)) return 0x500000000ULL | target;
         if (!this->editing_ && this->ContextVisible(this->ready_check_) && !this->chat_.HistoryExpanded() && this->ready_check_.Contains(x, y))
@@ -1987,9 +2120,9 @@ namespace xiui
             const auto target = chat->SoundTarget(this->design_system_, x, y, this->editing_);
             return target != 0 ? (chat == &this->chat_ ? 0x200000000ULL : 0x300000000ULL) | target : 0;
         }
-        if (this->ContextVisible(this->equipment_) && this->equipment_.State().enabled && (this->editing_ || this->equipment_.ShouldRender({})))
+        if (this->ModuleDisplayed(this->equipment_))
             for (size_t index = 0; index < equipment_grid_order.size(); ++index)
-                if (Contains(this->equipment_.SlotBounds(index), x, y)) return 0x400000000ULL | (index + 1);
+                if (Contains(this->equipment_.State().transform.Map(this->equipment_.SlotBounds(index)), x, y)) return 0x400000000ULL | (index + 1);
         if (this->editing_ || this->chat_.Focused()) return 0;
         const auto* memory = this->core_ != nullptr ? this->core_->GetMemoryManager() : nullptr;
         const auto* target = memory != nullptr ? memory->GetTarget() : nullptr;
@@ -2014,7 +2147,7 @@ namespace xiui
             const bool config = this->editing_ && (this->ProfileSurface(viewport) || this->config_.choice_input.Opened() || Contains(this->ConfigVisibleBounds(), x, y) ||
                 (this->config_.active_color != nullptr && Contains(this->ConfigLayout().ColorEditor(viewport), x, y)));
             if (!config)
-                if (auto* chat = this->ChatAt(x, y); chat != nullptr) chat->SetHovered(Contains(chat->State().bounds, x, y));
+                if (auto* chat = this->ChatAt(x, y); chat != nullptr) chat->SetHovered(Contains(chat->State().transform.Map(chat->State().bounds), x, y));
             target = config ? this->ConfigSoundTarget(viewport) : this->HudSoundTarget();
         }
         const bool enabled = active && this->interaction_ == interaction::none && !this->mouse_down_ &&
@@ -2031,6 +2164,21 @@ namespace xiui
         auto* properties = this->core_->GetProperties();
         const HWND gameWindow = properties != nullptr ? properties->GetFinalFantasyHwnd() : nullptr;
         this->cursor_renderer_.SetNativeWindow(gameWindow);
+        if (this->SetupVisible())
+        {
+            POINT cursor{};
+            const bool active = gameWindow != nullptr && ::GetForegroundWindow() == gameWindow &&
+                ::GetCursorPos(&cursor) != FALSE && ::ScreenToClient(gameWindow, &cursor) != FALSE;
+            if (active) { this->mouse_x_ = cursor.x; this->mouse_y_ = cursor.y; }
+            this->SetChatMouseCapture(active);
+            this->cursor_renderer_.SetNativeCursorHidden(active);
+            uint64_t hover{};
+            for (const auto& item : this->SetupItems(viewport))
+                if (active && Contains(item.bounds, static_cast<float>(this->mouse_x_), static_cast<float>(this->mouse_y_)))
+                    hover = 0x700000000ULL + this->setup_.step * 32 + static_cast<size_t>(item.id);
+            this->ui_sounds_.Hover(hover, ::GetTickCount64(), active && this->setup_.pointer_buttons == 0);
+            return;
+        }
         if (!this->editing_)
         {
             POINT cursor{};
@@ -2043,7 +2191,8 @@ namespace xiui
             this->satchel_.SetHover(satchel ? static_cast<float>(cursor.x) : -1, satchel ? static_cast<float>(cursor.y) : -1);
             if (!active || !this->ContextVisible(this->ready_check_)) this->ready_check_.CancelPointer();
             if (this->ContextVisible(this->ready_check_)) this->ready_check_.SetHover(static_cast<float>(cursor.x), static_cast<float>(cursor.y));
-            this->SetChatMouseCapture(active && ((satchel && this->satchel_.PointerOwns(static_cast<float>(cursor.x), static_cast<float>(cursor.y))) ||
+            this->SetChatMouseCapture(active && (this->setup_.pointer_buttons != 0 || this->satchel_pointer_release_ != 0 || this->actionbar_pointer_release_ != 0 ||
+                (satchel && this->satchel_.PointerOwns(static_cast<float>(cursor.x), static_cast<float>(cursor.y))) ||
                 (actionbars && this->actionbars_.PointerOwns(static_cast<float>(cursor.x), static_cast<float>(cursor.y))) ||
                 this->treasure_.PointerDown() || (this->TreasureInputAvailable(true) && this->treasure_.Contains(static_cast<float>(cursor.x), static_cast<float>(cursor.y))) ||
                 (this->ContextVisible(this->ready_check_) && (this->ready_check_.PointerDown() || this->ready_check_.Contains(static_cast<float>(cursor.x), static_cast<float>(cursor.y)))) ||
@@ -2091,6 +2240,17 @@ namespace xiui
     auto hud_runtime::ProcessPointerMessage(const uint32_t message, const uint32_t buttons, const D3DVIEWPORT8& viewport) -> bool
     {
         const bool captured = this->UpdateMouseCapture(viewport, buttons);
+        if ((message == WM_RBUTTONDOWN || message == WM_RBUTTONDBLCLK) && this->module_menu_target_ != nullptr)
+        { this->CloseChoiceInput(); return captured; }
+        if (message == WM_LBUTTONUP && this->module_menu_target_ != nullptr && this->mouse_down_)
+        {
+            const auto index = this->config_.choice_input.IndexAt(static_cast<float>(this->mouse_x_), static_cast<float>(this->mouse_y_), viewport);
+            const auto pressed = this->module_menu_pressed_;
+            this->module_menu_pressed_.reset(); this->mouse_down_ = false;
+            this->FinishInteraction();
+            if (index && index == pressed) this->SelectChoiceInput(*index);
+            return captured;
+        }
         if (this->config_.choice_input.HandleScrollPointer(message, static_cast<float>(this->mouse_x_), static_cast<float>(this->mouse_y_), viewport))
         {
             if (message == WM_LBUTTONDOWN || message == WM_LBUTTONDBLCLK) this->mouse_down_ = true;
@@ -2122,27 +2282,42 @@ namespace xiui
 
         if (message == WM_LBUTTONUP && this->mouse_down_)
         {
-            const bool closeConfig = this->interaction_ == interaction::close_config &&
-                Contains(this->ConfigLayout().CloseButton(), static_cast<float>(this->mouse_x_), static_cast<float>(this->mouse_y_));
+            const auto closing = this->interaction_;
+            const bool activateClose = Contains(this->close_button_, static_cast<float>(this->mouse_x_), static_cast<float>(this->mouse_y_));
             this->mouse_down_ = false;
             this->FinishInteraction();
-            if (closeConfig) this->SetEditing(false);
+            if (activateClose)
+            {
+                if (closing == interaction::close_config) this->SetEditing(false);
+                else if (closing == interaction::close_color) this->config_.active_color = nullptr;
+                else if (closing == interaction::close_profile) this->CloseProfileControls();
+            }
         }
         return captured;
     }
 
+    auto hud_runtime::BeginCloseInteraction(const interaction closing, const rect& button) -> void
+    {
+        this->interaction_ = closing;
+        this->close_button_ = button;
+    }
+
     auto hud_runtime::FinishInteraction(void) -> void
     {
+        if (this->interaction_ == interaction::scale_module) { this->FinishScale(!this->mouse_down_); return; }
         const auto completed = this->interaction_;
+        this->config_.sidebar_scrolling = false;
         if (completed == interaction::color_pick) this->config_.color_picker.EndDrag();
         if (completed == interaction::drag_module && this->interaction_module_ != nullptr)
             this->interaction_module_->OnPositionChanged();
         this->interaction_ = interaction::none;
+        this->close_button_ = {};
         this->interaction_module_ = nullptr;
         this->config_.active_slider = nullptr;
         this->layout_snap_ = {};
         this->layout_snap_targets_.clear();
-        if (completed != interaction::none && completed != interaction::close_config && completed != interaction::option_scrollbar)
+        if (completed != interaction::none && completed != interaction::close_config && completed != interaction::close_color &&
+            completed != interaction::close_profile && completed != interaction::option_scrollbar)
             this->SaveSettings();
     }
 
@@ -2163,12 +2338,13 @@ namespace xiui
         {
             const float x = static_cast<float>(this->mouse_x_);
             const float y = static_cast<float>(this->mouse_y_);
-            this->mouse_captured_ = this->ActionBarsPointerOwns(x, y) ||
+            this->mouse_captured_ = this->satchel_pointer_release_ != 0 || this->actionbar_pointer_release_ != 0 || this->ActionBarsPointerOwns(x, y) ||
                 this->ProfileSurface(viewport) || this->config_.choice_input.Opened() || this->config_.input_mode_menu || this->config_.search_open || this->interaction_ != interaction::none || Contains(this->ConfigVisibleBounds(), x, y) ||
                 (this->config_.active_color != nullptr && Contains(this->ConfigLayout().ColorEditor(viewport), x, y));
             if (const auto toolbar = this->MovementToolbar(viewport); toolbar && Contains(toolbar->bounds, x, y)) this->mouse_captured_ = true;
+            if (this->EditGripAt(x, y) != nullptr) this->mouse_captured_ = true;
             for (const auto* module : this->modules_.All())
-                this->mouse_captured_ = this->mouse_captured_ || (module->HasEditableBounds() && module->PreviewVisible() && Contains(module->State().EditBounds(), x, y));
+                this->mouse_captured_ = this->mouse_captured_ || (module->HasEditableBounds() && this->ModuleDisplayed(*module) && Contains(this->MovementBounds(*module), x, y));
         }
         this->mouse_buttons_ = buttons;
         if (this->mouse_ != nullptr && this->mouse_block_state_saved_)
@@ -2183,7 +2359,7 @@ namespace xiui
         const float y = static_cast<float>(this->mouse_y_);
 
         const auto tryPanel = [this, x, y](rect& bounds, hud_module* module) -> bool {
-            const rect dragArea = module == nullptr ? this->ConfigLayout().HeaderDragArea() : module->State().EditBounds();
+            const rect dragArea = module == nullptr ? this->ConfigHeaderDragArea() : this->MovementBounds(*module);
             if (Contains(dragArea, x, y))
             {
                 if (module != nullptr)
@@ -2206,9 +2382,10 @@ namespace xiui
         if (tryPanel(this->config_.bounds, nullptr))
             return;
         auto& modules = this->modules_.All();
+        if (auto* module = this->EditGripAt(x, y)) { this->BeginScale(*module); return; }
         for (auto module = modules.rbegin(); module != modules.rend(); ++module)
         {
-            if ((*module)->HasEditableBounds() && (*module)->PreviewVisible() && tryPanel((*module)->State().bounds, *module))
+            if ((*module)->HasEditableBounds() && (*module)->CanMove() && this->ModuleDisplayed(**module) && tryPanel((*module)->State().bounds, *module))
                 return;
         }
     }
@@ -2217,12 +2394,17 @@ namespace xiui
     {
         if (this->interaction_ == interaction::none)
             return;
-        if (this->interaction_module_ != nullptr && !this->interaction_module_->PreviewVisible())
+        if (this->interaction_module_ != nullptr && !this->ModuleDisplayed(*this->interaction_module_))
         {
-            this->FinishInteraction();
+            this->FinishScale(false); this->FinishInteraction();
             return;
         }
 
+        if (this->interaction_ == interaction::scale_module)
+        {
+            if (this->mouse_down_) this->UpdateScale(static_cast<float>(this->mouse_x_), static_cast<float>(this->mouse_y_));
+            return;
+        }
         if (this->interaction_ == interaction::resize_config)
         {
             if (this->mouse_down_)
@@ -2300,6 +2482,7 @@ namespace xiui
         this->chat_alerts_ready_ = true;
         this->timing_ready_ = true;
         auto snapshot = incoming;
+        this->layout_snapshot_ = snapshot;
         this->native_ui_ = snapshot.native_ui;
         this->UpdateVisibilityContext();
         const bool settingsFailed = this->settings_writer_.HasFailed() || this->profile_writer_.HasFailed();
@@ -2320,6 +2503,7 @@ namespace xiui
             this->chat_second_.SetNativeTimestamps(timestamps);
             this->chat_.SetNativeWindowConfig(this->window_config_.ChatWindow());
             this->chat_second_.SetNativeWindowConfig(this->window_config_.ChatWindow(true));
+            if (!this->ControllerNativeBusy() && this->chat_.InitializeNativeWindows(this->window_config_.ChatWindowCount())) this->SaveSettings();
             this->next_chat_palette_update_ = now + 500;
         }
         if (this->chat_colors_.available) snapshot.chat_colors = this->chat_colors_;
@@ -2347,8 +2531,8 @@ namespace xiui
         this->experience_.Update(this->core_, now);
         this->party_source_.SetUtc(this->experience_.Utc(), now);
         this->party_source_.Update(this->core_, now);
-        this->blue_magic_.Update(now, this->editing_);
-        this->phantom_roll_.Update(now, this->editing_);
+        this->blue_magic_.Update(now, this->ConfigPreview(this->blue_magic_));
+        this->phantom_roll_.Update(now, this->ConfigPreview(this->phantom_roll_));
         this->game_icons_.SetThemes(this->general_.StatusIconTheme(), this->general_.JobIconTheme());
         this->party_timing_source_.Update(this->party_source_.Members(), this->party_source_.Members()[0].id, &this->timing_source_, now);
         for (auto* group : {&this->party_, &this->alliance_first_, &this->alliance_second_}) group->SetTiming(&this->party_timing_source_);
@@ -2387,7 +2571,6 @@ namespace xiui
         auto* properties = this->core_ != nullptr ? this->core_->GetProperties() : nullptr;
         this->general_.SetClipboardOwner(properties != nullptr ? properties->GetFinalFantasyHwnd() : nullptr);
         if ((!this->chat_.State().enabled && (this->chat_.Focused() || this->chat_pointer_ != nullptr)) || (this->chat_pointer_ != nullptr && !this->chat_pointer_->WindowVisible()) ||
-            (properties != nullptr && ::GetForegroundWindow() != properties->GetFinalFantasyHwnd()) ||
             (this->mouse_capture_window_ != nullptr && ::GetCapture() != this->mouse_capture_window_)) this->ReleaseChatInput(!this->GameWindowFocused());
         if (!this->visible_ || this->device_ == nullptr)
         {
@@ -2395,7 +2578,7 @@ namespace xiui
             return;
         }
 
-        if (this->ContextVisible(this->chat_) && this->chat_.WindowVisible() && this->chat_capture_available_ &&
+        if (!this->setup_.pending && this->ContextVisible(this->chat_) && this->chat_.WindowVisible() && this->chat_capture_available_ &&
             (this->game_hud_.HiddenMask() & NativeHudBit(native_hud_element::chat1)) != 0 && properties != nullptr &&
             ::GetForegroundWindow() == properties->GetFinalFantasyHwnd())
         {
@@ -2409,17 +2592,23 @@ namespace xiui
         if (FAILED(this->device_->GetViewport(&viewport)))
             return;
         this->commands_.Update(snapshot.native_ui, static_cast<float>(viewport.Width), static_cast<float>(viewport.Height));
+        this->container_renderer_.SetAppearanceTheme(this->general_.AppearanceTheme());
+        this->design_system_.SetAppearanceTheme(this->general_.AppearanceTheme());
         if (this->native_ui_.window_type_available) this->container_renderer_.SelectSkin(this->native_ui_.window_type);
         this->design_system_.SetWindowPalette(this->container_renderer_.BackgroundColor());
         this->EnsureLayout(viewport);
+        this->UpdateSetup();
         this->chat_.SetStackPeerVisible(this->ContextVisible(this->chat_second_));
         this->chat_second_.SetStackPeerVisible(this->ContextVisible(this->chat_));
         for (auto* chat : {&this->chat_, &this->chat_second_})
         {
-            chat->SetLayoutEditing(this->editing_);
+            const auto scope = this->design_system_.Transform(chat->State().transform);
+            chat->SetLayoutEditing(this->ConfigPreview(*chat) || (this->SetupVisible() && this->SetupModule() == &this->chat_));
             chat->UpdateCompactLayout(this->design_system_, now);
         }
+        this->ResolveHudTransforms(viewport);
         this->ProcessInput(viewport);
+        this->ResolveHudTransforms(viewport);
         this->chat_.SetHistoryViewport({static_cast<float>(viewport.X), static_cast<float>(viewport.Y), static_cast<float>(viewport.Width), static_cast<float>(viewport.Height)});
         this->chat_second_.SetHistoryViewport({static_cast<float>(viewport.X), static_cast<float>(viewport.Y), static_cast<float>(viewport.Width), static_cast<float>(viewport.Height)});
         this->design_system_.SetDarkBackingOpacity(this->general_.DarkBackingOpacity());
@@ -2435,32 +2624,36 @@ namespace xiui
             throw std::runtime_error{"injected render failure"};
 #endif
 
-        const module_render_context context{this->design_system_, &this->container_renderer_, this->editing_, &this->game_icons_,
+        const module_render_context context{this->design_system_, &this->container_renderer_, false, &this->game_icons_,
+            {static_cast<float>(viewport.X), static_cast<float>(viewport.Y), static_cast<float>(viewport.Width), static_cast<float>(viewport.Height)}, &this->native_assets_, &this->general_.HealthFeedback()};
+        const module_render_context previewContext{this->design_system_, &this->container_renderer_, true, &this->game_icons_,
             {static_cast<float>(viewport.X), static_cast<float>(viewport.Y), static_cast<float>(viewport.Width), static_cast<float>(viewport.Height)}, &this->native_assets_, &this->general_.HealthFeedback()};
         if (this->editing_) this->DrawLayoutBackground(context.Viewport());
         this->target_.BeginRenderFrame();
         this->notifications_.BeginRenderFrame();
-        if (this->ContextVisible(this->chat_bubbles_)) this->chat_bubbles_.Render(snapshot, context);
+
         for (auto* module : this->modules_.All())
         {
             if (!this->editing_ && module == &this->satchel_) continue;
-            if (this->ContextVisible(*module) && module->HasEditableBounds() && (this->editing_ ? module->PreviewVisible() : module->ShouldRender(snapshot)))
+            if (this->SetupVisible() && module == this->SetupModule()) continue;
+            if (module->HasEditableBounds() && this->ModuleDisplayed(*module))
             {
                 this->design_system_.BeginContentBounds();
-                module->Render(snapshot, context);
+                { const auto transform = this->design_system_.Transform(module->State().transform); module->Render(snapshot, this->ConfigPreview(*module) ? previewContext : context); }
                 const rect content = this->design_system_.EndContentBounds();
                 auto& state = module->State();
                 if (this->editing_)
                     state.content_bounds = {content.x - state.bounds.x, content.y - state.bounds.y, content.width, content.height};
-                if (this->editing_)
-                    this->design_system_.DrawEditFrame(state.EditBounds());
+                if (this->ModuleEditControlsVisible(*module))
+                    this->design_system_.DrawEditFrame(this->MovementBounds(*module));
             }
         }
-        if (this->ContextVisible(this->target_) && this->target_.State().enabled) this->target_.RenderWorldBar(snapshot, context);
+        if ((!this->editing_ || !this->config_.edit_mode) && this->ContextVisible(this->target_) && this->ContextVisible(this->world_target_scale_) && this->target_.State().enabled) this->target_.RenderWorldBar(snapshot, context);
         const bool floatingActions = this->actionbars_.FloatingWindowOpen() && !this->actionbars_.WindowFocused() && !this->actionbars_.ModalDialogOpen();
         if (floatingActions) this->actionbars_.RenderOverlay(context);
         if (this->editing_)
         {
+            this->DrawScaleGrips();
             this->DrawMovementToolbar(viewport);
             this->DrawConfig(viewport);
             this->DrawColorEditor(viewport);
@@ -2486,11 +2679,12 @@ namespace xiui
             if (const auto detail = this->notifications_.DetailAt(static_cast<float>(this->mouse_x_), static_cast<float>(this->mouse_y_)))
                 this->config_controls_.Tooltip(this->notifications_.Details(detail->id).c_str(), detail->bounds, viewport);
         this->DrawStatusTooltips(viewport, context);
-        if (!this->editing_ && this->ContextVisible(this->satchel_) && this->satchel_.ShouldRender(snapshot)) this->satchel_.Render(snapshot, context);
+        if (!this->editing_ && this->ContextVisible(this->satchel_) && this->satchel_.ShouldRender(snapshot)) { const auto transform = this->design_system_.Transform(this->satchel_.State().transform); this->satchel_.Render(snapshot, context); }
         this->DrawControllerOverlay(viewport, context);
         if (this->SatchelInputAvailable(true)) this->satchel_.RenderOverlay(context);
         if (!floatingActions && (this->ActionBarsInputAvailable(false, true) || this->actionbars_.FloatingWindowOpen())) this->actionbars_.RenderOverlay(context);
         if (this->TreasureInputAvailable(true)) this->treasure_.RenderOverlay(context, this->general_.ConfigText(), static_cast<float>(this->mouse_x_), static_cast<float>(this->mouse_y_));
+        this->DrawSetup(snapshot, viewport);
         if (this->editing_ || this->chat_mouse_block_saved_) this->DrawCursor(viewport);
     }
 
@@ -2506,7 +2700,10 @@ namespace xiui
             this->ChatResizeAt(static_cast<float>(this->mouse_x_), static_cast<float>(this->mouse_y_))));
         const auto edges = actionPointer ? actionEdges : this->editing_ ? this->interaction_ == interaction::resize_config ? this->config_resize_edges_ :
             this->ConfigResizeEdges(x, y) : uint8_t{};
-        const bool mirror = chatResize || edges == (ui::resize_left | ui::resize_bottom) || edges == (ui::resize_right | ui::resize_top);
+        const bool editGrip = this->editing_ && (this->interaction_ == interaction::scale_module ||
+            (!Contains(this->ConfigVisibleBounds(), x, y) && this->EditGripAt(x, y) != nullptr));
+        const bool mirror = !chatResize && !editGrip &&
+            (edges == (ui::resize_left | ui::resize_top) || edges == (ui::resize_right | ui::resize_bottom));
         this->cursor_renderer_.Draw(
             this->design_system_,
             actionPointer ? this->actionbars_.PointerCursor(x, y) : chatResize ? cursor_shape::resize_diagonal : this->editing_ ? this->ResolveCursorShape(viewport) : cursor_shape::arrow,

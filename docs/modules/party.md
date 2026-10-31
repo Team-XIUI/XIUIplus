@@ -8,4 +8,14 @@ One module family renders Party and both Alliance groups, with resource bars, jo
 
 **Focused check:** `./scripts/check.ps1 -Name party-entry`; choose `party-presets` or `party-name-cast` for those boundaries.
 
+Classic, XIV and fresh-install defaults show job icons with job/subjob text disabled. Advanced Text → Jobs can enable the text again.
+
+Party/alliance leader dots use the existing leader server IDs and draw in the reserved gap immediately before the name, after job artwork so icons cannot cover the marker. Each list's General → Show party leader toggle starts enabled and persists as `show_leader`; disabling it also removes the reserved name gap.
+
+The global XIV 1.0 theme renders transparent entries with aligned 12-pixel gauges, champagne-gold labels and rim-overlapping lining italic values. Job icons are omitted in this theme while their saved preference remains intact. Number-only TP uses a compact label/value line; bar TP uses one blue 0–3000 track with threshold marks. HP width fits the equal-width pair; HP X/Y offsets move their common row, with Y kept below the name. Independent MP placement remains saved for Native. Shared resource geometry bounds legacy text offsets near the rim and keeps HP/MP values on one baseline. The theme always includes its small resource labels; Text → Bar labels profile visibility still applies. Native's Bar labels toggle and saved text offsets remain independent. The transient theme flag feeds row, pointer, controller and status layout without changing saved styles, positions or formats.
+
+Full party preview marks its first row as the sample leader, including when that row uses a live member. The Show party leader toggle applies immediately. Basic preset cards also include a sample leader.
+
+Classic uses full-width HP above TP on the left and MP on the right, without a left TP column. Its name/icon offsets start the icon at the content edge. A versioned migration corrects only the old Classic spacing signature; custom resource layouts and moved panels retain their preferences. The older MP below HP, TP left layout remains available independently.
+
 [Detailed guide](../reference/party-jobs.md) · [Shared foundations](../foundations.md) · [Check commands](../../tests/README.md)

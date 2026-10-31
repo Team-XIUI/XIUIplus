@@ -19,15 +19,17 @@ namespace xiui
         auto ResetDefaults(const ui::theme& theme) -> void override;
         auto Load(const settings_store& store) -> void override;
         auto Save(const settings_store& store) const -> void override;
-        auto OptionCount(void) const -> size_t override { return 9 + text_profile_option_count; }
-        auto Option(size_t index) -> module_option override;
+        auto ContentOptionCount(void) const -> size_t override { return 9 + text_profile_option_count; }
+        auto ContentOption(size_t index) -> module_option override;
         auto ConfigSections(void) const -> std::span<const module_config_section> override;
-        auto ConfigSectionContains(size_t section, size_t index) -> bool override;
-        auto OnOptionChanged(size_t index) -> void override;
+        auto ContentConfigSectionContains(size_t section, size_t index) -> bool override;
+        auto OnContentOptionChanged(size_t index) -> void override;
         auto HasEditableBounds(void) const -> bool override { return !this->Independent(); }
         auto PreviewVisible(void) const -> bool override { return this->state_.enabled && !this->Independent() && (this->time_ || this->day_ || this->weather_ || this->date_); }
         auto ShouldRender(const hud_snapshot&) const -> bool override { return this->PreviewVisible() && this->data_ != nullptr && (this->data_->time_valid || this->data_->weather_valid); }
         auto Render(const hud_snapshot&, const module_render_context& context) -> void override;
+        auto ConfigScaleEditable(void) const -> bool override { return true; }
+        auto ConfigScaleState(void) -> module_state& override { return this->Independent() ? this->parts_[this->SelectedPart()] : this->state_; }
         auto Independent(void) const -> bool { return this->layout_ == 2; }
         auto InitializeParts(void) -> void;
         auto SelectedPart(void) const -> size_t { return static_cast<size_t>(this->selected_part_); }
@@ -69,13 +71,14 @@ namespace xiui
         auto PreviewVisible(void) const -> bool override { return this->HasEditableBounds() && this->parent_.PartEnabled(this->index_); }
         auto PositionBoundsReady(void) const -> bool override { return this->State().bounds.x >= 0 && this->State().bounds.y >= 0; }
         auto ResetDefaults(const ui::theme&) -> void override { this->State().content_bounds = {}; }
+        auto ResetSettingsFrom(const hud_module& defaults, const ui::theme&) -> void override;
         auto Load(const settings_store&) -> void override {}
         auto Save(const settings_store&) const -> void override {}
-        auto OptionCount(void) const -> size_t override { return this->parent_.OptionCount(); }
-        auto Option(size_t index) -> module_option override { return this->parent_.Option(index); }
+        auto ContentOptionCount(void) const -> size_t override { return this->parent_.ContentOptionCount(); }
+        auto ContentOption(size_t index) -> module_option override { return this->parent_.Option(index); }
         auto ConfigSections(void) const -> std::span<const module_config_section> override { return this->parent_.ConfigSections(); }
-        auto ConfigSectionContains(size_t section, size_t index) -> bool override { return this->parent_.ConfigSectionContains(section, index); }
-        auto OnOptionChanged(size_t index) -> void override { this->parent_.OnOptionChanged(index); }
+        auto ContentConfigSectionContains(size_t section, size_t index) -> bool override { return this->parent_.ConfigSectionContains(section, index); }
+        auto OnContentOptionChanged(size_t index) -> void override { this->parent_.OnOptionChanged(index); }
         auto ShouldRender(const hud_snapshot&) const -> bool override;
         auto Render(const hud_snapshot&, const module_render_context& context) -> void override { this->parent_.RenderPart(this->index_, context); }
     private:

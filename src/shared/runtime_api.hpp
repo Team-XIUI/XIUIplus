@@ -4,13 +4,14 @@
 #include "chat_data.hpp"
 #include "native_menu_data.hpp"
 #include "controller_input.hpp"
+#include "keyboard_input.hpp"
 
 #include <cstdint>
 #include <array>
 
 namespace xiui
 {
-    inline constexpr uint32_t runtime_abi_version = 19;
+    inline constexpr uint32_t runtime_abi_version = 20;
 
     struct world_party_anchor
     {
@@ -110,6 +111,7 @@ namespace xiui
         void (__stdcall* update_controller_status)(void* instance, const controller_status* status){};
         BOOL (__stdcall* render_world)(void* instance, const hud_snapshot* snapshot){};
         void (__stdcall* crossbar_settings)(void* instance, controller_crossbar_settings* settings){};
+        uint32_t (__stdcall* keyboard_input_state)(void* instance){};
     };
 
     using get_runtime_api_fn = BOOL(__stdcall*)(uint32_t hostAbiVersion, runtime_api* api);

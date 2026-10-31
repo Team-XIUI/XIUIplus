@@ -46,7 +46,7 @@ int main(const int argc, char** argv)
         for (const auto& item : {fixture{101, "assets/cursors/pointer.bgra"}, fixture{201, "assets/jobs/xivparty.bgra"},
             fixture{205, "assets/recast/recast.bgra"}, fixture{701, "assets/mobs/phoenix_mobs.bin"},
             fixture{800, "assets/icon-themes/status-hd.bgra"}, fixture{1100, "assets/actionbars/actions.bgra"},
-            fixture{1102, "assets/actionbars/vincerno/icons.bgra"}})
+            fixture{1102, "assets/actionbars/vincerno/icons.bgra"}, fixture{850, "assets/xiv1/theme.bgra"}})
         {
             std::ifstream file{root / item.path, std::ios::binary};
             const std::vector<uint8_t> original{std::istreambuf_iterator<char>{file}, {}};

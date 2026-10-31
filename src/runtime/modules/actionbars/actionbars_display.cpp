@@ -182,20 +182,20 @@ namespace xiui
         {
             if (!this->BarVisible(index)) continue;
             const auto& bar = this->bars_[index];
-            if (!Contains(bar.state.bounds, x, y)) continue;
+            if (!Contains(bar.state.transform.Map(bar.state.bounds), x, y)) continue;
             const bool crossbar = index == action_bar_count;
             const address header{crossbar ? action_surface::crossbar : action_surface::hotbar, crossbar ? static_cast<size_t>(this->selected_bank_) : index, 0};
             for (const auto& [bounds, id] : {std::pair{this->BarNumberBounds(index), 5}, {this->LockBounds(index), 4}, {this->MenuBounds(index), 2}, {this->PaletteBounds(index), 1}})
-                if (Contains(bounds, x, y)) return hit{header, bounds, id};
+                if (Contains(bar.state.transform.Map(bounds), x, y)) return hit{header, bar.state.transform.Map(bounds), id};
             const auto groups = crossbar ? this->CrossbarGroups() : std::vector<size_t>{index};
             for (const auto group : groups)
                 for (size_t slot = 0; slot < (crossbar ? action_crossbar_slots : static_cast<size_t>(bar.slots)); ++slot)
                 {
                     const address value{header.surface, group, slot}; const auto cell = this->SlotBounds(value);
-                    if (!Contains(cell, x, y)) continue;
+                    if (!Contains(bar.state.transform.Map(cell), x, y)) continue;
                     const bool assigning = !bar.locked || this->library_drag_.has_value() || this->placing_;
                     if (this->store_ && this->store_->Resolve(value.surface, value.bar, value.slot).Empty() && !bar.empty && !assigning && !this->crossbar_preview_) continue;
-                    return hit{value, cell, 0};
+                    return hit{value, bar.state.transform.Map(cell), 0};
                 }
         }
         return {};
@@ -213,7 +213,7 @@ namespace xiui
         const bool assigning = !bar.locked || context.IsEditing() || this->library_drag_.has_value() || this->placing_;
         if (slot.Empty() && !bar.empty && !assigning) return;
         const auto& design = context.Design();
-        const bool hovered = !outgoing && this->dialog_ == dialog::none && Contains(cell, this->hover_x_, this->hover_y_) && (!this->pointer_down_ || this->library_drag_ || this->placing_ || this->dragging_);
+        const bool hovered = !outgoing && this->dialog_ == dialog::none && Contains(context.Design().Transform().Map(cell), this->hover_x_, this->hover_y_) && (!this->pointer_down_ || this->library_drag_ || this->placing_ || this->dragging_);
         const auto key = static_cast<uint32_t>((value.surface == action_surface::crossbar ? 256 : 0) + value.bar * 16 + value.slot);
         const bool held = !outgoing && value.surface == action_surface::crossbar && this->held_slots_[value.bar][value.slot];
         const bool mousePressed = this->pointer_down_ && this->dialog_ == dialog::none && this->down_header_ == 0 && this->pressed_ == value && !this->dragging_;

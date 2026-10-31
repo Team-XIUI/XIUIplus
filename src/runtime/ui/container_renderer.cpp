@@ -1,10 +1,22 @@
 #include "container_renderer.hpp"
 #include "resources/menu_texture_scale.hpp"
+#include "resources/embedded_resource.hpp"
 
 #include <fstream>
 
+extern "C" IMAGE_DOS_HEADER __ImageBase;
+
 namespace xiui::ui
 {
+    namespace
+    {
+        auto Xiv1FrameScale(const rect& bounds, const container_style& style) -> float
+        {
+            const float requested = std::max(.01f, style.edge_size / 5);
+            return std::min(requested, std::max(.01f, std::min(bounds.width, bounds.height) / 48));
+        }
+    }
+
     container_renderer::~container_renderer(void) { this->Shutdown(); }
 
     auto container_renderer::CorrectWindowFrame(resources::menu_window& window, const uint8_t type) -> void
@@ -59,6 +71,7 @@ namespace xiui::ui
         this->ReleaseTextures();
         this->device_ = device;
         if (device == nullptr) return true;
+        this->LoadAppearanceAssets();
         for (auto& window : this->windows_)
         {
             if (!window.source) continue;
@@ -104,6 +117,11 @@ namespace xiui::ui
 
     auto container_renderer::ReleaseTextures(void) -> void
     {
+        this->xiv1_window_ = {};
+        this->xiv1_meter_.reset();
+        if (this->xiv1_atlas_ != nullptr) this->xiv1_atlas_->Release();
+        if (this->xiv1_fabric_ != nullptr) this->xiv1_fabric_->Release();
+        this->xiv1_atlas_ = this->xiv1_fabric_ = nullptr;
         for (auto& window : this->windows_)
         {
             window.variants = {};
@@ -116,8 +134,72 @@ namespace xiui::ui
         this->device_ = nullptr;
     }
 
+    auto container_renderer::LoadAppearanceAssets(void) -> void
+    {
+        const auto bytes = resources::LoadEmbeddedResource(reinterpret_cast<HMODULE>(&__ImageBase), 850, 8 + 256 * 256 * 4);
+        if (bytes.size() != 8 + 256 * 256 * 4) return;
+        uint32_t width{}, height{};
+        std::memcpy(&width, bytes.data(), 4); std::memcpy(&height, bytes.data() + 4, 4);
+        if (width != 256 || height != 256) return;
+        resources::menu_texture image{width, height, std::vector<uint32_t>(size_t{width} * height)};
+        std::memcpy(image.pixels.data(), bytes.data() + 8, image.pixels.size() * 4);
+        if (!this->CreateTexture(image, &this->xiv1_atlas_)) return;
+        resources::menu_texture fabric{64, 64, std::vector<uint32_t>(64 * 64)};
+        for (size_t y = 0; y < 64; ++y)
+            std::copy_n(image.pixels.data() + y * 256 + 160, 64, fabric.pixels.data() + y * 64);
+        if (!this->CreateTexture(fabric, &this->xiv1_fabric_)) return;
+
+        auto& window = this->xiv1_window_;
+        window.corner_size = 24;
+        window.edge_size = 8;
+        window.background_under_frame = true;
+        constexpr std::array<rect, 9> regions{{{1, 1, 24, 24}, {1, 33, 64, 8}, {27, 1, 24, 24},
+            {69, 33, 8, 64}, {0, 0, 64, 64}, {81, 33, 8, 64},
+            {53, 1, 24, 24}, {1, 45, 64, 8}, {79, 1, 24, 24}}};
+        for (size_t i = 0; i < regions.size(); ++i)
+        {
+            auto& tile = window.tiles[i];
+            tile.texture = i == 4 ? this->xiv1_fabric_ : this->xiv1_atlas_;
+            tile.source = regions[i];
+            tile.texture_width = tile.texture_height = i == 4 ? 64.0f : 256.0f;
+            tile.style.repeat_x = tile.style.repeat_y = i == 4;
+        }
+        const auto texture = [&](const rect& source) {
+            return meter_texture{this->xiv1_atlas_, {source.x / 256, source.y / 256, source.width / 256, source.height / 256}, {}, 256, 256};
+        };
+        meter_skin meter{};
+        meter.xiv1 = true;
+        meter.cap_ratio = 9.0f / 14;
+        meter.cap_gap = 0;
+        meter.fill = texture({96, 72, 64, 8});
+        meter.background = texture({96, 88, 64, 8});
+        meter.rim = texture({0, 112, 64, 14});
+        meter.left_cap = texture({72, 112, 9, 14});
+        meter.right_cap = texture({88, 112, 9, 14});
+        this->xiv1_meter_ = meter;
+    }
+
+    auto container_renderer::DrawXiv1TargetHeader(const design_system& design, const rect& bounds, const float opacity) const -> void
+    {
+        const auto alpha = static_cast<uint32_t>(255 * std::clamp(opacity, 0.0f, 1.0f));
+        design.DrawTexture(this->xiv1_atlas_, bounds, (alpha << 24) | 0xFFFFFF, {0, 144.0f / 256, 185.0f / 256, 16.0f / 256});
+    }
+
+    auto container_renderer::DrawXiv1ActionMedallion(const design_system& design, const rect& bounds, const float opacity) const -> void
+    {
+        const auto alpha = static_cast<uint32_t>(255 * std::clamp(opacity, 0.0f, 1.0f));
+        design.DrawTexture(this->xiv1_atlas_, bounds, (alpha << 24) | 0xFFFFFF, {192.0f / 256, 144.0f / 256, 59.0f / 256, 60.0f / 256});
+    }
+
+    auto container_renderer::DrawXiv1TitleSeparator(const design_system& design, const rect& bounds, const float opacity) const -> void
+    {
+        const auto alpha = static_cast<uint32_t>(255 * std::clamp(opacity, 0.0f, 1.0f));
+        design.DrawTexture(this->xiv1_atlas_, bounds, (alpha << 24) | 0xFFFFFF, {1.0f / 256, 33.0f / 256, 64.0f / 256, 8.0f / 256});
+    }
+
     auto container_renderer::MeterBackground(void) const -> meter_texture
     {
+        if (this->appearance_theme_ == 1 && this->xiv1_meter_) return this->xiv1_meter_->background;
         const auto& window = this->windows_[this->selected_];
         const auto& tile = window.variants[1].tiles[4];
         return {window.textures[5] != nullptr ? window.textures[5] : tile.texture, {tile.source.x / tile.texture_width, tile.source.y / tile.texture_height,
@@ -158,6 +240,8 @@ namespace xiui::ui
     auto container_renderer::DrawTooltip(const design_system& design, const rect& bounds) const -> rect
     {
         auto style = TooltipStyle();
+        if (this->appearance_theme_ == 1 && this->xiv1_fabric_ != nullptr)
+            return this->Draw(design, bounds, style);
         const auto& window = this->windows_[this->selected_];
         if (window.source)
         {
@@ -175,6 +259,41 @@ namespace xiui::ui
 
     auto container_renderer::Draw(const design_system& design, const rect& bounds, const container_style& style, const std::span<const container_fill> fills, const horizontal_fade* fade) const -> rect
     {
+        if (this->appearance_theme_ == 1 && this->xiv1_fabric_ != nullptr)
+        {
+            const float scale = Xiv1FrameScale(bounds, style);
+            const float inset = std::min({8 * scale, bounds.width * .5f, bounds.height * .5f});
+            const auto opacity = std::clamp(style.opacity, 0.0f, 1.0f);
+            const auto alpha = static_cast<uint32_t>(255 * opacity);
+            const auto backing = static_cast<uint32_t>(255 * opacity * design.DarkBackingOpacity());
+            if (fade != nullptr)
+            {
+                const auto left = fade->At(bounds.x), right = fade->At(bounds.x + bounds.width);
+                design.GradientRect(bounds, static_cast<uint32_t>(backing * left) << 24, static_cast<uint32_t>(backing * right) << 24);
+                design.GradientRect(bounds, (static_cast<uint32_t>(alpha * left) << 24) | 0x0B102B, (static_cast<uint32_t>(alpha * right) << 24) | 0x0B102B);
+            }
+            else
+            {
+                design.FillRoundedRect(bounds, backing << 24, std::min(12 * scale, bounds.height * .5f));
+                design.FillRoundedRect(bounds, (alpha << 24) | 0x0B102B, std::min(12 * scale, bounds.height * .5f));
+            }
+            const rect interior{bounds.x + inset, bounds.y + inset, std::max(0.0f, bounds.width - inset * 2), std::max(0.0f, bounds.height - inset * 2)};
+            DrawNineSliceTile(design, this->xiv1_window_.tiles[4], interior, 1, opacity, fade);
+            for (const auto& fill : fills)
+            {
+                const float left = std::max(interior.x, fill.bounds.x), top = std::max(interior.y, fill.bounds.y);
+                const float right = std::min(interior.x + interior.width, fill.bounds.x + fill.bounds.width);
+                const float bottom = std::min(interior.y + interior.height, fill.bounds.y + fill.bounds.height);
+                const auto color = (fill.color & 0xFFFFFF) | (static_cast<uint32_t>((fill.color >> 24) * opacity) << 24);
+                if (right <= left || bottom <= top) continue;
+                if (fade != nullptr) design.GradientRect({left, top, right - left, bottom - top},
+                    (color & 0xFFFFFF) | (static_cast<uint32_t>((color >> 24) * fade->At(left)) << 24),
+                    (color & 0xFFFFFF) | (static_cast<uint32_t>((color >> 24) * fade->At(right)) << 24));
+                else design.FillRect({left, top, right - left, bottom - top}, color);
+            }
+            this->DrawFrame(design, bounds, style, fade);
+            return ContentBounds(bounds, style);
+        }
         const auto& window = this->windows_[this->selected_];
         if (window.source)
         {
@@ -208,6 +327,11 @@ namespace xiui::ui
 
     auto container_renderer::DrawFrame(const design_system& design, const rect& bounds, const container_style& style, const horizontal_fade* fade) const -> void
     {
+        if (this->appearance_theme_ == 1 && this->xiv1_atlas_ != nullptr)
+        {
+            if (style.border) DrawNineSlice(design, this->xiv1_window_, bounds, Xiv1FrameScale(bounds, style), style.opacity, false, fade);
+            return;
+        }
         const auto& window = this->windows_[this->selected_];
         if (!window.source || !style.border) return;
         const auto& skin = window.variants[style.scan_lines ? 1 : 0];

@@ -49,7 +49,7 @@ namespace xiui
     }
     auto actionbars_module::WindowMinimum(const size_t index) const -> ui::point
     {
-        constexpr ui::point minimum[]{{520, 420}, {500, 440}, {680, 548}, {620, 416}, {620, 360}};
+        constexpr ui::point minimum[]{{520, 420}, {500, 440}, {480, 548}, {620, 416}, {620, 360}};
         if (index == 0)
         {
             const auto& metrics = this->library_metrics_;

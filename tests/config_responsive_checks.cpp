@@ -25,9 +25,10 @@ auto RunConfigResponsiveChecks(void) -> bool
 {
     using namespace xiui::ui;
     const config_layout wide{{20, 20, 1100, 600}, 14, true, true};
-    const config_layout narrow{{20, 20, 760, 364}, 14, true, true};
+    const config_layout narrow{{20, 20, 760, 391}, 14, true, true, 0, 0, false, -1, 0, false, 13};
     if (!Check(wide.Columns() == 2 && narrow.Columns() == 1 && wide.MinimumWidth() == narrow.MinimumWidth(),
         "content reflows without changing minimum window width between pages")) return false;
+    if (!Check(narrow.MinimumHeight() == 391, "minimum height reserves readable topics above the shared footer")) return false;
     const auto left = wide.OptionRow(0), right = wide.OptionRow(1), next = wide.OptionRow(2);
     if (!Check(right.y == left.y && right.x >= left.x + left.width && next.y == left.y + config_layout::row_height &&
         narrow.OptionRow(1).x == narrow.OptionRow(0).x && narrow.OptionRow(1).y == narrow.OptionRow(0).y + config_layout::row_height,
@@ -57,7 +58,7 @@ auto RunConfigResponsiveChecks(void) -> bool
     const config_layout cardStart{{20, 20, 760, 350}, 14, false, true, 0, 0, true, 6};
     const int end = cardStart.MaximumScroll(8);
     const config_layout cardEnd{{20, 20, 760, 350}, 14, false, true, 0, 0, true, 6, end};
-    if (!Check(end == 5 && cardEnd.MaximumScroll(8) == end && cardEnd.AlignScroll(100, 8) == end &&
+    if (!Check(end == 6 && cardEnd.MaximumScroll(8) == end && cardEnd.AlignScroll(100, 8) == end &&
         Inside(cardEnd.ContentArea(), cardEnd.OptionRow(7 - end)) && cardEnd.OptionRow(7 - end).height == 104,
         "preset cards remain reachable with stable scrolling and full card heights")) return false;
 
@@ -66,11 +67,12 @@ auto RunConfigResponsiveChecks(void) -> bool
         narrowCredits.Member(0).x == narrowCredits.Member(1).x && narrowCredits.Member(1).y > narrowCredits.Member(0).y &&
         narrowCredits.MaximumScroll() > wideCredits.MaximumScroll(), "contributor rows reflow and update their scroll range")) return false;
     for (const float width : {760.0f, 1100.0f})
-    for (const float height : {350.0f, 600.0f})
+    for (const float height : {383.0f, 600.0f})
     {
-        const config_layout layout{{20, 20, width, height}, 14, false, true, 40};
+        const config_layout base{{20, 20, width, height}, 14, false, true, 40};
+        const auto layout = base.WithMinimumContentHeight(experience_display_editor::geometry::MinimumHeight(base.ContentArea().width));
         const experience_display_editor::geometry editor{layout};
-        if (!Check(Inside(layout.ContentArea(), editor.shown) && Inside(layout.ContentArea(), editor.available) &&
+        if (!Check(height >= layout.MinimumHeight() && Inside(layout.ContentArea(), editor.shown) && Inside(layout.ContentArea(), editor.available) &&
             Inside(layout.ContentArea(), editor.presets) && (width != 760 || editor.available.y > editor.shown.y + editor.shown.height),
             "readout lists stack at narrow widths and retain all controls in short windows")) return false;
     }

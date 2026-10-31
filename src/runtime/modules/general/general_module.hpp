@@ -7,6 +7,7 @@
 #include "config/controller_focus_settings.hpp"
 #include "config/module_visibility.hpp"
 #include "config/health_feedback.hpp"
+#include "config/hud_presets.hpp"
 #include "ui/layout_grid.hpp"
 #include "controller_input.hpp"
 
@@ -20,10 +21,11 @@ namespace xiui
     {
     public:
         auto Id(void) const -> const char* override { return "general"; }
-        auto DisplayName(void) const -> const char* override { return "General"; }
+        auto DisplayName(void) const -> const char* override { return "Global"; }
         auto State(void) -> module_state& override { return this->state_; }
         auto State(void) const -> const module_state& override { return this->state_; }
         auto HasEditableBounds(void) const -> bool override { return false; }
+        auto SupportsScale(void) const -> bool override { return false; }
         auto ResetDefaults(const ui::theme&) -> void override;
         auto Load(const settings_store& store) -> void override;
         auto Save(const settings_store& store) const -> void override;
@@ -52,6 +54,7 @@ namespace xiui
         auto SetPartyModule(hud_module& module) -> void { this->party_module_ = &module; }
         auto SetGameHudModule(hud_module& module) -> void { this->game_hud_module_ = &module; }
         auto PartyEnabled(void) const -> bool { return this->party_enabled_; }
+        auto SetPartyEnabled(bool enabled) -> void { this->party_enabled_ = enabled; }
         auto PartyEnabledFlag(void) const -> const bool* { return &this->party_enabled_; }
         static auto Enabled(hud_module& module) -> bool;
         auto AttributionStart(void) const -> size_t { return enabled_modules_option + this->modules_.size(); }
@@ -88,6 +91,7 @@ namespace xiui
             if (this->appearance_tab_ == 4) return index >= this->FeedbackStart() && index < this->NameplatesOption();
             if (this->appearance_tab_ == 3) return index >= this->FocusStart() && index < this->VisibilityStart();
             if (this->appearance_tab_ == 2) return index >= this->ConfigTextStart() && index < this->InputStart();
+            if (index >= this->HudScaleStart()) return this->appearance_tab_ == 0;
             return this->appearance_tab_ == 1 ? index >= this->GlobalTextStart() && index < this->ConfigTextStart() : index < enabled_modules_option || (index >= this->IconThemesStart() && index < this->HideAllUiOption());
         }
         auto AttributionView(void) const -> size_t { return this->attribution_view_; }
@@ -100,17 +104,34 @@ namespace xiui
         }
         auto Grid(void) const -> const ui::layout_grid_settings& { return this->grid_; }
         auto SetClipboardOwner(HWND owner) -> void { this->clipboard_owner_ = owner; }
-        auto OptionCount(void) const -> size_t override { return this->GameHudStart() + (this->game_hud_module_ != nullptr ? this->game_hud_module_->OptionCount() : 0); }
-        auto Option(size_t index) -> module_option override;
+        auto HudScaleStart(void) const -> size_t { return this->GameHudStart() + (this->game_hud_module_ != nullptr ? this->game_hud_module_->OptionCount() : 0); }
+        auto ContentOptionCount(void) const -> size_t override { return this->HudScaleStart() + 6; }
+        auto HudPresetOption(size_t preset) const -> size_t
+        {
+            constexpr std::array<size_t, 3> offsets{2, 3, 5};
+            return preset < offsets.size() ? this->HudScaleStart() + offsets[preset] : this->ContentOptionCount();
+        }
+        auto HudPresetFromOption(size_t index) const -> std::optional<size_t>
+        {
+            for (size_t preset = 0; preset < ui::hud_presets.size(); ++preset)
+                if (index == this->HudPresetOption(preset)) return preset;
+            return std::nullopt;
+        }
+        auto HudScale(void) const -> float { return this->hud_scale_; }
+        auto TakePresetRequest(void) -> std::optional<size_t> { auto value = this->preset_request_; this->preset_request_.reset(); return value; }
+        auto ContentOption(size_t index) -> module_option override;
         auto ConfigSections(void) const -> std::span<const module_config_section> override;
-        auto ConfigSectionContains(size_t section, size_t index) -> bool override;
-        auto OnOptionChanged(size_t index) -> void override;
+        auto ContentConfigSectionContains(size_t section, size_t index) -> bool override;
+        auto OnContentOptionChanged(size_t index) -> void override;
         auto ShouldRender(const hud_snapshot&) const -> bool override { return false; }
         auto Render(const hud_snapshot&, const module_render_context&) -> void override {}
         auto UpdateWindowType(std::optional<uint8_t> type) -> void;
         auto RequestWindowType(int type) -> bool;
         auto TakeWindowTypeRequest(void) -> std::optional<uint8_t>;
         auto DarkBackingOpacity(void) const -> float { return this->dark_backing_opacity_; }
+        auto AppearanceThemeOption(void) const -> size_t { return this->HudScaleStart() + 4; }
+        auto AppearanceTheme(void) const -> int { return this->appearance_theme_; }
+        auto SetAppearanceTheme(int theme) -> void { this->appearance_theme_ = ui::AppearanceTheme(theme); }
 
     private:
 #if defined(XIUI_ENABLE_INPUT_TESTS)
@@ -140,6 +161,9 @@ namespace xiui
         int window_type_{}, requested_window_type_{-1};
         bool window_type_available_{};
         float dark_backing_opacity_{1.0f};
+        int appearance_theme_{};
+        float hud_scale_{1};
+        std::optional<size_t> preset_request_{};
         ui::layout_grid_settings grid_{};
         int input_mode_{};
         int status_icon_theme_{}, job_icon_theme_{};

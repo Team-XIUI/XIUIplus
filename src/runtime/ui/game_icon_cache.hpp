@@ -39,7 +39,7 @@ namespace xiui::ui
         auto BlueMagicBanner(void) const -> IDirect3DTexture8* { return this->Atlas(600, 900, 450); }
         auto NotificationAtlas(void) const -> IDirect3DTexture8* { return this->Atlas(203, 256, 64); }
         auto RecastAtlas(void) const -> IDirect3DTexture8*;
-        auto ActionIcon(std::string_view key) const -> game_icon_view;
+        auto ActionIcon(std::string_view key) -> game_icon_view;
         auto MagicBurstElement(uint8_t element) const -> game_icon_view
         { return element < 8 ? game_icon_view{this->Atlas(1200, 1024, 512), {static_cast<float>(element % 4) / 4, static_cast<float>(element / 4) / 2, 0.25f, 0.5f}} : game_icon_view{}; }
 

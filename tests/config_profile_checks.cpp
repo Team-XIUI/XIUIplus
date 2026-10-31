@@ -1,4 +1,10 @@
 #include "config_input_fixture.hpp"
+#include "resources/embedded_resource.hpp"
+#include "settings/profile_file.hpp"
+
+#include <memory>
+
+extern "C" IMAGE_DOS_HEADER __ImageBase;
 
 namespace xiui
 {
@@ -32,6 +38,47 @@ namespace xiui
             !profile_share_detail::DecodeDelta(patch.substr(0, patch.size() - 1)) && !profile_share_detail::DecodeDelta(std::string(5, '\xFF')),
             "compact imports reject damaged keys, truncated patches and oversized integer fields")) return false;
         std::printf("Compact default key: %zu characters; customized key: %zu characters.\n", compactKey.size(), customizedKey.size());
+        compactSource.WriteString("future.module", "large", std::string(300 * 1024, 'a'));
+        const auto expandedKey = EncodeProfileKey("Expanded compact setup", compactSource, error);
+        compactDecoded = DecodeProfileKey(expandedKey, error);
+        if (!check(expandedKey.starts_with("XIUI2.") && compactDecoded && compactDecoded->preferences.ToIniText() == compactSource.ToIniText(),
+            "short compact keys can restore profiles and patches above the old decompression limit")) return false;
+        const auto defaults = resources::LoadEmbeddedResource(reinterpret_cast<HMODULE>(&__ImageBase), 301, maximum_profile_payload);
+        if (!check(!defaults.empty(), "profile sharing uses the current shipped preferences")) return false;
+        auto largeSource = settings_store::FromIniText(std::string_view{reinterpret_cast<const char*>(defaults.data()), defaults.size()});
+        const auto shippedKey = EncodeProfileKey("Shipped setup", largeSource, error);
+        auto largeDecoded = DecodeProfileKey(shippedKey, error);
+        if (!check(largeDecoded && largeDecoded->preferences.ToIniText() == largeSource.Preferences("").ToIniText(),
+            "the current shipped profile shares and restores every preference")) return false;
+        for (size_t i = 0; i < 4096; ++i)
+            largeSource.WriteString("future.profile", ("option_" + std::to_string(i)).c_str(), std::string(64, 'x') + std::to_string(i));
+        const auto largeText = largeSource.Preferences("").ToIniText();
+        const auto largePatch = profile_share_detail::EncodeDelta("Large setup", largeSource);
+        const auto largeDelta = profile_share_detail::DecodeDelta(largePatch);
+        const auto largeKey = EncodeProfileKey("Large setup", largeSource, error);
+        largeDecoded = DecodeProfileKey(largeKey, error);
+        const auto normalized = [](const settings_store& store) {
+            auto result = settings_store::FromIniText("");
+            store.VisitPreferences([&](std::string_view section, std::string_view key, std::string_view value) {
+                std::string sectionName{section}, keyName{key};
+                for (auto& c : sectionName) if (c >= 'A' && c <= 'Z') c += 'a' - 'A';
+                for (auto& c : keyName) if (c >= 'A' && c <= 'Z') c += 'a' - 'A';
+                result.WriteString(sectionName.c_str(), keyName.c_str(), std::string{value});
+            });
+            return result.ToIniText();
+        };
+        if (!check(largePatch.size() > 256 * 1024 && largeDelta && normalized(largeDelta->preferences) == normalized(largeSource) &&
+            largeDecoded && largeDecoded->preferences.ToIniText() == largeText,
+            "profiles and compact patches above the old size limit restore thousands of customizations exactly")) return false;
+        const auto largeFile = SerializeProfileFile("Large setup", largeSource, error);
+        const auto fileDecoded = ParseProfileFile(largeFile, error);
+        if (!check(fileDecoded && fileDecoded->name == "Large setup" && fileDecoded->preferences.ToIniText() == largeText,
+            "self-contained profile files restore thousands of customizations without a preset dictionary")) return false;
+        auto damagedFile = largeFile; damagedFile.back() ^= 1;
+        if (!check(!ParseProfileFile(damagedFile, error) && !ParseProfileFile(largeFile.substr(0, largeFile.size() - 1), error) &&
+            !ParseProfileFile(largeText, error) && !ParseProfileFile("; XIUI Native profile 2 00000000\r\n", error),
+            "damaged, truncated, unmarked and unsupported profile files are rejected")) return false;
+        std::printf("Large profile: %zu bytes; share key: %zu characters.\n", largeText.size(), largeKey.size());
         auto source = settings_store::FromIniText("[player]\nenabled=0\n[layout.player]\nx=123\n[chat.sounds]\nparty=3\n[chat.color.party]\noverride=1\ncolor=FF5599BB\n[session.exp.42]\nreceived=123\n[session.gil]\nnet=456\n[profiles]\nactive=foreign\n");
         const auto key = EncodeProfileKey("Shared setup", source, error);
         const auto partial = profile_share_detail::DecodeDelta(profile_share_detail::EncodeDelta("Partial", source));
@@ -55,14 +102,36 @@ namespace xiui
         if (!check(decoded->preferences.ReadInt("session.exp.42", "received", -1) == -1 &&
             decoded->preferences.ReadInt("session.gil", "net", -1) == -1 && decoded->preferences.ReadString("profiles", "active", "missing") == "missing",
             "share keys omit private session totals and active-profile metadata")) return false;
+        source.WriteInt("controller.crossbar.device", "trigger_press", 123);
+        source.WriteString("profiles.characters", "local", "foreign");
+        const auto portableFile = ParseProfileFile(SerializeProfileFile("Shared setup", source, error), error);
+        if (!check(portableFile && portableFile->preferences.ToIniText() == source.Preferences("").ToIniText() &&
+            portableFile->preferences.ReadString("controller.crossbar.device", "trigger_press").empty() &&
+            portableFile->preferences.ReadString("profiles.characters", "local").empty(),
+            "profile files use the portable preference boundary and omit local character, session and device data")) return false;
         if (!check(DecodeProfileKey(" \n" + key.substr(0, 30) + "\n" + key.substr(30) + "\t", error).has_value(),
             "share keys tolerate whitespace introduced while copying")) return false;
         auto damaged = key; damaged[6] = damaged[6] == '0' ? '1' : '0';
         if (!check(!DecodeProfileKey(damaged, error) && !DecodeProfileKey("XIUI2." + key.substr(6), error) &&
-            !DecodeProfileKey(key + "!", error) && !DecodeProfileKey(std::string(410 * 1024, 'a'), error),
+            !DecodeProfileKey(key + "!", error) && !DecodeProfileKey(std::string(maximum_profile_key + 1, 'a'), error),
             "damaged, unsupported and oversized keys are rejected")) return false;
-        auto bulky = settings_store::FromIniText(""); bulky.WriteString("large", "value", std::string(300 * 1024, 'a'));
-        if (!check(EncodeProfileKey("Too large", bulky, error).empty(), "share payloads have a bounded decompressed size")) return false;
+        auto bulky = settings_store::FromIniText("");
+        std::string varied(512 * 1024, '\0'); uint32_t random = 0x12345678;
+        constexpr std::string_view characters = "ABCDEFGHIJKLMNOPQRSTUVWXYZabcdefghijklmnopqrstuvwxyz0123456789-_";
+        for (auto& c : varied) { random ^= random << 13; random ^= random >> 17; random ^= random << 5; c = characters[random & 63]; }
+        bulky.WriteString("large", "value", varied);
+        const auto longKey = EncodeProfileKey("Long key", bulky, error);
+        std::string wrappedKey;
+        for (size_t i = 0; i < longKey.size(); i += 80) { wrappedKey.append(longKey, i, 80); wrappedKey += "\r\n"; }
+        const auto longDecoded = DecodeProfileKey(wrappedKey, error);
+        if (!check(longKey.starts_with("XIUI1.") && longKey.size() > 400 * 1024 && longKey.size() <= maximum_profile_key && longDecoded &&
+            longDecoded->preferences.ToIniText() == bulky.ToIniText(),
+            "long legacy keys fit the clipboard import limit and round trip through copied line wrapping")) return false;
+        bulky.WriteString("large", "value", std::string(maximum_profile_payload + 1, 'a'));
+        if (!check(EncodeProfileKey("Too large", bulky, error).empty() && !error.empty() && SerializeProfileFile("Too large", bulky, error).empty() &&
+            profile_share_detail::EncodeDelta("Too large", bulky).empty() &&
+            !profile_share_detail::DecodeDelta(std::string(maximum_profile_payload + 1, 'a')),
+            "share payloads remain bounded before compression and during import")) return false;
 
         const auto root = std::filesystem::temp_directory_path() / ("xiui-sharing-" + std::to_string(::GetCurrentProcessId()) + "-" + std::to_string(::GetTickCount64()));
         if (!check(std::filesystem::create_directory(root), "sharing checks use an isolated settings directory")) return false;
@@ -75,6 +144,8 @@ namespace xiui
                 const auto directory = this->root / "xiuinative-profiles";
                 for (const auto& file : std::filesystem::directory_iterator{directory, ignored}) std::filesystem::remove(file.path(), ignored);
                 std::filesystem::remove(directory, ignored); std::filesystem::remove(this->root / "xiuinative.ini", ignored);
+                std::filesystem::remove(this->root / L"Shared-\u65E5\u672C.xiui", ignored);
+                std::filesystem::remove(this->root / "damaged.xiui", ignored);
                 std::filesystem::remove(this->root, ignored);
             }
         } cleanupFiles{root};
@@ -96,35 +167,47 @@ namespace xiui
         runtime.player_.State().bounds.x = 321; runtime.SaveSettings(); runtime.DrainSettings();
         if (!check(runtime.SelectProfile(0) && runtime.player_.State().bounds.x == 123,
             "editing a duplicated profile leaves its source unchanged")) return false;
-        if (!check(runtime.OpenProfileDialog(hud_runtime::profile_dialog::share) && !runtime.profile_share_key_.empty() && runtime.KeyboardFocused(),
-            "Share opens a copyable portable key for the complete current setup")) return false;
-        const auto completeKey = runtime.profile_share_key_;
+        if (!check(runtime.OpenProfileDialog(hud_runtime::profile_dialog::share) && runtime.profile_file_.empty() && runtime.KeyboardFocused(),
+            "Share opens file export without generating or displaying a key")) return false;
+        const auto completeKey = EncodeProfileKey("Default", runtime.CaptureSettings(), error);
         const ui::profile_dialog_layout sharingDialog{runtime.config_.bounds, viewport, true};
         runtime.DrawProfileOverlay(viewport);
-        visibleKey.clear();
-        for (const auto& line : runtime.profile_key_view_.Lines()) visibleKey += line;
-        if (!check(visibleKey == completeKey, "Share displays the complete key immediately")) return false;
-        runtime.mouse_x_ = static_cast<int>(sharingDialog.Key().x + 3); runtime.mouse_y_ = static_cast<int>(sharingDialog.Key().y + 3);
-        if (!check(runtime.ProfileSoundTarget(viewport) == (0xF000000000000000ULL | 14),
-            "the visible share key is directly copyable")) return false;
-        decoded = DecodeProfileKey(completeKey, error);
-        if (!check(decoded && decoded->preferences.ReadRect("layout.player", {}).x == 123,
-            "a full runtime snapshot compresses and imports correctly")) return false;
+        runtime.HandleControllerConfig(controller_action::down, false);
+        runtime.HandleControllerConfig(controller_action::confirm, true);
+        if (!check(runtime.config_.focus.modal_item == 1 && runtime.profile_file_.empty(),
+            "controller navigation reaches Save file and held confirmation cannot export repeatedly")) return false;
+        const auto sharedPath = root / L"Shared-\u65E5\u672C.xiui";
+        if (!check(runtime.ExportProfileFile(sharedPath) && runtime.profile_file_ == sharedPath,
+            "Share saves a portable file to a Unicode path")) return false;
+        decoded = ReadProfileFile(sharedPath, error);
+        if (!check(decoded && decoded->preferences.ReadRect("layout.player", {}).x == 123 &&
+            !SaveProfileFile(sharedPath, "Too large", bulky, error) && ReadProfileFile(sharedPath, error).has_value(),
+            "full runtime snapshots round trip through files and rejected exports preserve an existing file")) return false;
+        if (!check(!SaveProfileFile(root / "missing" / "profile.xiui", "Missing folder", source, error) &&
+            !ReadProfileFile(root / "missing.xiui", error), "unwritable destinations and missing imports report failure")) return false;
         runtime.HandleProfileKey(VK_ESCAPE, 0);
         runtime.OpenProfileDialog(hud_runtime::profile_dialog::import_profile);
         const ui::profile_dialog_layout dialog{runtime.config_.bounds, viewport, true};
-        if (!check(dialog.Paste().y + dialog.Paste().height < dialog.Key().y,
-            "Paste key sits above the import key field")) return false;
+        if (!check(dialog.Paste().y + dialog.Paste().height < dialog.Source().y,
+            "legacy paste remains separate from the profile file chooser")) return false;
         runtime.mouse_x_ = static_cast<int>(dialog.Create().x + 3); runtime.mouse_y_ = static_cast<int>(dialog.Create().y + 3);
-        if (!check(runtime.ProfileSoundTarget(viewport) == 0, "Import remains disabled until a valid key is loaded")) return false;
-        if (!check(runtime.LoadProfileKey(" \n" + completeKey.substr(0, 30) + "\n" + completeKey.substr(30)) && runtime.profile_share_key_ == completeKey,
-            "pasted wrapping is removed before displaying the complete import key")) return false;
+        if (!check(runtime.ProfileSoundTarget(viewport) == 0, "Import remains disabled until a valid profile is loaded")) return false;
+        runtime.HandleControllerConfig(controller_action::right, false);
+        if (!check(runtime.config_.focus.modal_item == 2, "controller focus skips disabled Import and reaches Choose file")) return false;
+        runtime.mouse_x_ = static_cast<int>(dialog.Browse().x + 3); runtime.mouse_y_ = static_cast<int>(dialog.Browse().y + 3);
+        if (!check(runtime.ProfileSoundTarget(viewport) == (0xF000000000000000ULL | 14), "mouse and controller expose the file chooser")) return false;
+        if (!check(runtime.LoadProfileKey(" \n" + completeKey.substr(0, 30) + "\n" + completeKey.substr(30)) && runtime.profile_legacy_import_,
+            "legacy wrapped keys remain importable without keeping a giant key in the dialog")) return false;
         if (!check(runtime.LoadProfileKey(completeKey) && runtime.profile_name_.Editor().Text() == "Default 2" &&
             !runtime.LoadProfileKey("damaged") && !runtime.CreateProfile() && runtime.profiles_.Entries().size() == 2 && runtime.player_.State().bounds.x == 123,
             "imports suggest unique names and invalid keys cannot create or overwrite profiles")) return false;
-        if (!check(runtime.LoadProfileKey(completeKey) && runtime.CreateProfile() && runtime.profiles_.Current().name == "Default 2" &&
+        { std::ofstream file{root / "damaged.xiui", std::ios::binary}; file << damagedFile; }
+        if (!check(runtime.LoadProfileFile(sharedPath) && !runtime.profile_legacy_import_ && !runtime.LoadProfileFile(root / "damaged.xiui") &&
+            !runtime.CreateProfile() && runtime.profiles_.Entries().size() == 2,
+            "a damaged replacement file clears the preview and cannot import stale preferences")) return false;
+        if (!check(runtime.LoadProfileFile(sharedPath) && runtime.CreateProfile() && runtime.profiles_.Current().name == "Default 2" &&
             runtime.profiles_.Entries().size() == 3 && runtime.player_.State().bounds.x == 123 && runtime.SelectProfile(1) && runtime.player_.State().bounds.x == 321,
-            "Import creates a separate profile while preserving existing originals and duplicates")) return false;
+            "file import creates a separate profile while preserving existing originals and duplicates")) return false;
         runtime.FlushSettings(); runtime.editing_ = false;
         return true;
     }
@@ -519,6 +602,104 @@ namespace xiui
             "recovering initial positions keeps current dimensions, appearance and action preferences");
     }
 
+    auto config_input_test::HudPresets(const char* defaultsPath) -> bool
+    {
+        std::ifstream file{defaultsPath, std::ios::binary};
+        const std::string text{std::istreambuf_iterator<char>{file}, {}};
+        if (!check(!text.empty(), "full HUD preset fixture has captured defaults")) return false;
+        const auto source = settings_store::FromIniText(text);
+        const auto size = ReadLayoutViewport(source);
+        const D3DVIEWPORT8 viewport{0, 0, static_cast<DWORD>(size.width), static_cast<DWORD>(size.height), 0, 1};
+        const auto make = [&] {
+            auto value = std::make_unique<hud_runtime>();
+            value->default_settings_text_ = text; value->LoadSettings(source, size); value->EnsureLayout(viewport);
+            return value;
+        };
+        const auto same = [](const settings_store& expected, const settings_store& actual) {
+            bool matches = true;
+            expected.VisitPreferences([&](std::string_view section, std::string_view key, std::string_view value) {
+                if (actual.ReadString(std::string{section}.c_str(), std::string{key}.c_str()) != value)
+                {
+                    if (matches) std::fprintf(stderr, "Preset mismatch: %.*s.%.*s\n", static_cast<int>(section.size()), section.data(), static_cast<int>(key.size()), key.data());
+                    matches = false;
+                }
+            });
+            return matches && expected.Preferences("").ToIniText() == actual.Preferences("").ToIniText();
+        };
+        auto expected = make(), current = make();
+        const auto reset = expected->CaptureSettings();
+        const auto xivBytes = resources::LoadEmbeddedResource(reinterpret_cast<HMODULE>(&__ImageBase), 316, 1024 * 1024);
+        if (!check(!xivBytes.empty(), "complete XIV capture is embedded separately from reset defaults")) return false;
+        const auto xivSource = settings_store::FromIniText(std::string_view{reinterpret_cast<const char*>(xivBytes.data()), xivBytes.size()});
+        expected->LoadSettings(xivSource, size); expected->EnsureLayout(viewport);
+        const auto xiv = expected->CaptureSettings();
+        const auto bytes = resources::LoadEmbeddedResource(reinterpret_cast<HMODULE>(&__ImageBase), 315, 1024 * 1024);
+        if (!check(!bytes.empty(), "complete Classic capture is embedded")) return false;
+        const auto classicSource = settings_store::FromIniText(std::string_view{reinterpret_cast<const char*>(bytes.data()), bytes.size()});
+        party_module capturedParty; capturedParty.Load(classicSource);
+        auto classicPartySettings = settings_store::FromIniText(""); capturedParty.Save(classicPartySettings);
+        expected->party_.ApplyPreset(0);
+        const auto xiParty = settings_store::FromIniText(""); expected->party_.Save(xiParty);
+        bool exactParty = true, otherModules = true;
+        xiParty.VisitPreferences([&](std::string_view section, std::string_view key, std::string_view value) {
+            // Party height is derived from the live member count when rendered.
+            if (section == "layout.party" && key == "height") return;
+            exactParty &= classicPartySettings.ReadString(std::string{section}.c_str(), std::string{key}.c_str()) == value;
+        });
+        xivSource.VisitPreferences([&](std::string_view section, std::string_view key, std::string_view value) {
+            if (section == "party" || section == "layout.party" || section.starts_with("text.party.") ||
+                section.starts_with("meter.party.") || section.starts_with("status.party.") || section.starts_with("timing.party.")) return;
+            otherModules &= classicSource.ReadString(std::string{section}.c_str(), std::string{key}.c_str()) == value;
+        });
+        if (!check(exactParty && otherModules, "Classic contains the XI Party preset with every other captured preference unchanged")) return false;
+        expected->LoadSettings(classicSource, size); expected->EnsureLayout(viewport);
+        const auto classic = expected->CaptureSettings();
+        if (!check(classicSource.ReadBool("chat", "native_windows_initialized", false) &&
+            xivSource.ReadBool("chat", "native_windows_initialized", false) &&
+            classicSource.ReadInt("minimap", "zoom_defaults_version", 0) == 1 &&
+            xivSource.ReadInt("minimap", "zoom_defaults_version", 0) == 1,
+            "named presets retain authored chat windows and record their migrated minimap zoom explicitly")) return false;
+        const auto xivClassicBytes = resources::LoadEmbeddedResource(reinterpret_cast<HMODULE>(&__ImageBase), 317, 1024 * 1024);
+        if (!check(!xivClassicBytes.empty(), "complete XIVClassic preset is embedded")) return false;
+        const auto xivClassicSource = settings_store::FromIniText(std::string_view{reinterpret_cast<const char*>(xivClassicBytes.data()), xivClassicBytes.size()});
+        auto derived = settings_store::FromIniText(classicSource.ToIniText());
+        derived.WriteInt("appearance", "theme", ui::xiv1_appearance);
+        derived.WriteInt("chat", "source", 2); derived.WriteBool("chat2", "enabled", false);
+        if (!check(same(derived, xivClassicSource), "XIVClassic changes only theme and the single All chat window")) return false;
+        expected->LoadSettings(xivClassicSource, size); expected->EnsureLayout(viewport);
+        const auto xivClassic = expected->CaptureSettings();
+        if (!check(classicSource.ReadInt("appearance", "theme", -1) == ui::native_appearance &&
+            xivSource.ReadInt("appearance", "theme", -1) == ui::native_appearance &&
+            !current->general_.HudPresetFromOption(current->general_.AppearanceThemeOption()) &&
+            current->general_.HudPresetFromOption(current->general_.HudPresetOption(2)) == 2,
+            "named presets own their theme and the theme selector is never interpreted as a preset action")) return false;
+        const std::array<const settings_store*, 3> captures{&classic, &xiv, &xivClassic};
+        current->SetBasicSettings(true, false);
+        for (size_t preset = 0; preset < ui::hud_presets.size(); ++preset)
+        {
+            current->player_.State().bounds.x += 75; current->player_.State().scale = {2, 2, true};
+            current->party_.State().enabled = !current->party_.State().enabled;
+            current->player_.Settings().hp_style.height = 53;
+            current->general_.SetAppearanceTheme(preset == 2 ? ui::native_appearance : ui::xiv1_appearance);
+            *current->general_.Option(current->general_.HudScaleStart()).slider = 1.75f;
+            if (!check(current->ApplyHudPreset(preset) && current->config_.basic,
+                "Basic presets share the full snapshot loader and retain the local settings mode")) return false;
+            current->EnsureLayout(viewport);
+            if (!check(!current->chat_.InitializeNativeWindows(2),
+                "applying a named preset prevents native window-count adoption from changing its chat layout")) return false;
+            if (!check(same(*captures[preset], current->CaptureSettings()),
+                "complete captured presets restore every HUD preference including positions, visibility and scales")) return false;
+        }
+        if (!check(current->HandleCommand("preset xivclassic"), "XIVClassic command shares the full Basic preset action")) return false;
+        current->EnsureLayout(viewport);
+        if (!check(same(xivClassic, current->CaptureSettings()), "XIVClassic command restores the full derived snapshot")) return false;
+        if (!check(current->HandleCommand("preset classic"), "named full preset command shares the Basic action")) return false;
+        current->EnsureLayout(viewport);
+        if (!check(same(classic, current->CaptureSettings()), "Classic changes only the captured Party settings")) return false;
+        current->ResetSettings(); current->EnsureLayout(viewport);
+        return check(same(reset, current->CaptureSettings()), "Reset to defaults restores the current capture independently of named presets");
+    }
+
     auto config_input_test::DefaultProfile(const char* source) -> bool
     {
         const auto root = std::filesystem::temp_directory_path() / ("xiui-defaults-" + std::to_string(::GetCurrentProcessId()));
@@ -530,11 +711,14 @@ namespace xiui
         std::ifstream file{source, std::ios::binary};
         const std::string expected{std::istreambuf_iterator<char>{file}, std::istreambuf_iterator<char>{}};
         if (!check(!expected.empty() && runtime.default_settings_text_ == expected, "runtime embeds the shipped defaults profile")) return false;
+        if (!check(!runtime.actionbars_.ReplaceNativeMacros(), "fresh bundled defaults preserve native macro controls")) return false;
         const auto preferences = [](hud_runtime& hud) { return hud.CaptureSettings().Preferences("").ToIniText(); };
         const auto baseline = preferences(runtime);
-        size_t styles{}; bool fonts = runtime.general_.GlobalFont() == 0;
-        for (auto* module : runtime.modules_.All()) module->VisitTextSettings([&](ui::text_style& style) { ++styles; fonts &= style.font == 0; });
-        if (!check(fonts && styles > 70, "fresh defaults use XIUI Bahnschrift for all HUD text")) return false;
+        const auto captured = settings_store::FromIniText(expected);
+        size_t styles{};
+        for (auto* module : runtime.modules_.All()) module->VisitTextSettings([&](ui::text_style&) { ++styles; });
+        if (!check(styles > 70 && runtime.player_.Settings().name_text.style.font == captured.ReadInt("text.player.name", "font", 0),
+            "fresh defaults retain the captured HUD text profiles")) return false;
         for (auto* module : runtime.modules_.All())
         {
             module->State().bounds.x += 117; module->State().bounds.y += 83;
@@ -644,15 +828,50 @@ namespace xiui
         click();
         if (!check(runtime.ApplyConfirmedAction() && !runtime.ApplyConfirmedAction(), "an explicitly accepted preset executes only once")) return false;
         const auto classic = party.LayoutResources({0, 0, party.LayoutContainer().canvas_width, 0}, {true, true, true, true, false});
-        if (!check(!party.show_sync_ && party.job_icons_ && party.icon_follow_name_ && party.tp_ && party.tp_display_ == 1 && party.meters_[0].appearance == ui::meter_style::window_theme &&
+        if (!check(!party.show_sync_ && party.job_icons_ && !party.jobs_ && party.icon_follow_name_ && party.tp_ && party.tp_display_ == 1 && party.meters_[0].appearance == ui::meter_style::window_theme &&
             classic.bars[1].width < classic.bars[0].width &&
             classic.bars[1].x + classic.bars[1].width == classic.bars[0].x + classic.bars[0].width &&
-            classic.bars[2].x < classic.bars[0].x && classic.bars[2].width == 28 && party.LayoutContainer().width < 240 &&
-            party.text_[0].style.font == 0 && party.text_[0].offset_x == 44 && party.split_statuses_[0].enabled &&
+            classic.bars[2].x == classic.bars[0].x && classic.bars[2].y == classic.bars[1].y && classic.bars[2].width == 28 && party.LayoutContainer().width == 170 &&
+            party.layout_ == party_module::bars_classic && party.text_[0].style.font == 0 && party.text_[0].offset_x == 27 && party.split_statuses_[0].enabled &&
             party.meters_[0].height == 10 && party.text_[3].offset_y == -6 && party.text_[5].offset_y == -6 &&
-            party.icon_offset_x_ == 9 && party.icon_offset_y_ == 1 && party.text_[party_module::tp_text].placement == 1 &&
+            party.icon_offset_x_ == 0 && party.icon_offset_y_ == 1 && party.text_[party_module::tp_text].placement == 1 &&
             party.state_.bounds.x == 550 && party.state_.bounds.y == 400,
-            "Classic restores Cody's captured bars, text, job-icon adjustments and TP placement while retaining position")) return false;
+            "Classic removes the TP gutter, retaining captured bar widths, typography and panel position")) return false;
+        auto legacyClassic = settings_store::FromIniText(""); party.Save(legacyClassic);
+        legacyClassic.WriteInt("party","classic_layout_version",0); legacyClassic.WriteInt("party","layout",2);
+        legacyClassic.WriteFloat("party","icon_offset_x",9); legacyClassic.WriteFloat("text.party.name","offset_x",44);
+        legacyClassic.WriteFloat("text.party.tp","offset_x",37); legacyClassic.WriteFloat("meter.party.tp","offset_y",-8);
+        party_module migratedClassic; migratedClassic.Load(legacyClassic);
+        if (!check(migratedClassic.layout_ == party_module::bars_classic && migratedClassic.text_[0].offset_x == 27 &&
+            migratedClassic.icon_offset_x_ == 0 && migratedClassic.text_[party_module::tp_text].offset_x == 0 &&
+            migratedClassic.State().bounds.x == 550 && migratedClassic.State().bounds.y == 400,
+            "the exact old Classic spacing migrates without moving the panel")) return false;
+        auto customClassic = legacyClassic;
+        customClassic.WriteFloat("text.party.name","offset_x",45);
+        party_module customizedClassic; customizedClassic.Load(customClassic);
+        if (!check(customizedClassic.layout_ == party_module::bars_mp_below_tp_left && customizedClassic.text_[0].offset_x == 45 &&
+            customizedClassic.icon_offset_x_ == 9, "custom Classic positioning is excluded from the spacing migration")) return false;
+        legacyClassic.WriteInt("party","classic_layout_version",2);
+        customizedClassic.Load(legacyClassic);
+        if (!check(customizedClassic.layout_ == party_module::bars_mp_below_tp_left && customizedClassic.text_[0].offset_x == 44,
+            "later choices of the old left-column layout survive reload")) return false;
+        legacyClassic.WriteInt("party","classic_layout_version",0);
+        auto overlaidClassic = settings_store::FromIniText(""); party.Save(overlaidClassic);
+        OverlayProfilePreferences(overlaidClassic,legacyClassic);
+        migratedClassic.Load(overlaidClassic);
+        if (!check(migratedClassic.layout_ == party_module::bars_classic && migratedClassic.text_[0].offset_x == 27,
+            "older profile overlays retain their own migration version instead of inheriting the current snapshot's marker")) return false;
+        auto constrainedClassic = party;
+        constrainedClassic.bar_positions_ = {}; constrainedClassic.bar_offsets_y_ = {};
+        for (const auto slots : {party_module::resource_slots{true,true},party_module::resource_slots{false,true},party_module::resource_slots{true,false}})
+        {
+            const auto constrained = constrainedClassic.LayoutResources({10,20,100,0},slots);
+            if (!check(constrained.bars[0].x == 10 && constrained.bars[0].width == 100 &&
+                (!slots.tp || (constrained.bars[2].x == 10 && constrained.bars[2].y > constrained.bars[0].y)) &&
+                (!slots.mp || constrained.bars[1].x + constrained.bars[1].width == 110) &&
+                (!slots.mp || !slots.tp || constrained.bars[2].x + constrained.bars[2].width <= constrained.bars[1].x),
+                "Classic retains full-width HP and non-overlapping lower resources at narrow widths with missing MP/TP")) return false;
+        }
         if (classicPath != nullptr)
         {
             std::ifstream input{classicPath, std::ios::binary};
@@ -697,7 +916,8 @@ namespace xiui
         runtime.HandleControllerConfig(controller_action::right, false);
         runtime.HandleControllerConfig(controller_action::confirm, false);
         runtime.HandleControllerConfig(controller_action::confirm, true);
-        if (!check(!runtime.profile_name_.Focused() && party.state_.bounds.x == 550 && party.state_.bounds.y == 400 &&
+        if (!check(!runtime.profile_name_.Focused() && party.job_icons_ && !party.jobs_ &&
+            !runtime.alliance_first_.jobs_ && !runtime.alliance_second_.jobs_ && party.state_.bounds.x == 550 && party.state_.bounds.y == 400 &&
             runtime.alliance_first_.icon_size_ == party.icon_size_ && runtime.alliance_second_.icon_size_ == party.icon_size_ &&
             runtime.alliance_first_.state_.bounds.x == alliance.x && runtime.alliance_first_.state_.bounds.y == alliance.y &&
             runtime.alliance_second_.state_.bounds.x == alliance2.x && runtime.alliance_second_.state_.bounds.y == alliance2.y,

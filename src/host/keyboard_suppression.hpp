@@ -1,5 +1,7 @@
 #pragma once
 
+#include "../shared/keyboard_input.hpp"
+
 #include <array>
 #include <cstddef>
 #include <cstdint>
@@ -55,7 +57,7 @@ namespace xiui
             return suppress;
         }
 
-        auto FilterState(uint8_t* data, const size_t size, const bool capture) -> void
+        auto FilterState(uint8_t* data, const size_t size, const uint32_t capture) -> void
         {
             if (data == nullptr || size != this->keys_.size()) return;
             std::lock_guard lock(this->mutex_);
@@ -63,13 +65,14 @@ namespace xiui
             {
                 auto& key = this->keys_[scan];
                 const bool down = (data[scan] & 0x80u) != 0;
-                if (capture && down) key.state_owned = true;
-                if (capture || key.wm_owned || key.state_owned) data[scan] = 0;
+                const bool captured = KeyboardCapturesScan(capture, static_cast<uint32_t>(scan));
+                if (captured && down) key.state_owned = true;
+                if (captured || key.wm_owned || key.state_owned) data[scan] = 0;
                 if (!down) key.state_owned = false;
             }
         }
 
-        auto FilterData(void* data, const size_t stride, const size_t count, const bool capture, const bool peek, const int32_t result) -> void
+        auto FilterData(void* data, const size_t stride, const size_t count, const uint32_t capture, const bool peek, const int32_t result) -> void
         {
             if (result < 0 || data == nullptr || stride < 8 || stride > 20 || count > 4096) return;
             std::lock_guard lock(this->mutex_);
@@ -148,7 +151,7 @@ namespace xiui
             return owned;
         }
 
-        static auto Filter(std::array<key_state, 256>& keys, void* data, const size_t stride, const size_t count, const bool capture) -> void
+        static auto Filter(std::array<key_state, 256>& keys, void* data, const size_t stride, const size_t count, const uint32_t capture) -> void
         {
             auto* bytes = static_cast<uint8_t*>(data);
             for (size_t index = 0; index < count; ++index)
@@ -160,7 +163,7 @@ namespace xiui
                 if (scan >= keys.size()) continue;
                 auto& key = keys[scan];
                 const bool pressed = (value & 0x80u) != 0;
-                const bool owned = Consume(key, pressed) || capture;
+                const bool owned = Consume(key, pressed) || KeyboardCapturesScan(capture, scan);
                 key.data_owned = pressed && owned;
                 if (!pressed) key.overflow_owned = false;
                 if (owned)

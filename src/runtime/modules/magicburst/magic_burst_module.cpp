@@ -55,14 +55,14 @@ namespace xiui
             {"Text", "Independent countdown, chain-name and element-list text profiles.", "text"}};
         return sections;
     }
-    auto magic_burst_module::ConfigSectionContains(const size_t section, const size_t index) -> bool
+    auto magic_burst_module::ContentConfigSectionContains(const size_t section, const size_t index) -> bool
     {
         if (index >= this->OptionCount()) return false;
         if (index == enabled) return section == 0;
         if (index >= timer) return section == 2;
         return section == 1;
     }
-    auto magic_burst_module::Option(const size_t index) -> module_option
+    auto magic_burst_module::ContentOption(const size_t index) -> module_option
     {
         static constexpr const char* profiles[]{"Countdown", "Chain name", "Elements"};
         switch (index)

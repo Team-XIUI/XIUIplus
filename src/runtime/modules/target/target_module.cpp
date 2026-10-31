@@ -3,6 +3,7 @@
 #include "chat/chat_encoding.hpp"
 #include "ui/status_strip.hpp"
 #include "modules/mobinfo/mob_database.hpp"
+#include "xiv1_cast_chrome.hpp"
 
 #include <algorithm>
 #include <cmath>
@@ -10,6 +11,18 @@
 
 namespace xiui
 {
+    auto target_cast_module::ResetSettingsFrom(const hud_module& defaults, const ui::theme&) -> void
+    {
+        const auto& source = static_cast<const target_cast_module&>(defaults);
+        auto& target = this->parent_.settings_.display;
+        const auto& preset = source.parent_.settings_.display;
+        target.casts = preset.casts; target.custom_cast_meter = preset.custom_cast_meter; target.custom_cast_fill = preset.custom_cast_fill;
+        target.cast_placement = preset.cast_placement; target.cast_height = preset.cast_height; target.cast_spacing = preset.cast_spacing;
+        target.cast_width = preset.cast_width; target.cast_offset_x = preset.cast_offset_x; target.cast_offset_y = preset.cast_offset_y;
+        target.cast_top = preset.cast_top; target.cast_bottom = preset.cast_bottom; target.cast_meter = preset.cast_meter; target.cast_text = preset.cast_text;
+        this->parent_.cast_state_ = source.parent_.cast_state_; this->parent_.cast_positioned_ = source.parent_.cast_positioned_;
+    }
+
     target_module::target_module(void)
     {
         this->ResetChild(true);
@@ -25,8 +38,10 @@ namespace xiui
     auto target_module::ApplyMeterDefaults(const ui::meter_style& style) -> void
     {
         this->settings_.hp_style = style;
+        if (this->settings_.hp_style.height <= 0) this->settings_.hp_style.height = 12;
         this->settings_.world_bar.meter = style; this->settings_.world_bar.meter.height = 6;
-        this->settings_.subtarget.meter = style;
+        this->settings_.recipient.meter = this->settings_.hp_style;
+        this->settings_.subtarget.meter = this->settings_.hp_style;
     }
 
     auto target_module::ApplyTextDefaults(const ui::theme& theme) -> void
@@ -154,9 +169,9 @@ namespace xiui
         store.WriteRect("layout.target", this->state_.bounds);
     }
 
-    auto target_module::OptionCount(void) const -> size_t { return ring_options_start + target_ring_settings::option_count + 6; }
+    auto target_module::ContentOptionCount(void) const -> size_t { return ring_options_start + target_ring_settings::option_count + 6; }
 
-    auto target_module::OnOptionChanged(const size_t index) -> void
+    auto target_module::OnContentOptionChanged(const size_t index) -> void
     {
         if (index == display_options_start + target_display_settings::layout_options && this->settings_.display.cast_placement == 1 && !this->cast_positioned_)
         {
@@ -181,7 +196,7 @@ namespace xiui
         {
             static constexpr module_config_section rings[]{
                 {"General", "Terrain-following target rings and optional HP fill.", "general"},
-                {"Layout", "Inner and outer radius in world units.", "layout"},
+                {"Layout", "Model-relative sizing or fixed radii in world units.", "layout"},
                 {"Colors", "Ring tint and opacity.", "colors"}};
             return rings;
         }
@@ -190,7 +205,7 @@ namespace xiui
         return this->config_view_ == 2 ? std::span<const module_config_section>{sections}.first(9) : std::span<const module_config_section>{sections};
     }
 
-    auto target_module::ConfigSectionContains(const size_t section, const size_t index) -> bool
+    auto target_module::ContentConfigSectionContains(const size_t section, const size_t index) -> bool
     {
         if (section >= this->ConfigSections().size() || index >= this->OptionCount()) return false;
         if (index >= ring_options_start + target_ring_settings::option_count) return this->config_view_ == 0 && section == 8;
@@ -214,7 +229,7 @@ namespace xiui
         return topic == bar_config_section::general;
     }
 
-    auto target_module::Option(const size_t index) -> module_option
+    auto target_module::ContentOption(const size_t index) -> module_option
     {
         if (index >= ring_options_start + target_ring_settings::option_count)
         {
@@ -345,6 +360,7 @@ namespace xiui
     auto target_module::DrawView(const target_view& view, const ui::rect& panel, const char* prefix, meter_animation_state& animation,
         const uint64_t now, const module_render_context& context, const target_of_target_settings* presentation) -> float
     {
+        const bool xiv1 = context.Design().IsXiv1Theme();
         const bool valid = view.id != 0;
         animation.Bind(view.id);
         const bool recipient = presentation != nullptr;
@@ -360,13 +376,15 @@ namespace xiui
         auto profiles = std::array{this->settings_.name_text, this->settings_.distance_text, this->settings_.label_text, this->settings_.value_text};
         if (recipient && !options.follow_text) profiles = options.text;
         auto nameText = valid && (!recipient || options.tint_name) ? TintTextProfile(profiles[0], view.color) : profiles[0];
+        if (xiv1) nameText.style.font = ui::xiv1_italic_font;
         std::string level;
         if (valid && (recipient ? options.mob_level : this->settings_.display.mob_level))
             if (const auto* mob = view.mob; mob != nullptr && mob->minimum_level != 0 && mob->maximum_level != 0)
                 level = " " + MobLevel(*mob);
         const auto label = std::string{recipient && !options.prefix ? "" : prefix} + (valid ? view.name : "NO TARGET") + level +
             (!recipient && IsMonster(view.kind) ? TargetIdSuffix(view.id, this->settings_.display.id_format) : "");
-        const float nameWidth = std::max(1.0f, showDistance && valid ? panel.width * 0.6f - 7 : panel.width - 14);
+        const float nameInset = xiv1 ? 28.0f : 7.0f;
+        const float nameWidth = std::max(1.0f, showDistance && valid ? panel.width * 0.6f - nameInset : panel.width - nameInset - 7);
         auto name = label;
         while (name.size() > 3 && context.Design().MeasureText(name.c_str(), nameText.style) > nameWidth)
         {
@@ -375,9 +393,10 @@ namespace xiui
             name.resize(last);
         }
         auto meterStyle = recipient && !options.follow_meter ? options.meter : this->settings_.hp_style;
-        const float meterHeight = recipient ? options.BarHeight(this->settings_.hp_style.height + 2) : std::max(1.0f, meterStyle.height) + 2;
+        if (xiv1) { meterStyle.height = 8; meterStyle.bookends = true; }
+        const float meterHeight = xiv1 ? 10 : recipient ? options.BarHeight(this->settings_.hp_style.height + 2) : std::max(1.0f, meterStyle.height) + 2;
         if (recipient) meterStyle.height = std::max(1.0f, meterHeight - 2);
-        const float header = showName || showDistance ? 31.0f : 5.0f;
+        const float header = showName || showDistance ? xiv1 ? 36.0f : 31.0f : 5.0f;
         float bottom = panel.y + header - 2;
         char hpValue[24]{};
         const bool percentType = IsMonster(view.kind) ? this->settings_.display.percent_mobs :
@@ -394,7 +413,7 @@ namespace xiui
                 const auto color = context.Design().GetTheme().colors.accent;
                 context.DrawSelection({hp.x - 2, hp.y - 2, hp.width + 4, hp.height + 4}, false, {color, color, 0.06f, 0, 0, false});
             }
-            const char* hpLabel = showName && nameInside ? name.c_str() : (recipient ? options.label : this->settings_.show_label) ? "HP" : "";
+            const char* hpLabel = showName && nameInside ? name.c_str() : !xiv1 && (recipient ? options.label : this->settings_.show_label) ? "HP" : "";
             context.DrawMeter(hp, hpLabel, hpValue, valid ? module_render_context::Ratio(view.hp, 100) : 0,
                 recipient && !options.follow_fill ? options.fill_top : fillTop,
                 recipient && !options.follow_fill ? options.fill_bottom : fillBottom,
@@ -440,9 +459,24 @@ namespace xiui
         const auto layout = ui::LayoutStatusStrip(statuses.size(), strip, statusSettings);
         ui::DrawStatusStrip(statuses, strip, now, statusText, context, statusSettings);
         if (statusSettings.tooltips)
-            for (size_t i = 0; i < layout.count; ++i) this->status_hits_.push_back({statuses[i], layout.Icon(i), view.id});
+            for (size_t i = 0; i < layout.count; ++i) this->status_hits_.push_back({statuses[i], context.Design().Transform().Map(layout.Icon(i)), view.id});
         if (showName && !nameInside && !nameBelow)
-            context.DrawText(name.c_str(), {panel.x + 7, panel.y + 5, nameWidth, 20}, panel, nameText);
+        {
+            if (xiv1)
+            {
+                if (context.Containers() != nullptr) context.Containers()->DrawXiv1TargetHeader(context.Design(), {panel.x + 2, panel.y + 21, panel.width - 4, 12});
+                auto caption = profiles[2]; caption.style.font = ui::xiv1_italic_font;
+                caption.style.scale *= .72f; caption.style.alignment = ui::text_alignment::right;
+                const float captionWidth = recipient && !subtarget ? 105.0f : 65.0f;
+                const ui::rect at{panel.x + panel.width - captionWidth - 12, panel.y + 22, captionWidth, 13};
+                context.DrawText(recipient ? subtarget ? "Subtarget" : "Target of Target" : "Target", at, at, TintTextProfile(caption, 0xFFE6D6A6));
+                const auto color = valid ? view.color : 0xFFAAA28D;
+                const ui::rect badge{panel.x + 9, panel.y + 8, 13, 13};
+                context.Design().DrawRing(badge, 0xFFBD9474, 2);
+                context.Design().DrawRing({badge.x + 3, badge.y + 3, 7, 7}, color, 2);
+            }
+            context.DrawText(name.c_str(), {panel.x + nameInset, panel.y + 5, nameWidth, 20}, panel, nameText);
+        }
         if (showDistance && valid)
         {
             char distance[32]{};
@@ -469,6 +503,16 @@ namespace xiui
         auto style = options.custom_cast_meter ? options.cast_meter : this->settings_.hp_style;
         style.height = options.cast_height;
         const auto color = context.Design().GetTheme().colors.accent;
+        if (context.Design().IsXiv1Theme())
+        {
+            auto frame = bounds;
+            frame.height = 52;
+            DrawXiv1Cast(context, frame, cast.Active(now) ? (cast.interrupted ? "Interrupted" : cast.name.c_str()) : "Stone IV",
+                cast.Active(now) ? cast.Ratio(now) : .6f, options.custom_cast_fill ? options.cast_top : 0xFFEDCAB5,
+                options.custom_cast_fill ? options.cast_bottom : 0xFFB98370, style,
+                cast.interrupted ? TintTextProfile(options.cast_text, 0xFFFF8888) : options.cast_text);
+            return;
+        }
         context.DrawBar(bounds, cast.Active(now) ? cast.Ratio(now) : 0.6f,
             options.custom_cast_fill ? options.cast_top : MeterGradientTop(color), options.custom_cast_fill ? options.cast_bottom : color, 0, style);
         auto text = options.cast_text;
@@ -513,7 +557,11 @@ namespace xiui
         const auto& main = this->details_ready_ ? this->views_[0] : fallback;
         float height = this->DrawView(main, this->state_.bounds, "", this->detail_animations_[0], now, context);
         if (this->settings_.display.cast_placement == 0)
-            this->DrawCast(main.cast, this->AttachedCastBounds(this->state_.bounds), now, context);
+        {
+            auto cast = this->AttachedCastBounds(this->state_.bounds);
+            if (context.Design().IsXiv1Theme()) { cast.y = this->state_.bounds.y - 54 + this->settings_.display.cast_offset_y; cast.height = 52; }
+            this->DrawCast(main.cast, cast, now, context);
+        }
         target_view preview{};
         if (context.IsEditing())
         {
@@ -560,7 +608,7 @@ namespace xiui
     {
         auto& state = this->State();
         const auto anchor = this->parent_.AttachedCastBounds(this->parent_.state_.bounds);
-        state.bounds.width = anchor.width; state.minimum_height = state.bounds.height = anchor.height;
+        state.bounds.width = anchor.width; state.minimum_height = state.bounds.height = context.Design().IsXiv1Theme() ? 52 : anchor.height;
         this->parent_.DrawCast(this->parent_.views_[0].cast, state.bounds, ::GetTickCount64(), context);
     }
 

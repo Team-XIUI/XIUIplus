@@ -128,7 +128,7 @@ namespace xiui
         if (this->editing_ && (Contains(this->ConfigVisibleBounds(), x, y) ||
             (this->config_.active_color != nullptr && Contains(this->ConfigLayout().ColorEditor(viewport), x, y)))) return;
         if (this->TargetStatusVisible()) this->target_.RenderStatusTooltip(context, resources, x, y);
-        if (this->ContextVisible(this->pet_) && (this->editing_ ? this->pet_.PreviewVisible() : this->pet_.ShouldRender({})))
+        if (this->ModuleDisplayed(this->pet_))
             this->pet_.RenderStatusTooltip(context, resources, x, y);
         if (this->ContextVisible(this->enemy_list_) && this->enemy_list_.ShouldRender({})) this->enemy_list_.RenderStatusTooltip(context, resources, x, y);
         for (const auto* group : {&this->party_, &this->alliance_first_, &this->alliance_second_})

@@ -1,5 +1,6 @@
 #include "modules/actionbars/action_import.hpp"
 #include "modules/actionbars/action_executor.hpp"
+#include "native_target.hpp"
 
 #include <cstdio>
 #include <fstream>
@@ -10,7 +11,7 @@ namespace xiui
 {
     struct action_executor_test
     {
-        static auto NativePalette(const action_executor& executor) -> bool { return executor.native_macro_palette_; }
+        static auto NativePalette(const action_executor& executor) -> bool { return executor.native_menu_allowed_; }
     };
 }
 
@@ -207,6 +208,28 @@ return settings;)lua");
         action_executor executor; executor.SetRestricted(true);
         Check(!executor.Inspect(nullptr, macro, true).usable && !executor.Activate(nullptr, macro, 0) && executor.Status() == "Close the editor or finish typing first.", "representative display data cannot bypass restricted macro execution");
     }
+    auto MacroIconInference(void) -> void
+    {
+        using namespace xiui;
+        action_slot macro; macro.kind = action_kind::macro;
+        macro.lines = {"/ja \"Boost\" <me>", "/wait 2", "/ws \"Combo\" <t>"};
+        const auto icon = action_executor::IconAction(macro);
+        Check(icon && icon->kind == action_kind::weapon_skill && icon->name == "Combo", "the weapon skill supplies artwork instead of a preparatory Boost");
+        Check(action_executor::RepresentativeAction(macro)->name == "Boost", "icon inference preserves existing automatic recast selection");
+        macro.lines = {"/echo /ws Combo", "/wait 2", "/item \"Potion\" <me>"};
+        const auto item = action_executor::IconAction(macro);
+        Check(item && item->kind == action_kind::item && item->name == "Potion", "item commands supply artwork while text inside echo is ignored");
+        macro.lines = {"/wait 2", "/echo hello"};
+        Check(!action_executor::IconAction(macro), "non-action macros keep the neutral fallback icon");
+        macro.icon = "game:spell:1"; action_executor executor;
+        Check(executor.SuggestedIcon(nullptr, macro) == macro.icon, "an explicitly chosen game icon always overrides inference");
+        macro.recast_kind = action_kind::weapon_skill; macro.recast_name = "Combo";
+        Check(ValidateAction(macro).empty(), "the editor's weapon-skill recast source remains valid when saved");
+        Check(ActionKindFromName("Game macro") == action_kind::native_macro && ActionKindFromName("Native macro") == action_kind::native_macro &&
+            ActionKindFromName("Single command") == action_kind::command && ActionKindFromName("Command") == action_kind::command,
+            "clearer create labels retain existing imported action type names");
+    }
+
     auto NativePaletteBoundaries(void) -> void
     {
         using namespace xiui;
@@ -220,6 +243,16 @@ return settings;)lua");
         Check(ActionGuardReason(denied, true, true).empty(), "descriptive presentation retains metadata while native targeting is active");
         denied = ready; denied.subtarget = true;
         Check(!ActionGuardReason(denied, false, true).empty(), "native subtarget ownership remains exclusive");
+        denied = ready; denied.action_target = NativeTargetSelectionActive(native_target_selection{true, false, true, UINT32_MAX});
+        Check(!denied.action_target && ActionGuardReason(denied, false, true).empty(),
+            "auto-attack's active flag with no selected action does not block combat macros");
+        for (const auto state : {native_target_selection{true, true, true, UINT32_MAX}, {true, false, false, UINT32_MAX},
+            {true, false, true, 0}, {true, false, true, 16}, {false, true, false, 0}})
+        {
+            denied = ready; denied.action_target = NativeTargetSelectionActive(state);
+            Check(denied.action_target && !ActionGuardReason(denied, false, true).empty(),
+                "explicit subtargets, selected actions and unknown active states retain their guards");
+        }
         denied = ready; denied.dead = true;
         Check(!ActionGuardReason(denied, false, true).empty() && !ActionGuardReason(denied, true, true).empty(), "execution and presentation remain unavailable while KO'd");
         denied = ready; denied.identity_valid = false;
@@ -237,7 +270,7 @@ return settings;)lua");
         Check(!ActionGuardReason(ready, false, true).empty(), "an opened selector is owned by the macro's existing wait path rather than menu permission");
         action_executor executor;
         Check(!action_executor_test::NativePalette(executor), "native macro palette permission starts disabled");
-        executor.SetNativeMacroPalette(true); executor.SetRestricted(true);
+        executor.SetNativeMenuAllowed(true); executor.SetRestricted(true);
         Check(!executor.Activate(nullptr, macro, 0) && executor.Status() == "Close the editor or finish typing first.", "verified macro palette permission cannot enable restricted activation");
         Check(!executor.Inspect(nullptr, macro).usable, "ordinary inspection remains restricted despite macro palette permission");
         executor.Clear();
@@ -257,6 +290,6 @@ int main(int argc, char** argv)
             xiui::action_store migrated; Check(xiui::CommitActionImport(migrated, preview) == 4, "real writer fixture commits atomically");
             std::printf("Saved-profile fixture: %s; %zu actions, %zu library entries, %zu sets.\n", argv[i], preview.actions, preview.macros.size(), preview.palettes.size());
         }
-        Storage(); Imports(); MigrationData(); ExecutionBoundaries(); MacroPresentation(); NativePaletteBoundaries(); std::puts("Action palette, macro, import and execution boundary checks passed."); return 0; }
+        Storage(); Imports(); MigrationData(); ExecutionBoundaries(); MacroPresentation(); MacroIconInference(); NativePaletteBoundaries(); std::puts("Action palette, macro, import and execution boundary checks passed."); return 0; }
     catch (const std::exception& error) { std::fprintf(stderr, "%s\n", error.what()); return 1; }
 }

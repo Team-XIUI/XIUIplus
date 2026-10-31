@@ -11,3 +11,5 @@ Renders independent local Buffs/Debuffs and shared status strips/tooltips for ot
 Cancellation: `xiui_chat_smoke --status-cancel-only` checks native requests with a fake packet manager and never removes live effects.
 
 [Detailed guide](../reference/status-effects.md) · [Shared foundations](../foundations.md) · [Check commands](../../tests/README.md)
+
+[Shared HUD scaling](../reference/hud-scaling.md) keeps element coordinates separate from screen input/overlay anchors. Edit grips use the shared scale gesture; preserve independent scale values when changing layouts or inheritance.

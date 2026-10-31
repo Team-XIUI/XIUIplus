@@ -15,20 +15,29 @@ namespace xiui
 {
     auto hud_runtime::DrawConfig(const D3DVIEWPORT8& viewport) -> void
     {
+        this->config_.tooltip.clear();
+        this->config_.tooltip_anchor = {};
+        if (this->config_.basic) { this->DrawBasicSettings(viewport); return; }
         this->NormalizeConfigSelection();
         this->ClampOptionScroll();
         const auto layout = this->ConfigLayout();
-        this->config_.tooltip.clear();
         const auto panel = this->ConfigVisibleBounds();
         const auto& theme = this->design_system_.GetTheme();
-        const std::array<ui::container_fill, 4> fills{{
+        const std::array<ui::container_fill, 5> fills{{
             {layout.HeaderBackground(), 0xD0000000 | ((theme.colors.chrome & 0xFEFEFE) >> 1)},
             {layout.SidebarBackground(), (theme.colors.surface_raised & 0xFFFFFF) | 0x60000000},
             {layout.SubmenuBackground(), (theme.colors.surface_raised & 0xFFFFFF) | 0x30000000},
-            {layout.SectionBackground(), (theme.colors.surface_raised & 0xFFFFFF) | 0x30000000}}};
+            {layout.SectionBackground(), (theme.colors.surface_raised & 0xFFFFFF) | 0x30000000},
+            {layout.FooterBackground(), (theme.colors.surface_raised & 0xFFFFFF) | 0x60000000}}};
         this->config_controls_.Panel(panel, std::span{fills}.first(this->config_.collapsed ? 1 : fills.size()));
         auto headerStyle = theme.accent_text;
         headerStyle.scale = 0.82f;
+        if (this->design_system_.IsXiv1Theme())
+        {
+            headerStyle.alignment = ui::text_alignment::center;
+            const auto header = layout.HeaderBackground();
+            this->container_renderer_.DrawXiv1TitleSeparator(this->design_system_, {panel.x + 7, header.y + header.height - 3, panel.width - 14, 4});
+        }
         this->config_controls_.Text("CONFIGURATION", layout.HeaderTitle(), headerStyle);
         const auto sidebarToggle = layout.SidebarToggle();
         const bool sidebarHovered = Contains(sidebarToggle, static_cast<float>(this->mouse_x_), static_cast<float>(this->mouse_y_));
@@ -48,59 +57,46 @@ namespace xiui
             tooltip = this->config_.sidebar_collapsed ? "Expand sidebar" : "Collapse sidebar to icons";
             tooltipAnchor = sidebarToggle;
         }
-        const auto eye = layout.HeaderAction(1);
-        const bool eyeHovered = Contains(eye, static_cast<float>(this->mouse_x_), static_cast<float>(this->mouse_y_));
-        this->config_controls_.IconButton(eye, this->config_.collapsed ? ui::icon_glyph::eye_closed : ui::icon_glyph::eye, eyeHovered || this->config_.collapsed);
-        if (eyeHovered)
+        const auto collapse = layout.HeaderAction(1);
+        const bool collapseHovered = Contains(collapse, static_cast<float>(this->mouse_x_), static_cast<float>(this->mouse_y_));
+        this->config_controls_.IconButton(collapse, this->config_.collapsed ? ui::icon_glyph::add : ui::icon_glyph::minus, collapseHovered || this->config_.collapsed);
+        if (collapseHovered)
         {
             tooltip = this->config_.collapsed ? "Expand configuration" : "Collapse to title bar";
-            tooltipAnchor = eye;
+            tooltipAnchor = collapse;
         }
         if (this->config_.collapsed)
         {
-            if (tooltip != nullptr) this->config_controls_.Tooltip(tooltip, tooltipAnchor, viewport);
+            if (tooltip != nullptr) { this->config_.tooltip = tooltip; this->config_.tooltip_anchor = tooltipAnchor; }
             return;
         }
-        const auto pages = this->VisibleConfigPages();
-        for (size_t index = 0; index < pages.size(); ++index)
+        const auto sidebarBounds = this->ConfigSidebarBounds();
+        for (const auto& row : this->ConfigSidebarRows())
         {
-            const auto& page = pages[index];
-            const rect bounds = layout.ModuleTab(index);
-            const bool active = page.Contains(this->config_.module);
-            const bool hovered = Contains(bounds, static_cast<float>(this->mouse_x_), static_cast<float>(this->mouse_y_));
-            this->config_controls_.NavigationButton(bounds, page.id, page.name, active, hovered, this->config_.sidebar_collapsed);
-            if (this->config_.sidebar_collapsed && hovered) { tooltip = page.name; tooltipAnchor = bounds; }
+            if (row.bounds.y + row.bounds.height <= sidebarBounds.y || row.bounds.y >= sidebarBounds.y + sidebarBounds.height) continue;
+            const auto clip = this->design_system_.Clip({row.bounds.x, std::max(row.bounds.y, sidebarBounds.y), row.bounds.width,
+                std::min(row.bounds.y + row.bounds.height, sidebarBounds.y + sidebarBounds.height) - std::max(row.bounds.y, sidebarBounds.y)});
+            const bool hovered = row.available && Contains(sidebarBounds, static_cast<float>(this->mouse_x_), static_cast<float>(this->mouse_y_)) &&
+                Contains(row.bounds, static_cast<float>(this->mouse_x_), static_cast<float>(this->mouse_y_));
+            if (row.child) this->config_controls_.NavigationItem(row.bounds, row.label, row.selected, hovered, row.available);
+            else this->config_controls_.NavigationButton(row.bounds, row.id.c_str(), row.label, row.selected, hovered, this->config_.sidebar_collapsed);
+            if (hovered) { tooltip = row.help != nullptr ? row.help : row.label; tooltipAnchor = row.bounds; }
         }
 
-        this->DrawProfileControls();
-
-        const auto page = this->ActiveConfigPage();
-        if (page.SectionCount() > 1)
-        {
-            constexpr const char* chatNames[]{"Window 1", "Window 2", "Bubbles"};
-            for (size_t index = 0; index < page.SectionCount(); ++index)
-            {
-                const auto bounds = layout.Section(index, page.SectionCount());
-                const bool active = page.primary == &this->actionbars_ && this->actionbars_.FloatingWindowOpen() && this->actionbars_.WindowFocused() ?
-                    page.SectionView(index) == this->actionbars_.WindowConfigView() : page.SectionContains(index, this->config_.module);
-                const bool highlighted = active || Contains(bounds, static_cast<float>(this->mouse_x_), static_cast<float>(this->mouse_y_));
-                auto style = active ? theme.accent_text : theme.caption_text;
-                style.scale = 0.72f; style.alignment = ui::text_alignment::center;
-                this->config_controls_.Button(bounds, std::strcmp(page.id, "chat") == 0 ? chatNames[index] : page.SectionName(index), style, highlighted);
-            }
-        }
+        this->DrawSettingsFooter();
 
         static constexpr const char* categoryNames[] = {"GENERAL", "APPEARANCE", "EFFECTS", "COLORS", "TEXT"};
-        const auto topics = this->config_.module != nullptr ? this->config_.module->ConfigSections() : std::span<const module_config_section>{};
+        const auto topics = this->ConfigTopicRows();
         if (!topics.empty())
         {
-            this->config_.section = std::min(this->config_.section, topics.size() - 1);
             for (size_t index = 0; index < topics.size(); ++index)
             {
-                const auto bounds = layout.Submenu(index, topics.size());
-                const bool active = this->config_.section == index;
+                const auto bounds = ui::SettingsTopicBounds(layout.Submenu(index, topics.size()), topics[index]);
                 const bool hovered = Contains(bounds, static_cast<float>(this->mouse_x_), static_cast<float>(this->mouse_y_));
-                this->config_controls_.NavigationItem(bounds, topics[index].name, active, hovered);
+                this->config_controls_.NavigationItem(bounds, topics[index].label, topics[index].selected, hovered);
+                if (topics[index].parent)
+                    this->config_controls_.Text(topics[index].selected ? "-" : "+", {bounds.x + bounds.width - 16, bounds.y, 12, bounds.height}, theme.caption_text);
+                if (hovered) { tooltip = topics[index].description; tooltipAnchor = bounds; }
             }
         }
         else
@@ -121,6 +117,9 @@ namespace xiui
 
         if (this->config_.module != nullptr)
         {
+            if (this->IsAttribution())
+                this->config_controls_.Segmented(layout.ContentTabs(), ui::attribution_views, this->general_.AttributionView(),
+                    static_cast<float>(this->mouse_x_), static_cast<float>(this->mouse_y_));
             if (this->IsInventorySettings())
             {
                 std::array<const char*, inventory_groups.size()> names{};
@@ -135,10 +134,6 @@ namespace xiui
             }
             if (this->IsExperienceDisplay()) this->experience_display_.Draw(this->experience_, this->config_controls_, this->design_system_,
                 layout, static_cast<float>(this->mouse_x_), static_cast<float>(this->mouse_y_));
-            if (this->IsAttribution()) this->config_controls_.Segmented(layout.ContentTabs(), ui::attribution_views,
-                this->general_.AttributionView(), static_cast<float>(this->mouse_x_), static_cast<float>(this->mouse_y_));
-            if (this->IsGeneralAppearance()) this->config_controls_.Segmented(layout.ContentTabs(), general_module::appearance_tabs,
-                this->general_.AppearanceTab(), static_cast<float>(this->mouse_x_), static_cast<float>(this->mouse_y_));
             this->DrawElementSelector();
             if (this->IsXIUIContributors()) this->DrawContributorList();
             else
@@ -192,13 +187,13 @@ namespace xiui
                 if (this->IsGeneralAppearance() && this->general_.AppearanceTab() == 1)
                 {
                     const auto& sample = this->general_.GlobalTextStyle();
-                    auto area = layout.ContentSubtabs();
+                    auto area = layout.ContentTabs();
                     area.height = 48;
                     this->design_system_.DrawText("Aa Bb Cc 0123456789 - XIUI", area, sample);
                 }
                 else if (this->IsGeneralAppearance() && this->general_.AppearanceTab() == 3)
                 {
-                    const auto area = layout.ContentSubtabs();
+                    const auto area = layout.ContentTabs();
                     const rect sample{area.x + 16, area.y + 10, std::min(220.0f, area.width - 32), 28};
                     this->config_controls_.Button(sample, "Controller focus", theme.body_text, false);
                     this->design_system_.DrawFocusFrame(sample, this->general_.FocusStyle());
@@ -274,7 +269,8 @@ namespace xiui
 
     auto hud_runtime::DrawConfigTooltip(const D3DVIEWPORT8& viewport) -> void
     {
-        if (this->config_.search_open) return;
+        if (!this->GameWindowFocused() || this->config_.search_open || this->config_.input_mode_menu || this->config_.choice_input.Opened() ||
+            this->profile_name_.Focused() || this->profile_dropdown_ || this->profile_actions_) return;
         if (!this->config_.tooltip.empty() && this->interaction_ == interaction::none)
             this->config_controls_.Tooltip(this->config_.tooltip.c_str(), this->config_.tooltip_anchor, viewport);
     }
@@ -297,6 +293,11 @@ namespace xiui
         else if (part == ui::color_picker::part::copy)
         {
             this->config_.tooltip = "Copy this hex color. Transparent colors include the alpha value.";
+            this->config_.tooltip_anchor = layout.Copy();
+        }
+        else if (part == ui::color_picker::part::hex)
+        {
+            this->config_.tooltip = "Edit or paste #RRGGBB or #RRGGBBAA. Enter applies; Escape cancels.";
             this->config_.tooltip_anchor = layout.Hex();
         }
     }

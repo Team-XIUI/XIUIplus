@@ -2,6 +2,12 @@
 
 Configuration → **Action Bars** has six destinations: Hotbars, Crossbar, Actions & Macros, Action Sets, Import and Global. Hotbars and Crossbar contain their layout and display settings; the other destinations open separate workspace windows. Hotbars shows direct buttons for Hotbar 1–10 above its settings, wrapping to fit the window. Each surface has its own enable flag, position, layout and assignment lock. Normal bars offer up to twelve slots; the controller crossbar has seven stored banks of eight slots, including a separate Shared expanded bank. Move bars through the existing configuration movement controls.
 
+Action workspaces remain open when Configuration closes. The remaining workspace receives focus, preserving unsaved macro text; use its X button, Escape or controller Cancel to dismiss it.
+
+Assigned actions and macros can run from clicks, configured shortcuts and the crossbar while the normal native Attack/command menu is open. Native shop/editor menus and active target selection remain guarded. `/xiui actionbars status` includes the focused native window and current execution permission.
+
+For delayed macros, the status command also reports current TP, the pending line/wait and the last queued timed line. If another window suspends execution, the cancellation reason is retained for diagnosis.
+
 ## Global settings and Lua compatibility
 
 **Action Bars → Global** edits shared hotbar size, spacing, display, slot design, effects, overlays and text. Enable **Hotbars → Layout → Use Global Settings** for each bar that should follow it. Shapes, visible slot counts, positions, enabled states, locks, actions and keybindings remain independent. Turning the toggle off restores saved independent visuals, including after reload. Existing profiles and Lua imports remain independent until opted in; the crossbar keeps its own settings. Slot size accepts 16–72 px and spacing 0–32 px, covering Lua's smaller slots and wider spacing.
@@ -30,7 +36,7 @@ Management remains available during edit mode. Left-dragging slots still positio
 
 Keyboard, pointer and controller activation use the same executor. It checks the live character, learned action, job/level, resources, cooldowns and native input ownership before dispatch. Tooltips explain unavailable actions. Range and the final target remain the game's decision. Holding an activation button never repeats its action.
 
-**Replace native macros** is enabled by default. XIUI hides the built-in macro palettes and blocks native macro execution. Ctrl/Alt + numbers belong to XIUI, including unassigned, empty and hidden slots; only visible assigned XIUI slots activate an action. Native controller macro triggers are suppressed even when the crossbar is disabled. Turn this preference off to restore native macro controls. Native chat, ordinary menus and subtarget selection retain input ownership.
+**Replace native macros** is off by default, keeping native macro controls available. When enabled, XIUI hides the built-in macro palettes and blocks native macro execution. Ctrl/Alt + numbers belong to XIUI, including unassigned, empty and hidden slots; only visible assigned XIUI slots activate an action. Native controller macro triggers are suppressed even when the crossbar is disabled. Turn this preference off to restore native macro controls. Saved choices are preserved. Native chat, ordinary menus and subtarget selection retain input ownership.
 
 The game's macro palette is recognized separately from other native menus. A native execution guard blocks palette confirmation as well as keyboard/trigger starts, while explicit XIUI-macro actions use the guarded host bridge to run their selected book/set. Keyboard and controller state, buffered input and owned releases are handled together so quick taps or a preference change cannot replay a native macro activation.
 
@@ -40,9 +46,11 @@ Keyboard bindings follow the game's keyboard mode. Compact layouts retain ordina
 
 Macros are shared library entries. Editing one updates every slot referencing it; duplicate it to make an independent variant. Deleting an entry leaves assigned slots with their commands. Multiline commands support `/wait` and `<wait seconds>`; macros wait for their own native subtarget selection before continuing. Opening an editor, changing character/job/zone, losing foreground or hiding XIUI cancels pending sequences. `/xiui macros cancel` also cancels a sequence.
 
-The action/macro editor's **Icon override → Choose...** opens Vincerno's custom icon pack: 220 icons covering BLM, SMN, Dark, Elemental and Enfeebling Magic, including clean variants. Search by name, job, magic type or variant; Ctrl+F focuses search. Mouse selection or controller/keyboard directions and Confirm/Enter choose an icon. Back or Cancel/Escape returns to the editor, and **Default artwork** clears the override. Changes apply when you save the action or shared macro. Hotbars, crossbar and portable profiles retain the same bundled icon keys; no separate icon installation is needed.
+Create/Edit Macro follows the Lua layout: **Action Type**, a large icon preview and **Change** button at the upper right, **Macro Commands**, **Recast Source (Optional)**, **Slot Label**, then **Save / Cancel**. More options contains the native library, binding and availability controls. Command inputs have a dark backing and bright text. Eight lines appear when space permits; paging reaches all 32 supported lines. Enter and Up/Down move between rows, and multiline paste preserves command order without changing the saved action until Save.
 
-Native macro actions reference a book, set, Ctrl/Alt row and slot, and invoke the original game's macro service. They do not copy the native book into XIUI. The bridge checks the installed client signatures and reports unavailable execution if they do not match.
+**Change** opens a searchable picker for **Game**, original **XIUI**, and **Vincerno** artwork. Game entries include spell/ability recast icons and native item/equipment images; XIUI includes the default weapon-skill artwork. Vincerno retains its 220 custom variants. Search by action/item name, job, magic type or variant; Ctrl+F focuses search. Mouse, keyboard and controller share selection and scrolling. **Automatic (from action)** clears the override and infers artwork from the macro's main action: for Boost → wait → Combo, it selects Combo. Explicit choices take priority. Back/Cancel preserves the draft; Save applies it. Icon keys remain portable without extra installation.
+
+**New macro** creates a sequence of commands and waits, such as Boost → wait → Combo. **Single command** creates one command shortcut. **Game macro** (formerly Native macro) runs an existing FFXI macro by book, set, Ctrl/Alt row and slot. It does not copy the game's macro book into XIUI. The bridge checks the installed client signatures and reports unavailable execution if they do not match. The create buttons include hover/controller help.
 
 Click the action set caption to choose a set; the bar menu opens management. Create, rename, copy, reorder or delete sets there. A hotbar set contains all ten hotbars; switching it changes their assignments together. Crossbar sets are independent. Storage can be global, shared across a main job's subjobs, or specific to a main/subjob pair. Missing job/subjob data falls back to shared-main-job and then global data. Changing storage scope copies the current layout when creating a new destination context; existing destination palettes are preserved.
 
@@ -93,7 +101,7 @@ For deliberate browsing, use `/xiui focus hotbar` or `/xiui focus crossbar`, or 
 
 The reusable library accepts typed actions as well as command macros, including unused entries from Lua. Right-click a shared library entry, or focus it and press controller Actions / keyboard Menu, to edit it without assigning a slot. Shared edits update references; deleting a library entry keeps its currently assigned actions usable.
 
-Macro editing offers Automatic, None or a selected spell/ability/pet/item cooldown source, plus Always available. These affect displayed cooldown/availability metadata; commands retain their normal guarded execution path.
+Macro editing offers Automatic, None or a selected spell/ability/weapon-skill/pet/item cooldown source, plus Always available. These affect displayed cooldown/availability metadata; commands retain their normal guarded execution path.
 
 Hotbar and crossbar sets have independent names, selection and ordering. Existing combined sets split on load while retaining assignments. Text supports independent per-bar profiles and two-line labels; Layout separates horizontal/vertical gaps and crossbar diamond/group spacing. Crossbar visibility can follow held triggers or combat, with a release delay and fade. Existing settings default to their prior behavior.
 
@@ -110,7 +118,7 @@ Action data, macro commands and presentation settings follow normal XIUI profile
 
 Focused software checks cover storage, macro references, import boundaries, input normalization and UI ownership. Native builds and AgentLink status confirm the installed integration. Physical controller feel, remappers, visual polish and live action execution remain for Cody's gameplay acceptance; the implementation checks do not send live actions.
 
-ABI 18 adds the host-owned native macro runner and independent native-trigger suppression. Native macro replacement defaults on; using the XIUI crossbar remains a separate setup choice. Updating this contract requires a matching development host/runtime pair.
+ABI 18 adds the host-owned native macro runner and independent native-trigger suppression. Native macro replacement defaults off; using the XIUI crossbar remains a separate setup choice. Updating this contract requires a matching development host/runtime pair.
 
 The October 16 input revision passed focused action-data, UI, native-HUD and keyboard-suppression checks. The host/runtime pair was installed with SHA-256 verification in `C:/Games/PhoenixXI-dev/PhoenixXI`. AgentLink confirmed both builds `23:48:49` active, HUD visible, twelve macros retained and the native macro bridge available. The previous pair and settings/profiles are backed up under `out/actionbars-input-install-20261016-234916`. Physical keyboard ordering, visual behavior and controller feel remain in-game acceptance checks.
 

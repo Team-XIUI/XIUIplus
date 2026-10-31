@@ -26,7 +26,7 @@ namespace xiui::ui
         struct page
         {
             std::array<IDirect3DTexture8*, 3> textures{};
-            int x{}, y{}, row_height{};
+            int size{}, x{}, y{}, row_height{};
             uint64_t generation{1}, touched{};
         };
         struct entry
@@ -41,6 +41,6 @@ namespace xiui::ui
         std::unordered_map<uint64_t, entry> glyphs_{};
         uint64_t touched_{};
         auto Entry(int font, int pixels, uint32_t codepoint) -> entry&;
-        auto NewPage(IDirect3DDevice8* device) -> bool;
+        auto NewPage(IDirect3DDevice8* device, int size) -> std::optional<size_t>;
     };
 }

@@ -12,7 +12,7 @@ namespace xiui
     auto hud_runtime::SetProfileImportSource(const bool lua) -> void
     {
         this->profile_import_lua_ = lua;
-        this->profile_import_.reset(); this->profile_share_key_.clear(); this->profile_key_view_.Reset();
+        this->profile_import_.reset(); this->profile_file_.clear(); this->profile_legacy_import_ = false;
         this->profile_error_.clear(); this->config_.focus.modal_item = 0;
         if (!lua) { this->profile_name_.Open(""); return; }
         this->profile_lua_done_ = false; this->profile_lua_activate_ = this->profile_lua_links_ = this->profile_lua_controls_ = false;
@@ -220,7 +220,17 @@ namespace xiui
         else if (index == 13) this->profile_lua_controls_ = !this->profile_lua_controls_;
     }
     auto hud_runtime::LuaImportClick(const D3DVIEWPORT8& viewport) -> bool
-    { const auto target = this->LuaImportTarget(viewport); if (target >= 100) this->ActivateLuaImportControl(static_cast<size_t>(target - 100)); return true; }
+    {
+        const auto target = this->LuaImportTarget(viewport);
+        if (target == 100)
+        {
+            const ui::lua_import_layout layout{this->config_.bounds, viewport};
+            this->BeginCloseInteraction(interaction::close_profile,
+                Contains(layout.Close(), this->mouse_x_, this->mouse_y_) ? layout.Close() : layout.Control(0));
+        }
+        else if (target > 100) this->ActivateLuaImportControl(static_cast<size_t>(target - 100));
+        return true;
+    }
 
     auto hud_runtime::HandleLuaImportKey(const WPARAM key, const LPARAM flags) -> bool
     {
@@ -268,7 +278,7 @@ namespace xiui
             if (index == 1 && !this->LuaImportReady()) style.top_color = style.bottom_color = 0x80808080;
             this->config_controls_.Button(layout.Control(index), label, style, active || Contains(layout.Control(index), x, y));
         };
-        button(10, "Share key"); button(11, "XIUI Lua", true);
+        button(10, "Profile file"); button(11, "XIUI Lua", true);
         this->config_controls_.Text("XIUI folder or saved profile", layout.PathLabel(), caption);
         this->config_controls_.TextInput(layout.Control(5), this->profile_lua_path_);
         button(3, "Browse..."); button(2, "Scan"); button(6, "<"); button(7, ">");

@@ -32,6 +32,7 @@ namespace xiui
             std::lock_guard lock(this->mutex_);
             auto state = FilterControllerMenu(this->state_, menuOpen);
             if (event.action == controller_action::none || event.action > controller_action::palette_next) return false;
+            if (event.action == controller_action::cycle_window && (state & controller_native_cycle) != 0) return false;
             if (event.action > controller_action::focus)
             {
                 if (event.repeated || menuOpen || !this->crossbar_settings_.enabled || !this->crossbar_settings_.replace_native ||

@@ -1,6 +1,6 @@
 # Settings inventory
 
-Generated 2026-10-19. Source: runtime option metadata and shared layout.
+Generated 2026-10-31. Source: runtime option metadata and shared layout.
 Regenerate with `./scripts/update-docs.ps1`. Each bullet is one visual row; [empty] preserves paired controls.
 
 ## Player Bar
@@ -14,29 +14,17 @@ Regenerate with `./scripts/update-docs.ps1`. Each bullet is one visual row; [emp
 - Auto-hide MP | HP values
 - MP values
 
-### Layout
+### Appearance / Size & Position
 
+- Scale (%) | Lock proportions
+- Reset scale | [empty]
 - Width | Bar height
 
-### Bar Style
+### Appearance / Bar Style
 
 - Bar style | Bookends
 
-### Animation
-
-- Animated sheen | [empty]
-- Sheen width | Sheen speed
-- Smooth fill | Fill response
-
-### Effects
-
-- Drop shadow | Shadow strength
-- Shadow radius | [empty]
-- Shadow X offset | Shadow Y offset
-- Outer glow | Fill glow
-- TP ready blink
-
-### Colors
+### Appearance / Colors
 
 - Background opacity | [empty]
 - Fill top | Fill bottom
@@ -45,6 +33,20 @@ Regenerate with `./scripts/update-docs.ps1`. Each bullet is one visual row; [emp
 - Shadow color | Tint ready TP text
 - Custom TP overlay | TP flash color
 - Sheen color
+
+### Appearance / Effects
+
+- Drop shadow | Shadow strength
+- Shadow radius | [empty]
+- Shadow X offset | Shadow Y offset
+- Outer glow | Fill glow
+- TP ready blink
+
+### Appearance / Animation
+
+- Animated sheen | [empty]
+- Sheen width | Sheen speed
+- Smooth fill | Fill response
 
 ### Text
 
@@ -97,33 +99,35 @@ Regenerate with `./scripts/update-docs.ps1`. Each bullet is one visual row; [emp
 - Percentage | Item use
 - Interruptions | Manual Fast Cast / true progress
 
-### Layout
+### Appearance / Size & Position
 
+- Scale (%) | Lock proportions
+- Reset scale | [empty]
 - Width | Bar height
 
-### Bar Style
+### Appearance / Bar Style
 
 - Bar style | Bookends
 
-### Animation
+### Appearance / Colors
 
-- Animated sheen | [empty]
-- Sheen width | Sheen speed
-- Smooth fill | Fill response
+- Background opacity | [empty]
+- Fill top | Fill bottom
+- Shadow color | Sheen color
+- Interrupted
 
-### Effects
+### Appearance / Effects
 
 - Drop shadow | Shadow strength
 - Shadow radius | [empty]
 - Shadow X offset | Shadow Y offset
 - Outer glow | Fill glow
 
-### Colors
+### Appearance / Animation
 
-- Background opacity | [empty]
-- Fill top | Fill bottom
-- Shadow color | Sheen color
-- Interrupted
+- Animated sheen | [empty]
+- Sheen width | Sheen speed
+- Smooth fill | Fill response
 
 ### Text
 
@@ -143,32 +147,34 @@ Regenerate with `./scripts/update-docs.ps1`. Each bullet is one visual row; [emp
 - Enabled | Label
 - Percentage
 
-### Layout
+### Appearance / Size & Position
 
+- Scale (%) | Lock proportions
+- Reset scale | [empty]
 - Width | Bar height
 
-### Bar Style
+### Appearance / Bar Style
 
 - Bar style | Bookends
 
-### Animation
+### Appearance / Colors
 
-- Animated sheen | [empty]
-- Sheen width | Sheen speed
-- Smooth fill | Fill response
+- Background opacity | [empty]
+- Fill top | Fill bottom
+- Shadow color | Sheen color
 
-### Effects
+### Appearance / Effects
 
 - Drop shadow | Shadow strength
 - Shadow radius | [empty]
 - Shadow X offset | Shadow Y offset
 - Outer glow | Fill glow
 
-### Colors
+### Appearance / Animation
 
-- Background opacity | [empty]
-- Fill top | Fill bottom
-- Shadow color | Sheen color
+- Animated sheen | [empty]
+- Sheen width | Sheen speed
+- Smooth fill | Fill response
 
 ### Text
 
@@ -189,36 +195,37 @@ Regenerate with `./scripts/update-docs.ps1`. Each bullet is one visual row; [emp
 - Cost | Base cast / recast
 - Live cooldown
 
-### Layout
+### Appearance / Size & Position
 
-- Container | [empty]
+- Scale (%) | Lock proportions
+- Reset scale | Container
 - Width | Bar height
 - Line spacing | Container padding
 - Container opacity
 
-### Bar Style
+### Appearance / Bar Style
 
 - Bar style | Bookends
 
-### Animation
+### Appearance / Colors
 
-- Animated sheen | [empty]
-- Sheen width | Sheen speed
-- Smooth fill | Fill response
+- Background opacity | [empty]
+- Fill top | Fill bottom
+- Shadow color | Sheen color
+- Ready | Insufficient resources
 
-### Effects
+### Appearance / Effects
 
 - Drop shadow | Shadow strength
 - Shadow radius | [empty]
 - Shadow X offset | Shadow Y offset
 - Outer glow | Fill glow
 
-### Colors
+### Appearance / Animation
 
-- Background opacity | [empty]
-- Fill top | Fill bottom
-- Shadow color | Sheen color
-- Ready | Insufficient resources
+- Animated sheen | [empty]
+- Sheen width | Sheen speed
+- Smooth fill | Fill response
 
 ### Text
 
@@ -242,31 +249,21 @@ Regenerate with `./scripts/update-docs.ps1`. Each bullet is one visual row; [emp
 - Charge count | Tenths
 - Cooldown text colors | Ready display
 
-### Layout
+### Appearance / Size & Position
 
+- Scale (%) | Lock proportions
+- Reset scale | [empty]
 - Width | Bar height
 - Icon size | Row height
 - Maximum rows | Anchor
 - Spacing | Sort order
 - Fill behavior
 
-### Bar Style
+### Appearance / Bar Style
 
 - Bar style | Bookends
 
-### Animation
-
-- Animated sheen | [empty]
-- Sheen width | Sheen speed
-
-### Effects
-
-- Drop shadow | Shadow strength
-- Shadow radius | [empty]
-- Shadow X offset | Shadow Y offset
-- Outer glow | Fill glow
-
-### Colors
+### Appearance / Colors
 
 - Background opacity | [empty]
 - Cooldown top | Cooldown bottom
@@ -275,6 +272,18 @@ Regenerate with `./scripts/update-docs.ps1`. Each bullet is one visual row; [emp
 - Shadow color | Sheen color
 - Color changes | Approaching ready
 - Nearly ready
+
+### Appearance / Effects
+
+- Drop shadow | Shadow strength
+- Shadow radius | [empty]
+- Shadow X offset | Shadow Y offset
+- Outer glow | Fill glow
+
+### Appearance / Animation
+
+- Animated sheen | [empty]
+- Sheen width | Sheen speed
 
 ### Text
 
@@ -301,32 +310,38 @@ Regenerate with `./scripts/update-docs.ps1`. Each bullet is one visual row; [emp
 - Enemy ID | Player HP percent
 - Monster HP percent
 
-### Layout
+### Appearance / Size & Position
 
+- Scale (%) | Lock proportions
+- Reset scale | [empty]
 - Width | Bar height
 
-### Bar Style
+### Appearance / Bar Style
 
 - Bar style | Bookends
 
-### Animation
+### Appearance / Colors
 
-- Animated sheen | [empty]
-- Sheen width | Sheen speed
-- Smooth fill | Fill response
+- Background opacity | [empty]
+- Fill top | Fill bottom
+- Shadow color | Sheen color
 
-### Effects
+### Appearance / Entity Colors
+
+- Entity HP gradients | Custom entity names
+
+### Appearance / Effects
 
 - Drop shadow | Shadow strength
 - Shadow radius | [empty]
 - Shadow X offset | Shadow Y offset
 - Outer glow | Fill glow
 
-### Colors
+### Appearance / Animation
 
-- Background opacity | [empty]
-- Fill top | Fill bottom
-- Shadow color | Sheen color
+- Animated sheen | [empty]
+- Sheen width | Sheen speed
+- Smooth fill | Fill response
 
 ### Text
 
@@ -390,10 +405,6 @@ Regenerate with `./scripts/update-docs.ps1`. Each bullet is one visual row; [emp
 - Cast X offset | Cast Y offset
 - Independent cast style | Custom cast gradient
 
-### Entity Colors
-
-- Entity HP gradients | Custom entity names
-
 ### Mob Info
 
 - Mob information | Show text
@@ -434,8 +445,10 @@ Regenerate with `./scripts/update-docs.ps1`. Each bullet is one visual row; [emp
 - Connecting arrow | Name
 - Name prefix | Mob level
 
-### Layout
+### Appearance / Size & Position
 
+- Scale (%) | Lock proportions
+- Reset scale | [empty]
 - Width | Bar height
 - Arrow size | Position
 - Bar alignment | [empty]
@@ -443,21 +456,21 @@ Regenerate with `./scripts/update-docs.ps1`. Each bullet is one visual row; [emp
 - Arrow X offset | Arrow Y offset
 - Spacing | Arrow gap
 
-### Bar Style
+### Appearance / Bar Style
 
 - Follow target style
 
-### Animation
-
-- Follow target style
-
-### Effects
-
-- Follow target style
-
-### Colors
+### Appearance / Colors
 
 - Follow target colors | Arrow color
+
+### Appearance / Effects
+
+- Follow target style
+
+### Appearance / Animation
+
+- Follow target style
 
 ### Text
 
@@ -493,36 +506,38 @@ Regenerate with `./scripts/update-docs.ps1`. Each bullet is one visual row; [emp
 - Name | Name prefix
 - Mob level
 
-### Layout
+### Appearance / Size & Position
 
+- Scale (%) | Lock proportions
+- Reset scale | [empty]
 - Width | Bar height
 - Cast bar height | Position
 - X offset | Y offset
 - Spacing
 
-### Bar Style
+### Appearance / Bar Style
 
 - Follow target style | Bar style
 - Automatic bar height | Bookends
 
-### Animation
+### Appearance / Colors
 
-- Follow target style | Animated sheen
-- Sheen width | Sheen speed
-- Smooth fill | Fill response
+- Follow target colors | Background opacity
+- Shadow color | Sheen color
+- Fill top | Fill bottom
 
-### Effects
+### Appearance / Effects
 
 - Follow target style | Drop shadow
 - Shadow strength | Shadow radius
 - Shadow X offset | Shadow Y offset
 - Outer glow | Fill glow
 
-### Colors
+### Appearance / Animation
 
-- Follow target colors | Background opacity
-- Shadow color | Sheen color
-- Fill top | Fill bottom
+- Follow target style | Animated sheen
+- Sheen width | Sheen speed
+- Smooth fill | Fill response
 
 ### Text
 
@@ -585,33 +600,35 @@ Regenerate with `./scripts/update-docs.ps1`. Each bullet is one visual row; [emp
 - Healing potency bonus (%) | Overheal prediction
 - Name | HP percent
 
-### Layout
+### Appearance / Size & Position
 
+- Scale (%) | Lock proportions
+- Reset scale | [empty]
 - Bar width | Bar height
 - X offset | Y offset
 
-### Bar Style
+### Appearance / Bar Style
 
 - Bar style | Bookends
 
-### Animation
+### Appearance / Colors
 
-- Animated sheen | [empty]
-- Sheen width | Sheen speed
-- Smooth fill | Fill response
+- Follow Target colors | Background opacity
+- Heal prediction color | Overheal color
+- Shadow color | Sheen color
 
-### Effects
+### Appearance / Effects
 
 - Drop shadow | Shadow strength
 - Shadow radius | [empty]
 - Shadow X offset | Shadow Y offset
 - Outer glow | Fill glow
 
-### Colors
+### Appearance / Animation
 
-- Follow Target colors | Background opacity
-- Heal prediction color | Overheal color
-- Shadow color | Sheen color
+- Animated sheen | [empty]
+- Sheen width | Sheen speed
+- Smooth fill | Fill response
 
 ### Text
 
@@ -643,18 +660,28 @@ Regenerate with `./scripts/update-docs.ps1`. Each bullet is one visual row; [emp
 - Enabled | Show for NPCs
 - Show for players | HP fill
 
-### Layout
+### Appearance / Size & Position
 
+- Scale with model size | [empty]
 - Inner radius | Outer radius
 
-### Colors
+### Appearance / Colors
 
 - Follow target name color | Ring color
+
+## World Target Bar
+
+### General
+
+- Scale (%) | Lock proportions
+- Reset scale
 
 ## Target Cast Bar
 
 ### General
 
+- Scale (%) | Lock proportions
+- Reset scale
 
 ## Target of Target
 
@@ -667,8 +694,10 @@ Regenerate with `./scripts/update-docs.ps1`. Each bullet is one visual row; [emp
 - Connecting arrow | Name
 - Name prefix | Mob level
 
-### Layout
+### Appearance / Size & Position
 
+- Scale (%) | Lock proportions
+- Reset scale | [empty]
 - Width | Bar height
 - Arrow size | Position
 - Bar alignment | [empty]
@@ -676,21 +705,21 @@ Regenerate with `./scripts/update-docs.ps1`. Each bullet is one visual row; [emp
 - Arrow X offset | Arrow Y offset
 - Spacing | Arrow gap
 
-### Bar Style
+### Appearance / Bar Style
 
 - Follow target style
 
-### Animation
-
-- Follow target style
-
-### Effects
-
-- Follow target style
-
-### Colors
+### Appearance / Colors
 
 - Follow target colors | Arrow color
+
+### Appearance / Effects
+
+- Follow target style
+
+### Appearance / Animation
+
+- Follow target style
 
 ### Text
 
@@ -726,36 +755,38 @@ Regenerate with `./scripts/update-docs.ps1`. Each bullet is one visual row; [emp
 - Name | Name prefix
 - Mob level
 
-### Layout
+### Appearance / Size & Position
 
+- Scale (%) | Lock proportions
+- Reset scale | [empty]
 - Width | Bar height
 - Cast bar height | Position
 - X offset | Y offset
 - Spacing
 
-### Bar Style
+### Appearance / Bar Style
 
 - Follow target style | Bar style
 - Automatic bar height | Bookends
 
-### Animation
+### Appearance / Colors
 
-- Follow target style | Animated sheen
-- Sheen width | Sheen speed
-- Smooth fill | Fill response
+- Follow target colors | Background opacity
+- Shadow color | Sheen color
+- Fill top | Fill bottom
 
-### Effects
+### Appearance / Effects
 
 - Follow target style | Drop shadow
 - Shadow strength | Shadow radius
 - Shadow X offset | Shadow Y offset
 - Outer glow | Fill glow
 
-### Colors
+### Appearance / Animation
 
-- Follow target colors | Background opacity
-- Shadow color | Sheen color
-- Fill top | Fill bottom
+- Follow target style | Animated sheen
+- Sheen width | Sheen speed
+- Smooth fill | Fill response
 
 ### Text
 
@@ -814,51 +845,71 @@ Regenerate with `./scripts/update-docs.ps1`. Each bullet is one visual row; [emp
 
 ### General
 
+- Scale (%) | Lock proportions
+- Reset scale
 
 ## Mob Links
 
 ### General
 
+- Scale (%) | Lock proportions
+- Reset scale
 
 ## Mob Detection
 
 ### General
 
+- Scale (%) | Lock proportions
+- Reset scale
 
 ## Mob Physical Damage
 
 ### General
 
+- Scale (%) | Lock proportions
+- Reset scale
 
 ## Mob Element Damage
 
 ### General
 
+- Scale (%) | Lock proportions
+- Reset scale
 
 ## Mob Element Ranks
 
 ### General
 
+- Scale (%) | Lock proportions
+- Reset scale
 
 ## Mob Status Ranks
 
 ### General
 
+- Scale (%) | Lock proportions
+- Reset scale
 
 ## Mob Immunities
 
 ### General
 
+- Scale (%) | Lock proportions
+- Reset scale
 
 ## Mob Server ID
 
 ### General
 
+- Scale (%) | Lock proportions
+- Reset scale
 
 ## Mob Spawn Interval
 
 ### General
 
+- Scale (%) | Lock proportions
+- Reset scale
 
 ## Enemy List
 
@@ -869,35 +920,42 @@ Regenerate with `./scripts/update-docs.ps1`. Each bullet is one visual row; [emp
 - Casts | Include selected
 - Click to target
 
-### Layout
+### Appearance / Size & Position
 
+- Scale (%) | Lock proportions
+- Reset scale | [empty]
 - Width | Bar height
 - Maximum columns | Rows per column
 - Row spacing
 
-### Bar Style
+### Appearance / Window
+
+- Padding | Opacity
+- Entry borders | Claim-colored borders
+
+### Appearance / Bar Style
 
 - Bar style | Bookends
 
-### Animation
+### Appearance / Colors
 
-- Animated sheen | [empty]
-- Sheen width | Sheen speed
-- Smooth fill | Fill response
+- Background opacity | [empty]
+- HP fill top | HP fill bottom
+- Shadow color | Sheen color
+- Attacking you | Cast
 
-### Effects
+### Appearance / Effects
 
 - Drop shadow | Shadow strength
 - Shadow radius | [empty]
 - Shadow X offset | Shadow Y offset
 - Outer glow | Fill glow
 
-### Colors
+### Appearance / Animation
 
-- Background opacity | [empty]
-- HP fill top | HP fill bottom
-- Shadow color | Sheen color
-- Attacking you | Cast
+- Animated sheen | [empty]
+- Sheen width | Sheen speed
+- Smooth fill | Fill response
 
 ### Text
 
@@ -944,11 +1002,6 @@ Regenerate with `./scripts/update-docs.ps1`. Each bullet is one visual row; [emp
 
 - Separate target panel
 
-### Appearance
-
-- Padding | Opacity
-- Entry borders | Claim-colored borders
-
 ## Pet / Avatar / spirit
 
 ### General
@@ -959,36 +1012,46 @@ Regenerate with `./scripts/update-docs.ps1`. Each bullet is one visual row; [emp
 - Ability recasts | Recasts without pet
 - Observed elapsed time
 
-### Layout
+### Appearance / Size & Position
 
-- Show background | [empty]
+- Scale (%) | Lock proportions
+- Reset scale | Show background
 - Width | Bar height
 - Opacity | Padding
 - Row spacing | Resource width
 - Anchor bottom
 
-### Bar Style
+### Appearance / Bar Style
 
 - Bar style | Bookends
 
-### Animation
+### Appearance / Portrait
 
-- Animated sheen | [empty]
-- Sheen width | Sheen speed
-- Smooth fill | Fill response
+- Pet portrait | Show background
+- Job icon fallback | Avatar image
+- Portrait size | Image scale
+- Portrait position | [empty]
+- Image offset X | Image offset Y
+- Image opacity | Clip image to window
 
-### Effects
+### Appearance / Colors
+
+- Background opacity | Shadow color
+- Sheen color | Fill top
+- Fill bottom
+
+### Appearance / Effects
 
 - Drop shadow | Shadow strength
 - Shadow radius | [empty]
 - Shadow X offset | Shadow Y offset
 - Outer glow | Fill glow
 
-### Colors
+### Appearance / Animation
 
-- Background opacity | Shadow color
-- Sheen color | Fill top
-- Fill bottom
+- Animated sheen | [empty]
+- Sheen width | Sheen speed
+- Smooth fill | Fill response
 
 ### Text
 
@@ -1029,15 +1092,6 @@ Regenerate with `./scripts/update-docs.ps1`. Each bullet is one visual row; [emp
 - Unknown timer markers | Timer placement
 - Status timer scale | Status tooltips
 - Status overflow count
-
-### Portrait
-
-- Pet portrait | Show background
-- Job icon fallback | Avatar image
-- Portrait size | Image scale
-- Portrait position | [empty]
-- Image offset X | Image offset Y
-- Image opacity | Clip image to window
 
 ### Recasts
 
@@ -1059,54 +1113,65 @@ Regenerate with `./scripts/update-docs.ps1`. Each bullet is one visual row; [emp
 - Recasts without pet | Observed elapsed time
 - Lifetime information | Estimated remaining lifetime
 
-### Layout
+### Appearance / Size & Position
 
-- Show background | [empty]
+- Scale (%) | Lock proportions
+- Reset scale | Show background
 - Width | Bar height
 - Opacity | Padding
 - Row spacing | Resource width
 - Anchor bottom
 
-### Layout / MP
+### Appearance / Size & Position / MP
 
-- Show background | Width
-- Opacity | Padding
-- Row spacing | Resource width
-- Anchor bottom
+- Scale (%) | Lock proportions
+- Reset scale | Show background
+- Width | Opacity
+- Padding | Row spacing
+- Resource width | Anchor bottom
 
-### Bar Style
+### Appearance / Bar Style
 
 - Bar style | Bookends
 
-### Bar Style / MP
+### Appearance / Bar Style / MP
 
 
-### Animation
+### Appearance / Portrait
 
-- Animated sheen | [empty]
-- Sheen width | Sheen speed
-- Smooth fill | Fill response
+- Pet portrait | Show background
+- Job icon fallback | [empty]
+- Portrait size | Image scale
+- Portrait position | [empty]
+- Image offset X | Image offset Y
+- Image opacity | Clip image to window
 
-### Animation / MP
+### Appearance / Colors
+
+- Background opacity | Shadow color
+- Sheen color | Fill top
+- Fill bottom
+
+### Appearance / Colors / MP
 
 
-### Effects
+### Appearance / Effects
 
 - Drop shadow | Shadow strength
 - Shadow radius | [empty]
 - Shadow X offset | Shadow Y offset
 - Outer glow | Fill glow
 
-### Effects / MP
+### Appearance / Effects / MP
 
 
-### Colors
+### Appearance / Animation
 
-- Background opacity | Shadow color
-- Sheen color | Fill top
-- Fill bottom
+- Animated sheen | [empty]
+- Sheen width | Sheen speed
+- Smooth fill | Fill response
 
-### Colors / MP
+### Appearance / Animation / MP
 
 
 ### Text
@@ -1148,15 +1213,6 @@ Regenerate with `./scripts/update-docs.ps1`. Each bullet is one visual row; [emp
 - Unknown timer markers | Timer placement
 - Status timer scale | Status tooltips
 - Status overflow count
-
-### Portrait
-
-- Pet portrait | Show background
-- Job icon fallback | [empty]
-- Portrait size | Image scale
-- Portrait position | [empty]
-- Image offset X | Image offset Y
-- Image opacity | Clip image to window
 
 ### Recasts
 
@@ -1179,54 +1235,65 @@ Regenerate with `./scripts/update-docs.ps1`. Each bullet is one visual row; [emp
 - Lifetime information | Estimated remaining lifetime
 - Charm bonus charisma
 
-### Layout
+### Appearance / Size & Position
 
-- Show background | [empty]
+- Scale (%) | Lock proportions
+- Reset scale | Show background
 - Width | Bar height
 - Opacity | Padding
 - Row spacing | Resource width
 - Anchor bottom
 
-### Layout / MP
+### Appearance / Size & Position / MP
 
-- Show background | Width
-- Opacity | Padding
-- Row spacing | Resource width
-- Anchor bottom
+- Scale (%) | Lock proportions
+- Reset scale | Show background
+- Width | Opacity
+- Padding | Row spacing
+- Resource width | Anchor bottom
 
-### Bar Style
+### Appearance / Bar Style
 
 - Bar style | Bookends
 
-### Bar Style / MP
+### Appearance / Bar Style / MP
 
 
-### Animation
+### Appearance / Portrait
 
-- Animated sheen | [empty]
-- Sheen width | Sheen speed
-- Smooth fill | Fill response
+- Pet portrait | Show background
+- Job icon fallback | [empty]
+- Portrait size | Image scale
+- Portrait position | [empty]
+- Image offset X | Image offset Y
+- Image opacity | Clip image to window
 
-### Animation / MP
+### Appearance / Colors
+
+- Background opacity | Shadow color
+- Sheen color | Fill top
+- Fill bottom
+
+### Appearance / Colors / MP
 
 
-### Effects
+### Appearance / Effects
 
 - Drop shadow | Shadow strength
 - Shadow radius | [empty]
 - Shadow X offset | Shadow Y offset
 - Outer glow | Fill glow
 
-### Effects / MP
+### Appearance / Effects / MP
 
 
-### Colors
+### Appearance / Animation
 
-- Background opacity | Shadow color
-- Sheen color | Fill top
-- Fill bottom
+- Animated sheen | [empty]
+- Sheen width | Sheen speed
+- Smooth fill | Fill response
 
-### Colors / MP
+### Appearance / Animation / MP
 
 
 ### Text
@@ -1268,15 +1335,6 @@ Regenerate with `./scripts/update-docs.ps1`. Each bullet is one visual row; [emp
 - Unknown timer markers | Timer placement
 - Status timer scale | Status tooltips
 - Status overflow count
-
-### Portrait
-
-- Pet portrait | Show background
-- Job icon fallback | [empty]
-- Portrait size | Image scale
-- Portrait position | [empty]
-- Image offset X | Image offset Y
-- Image opacity | Clip image to window
 
 ### Recasts
 
@@ -1297,54 +1355,65 @@ Regenerate with `./scripts/update-docs.ps1`. Each bullet is one visual row; [emp
 - Distance | Ability recasts
 - Recasts without pet | Observed elapsed time
 
-### Layout
+### Appearance / Size & Position
 
-- Show background | [empty]
+- Scale (%) | Lock proportions
+- Reset scale | Show background
 - Width | Bar height
 - Opacity | Padding
 - Row spacing | Resource width
 - Anchor bottom
 
-### Layout / MP
+### Appearance / Size & Position / MP
 
-- Show background | Width
-- Opacity | Padding
-- Row spacing | Resource width
-- Anchor bottom
+- Scale (%) | Lock proportions
+- Reset scale | Show background
+- Width | Opacity
+- Padding | Row spacing
+- Resource width | Anchor bottom
 
-### Bar Style
+### Appearance / Bar Style
 
 - Bar style | Bookends
 
-### Bar Style / MP
+### Appearance / Bar Style / MP
 
 
-### Animation
+### Appearance / Portrait
 
-- Animated sheen | [empty]
-- Sheen width | Sheen speed
-- Smooth fill | Fill response
+- Pet portrait | Show background
+- Job icon fallback | [empty]
+- Portrait size | Image scale
+- Portrait position | [empty]
+- Image offset X | Image offset Y
+- Image opacity | Clip image to window
 
-### Animation / MP
+### Appearance / Colors
+
+- Background opacity | Shadow color
+- Sheen color | Fill top
+- Fill bottom
+
+### Appearance / Colors / MP
 
 
-### Effects
+### Appearance / Effects
 
 - Drop shadow | Shadow strength
 - Shadow radius | [empty]
 - Shadow X offset | Shadow Y offset
 - Outer glow | Fill glow
 
-### Effects / MP
+### Appearance / Effects / MP
 
 
-### Colors
+### Appearance / Animation
 
-- Background opacity | Shadow color
-- Sheen color | Fill top
-- Fill bottom
+- Animated sheen | [empty]
+- Sheen width | Sheen speed
+- Smooth fill | Fill response
 
-### Colors / MP
+### Appearance / Animation / MP
 
 
 ### Text
@@ -1386,15 +1455,6 @@ Regenerate with `./scripts/update-docs.ps1`. Each bullet is one visual row; [emp
 - Unknown timer markers | Timer placement
 - Status timer scale | Status tooltips
 - Status overflow count
-
-### Portrait
-
-- Pet portrait | Show background
-- Job icon fallback | [empty]
-- Portrait size | Image scale
-- Portrait position | [empty]
-- Image offset X | Image offset Y
-- Image opacity | Clip image to window
 
 ### Recasts
 
@@ -1416,36 +1476,46 @@ Regenerate with `./scripts/update-docs.ps1`. Each bullet is one visual row; [emp
 - Ability recasts | Recasts without pet
 - Observed elapsed time
 
-### Layout
+### Appearance / Size & Position
 
-- Show background | [empty]
+- Scale (%) | Lock proportions
+- Reset scale | Show background
 - Width | Bar height
 - Opacity | Padding
 - Row spacing | Resource width
 - Anchor bottom
 
-### Bar Style
+### Appearance / Bar Style
 
 - Bar style | Bookends
 
-### Animation
+### Appearance / Portrait
 
-- Animated sheen | [empty]
-- Sheen width | Sheen speed
-- Smooth fill | Fill response
+- Pet portrait | Show background
+- Job icon fallback | [empty]
+- Portrait size | Image scale
+- Portrait position | [empty]
+- Image offset X | Image offset Y
+- Image opacity | Clip image to window
 
-### Effects
+### Appearance / Colors
+
+- Background opacity | Shadow color
+- Sheen color | Fill top
+- Fill bottom
+
+### Appearance / Effects
 
 - Drop shadow | Shadow strength
 - Shadow radius | [empty]
 - Shadow X offset | Shadow Y offset
 - Outer glow | Fill glow
 
-### Colors
+### Appearance / Animation
 
-- Background opacity | Shadow color
-- Sheen color | Fill top
-- Fill bottom
+- Animated sheen | [empty]
+- Sheen width | Sheen speed
+- Smooth fill | Fill response
 
 ### Text
 
@@ -1487,15 +1557,6 @@ Regenerate with `./scripts/update-docs.ps1`. Each bullet is one visual row; [emp
 - Status timer scale | Status tooltips
 - Status overflow count
 
-### Portrait
-
-- Pet portrait | Show background
-- Job icon fallback | [empty]
-- Portrait size | Image scale
-- Portrait position | [empty]
-- Image offset X | Image offset Y
-- Image opacity | Clip image to window
-
 ### Recasts
 
 - Recast X offset | Recast Y offset
@@ -1513,36 +1574,38 @@ Regenerate with `./scripts/update-docs.ps1`. Each bullet is one visual row; [emp
 - Enabled | Distance
 - HP percent | HP label
 
-### Layout
+### Appearance / Size & Position
 
-- Show background | Bar height
+- Scale (%) | Lock proportions
+- Reset scale | Show background
+- Bar height | [empty]
 - Attached X offset | Attached Y offset
 - Background padding | Background opacity
 - Tint background | Snap to Pet
 - Attached gap | Attached width
 
-### Bar Style
+### Appearance / Bar Style
 
 - Bar style | Bookends
 
-### Animation
+### Appearance / Colors
 
-- Animated sheen | [empty]
-- Sheen width | Sheen speed
-- Smooth fill | Fill response
+- Background opacity | Shadow color
+- Sheen color | Fill top
+- Fill bottom
 
-### Effects
+### Appearance / Effects
 
 - Drop shadow | Shadow strength
 - Shadow radius | [empty]
 - Shadow X offset | Shadow Y offset
 - Outer glow | Fill glow
 
-### Colors
+### Appearance / Animation
 
-- Background opacity | Shadow color
-- Sheen color | Fill top
-- Fill bottom
+- Animated sheen | [empty]
+- Sheen width | Sheen speed
+- Smooth fill | Fill response
 
 ### Text
 
@@ -1574,36 +1637,38 @@ Regenerate with `./scripts/update-docs.ps1`. Each bullet is one visual row; [emp
 - Enabled | Distance
 - HP percent | HP label
 
-### Layout
+### Appearance / Size & Position
 
-- Show background | Bar height
+- Scale (%) | Lock proportions
+- Reset scale | Show background
+- Bar height | [empty]
 - Attached X offset | Attached Y offset
 - Background padding | Background opacity
 - Tint background | Snap to Pet
 - Attached gap | Attached width
 
-### Bar Style
+### Appearance / Bar Style
 
 - Bar style | Bookends
 
-### Animation
+### Appearance / Colors
 
-- Animated sheen | [empty]
-- Sheen width | Sheen speed
-- Smooth fill | Fill response
+- Background opacity | Shadow color
+- Sheen color | Fill top
+- Fill bottom
 
-### Effects
+### Appearance / Effects
 
 - Drop shadow | Shadow strength
 - Shadow radius | [empty]
 - Shadow X offset | Shadow Y offset
 - Outer glow | Fill glow
 
-### Colors
+### Appearance / Animation
 
-- Background opacity | Shadow color
-- Sheen color | Fill top
-- Fill bottom
+- Animated sheen | [empty]
+- Sheen width | Sheen speed
+- Smooth fill | Fill response
 
 ### Text
 
@@ -1633,33 +1698,98 @@ Regenerate with `./scripts/update-docs.ps1`. Each bullet is one visual row; [emp
 ### General
 
 - Enabled | Full party preview
-- Show when solo | Show heading
-- Distance | Distance highlight
-- Show SYNC | [empty]
+- Show party leader | Show when solo
+- Show heading | Distance
+- Distance highlight | Show SYNC
 - Classic | XIV
 
-### Layout
+### Appearance / Size & Position
 
-- Resource layout | [empty]
+- Scale (%) | Lock proportions
+- Reset scale | Resource layout
 - Bar width | Bar height
 - Bar position | [empty]
 - Bar X offset | Bar Y offset
 
-### Layout / TP
+### Appearance / Size & Position / TP
 
-- Resource layout | [empty]
+- Scale (%) | Lock proportions
+- Reset scale | Resource layout
 - Bar width | Bar height
 - Bar position | [empty]
 - Bar X offset | Bar Y offset
 - TP display
 
-### Layout / Cast
+### Appearance / Size & Position / Cast
 
-- Resource layout | [empty]
+- Scale (%) | Lock proportions
+- Reset scale | Resource layout
 - Bar width | Bar height
 - Bar position | [empty]
 - Bar X offset | Bar Y offset
 - Cast placement
+
+### Appearance / Window
+
+- Entry spacing | Maximum window width
+- Fit width to bars | Expand height
+- Expand in alliance | Minimum rows
+- Align bottom | Padding
+- Opacity
+
+### Appearance / Bar Style
+
+- Bar style | Bookends
+- Bar labels
+
+### Appearance / Colors
+
+- Background opacity | [empty]
+- Fill top | Fill bottom
+- Heal prediction color | Overheal color
+- Shadow color | Sheen color
+- Ready TP text | Low HP name
+- Nearby distance
+
+### Appearance / Animation
+
+- Animated sheen | [empty]
+- Sheen width | Sheen speed
+- Smooth fill | Fill response
+
+### Text
+
+- Show text | [empty]
+- Font | Size (px)
+- Alignment | Letter spacing
+- X offset | Y offset
+- Top color | Bottom color
+- Shadow | Shadow color
+- Soft shadow | [empty]
+- Stroke | Stroke color
+- Glow
+
+### Text / Jobs
+
+- Show job text | Show text
+- Font | Size (px)
+- Alignment | Letter spacing
+- X offset | Y offset
+- Top color | Bottom color
+- Shadow | Shadow color
+- Soft shadow | Stroke
+- Glow
+
+### Text / Sync
+
+- Show text | [empty]
+- Font | Size (px)
+- Alignment | Letter spacing
+- X offset | Y offset
+- Top color | Bottom color
+- Shadow | Shadow color
+- Soft shadow | Stroke
+- Glow
 
 ### Job Icons
 
@@ -1676,32 +1806,12 @@ Regenerate with `./scripts/update-docs.ps1`. Each bullet is one visual row; [emp
 - HP display | MP display
 - Cast placement | TP display
 
-### Bar Style
-
-- Bar style | Bookends
-- Bar labels
-
-### Animation
-
-- Animated sheen | [empty]
-- Sheen width | Sheen speed
-- Smooth fill | Fill response
-
 ### Bar Effects
 
 - Drop shadow | Shadow strength
 - Shadow radius | [empty]
 - Shadow X offset | Shadow Y offset
 - Outer glow | Fill glow
-
-### Colors
-
-- Background opacity | [empty]
-- Fill top | Fill bottom
-- Heal prediction color | Overheal color
-- Shadow color | Sheen color
-- Ready TP text | Low HP name
-- Nearby distance
 
 ### Status Effects
 
@@ -1728,44 +1838,6 @@ Regenerate with `./scripts/update-docs.ps1`. Each bullet is one visual row; [emp
 - Status timers | Status tooltips
 - Status overflow count
 
-### Text
-
-- Show text | [empty]
-- Font | Size (px)
-- Alignment | Letter spacing
-- X offset | Y offset
-- Top color | Bottom color
-- Shadow | Shadow color
-- Soft shadow | [empty]
-- Stroke | Stroke color
-- Glow
-
-### Text / Jobs
-
-- Show job text | Show text
-- Main job level | Subjob
-- Subjob level | Master level
-- Stack job and subjob | [empty]
-- Anchor | Name placement
-- Font | Size (px)
-- Alignment | Letter spacing
-- X offset | Y offset
-- Top color | Bottom color
-- Shadow | Shadow color
-- Soft shadow | Stroke
-- Glow
-
-### Text / Sync
-
-- Show text | [empty]
-- Font | Size (px)
-- Alignment | Letter spacing
-- X offset | Y offset
-- Top color | Bottom color
-- Shadow | Shadow color
-- Soft shadow | Stroke
-- Glow
-
 ### Selection
 
 - Selection | [empty]
@@ -1787,46 +1859,104 @@ Regenerate with `./scripts/update-docs.ps1`. Each bullet is one visual row; [emp
 - Other members | Direction
 - Ticker color | Ready color
 - Hide when full
-
-### Window
-
-- Entry spacing | Maximum window width
-- Fit width to bars | Expand height
-- Expand in alliance | Minimum rows
-- Align bottom | Padding
-- Opacity
 
 ## Alliance 1
 
 ### General
 
 - Enabled | Full party preview
-- Show when solo | Show heading
-- Distance | Distance highlight
-- Hide in preview | Show SYNC
+- Show party leader | Show when solo
+- Show heading | Distance
+- Distance highlight | Hide in preview
+- Show SYNC
 
-### Layout
+### Appearance / Size & Position
 
-- Resource layout | [empty]
+- Scale (%) | Lock proportions
+- Reset scale | Resource layout
 - Bar width | Bar height
 - Bar position | [empty]
 - Bar X offset | Bar Y offset
 
-### Layout / TP
+### Appearance / Size & Position / TP
 
-- Resource layout | [empty]
+- Scale (%) | Lock proportions
+- Reset scale | Resource layout
 - Bar width | Bar height
 - Bar position | [empty]
 - Bar X offset | Bar Y offset
 - TP display
 
-### Layout / Cast
+### Appearance / Size & Position / Cast
 
-- Resource layout | [empty]
+- Scale (%) | Lock proportions
+- Reset scale | Resource layout
 - Bar width | Bar height
 - Bar position | [empty]
 - Bar X offset | Bar Y offset
 - Cast placement
+
+### Appearance / Window
+
+- Entry spacing | Maximum window width
+- Fit width to bars | Expand height
+- Expand in alliance | Minimum rows
+- Align bottom | Padding
+- Opacity
+
+### Appearance / Bar Style
+
+- Bar style | Bookends
+- Bar labels
+
+### Appearance / Colors
+
+- Background opacity | [empty]
+- Fill top | Fill bottom
+- Heal prediction color | Overheal color
+- Shadow color | Sheen color
+- Ready TP text | Low HP name
+- Nearby distance
+
+### Appearance / Animation
+
+- Animated sheen | [empty]
+- Sheen width | Sheen speed
+- Smooth fill | Fill response
+
+### Text
+
+- Show text | [empty]
+- Font | Size (px)
+- Alignment | Letter spacing
+- X offset | Y offset
+- Top color | Bottom color
+- Shadow | Shadow color
+- Soft shadow | [empty]
+- Stroke | Stroke color
+- Glow
+
+### Text / Jobs
+
+- Show job text | Show text
+- Font | Size (px)
+- Alignment | Letter spacing
+- X offset | Y offset
+- Top color | Bottom color
+- Shadow | Shadow color
+- Soft shadow | Stroke
+- Glow
+
+### Text / Sync
+
+- Show text | [empty]
+- Font | Size (px)
+- Alignment | Letter spacing
+- X offset | Y offset
+- Top color | Bottom color
+- Shadow | Shadow color
+- Soft shadow | Stroke
+- Glow
 
 ### Job Icons
 
@@ -1843,32 +1973,12 @@ Regenerate with `./scripts/update-docs.ps1`. Each bullet is one visual row; [emp
 - HP display | MP display
 - Cast placement | TP display
 
-### Bar Style
-
-- Bar style | Bookends
-- Bar labels
-
-### Animation
-
-- Animated sheen | [empty]
-- Sheen width | Sheen speed
-- Smooth fill | Fill response
-
 ### Bar Effects
 
 - Drop shadow | Shadow strength
 - Shadow radius | [empty]
 - Shadow X offset | Shadow Y offset
 - Outer glow | Fill glow
-
-### Colors
-
-- Background opacity | [empty]
-- Fill top | Fill bottom
-- Heal prediction color | Overheal color
-- Shadow color | Sheen color
-- Ready TP text | Low HP name
-- Nearby distance
 
 ### Status Effects
 
@@ -1894,44 +2004,6 @@ Regenerate with `./scripts/update-docs.ps1`. Each bullet is one visual row; [emp
 - Status timers | Status tooltips
 - Status overflow count
 
-### Text
-
-- Show text | [empty]
-- Font | Size (px)
-- Alignment | Letter spacing
-- X offset | Y offset
-- Top color | Bottom color
-- Shadow | Shadow color
-- Soft shadow | [empty]
-- Stroke | Stroke color
-- Glow
-
-### Text / Jobs
-
-- Show job text | Show text
-- Main job level | Subjob
-- Subjob level | Master level
-- Stack job and subjob | [empty]
-- Anchor | Name placement
-- Font | Size (px)
-- Alignment | Letter spacing
-- X offset | Y offset
-- Top color | Bottom color
-- Shadow | Shadow color
-- Soft shadow | Stroke
-- Glow
-
-### Text / Sync
-
-- Show text | [empty]
-- Font | Size (px)
-- Alignment | Letter spacing
-- X offset | Y offset
-- Top color | Bottom color
-- Shadow | Shadow color
-- Soft shadow | Stroke
-- Glow
-
 ### Selection
 
 - Selection | [empty]
@@ -1953,46 +2025,104 @@ Regenerate with `./scripts/update-docs.ps1`. Each bullet is one visual row; [emp
 - Other members | Direction
 - Ticker color | Ready color
 - Hide when full
-
-### Window
-
-- Entry spacing | Maximum window width
-- Fit width to bars | Expand height
-- Expand in alliance | Minimum rows
-- Align bottom | Padding
-- Opacity
 
 ## Alliance 2
 
 ### General
 
 - Enabled | Full party preview
-- Show when solo | Show heading
-- Distance | Distance highlight
-- Hide in preview | Show SYNC
+- Show party leader | Show when solo
+- Show heading | Distance
+- Distance highlight | Hide in preview
+- Show SYNC
 
-### Layout
+### Appearance / Size & Position
 
-- Resource layout | [empty]
+- Scale (%) | Lock proportions
+- Reset scale | Resource layout
 - Bar width | Bar height
 - Bar position | [empty]
 - Bar X offset | Bar Y offset
 
-### Layout / TP
+### Appearance / Size & Position / TP
 
-- Resource layout | [empty]
+- Scale (%) | Lock proportions
+- Reset scale | Resource layout
 - Bar width | Bar height
 - Bar position | [empty]
 - Bar X offset | Bar Y offset
 - TP display
 
-### Layout / Cast
+### Appearance / Size & Position / Cast
 
-- Resource layout | [empty]
+- Scale (%) | Lock proportions
+- Reset scale | Resource layout
 - Bar width | Bar height
 - Bar position | [empty]
 - Bar X offset | Bar Y offset
 - Cast placement
+
+### Appearance / Window
+
+- Entry spacing | Maximum window width
+- Fit width to bars | Expand height
+- Expand in alliance | Minimum rows
+- Align bottom | Padding
+- Opacity
+
+### Appearance / Bar Style
+
+- Bar style | Bookends
+- Bar labels
+
+### Appearance / Colors
+
+- Background opacity | [empty]
+- Fill top | Fill bottom
+- Heal prediction color | Overheal color
+- Shadow color | Sheen color
+- Ready TP text | Low HP name
+- Nearby distance
+
+### Appearance / Animation
+
+- Animated sheen | [empty]
+- Sheen width | Sheen speed
+- Smooth fill | Fill response
+
+### Text
+
+- Show text | [empty]
+- Font | Size (px)
+- Alignment | Letter spacing
+- X offset | Y offset
+- Top color | Bottom color
+- Shadow | Shadow color
+- Soft shadow | [empty]
+- Stroke | Stroke color
+- Glow
+
+### Text / Jobs
+
+- Show job text | Show text
+- Font | Size (px)
+- Alignment | Letter spacing
+- X offset | Y offset
+- Top color | Bottom color
+- Shadow | Shadow color
+- Soft shadow | Stroke
+- Glow
+
+### Text / Sync
+
+- Show text | [empty]
+- Font | Size (px)
+- Alignment | Letter spacing
+- X offset | Y offset
+- Top color | Bottom color
+- Shadow | Shadow color
+- Soft shadow | Stroke
+- Glow
 
 ### Job Icons
 
@@ -2009,32 +2139,12 @@ Regenerate with `./scripts/update-docs.ps1`. Each bullet is one visual row; [emp
 - HP display | MP display
 - Cast placement | TP display
 
-### Bar Style
-
-- Bar style | Bookends
-- Bar labels
-
-### Animation
-
-- Animated sheen | [empty]
-- Sheen width | Sheen speed
-- Smooth fill | Fill response
-
 ### Bar Effects
 
 - Drop shadow | Shadow strength
 - Shadow radius | [empty]
 - Shadow X offset | Shadow Y offset
 - Outer glow | Fill glow
-
-### Colors
-
-- Background opacity | [empty]
-- Fill top | Fill bottom
-- Heal prediction color | Overheal color
-- Shadow color | Sheen color
-- Ready TP text | Low HP name
-- Nearby distance
 
 ### Status Effects
 
@@ -2060,44 +2170,6 @@ Regenerate with `./scripts/update-docs.ps1`. Each bullet is one visual row; [emp
 - Status timers | Status tooltips
 - Status overflow count
 
-### Text
-
-- Show text | [empty]
-- Font | Size (px)
-- Alignment | Letter spacing
-- X offset | Y offset
-- Top color | Bottom color
-- Shadow | Shadow color
-- Soft shadow | [empty]
-- Stroke | Stroke color
-- Glow
-
-### Text / Jobs
-
-- Show job text | Show text
-- Main job level | Subjob
-- Subjob level | Master level
-- Stack job and subjob | [empty]
-- Anchor | Name placement
-- Font | Size (px)
-- Alignment | Letter spacing
-- X offset | Y offset
-- Top color | Bottom color
-- Shadow | Shadow color
-- Soft shadow | Stroke
-- Glow
-
-### Text / Sync
-
-- Show text | [empty]
-- Font | Size (px)
-- Alignment | Letter spacing
-- X offset | Y offset
-- Top color | Bottom color
-- Shadow | Shadow color
-- Soft shadow | Stroke
-- Glow
-
 ### Selection
 
 - Selection | [empty]
@@ -2119,14 +2191,6 @@ Regenerate with `./scripts/update-docs.ps1`. Each bullet is one visual row; [emp
 - Other members | Direction
 - Ticker color | Ready color
 - Hide when full
-
-### Window
-
-- Entry spacing | Maximum window width
-- Fit width to bars | Expand height
-- Expand in alliance | Minimum rows
-- Align bottom | Padding
-- Opacity
 
 ## EXP Bar
 
@@ -2136,18 +2200,20 @@ Regenerate with `./scripts/update-docs.ps1`. Each bullet is one visual row; [emp
 - Active: Experience Points | Pause session
 - Reset session
 
-### Display / Bar info
+### Content / Bar info
 
 - Current / required | Percent
 - Remaining | Mode label
 - Info position | Merit / JP totals
 - Master level
 
-### Display / Readouts
+### Content / Readouts
 
 
-### Display / Layout
+### Appearance / Size & Position
 
+- Scale (%) | Lock proportions
+- Reset scale | [empty]
 - Width | Bar height
 - Maximum rows | Readout position
 - Readout X offset | Readout Y offset
@@ -2155,14 +2221,14 @@ Regenerate with `./scripts/update-docs.ps1`. Each bullet is one visual row; [emp
 - Label position | Divider
 - Short numbers
 
-### Appearance
+### Appearance / Bar Style
 
 - Bar style | Background opacity
 - Bookends | [empty]
 - Fill top | Fill bottom
 - Shadow color | Sheen color
 
-### Effects
+### Appearance / Effects
 
 - Drop shadow | Shadow strength
 - Shadow radius | [empty]
@@ -2213,21 +2279,15 @@ Regenerate with `./scripts/update-docs.ps1`. Each bullet is one visual row; [emp
 - Count | Label
 - Fullness text color | Count display
 
-### Layout
+### Appearance / Size & Position
 
-- Dot size | [empty]
+- Scale (%) | Lock proportions
+- Reset scale | Dot size
 - Columns | Rows per group
 - Text position | Dot spacing
 - Group spacing
 
-### Fullness
-
-- Threshold units | Warning threshold
-- Critical threshold | Occupied
-- Empty | Warning
-- Critical / full
-
-### Appearance
+### Appearance / Window
 
 - Container
 
@@ -2241,6 +2301,13 @@ Regenerate with `./scripts/update-docs.ps1`. Each bullet is one visual row; [emp
 - Shadow | Shadow color
 - Soft shadow | Stroke
 - Glow
+
+### Fullness
+
+- Threshold units | Warning threshold
+- Critical threshold | Occupied
+- Empty | Warning
+- Critical / full
 
 ## Satchel
 
@@ -2250,21 +2317,15 @@ Regenerate with `./scripts/update-docs.ps1`. Each bullet is one visual row; [emp
 - Count | Label
 - Fullness text color | Count display
 
-### Layout
+### Appearance / Size & Position
 
-- Dot size | [empty]
+- Scale (%) | Lock proportions
+- Reset scale | Dot size
 - Columns | Rows per group
 - Text position | Dot spacing
 - Group spacing
 
-### Fullness
-
-- Threshold units | Warning threshold
-- Critical threshold | Occupied
-- Empty | Warning
-- Critical / full
-
-### Appearance
+### Appearance / Window
 
 - Container
 
@@ -2278,6 +2339,13 @@ Regenerate with `./scripts/update-docs.ps1`. Each bullet is one visual row; [emp
 - Shadow | Shadow color
 - Soft shadow | Stroke
 - Glow
+
+### Fullness
+
+- Threshold units | Warning threshold
+- Critical threshold | Occupied
+- Empty | Warning
+- Critical / full
 
 ## Locker
 
@@ -2287,21 +2355,15 @@ Regenerate with `./scripts/update-docs.ps1`. Each bullet is one visual row; [emp
 - Count | Label
 - Fullness text color | Count display
 
-### Layout
+### Appearance / Size & Position
 
-- Dot size | [empty]
+- Scale (%) | Lock proportions
+- Reset scale | Dot size
 - Columns | Rows per group
 - Text position | Dot spacing
 - Group spacing
 
-### Fullness
-
-- Threshold units | Warning threshold
-- Critical threshold | Occupied
-- Empty | Warning
-- Critical / full
-
-### Appearance
+### Appearance / Window
 
 - Container
 
@@ -2315,6 +2377,13 @@ Regenerate with `./scripts/update-docs.ps1`. Each bullet is one visual row; [emp
 - Shadow | Shadow color
 - Soft shadow | Stroke
 - Glow
+
+### Fullness
+
+- Threshold units | Warning threshold
+- Critical threshold | Occupied
+- Empty | Warning
+- Critical / full
 
 ## Safe
 
@@ -2325,21 +2394,15 @@ Regenerate with `./scripts/update-docs.ps1`. Each bullet is one visual row; [emp
 - Separate containers | Fullness text color
 - Count display
 
-### Layout
+### Appearance / Size & Position
 
-- Dot size | [empty]
+- Scale (%) | Lock proportions
+- Reset scale | Dot size
 - Columns | Rows per group
 - Text position | Dot spacing
 - Group spacing
 
-### Fullness
-
-- Threshold units | Warning threshold
-- Critical threshold | Occupied
-- Empty | Warning
-- Critical / full
-
-### Appearance
+### Appearance / Window
 
 - Container
 
@@ -2353,6 +2416,13 @@ Regenerate with `./scripts/update-docs.ps1`. Each bullet is one visual row; [emp
 - Shadow | Shadow color
 - Soft shadow | Stroke
 - Glow
+
+### Fullness
+
+- Threshold units | Warning threshold
+- Critical threshold | Occupied
+- Empty | Warning
+- Critical / full
 
 ## Storage
 
@@ -2362,21 +2432,15 @@ Regenerate with `./scripts/update-docs.ps1`. Each bullet is one visual row; [emp
 - Count | Label
 - Fullness text color | Count display
 
-### Layout
+### Appearance / Size & Position
 
-- Dot size | [empty]
+- Scale (%) | Lock proportions
+- Reset scale | Dot size
 - Columns | Rows per group
 - Text position | Dot spacing
 - Group spacing
 
-### Fullness
-
-- Threshold units | Warning threshold
-- Critical threshold | Occupied
-- Empty | Warning
-- Critical / full
-
-### Appearance
+### Appearance / Window
 
 - Container
 
@@ -2390,6 +2454,13 @@ Regenerate with `./scripts/update-docs.ps1`. Each bullet is one visual row; [emp
 - Shadow | Shadow color
 - Soft shadow | Stroke
 - Glow
+
+### Fullness
+
+- Threshold units | Warning threshold
+- Critical threshold | Occupied
+- Empty | Warning
+- Critical / full
 
 ## Wardrobes
 
@@ -2400,21 +2471,15 @@ Regenerate with `./scripts/update-docs.ps1`. Each bullet is one visual row; [emp
 - Separate containers | Fullness text color
 - Count display
 
-### Layout
+### Appearance / Size & Position
 
-- Dot size | [empty]
+- Scale (%) | Lock proportions
+- Reset scale | Dot size
 - Columns | Rows per group
 - Text position | Dot spacing
 - Group spacing
 
-### Fullness
-
-- Threshold units | Warning threshold
-- Critical threshold | Occupied
-- Empty | Warning
-- Critical / full
-
-### Appearance
+### Appearance / Window
 
 - Container
 
@@ -2429,6 +2494,13 @@ Regenerate with `./scripts/update-docs.ps1`. Each bullet is one visual row; [emp
 - Soft shadow | Stroke
 - Glow
 
+### Fullness
+
+- Threshold units | Warning threshold
+- Critical threshold | Occupied
+- Empty | Warning
+- Critical / full
+
 ## Equipment
 
 ### General
@@ -2437,12 +2509,14 @@ Regenerate with `./scripts/update-docs.ps1`. Each bullet is one visual row; [emp
 - Ammo count | Empty-slot labels
 - Slot labels | Item tooltips
 
-### Layout
+### Appearance / Size & Position
 
-- Grid | Icon size
-- Slot spacing | Icon padding
+- Scale (%) | Lock proportions
+- Reset scale | Grid
+- Icon size | Slot spacing
+- Icon padding
 
-### Appearance
+### Appearance / Window
 
 - Container | Container padding
 - Container opacity | Icon opacity
@@ -2468,13 +2542,14 @@ Regenerate with `./scripts/update-docs.ps1`. Each bullet is one visual row; [emp
 - Item tooltips | Read-only / restricted server
 - Autosort after transfers
 
-### Layout
+### Appearance / Size & Position
 
-- Display order | [empty]
+- Scale (%) | Lock proportions
+- Reset scale | Display order
 - Columns | Rows
 - Icon size | Slot spacing
 
-### Appearance
+### Appearance / Window
 
 - Container | Container padding
 - Container opacity | Slot frames
@@ -2498,49 +2573,38 @@ Regenerate with `./scripts/update-docs.ps1`. Each bullet is one visual row; [emp
 - Action storage | Pet-aware assignments
 - Replace native macros
 
-### Keybinds
+### Content
 
-- Keybinds
+- Action set caption | Action labels
+- Empty slots | Tooltips
 
-### Layout
+### Appearance / Size & Position
 
-- Use Global Settings | Bar shape
+- Scale (%) | Lock proportions
+- Reset scale | Use Global Settings
+- Bar shape | [empty]
 - Slot size | Spacing
 - Vertical spacing
 
-### Display
+### Appearance / Window
 
 - Background opacity | Padding
-- Action set caption | Action labels
-- Empty slots | Container background
-- Tooltips
+- Container background
 
-### Slots
+### Appearance / Slots
 
 - Frame style | Border thickness
 - Icon padding | Icon opacity (%)
 - Icon tint | [empty]
 - Apply design to all bars | Reset this slot design
 
-### Effects
+### Appearance / Effects
 
 - Unavailable icon tint | [empty]
 - Hover highlight | Hover color
 - Pressed highlight | Pressed color
 - Activation flash | Recast overlay
 - Recast overlay color
-
-### Overlays
-
-- Key / button labels | Key label position
-- Key X offset | Key Y offset
-- Item counts and charges | Count position
-- Count X offset | Count Y offset
-- MP cost | MP cost position
-- MP X offset | MP Y offset
-- Recast display | Recast countdown
-- Recast position | [empty]
-- Recast X offset | Recast Y offset
 
 ### Text
 
@@ -2553,6 +2617,22 @@ Regenerate with `./scripts/update-docs.ps1`. Each bullet is one visual row; [emp
 - Shadow | Shadow color
 - Soft shadow | Stroke
 - Glow
+
+### Keybinds
+
+- Keybinds
+
+### Overlays
+
+- Key / button labels | Key label position
+- Key X offset | Key Y offset
+- Item counts and charges | Count position
+- Count X offset | Count Y offset
+- MP cost | MP cost position
+- MP X offset | MP Y offset
+- Recast display | Recast countdown
+- Recast position | [empty]
+- Recast X offset | Recast Y offset
 
 ### Skillchains
 
@@ -2567,49 +2647,38 @@ Regenerate with `./scripts/update-docs.ps1`. Each bullet is one visual row; [emp
 - Action storage | Pet-aware assignments
 - Replace native macros
 
-### Keybinds
+### Content
 
-- Keybinds
+- Action set caption | Action labels
+- Empty slots | Tooltips
 
-### Layout
+### Appearance / Size & Position
 
-- Use Global Settings | Bar shape
+- Scale (%) | Lock proportions
+- Reset scale | Use Global Settings
+- Bar shape | [empty]
 - Slot size | Spacing
 - Vertical spacing
 
-### Display
+### Appearance / Window
 
 - Background opacity | Padding
-- Action set caption | Action labels
-- Empty slots | Container background
-- Tooltips
+- Container background
 
-### Slots
+### Appearance / Slots
 
 - Frame style | Border thickness
 - Icon padding | Icon opacity (%)
 - Icon tint | [empty]
 - Apply design to all bars | Reset this slot design
 
-### Effects
+### Appearance / Effects
 
 - Unavailable icon tint | [empty]
 - Hover highlight | Hover color
 - Pressed highlight | Pressed color
 - Activation flash | Recast overlay
 - Recast overlay color
-
-### Overlays
-
-- Key / button labels | Key label position
-- Key X offset | Key Y offset
-- Item counts and charges | Count position
-- Count X offset | Count Y offset
-- MP cost | MP cost position
-- MP X offset | MP Y offset
-- Recast display | Recast countdown
-- Recast position | [empty]
-- Recast X offset | Recast Y offset
 
 ### Text
 
@@ -2622,6 +2691,22 @@ Regenerate with `./scripts/update-docs.ps1`. Each bullet is one visual row; [emp
 - Shadow | Shadow color
 - Soft shadow | Stroke
 - Glow
+
+### Keybinds
+
+- Keybinds
+
+### Overlays
+
+- Key / button labels | Key label position
+- Key X offset | Key Y offset
+- Item counts and charges | Count position
+- Count X offset | Count Y offset
+- MP cost | MP cost position
+- MP X offset | MP Y offset
+- Recast display | Recast countdown
+- Recast position | [empty]
+- Recast X offset | Recast Y offset
 
 ### Skillchains
 
@@ -2636,49 +2721,38 @@ Regenerate with `./scripts/update-docs.ps1`. Each bullet is one visual row; [emp
 - Action storage | Pet-aware assignments
 - Replace native macros
 
-### Keybinds
+### Content
 
-- Keybinds
+- Action set caption | Action labels
+- Empty slots | Tooltips
 
-### Layout
+### Appearance / Size & Position
 
-- Use Global Settings | Bar shape
+- Scale (%) | Lock proportions
+- Reset scale | Use Global Settings
+- Bar shape | [empty]
 - Slot size | Spacing
 - Vertical spacing
 
-### Display
+### Appearance / Window
 
 - Background opacity | Padding
-- Action set caption | Action labels
-- Empty slots | Container background
-- Tooltips
+- Container background
 
-### Slots
+### Appearance / Slots
 
 - Frame style | Border thickness
 - Icon padding | Icon opacity (%)
 - Icon tint | [empty]
 - Apply design to all bars | Reset this slot design
 
-### Effects
+### Appearance / Effects
 
 - Unavailable icon tint | [empty]
 - Hover highlight | Hover color
 - Pressed highlight | Pressed color
 - Activation flash | Recast overlay
 - Recast overlay color
-
-### Overlays
-
-- Key / button labels | Key label position
-- Key X offset | Key Y offset
-- Item counts and charges | Count position
-- Count X offset | Count Y offset
-- MP cost | MP cost position
-- MP X offset | MP Y offset
-- Recast display | Recast countdown
-- Recast position | [empty]
-- Recast X offset | Recast Y offset
 
 ### Text
 
@@ -2691,6 +2765,22 @@ Regenerate with `./scripts/update-docs.ps1`. Each bullet is one visual row; [emp
 - Shadow | Shadow color
 - Soft shadow | Stroke
 - Glow
+
+### Keybinds
+
+- Keybinds
+
+### Overlays
+
+- Key / button labels | Key label position
+- Key X offset | Key Y offset
+- Item counts and charges | Count position
+- Count X offset | Count Y offset
+- MP cost | MP cost position
+- MP X offset | MP Y offset
+- Recast display | Recast countdown
+- Recast position | [empty]
+- Recast X offset | Recast Y offset
 
 ### Skillchains
 
@@ -2705,49 +2795,38 @@ Regenerate with `./scripts/update-docs.ps1`. Each bullet is one visual row; [emp
 - Action storage | Pet-aware assignments
 - Replace native macros
 
-### Keybinds
+### Content
 
-- Keybinds
+- Action set caption | Action labels
+- Empty slots | Tooltips
 
-### Layout
+### Appearance / Size & Position
 
-- Use Global Settings | Bar shape
+- Scale (%) | Lock proportions
+- Reset scale | Use Global Settings
+- Bar shape | [empty]
 - Slot size | Spacing
 - Vertical spacing
 
-### Display
+### Appearance / Window
 
 - Background opacity | Padding
-- Action set caption | Action labels
-- Empty slots | Container background
-- Tooltips
+- Container background
 
-### Slots
+### Appearance / Slots
 
 - Frame style | Border thickness
 - Icon padding | Icon opacity (%)
 - Icon tint | [empty]
 - Apply design to all bars | Reset this slot design
 
-### Effects
+### Appearance / Effects
 
 - Unavailable icon tint | [empty]
 - Hover highlight | Hover color
 - Pressed highlight | Pressed color
 - Activation flash | Recast overlay
 - Recast overlay color
-
-### Overlays
-
-- Key / button labels | Key label position
-- Key X offset | Key Y offset
-- Item counts and charges | Count position
-- Count X offset | Count Y offset
-- MP cost | MP cost position
-- MP X offset | MP Y offset
-- Recast display | Recast countdown
-- Recast position | [empty]
-- Recast X offset | Recast Y offset
 
 ### Text
 
@@ -2760,6 +2839,22 @@ Regenerate with `./scripts/update-docs.ps1`. Each bullet is one visual row; [emp
 - Shadow | Shadow color
 - Soft shadow | Stroke
 - Glow
+
+### Keybinds
+
+- Keybinds
+
+### Overlays
+
+- Key / button labels | Key label position
+- Key X offset | Key Y offset
+- Item counts and charges | Count position
+- Count X offset | Count Y offset
+- MP cost | MP cost position
+- MP X offset | MP Y offset
+- Recast display | Recast countdown
+- Recast position | [empty]
+- Recast X offset | Recast Y offset
 
 ### Skillchains
 
@@ -2774,49 +2869,38 @@ Regenerate with `./scripts/update-docs.ps1`. Each bullet is one visual row; [emp
 - Action storage | Pet-aware assignments
 - Replace native macros
 
-### Keybinds
+### Content
 
-- Keybinds
+- Action set caption | Action labels
+- Empty slots | Tooltips
 
-### Layout
+### Appearance / Size & Position
 
-- Use Global Settings | Bar shape
+- Scale (%) | Lock proportions
+- Reset scale | Use Global Settings
+- Bar shape | [empty]
 - Slot size | Spacing
 - Vertical spacing
 
-### Display
+### Appearance / Window
 
 - Background opacity | Padding
-- Action set caption | Action labels
-- Empty slots | Container background
-- Tooltips
+- Container background
 
-### Slots
+### Appearance / Slots
 
 - Frame style | Border thickness
 - Icon padding | Icon opacity (%)
 - Icon tint | [empty]
 - Apply design to all bars | Reset this slot design
 
-### Effects
+### Appearance / Effects
 
 - Unavailable icon tint | [empty]
 - Hover highlight | Hover color
 - Pressed highlight | Pressed color
 - Activation flash | Recast overlay
 - Recast overlay color
-
-### Overlays
-
-- Key / button labels | Key label position
-- Key X offset | Key Y offset
-- Item counts and charges | Count position
-- Count X offset | Count Y offset
-- MP cost | MP cost position
-- MP X offset | MP Y offset
-- Recast display | Recast countdown
-- Recast position | [empty]
-- Recast X offset | Recast Y offset
 
 ### Text
 
@@ -2829,6 +2913,22 @@ Regenerate with `./scripts/update-docs.ps1`. Each bullet is one visual row; [emp
 - Shadow | Shadow color
 - Soft shadow | Stroke
 - Glow
+
+### Keybinds
+
+- Keybinds
+
+### Overlays
+
+- Key / button labels | Key label position
+- Key X offset | Key Y offset
+- Item counts and charges | Count position
+- Count X offset | Count Y offset
+- MP cost | MP cost position
+- MP X offset | MP Y offset
+- Recast display | Recast countdown
+- Recast position | [empty]
+- Recast X offset | Recast Y offset
 
 ### Skillchains
 
@@ -2843,49 +2943,38 @@ Regenerate with `./scripts/update-docs.ps1`. Each bullet is one visual row; [emp
 - Action storage | Pet-aware assignments
 - Replace native macros
 
-### Keybinds
+### Content
 
-- Keybinds
+- Action set caption | Action labels
+- Empty slots | Tooltips
 
-### Layout
+### Appearance / Size & Position
 
-- Use Global Settings | Bar shape
+- Scale (%) | Lock proportions
+- Reset scale | Use Global Settings
+- Bar shape | [empty]
 - Slot size | Spacing
 - Vertical spacing
 
-### Display
+### Appearance / Window
 
 - Background opacity | Padding
-- Action set caption | Action labels
-- Empty slots | Container background
-- Tooltips
+- Container background
 
-### Slots
+### Appearance / Slots
 
 - Frame style | Border thickness
 - Icon padding | Icon opacity (%)
 - Icon tint | [empty]
 - Apply design to all bars | Reset this slot design
 
-### Effects
+### Appearance / Effects
 
 - Unavailable icon tint | [empty]
 - Hover highlight | Hover color
 - Pressed highlight | Pressed color
 - Activation flash | Recast overlay
 - Recast overlay color
-
-### Overlays
-
-- Key / button labels | Key label position
-- Key X offset | Key Y offset
-- Item counts and charges | Count position
-- Count X offset | Count Y offset
-- MP cost | MP cost position
-- MP X offset | MP Y offset
-- Recast display | Recast countdown
-- Recast position | [empty]
-- Recast X offset | Recast Y offset
 
 ### Text
 
@@ -2898,6 +2987,22 @@ Regenerate with `./scripts/update-docs.ps1`. Each bullet is one visual row; [emp
 - Shadow | Shadow color
 - Soft shadow | Stroke
 - Glow
+
+### Keybinds
+
+- Keybinds
+
+### Overlays
+
+- Key / button labels | Key label position
+- Key X offset | Key Y offset
+- Item counts and charges | Count position
+- Count X offset | Count Y offset
+- MP cost | MP cost position
+- MP X offset | MP Y offset
+- Recast display | Recast countdown
+- Recast position | [empty]
+- Recast X offset | Recast Y offset
 
 ### Skillchains
 
@@ -2912,49 +3017,38 @@ Regenerate with `./scripts/update-docs.ps1`. Each bullet is one visual row; [emp
 - Action storage | Pet-aware assignments
 - Replace native macros
 
-### Keybinds
+### Content
 
-- Keybinds
+- Action set caption | Action labels
+- Empty slots | Tooltips
 
-### Layout
+### Appearance / Size & Position
 
-- Use Global Settings | Bar shape
+- Scale (%) | Lock proportions
+- Reset scale | Use Global Settings
+- Bar shape | [empty]
 - Slot size | Spacing
 - Vertical spacing
 
-### Display
+### Appearance / Window
 
 - Background opacity | Padding
-- Action set caption | Action labels
-- Empty slots | Container background
-- Tooltips
+- Container background
 
-### Slots
+### Appearance / Slots
 
 - Frame style | Border thickness
 - Icon padding | Icon opacity (%)
 - Icon tint | [empty]
 - Apply design to all bars | Reset this slot design
 
-### Effects
+### Appearance / Effects
 
 - Unavailable icon tint | [empty]
 - Hover highlight | Hover color
 - Pressed highlight | Pressed color
 - Activation flash | Recast overlay
 - Recast overlay color
-
-### Overlays
-
-- Key / button labels | Key label position
-- Key X offset | Key Y offset
-- Item counts and charges | Count position
-- Count X offset | Count Y offset
-- MP cost | MP cost position
-- MP X offset | MP Y offset
-- Recast display | Recast countdown
-- Recast position | [empty]
-- Recast X offset | Recast Y offset
 
 ### Text
 
@@ -2967,6 +3061,22 @@ Regenerate with `./scripts/update-docs.ps1`. Each bullet is one visual row; [emp
 - Shadow | Shadow color
 - Soft shadow | Stroke
 - Glow
+
+### Keybinds
+
+- Keybinds
+
+### Overlays
+
+- Key / button labels | Key label position
+- Key X offset | Key Y offset
+- Item counts and charges | Count position
+- Count X offset | Count Y offset
+- MP cost | MP cost position
+- MP X offset | MP Y offset
+- Recast display | Recast countdown
+- Recast position | [empty]
+- Recast X offset | Recast Y offset
 
 ### Skillchains
 
@@ -2981,49 +3091,38 @@ Regenerate with `./scripts/update-docs.ps1`. Each bullet is one visual row; [emp
 - Action storage | Pet-aware assignments
 - Replace native macros
 
-### Keybinds
+### Content
 
-- Keybinds
+- Action set caption | Action labels
+- Empty slots | Tooltips
 
-### Layout
+### Appearance / Size & Position
 
-- Use Global Settings | Bar shape
+- Scale (%) | Lock proportions
+- Reset scale | Use Global Settings
+- Bar shape | [empty]
 - Slot size | Spacing
 - Vertical spacing
 
-### Display
+### Appearance / Window
 
 - Background opacity | Padding
-- Action set caption | Action labels
-- Empty slots | Container background
-- Tooltips
+- Container background
 
-### Slots
+### Appearance / Slots
 
 - Frame style | Border thickness
 - Icon padding | Icon opacity (%)
 - Icon tint | [empty]
 - Apply design to all bars | Reset this slot design
 
-### Effects
+### Appearance / Effects
 
 - Unavailable icon tint | [empty]
 - Hover highlight | Hover color
 - Pressed highlight | Pressed color
 - Activation flash | Recast overlay
 - Recast overlay color
-
-### Overlays
-
-- Key / button labels | Key label position
-- Key X offset | Key Y offset
-- Item counts and charges | Count position
-- Count X offset | Count Y offset
-- MP cost | MP cost position
-- MP X offset | MP Y offset
-- Recast display | Recast countdown
-- Recast position | [empty]
-- Recast X offset | Recast Y offset
 
 ### Text
 
@@ -3036,6 +3135,22 @@ Regenerate with `./scripts/update-docs.ps1`. Each bullet is one visual row; [emp
 - Shadow | Shadow color
 - Soft shadow | Stroke
 - Glow
+
+### Keybinds
+
+- Keybinds
+
+### Overlays
+
+- Key / button labels | Key label position
+- Key X offset | Key Y offset
+- Item counts and charges | Count position
+- Count X offset | Count Y offset
+- MP cost | MP cost position
+- MP X offset | MP Y offset
+- Recast display | Recast countdown
+- Recast position | [empty]
+- Recast X offset | Recast Y offset
 
 ### Skillchains
 
@@ -3050,49 +3165,38 @@ Regenerate with `./scripts/update-docs.ps1`. Each bullet is one visual row; [emp
 - Action storage | Pet-aware assignments
 - Replace native macros
 
-### Keybinds
+### Content
 
-- Keybinds
+- Action set caption | Action labels
+- Empty slots | Tooltips
 
-### Layout
+### Appearance / Size & Position
 
-- Use Global Settings | Bar shape
+- Scale (%) | Lock proportions
+- Reset scale | Use Global Settings
+- Bar shape | [empty]
 - Slot size | Spacing
 - Vertical spacing
 
-### Display
+### Appearance / Window
 
 - Background opacity | Padding
-- Action set caption | Action labels
-- Empty slots | Container background
-- Tooltips
+- Container background
 
-### Slots
+### Appearance / Slots
 
 - Frame style | Border thickness
 - Icon padding | Icon opacity (%)
 - Icon tint | [empty]
 - Apply design to all bars | Reset this slot design
 
-### Effects
+### Appearance / Effects
 
 - Unavailable icon tint | [empty]
 - Hover highlight | Hover color
 - Pressed highlight | Pressed color
 - Activation flash | Recast overlay
 - Recast overlay color
-
-### Overlays
-
-- Key / button labels | Key label position
-- Key X offset | Key Y offset
-- Item counts and charges | Count position
-- Count X offset | Count Y offset
-- MP cost | MP cost position
-- MP X offset | MP Y offset
-- Recast display | Recast countdown
-- Recast position | [empty]
-- Recast X offset | Recast Y offset
 
 ### Text
 
@@ -3105,6 +3209,22 @@ Regenerate with `./scripts/update-docs.ps1`. Each bullet is one visual row; [emp
 - Shadow | Shadow color
 - Soft shadow | Stroke
 - Glow
+
+### Keybinds
+
+- Keybinds
+
+### Overlays
+
+- Key / button labels | Key label position
+- Key X offset | Key Y offset
+- Item counts and charges | Count position
+- Count X offset | Count Y offset
+- MP cost | MP cost position
+- MP X offset | MP Y offset
+- Recast display | Recast countdown
+- Recast position | [empty]
+- Recast X offset | Recast Y offset
 
 ### Skillchains
 
@@ -3119,49 +3239,38 @@ Regenerate with `./scripts/update-docs.ps1`. Each bullet is one visual row; [emp
 - Action storage | Pet-aware assignments
 - Replace native macros
 
-### Keybinds
+### Content
 
-- Keybinds
+- Action set caption | Action labels
+- Empty slots | Tooltips
 
-### Layout
+### Appearance / Size & Position
 
-- Use Global Settings | Bar shape
+- Scale (%) | Lock proportions
+- Reset scale | Use Global Settings
+- Bar shape | [empty]
 - Slot size | Spacing
 - Vertical spacing
 
-### Display
+### Appearance / Window
 
 - Background opacity | Padding
-- Action set caption | Action labels
-- Empty slots | Container background
-- Tooltips
+- Container background
 
-### Slots
+### Appearance / Slots
 
 - Frame style | Border thickness
 - Icon padding | Icon opacity (%)
 - Icon tint | [empty]
 - Apply design to all bars | Reset this slot design
 
-### Effects
+### Appearance / Effects
 
 - Unavailable icon tint | [empty]
 - Hover highlight | Hover color
 - Pressed highlight | Pressed color
 - Activation flash | Recast overlay
 - Recast overlay color
-
-### Overlays
-
-- Key / button labels | Key label position
-- Key X offset | Key Y offset
-- Item counts and charges | Count position
-- Count X offset | Count Y offset
-- MP cost | MP cost position
-- MP X offset | MP Y offset
-- Recast display | Recast countdown
-- Recast position | [empty]
-- Recast X offset | Recast Y offset
 
 ### Text
 
@@ -3174,6 +3283,22 @@ Regenerate with `./scripts/update-docs.ps1`. Each bullet is one visual row; [emp
 - Shadow | Shadow color
 - Soft shadow | Stroke
 - Glow
+
+### Keybinds
+
+- Keybinds
+
+### Overlays
+
+- Key / button labels | Key label position
+- Key X offset | Key Y offset
+- Item counts and charges | Count position
+- Count X offset | Count Y offset
+- MP cost | MP cost position
+- MP X offset | MP Y offset
+- Recast display | Recast countdown
+- Recast position | [empty]
+- Recast X offset | Recast Y offset
 
 ### Skillchains
 
@@ -3188,6 +3313,51 @@ Regenerate with `./scripts/update-docs.ps1`. Each bullet is one visual row; [emp
 - Action storage | Pet-aware assignments
 - Replace native macros
 
+### Content
+
+- Action set caption | Action labels
+- Empty slots | Tooltips
+
+### Appearance / Size & Position
+
+- Scale (%) | Lock proportions
+- Reset scale | [empty]
+- Slot size | Spacing
+- Vertical spacing | Diamond spacing
+- Trigger group spacing
+
+### Appearance / Window
+
+- Background opacity | Padding
+- Container background
+
+### Appearance / Slots
+
+- Frame style | Border thickness
+- Icon padding | Icon opacity (%)
+- Icon tint | [empty]
+- Apply design to all bars | Reset this slot design
+
+### Appearance / Effects
+
+- Unavailable icon tint | [empty]
+- Inactive bank tint | Inactive bank opacity (%)
+- Hover highlight | Hover color
+- Pressed highlight | Pressed color
+- Activation flash | Recast overlay
+- Recast overlay color
+
+### Text
+
+- Independent text styles | Show text
+- Font | Size (px)
+- Alignment | Letter spacing
+- X offset | Y offset
+- Top color | Bottom color
+- Shadow | Shadow color
+- Soft shadow | Stroke
+- Glow
+
 ### Controller Setup
 
 - Controller Setup | Use XIUI trigger controls
@@ -3203,35 +3373,6 @@ Regenerate with `./scripts/update-docs.ps1`. Each bullet is one visual row; [emp
 
 - Keybinds
 
-### Layout
-
-- Slot size | Spacing
-- Vertical spacing | Diamond spacing
-- Trigger group spacing
-
-### Display
-
-- Background opacity | Padding
-- Action set caption | Action labels
-- Empty slots | Container background
-- Tooltips
-
-### Slots
-
-- Frame style | Border thickness
-- Icon padding | Icon opacity (%)
-- Icon tint | [empty]
-- Apply design to all bars | Reset this slot design
-
-### Effects
-
-- Unavailable icon tint | [empty]
-- Inactive bank tint | Inactive bank opacity (%)
-- Hover highlight | Hover color
-- Pressed highlight | Pressed color
-- Activation flash | Recast overlay
-- Recast overlay color
-
 ### Overlays
 
 - Key / button labels | Item counts and charges
@@ -3242,17 +3383,6 @@ Regenerate with `./scripts/update-docs.ps1`. Each bullet is one visual row; [emp
 - Recast display | Recast countdown
 - Recast position | [empty]
 - Recast X offset | Recast Y offset
-
-### Text
-
-- Independent text styles | Show text
-- Font | Size (px)
-- Alignment | Letter spacing
-- X offset | Y offset
-- Top color | Bottom color
-- Shadow | Shadow color
-- Soft shadow | Stroke
-- Glow
 
 ### Skillchains
 
@@ -3267,6 +3397,51 @@ Regenerate with `./scripts/update-docs.ps1`. Each bullet is one visual row; [emp
 - Action storage | Pet-aware assignments
 - Replace native macros
 
+### Content
+
+- Action set caption | Action labels
+- Empty slots | Tooltips
+
+### Appearance / Size & Position
+
+- Scale (%) | Lock proportions
+- Reset scale | [empty]
+- Slot size | Spacing
+- Vertical spacing | Diamond spacing
+- Trigger group spacing
+
+### Appearance / Window
+
+- Background opacity | Padding
+- Container background
+
+### Appearance / Slots
+
+- Frame style | Border thickness
+- Icon padding | Icon opacity (%)
+- Icon tint | [empty]
+- Apply design to all bars | Reset this slot design
+
+### Appearance / Effects
+
+- Unavailable icon tint | [empty]
+- Inactive bank tint | Inactive bank opacity (%)
+- Hover highlight | Hover color
+- Pressed highlight | Pressed color
+- Activation flash | Recast overlay
+- Recast overlay color
+
+### Text
+
+- Independent text styles | Show text
+- Font | Size (px)
+- Alignment | Letter spacing
+- X offset | Y offset
+- Top color | Bottom color
+- Shadow | Shadow color
+- Soft shadow | Stroke
+- Glow
+
 ### Controller Setup
 
 - Controller Setup | Use XIUI trigger controls
@@ -3282,35 +3457,6 @@ Regenerate with `./scripts/update-docs.ps1`. Each bullet is one visual row; [emp
 
 - Keybinds
 
-### Layout
-
-- Slot size | Spacing
-- Vertical spacing | Diamond spacing
-- Trigger group spacing
-
-### Display
-
-- Background opacity | Padding
-- Action set caption | Action labels
-- Empty slots | Container background
-- Tooltips
-
-### Slots
-
-- Frame style | Border thickness
-- Icon padding | Icon opacity (%)
-- Icon tint | [empty]
-- Apply design to all bars | Reset this slot design
-
-### Effects
-
-- Unavailable icon tint | [empty]
-- Inactive bank tint | Inactive bank opacity (%)
-- Hover highlight | Hover color
-- Pressed highlight | Pressed color
-- Activation flash | Recast overlay
-- Recast overlay color
-
 ### Overlays
 
 - Key / button labels | Item counts and charges
@@ -3321,17 +3467,6 @@ Regenerate with `./scripts/update-docs.ps1`. Each bullet is one visual row; [emp
 - Recast display | Recast countdown
 - Recast position | [empty]
 - Recast X offset | Recast Y offset
-
-### Text
-
-- Independent text styles | Show text
-- Font | Size (px)
-- Alignment | Letter spacing
-- X offset | Y offset
-- Top color | Bottom color
-- Shadow | Shadow color
-- Soft shadow | Stroke
-- Glow
 
 ### Skillchains
 
@@ -3346,6 +3481,51 @@ Regenerate with `./scripts/update-docs.ps1`. Each bullet is one visual row; [emp
 - Action storage | Pet-aware assignments
 - Replace native macros
 
+### Content
+
+- Action set caption | Action labels
+- Empty slots | Tooltips
+
+### Appearance / Size & Position
+
+- Scale (%) | Lock proportions
+- Reset scale | [empty]
+- Slot size | Spacing
+- Vertical spacing | Diamond spacing
+- Trigger group spacing
+
+### Appearance / Window
+
+- Background opacity | Padding
+- Container background
+
+### Appearance / Slots
+
+- Frame style | Border thickness
+- Icon padding | Icon opacity (%)
+- Icon tint | [empty]
+- Apply design to all bars | Reset this slot design
+
+### Appearance / Effects
+
+- Unavailable icon tint | [empty]
+- Inactive bank tint | Inactive bank opacity (%)
+- Hover highlight | Hover color
+- Pressed highlight | Pressed color
+- Activation flash | Recast overlay
+- Recast overlay color
+
+### Text
+
+- Independent text styles | Show text
+- Font | Size (px)
+- Alignment | Letter spacing
+- X offset | Y offset
+- Top color | Bottom color
+- Shadow | Shadow color
+- Soft shadow | Stroke
+- Glow
+
 ### Controller Setup
 
 - Controller Setup | Use XIUI trigger controls
@@ -3361,35 +3541,6 @@ Regenerate with `./scripts/update-docs.ps1`. Each bullet is one visual row; [emp
 
 - Keybinds
 
-### Layout
-
-- Slot size | Spacing
-- Vertical spacing | Diamond spacing
-- Trigger group spacing
-
-### Display
-
-- Background opacity | Padding
-- Action set caption | Action labels
-- Empty slots | Container background
-- Tooltips
-
-### Slots
-
-- Frame style | Border thickness
-- Icon padding | Icon opacity (%)
-- Icon tint | [empty]
-- Apply design to all bars | Reset this slot design
-
-### Effects
-
-- Unavailable icon tint | [empty]
-- Inactive bank tint | Inactive bank opacity (%)
-- Hover highlight | Hover color
-- Pressed highlight | Pressed color
-- Activation flash | Recast overlay
-- Recast overlay color
-
 ### Overlays
 
 - Key / button labels | Item counts and charges
@@ -3400,17 +3551,6 @@ Regenerate with `./scripts/update-docs.ps1`. Each bullet is one visual row; [emp
 - Recast display | Recast countdown
 - Recast position | [empty]
 - Recast X offset | Recast Y offset
-
-### Text
-
-- Independent text styles | Show text
-- Font | Size (px)
-- Alignment | Letter spacing
-- X offset | Y offset
-- Top color | Bottom color
-- Shadow | Shadow color
-- Soft shadow | Stroke
-- Glow
 
 ### Skillchains
 
@@ -3425,6 +3565,51 @@ Regenerate with `./scripts/update-docs.ps1`. Each bullet is one visual row; [emp
 - Action storage | Pet-aware assignments
 - Replace native macros
 
+### Content
+
+- Action set caption | Action labels
+- Empty slots | Tooltips
+
+### Appearance / Size & Position
+
+- Scale (%) | Lock proportions
+- Reset scale | [empty]
+- Slot size | Spacing
+- Vertical spacing | Diamond spacing
+- Trigger group spacing
+
+### Appearance / Window
+
+- Background opacity | Padding
+- Container background
+
+### Appearance / Slots
+
+- Frame style | Border thickness
+- Icon padding | Icon opacity (%)
+- Icon tint | [empty]
+- Apply design to all bars | Reset this slot design
+
+### Appearance / Effects
+
+- Unavailable icon tint | [empty]
+- Inactive bank tint | Inactive bank opacity (%)
+- Hover highlight | Hover color
+- Pressed highlight | Pressed color
+- Activation flash | Recast overlay
+- Recast overlay color
+
+### Text
+
+- Independent text styles | Show text
+- Font | Size (px)
+- Alignment | Letter spacing
+- X offset | Y offset
+- Top color | Bottom color
+- Shadow | Shadow color
+- Soft shadow | Stroke
+- Glow
+
 ### Controller Setup
 
 - Controller Setup | Use XIUI trigger controls
@@ -3440,35 +3625,6 @@ Regenerate with `./scripts/update-docs.ps1`. Each bullet is one visual row; [emp
 
 - Keybinds
 
-### Layout
-
-- Slot size | Spacing
-- Vertical spacing | Diamond spacing
-- Trigger group spacing
-
-### Display
-
-- Background opacity | Padding
-- Action set caption | Action labels
-- Empty slots | Container background
-- Tooltips
-
-### Slots
-
-- Frame style | Border thickness
-- Icon padding | Icon opacity (%)
-- Icon tint | [empty]
-- Apply design to all bars | Reset this slot design
-
-### Effects
-
-- Unavailable icon tint | [empty]
-- Inactive bank tint | Inactive bank opacity (%)
-- Hover highlight | Hover color
-- Pressed highlight | Pressed color
-- Activation flash | Recast overlay
-- Recast overlay color
-
 ### Overlays
 
 - Key / button labels | Item counts and charges
@@ -3479,17 +3635,6 @@ Regenerate with `./scripts/update-docs.ps1`. Each bullet is one visual row; [emp
 - Recast display | Recast countdown
 - Recast position | [empty]
 - Recast X offset | Recast Y offset
-
-### Text
-
-- Independent text styles | Show text
-- Font | Size (px)
-- Alignment | Letter spacing
-- X offset | Y offset
-- Top color | Bottom color
-- Shadow | Shadow color
-- Soft shadow | Stroke
-- Glow
 
 ### Skillchains
 
@@ -3498,43 +3643,35 @@ Regenerate with `./scripts/update-docs.ps1`. Each bullet is one visual row; [emp
 
 ## Action Bars / Global
 
-### Layout
+### Content
+
+- Action set caption | Action labels
+- Empty slots | Tooltips
+
+### Appearance / Size & Position
 
 - Slot size | Spacing
 - Vertical spacing
 
-### Display
+### Appearance / Window
 
 - Background opacity | Padding
-- Action set caption | Action labels
-- Empty slots | Container background
-- Tooltips
+- Container background
 
-### Slots
+### Appearance / Slots
 
 - Frame style | Border thickness
 - Icon padding | Icon opacity (%)
 - Icon tint | [empty]
 - Apply design to all bars | Reset this slot design
 
-### Effects
+### Appearance / Effects
 
 - Unavailable icon tint | [empty]
 - Hover highlight | Hover color
 - Pressed highlight | Pressed color
 - Activation flash | Recast overlay
 - Recast overlay color
-
-### Overlays
-
-- Key / button labels | Item counts and charges
-- Count position | [empty]
-- Count X offset | Count Y offset
-- MP cost | MP cost position
-- MP X offset | MP Y offset
-- Recast display | Recast countdown
-- Recast position | [empty]
-- Recast X offset | Recast Y offset
 
 ### Text
 
@@ -3547,55 +3684,86 @@ Regenerate with `./scripts/update-docs.ps1`. Each bullet is one visual row; [emp
 - Soft shadow | Stroke
 - Glow
 
+### Overlays
+
+- Key / button labels | Item counts and charges
+- Count position | [empty]
+- Count X offset | Count Y offset
+- MP cost | MP cost position
+- MP X offset | MP Y offset
+- Recast display | Recast countdown
+- Recast position | [empty]
+- Recast X offset | Recast Y offset
+
 ## Hotbar 2
 
 ### General
 
+- Scale (%) | Lock proportions
+- Reset scale
 
 ## Hotbar 3
 
 ### General
 
+- Scale (%) | Lock proportions
+- Reset scale
 
 ## Hotbar 4
 
 ### General
 
+- Scale (%) | Lock proportions
+- Reset scale
 
 ## Hotbar 5
 
 ### General
 
+- Scale (%) | Lock proportions
+- Reset scale
 
 ## Hotbar 6
 
 ### General
 
+- Scale (%) | Lock proportions
+- Reset scale
 
 ## Hotbar 7
 
 ### General
 
+- Scale (%) | Lock proportions
+- Reset scale
 
 ## Hotbar 8
 
 ### General
 
+- Scale (%) | Lock proportions
+- Reset scale
 
 ## Hotbar 9
 
 ### General
 
+- Scale (%) | Lock proportions
+- Reset scale
 
 ## Hotbar 10
 
 ### General
 
+- Scale (%) | Lock proportions
+- Reset scale
 
 ## Crossbar
 
 ### General
 
+- Scale (%) | Lock proportions
+- Reset scale
 
 ## Gil
 
@@ -3604,13 +3772,14 @@ Regenerate with `./scripts/update-docs.ps1`. Each bullet is one visual row; [emp
 - Enabled | Show tracking
 - Tracking display | Reset tracking
 
-### Layout
+### Appearance / Size & Position
 
-- Icon size | Icon on right
-- Right align | Line spacing
-- Gil icon
+- Scale (%) | Lock proportions
+- Reset scale | Icon size
+- Icon on right | Right align
+- Line spacing | Gil icon
 
-### Appearance
+### Appearance / Window
 
 - Container | Positive change
 - Negative change
@@ -3632,21 +3801,15 @@ Regenerate with `./scripts/update-docs.ps1`. Each bullet is one visual row; [emp
 
 - Enabled | Group count
 
-### Events
+### Appearance / Size & Position
 
-- Items | Experience
-- Skill gains | Party / alliance invites
-- Trade requests | Key items
-- Gil | Treasure pool
-- Notification type | Assigned group
+- Scale (%) | Lock proportions
+- Reset scale | Screen anchor
+- Width | Visible rows
+- Anchored direction | Stack direction
+- Spacing
 
-### Layout
-
-- Screen anchor | Width
-- Visible rows | Anchored direction
-- Stack direction | Spacing
-
-### Appearance
+### Appearance / Window
 
 - Container background | XP color
 - Item color | Skill color
@@ -3654,7 +3817,7 @@ Regenerate with `./scripts/update-docs.ps1`. Each bullet is one visual row; [emp
 - Key item color | Gil color
 - Treasure color
 
-### Animation
+### Appearance / Animation
 
 - Duration | Rise
 - Pin invitations | Minify after
@@ -3671,30 +3834,48 @@ Regenerate with `./scripts/update-docs.ps1`. Each bullet is one visual row; [emp
 - Stroke | Stroke color
 - Glow
 
+### Events
+
+- Items | Experience
+- Skill gains | Party / alliance invites
+- Trade requests | Key items
+- Gil | Treasure pool
+- Notification type | Assigned group
+
 ## Group 2
 
 ### General
 
+- Scale (%) | Lock proportions
+- Reset scale
 
 ## Group 3
 
 ### General
 
+- Scale (%) | Lock proportions
+- Reset scale
 
 ## Group 4
 
 ### General
 
+- Scale (%) | Lock proportions
+- Reset scale
 
 ## Group 5
 
 ### General
 
+- Scale (%) | Lock proportions
+- Reset scale
 
 ## Group 6
 
 ### General
 
+- Scale (%) | Lock proportions
+- Reset scale
 
 ## Blue Magic Learned
 
@@ -3703,9 +3884,11 @@ Regenerate with `./scripts/update-docs.ps1`. Each bullet is one visual row; [emp
 - Enabled | Sound
 - Preview alert | Test sound
 
-### Layout
+### Appearance
 
-- Banner scale | Hold time
+- Scale (%) | Lock proportions
+- Reset scale | Banner scale
+- Hold time
 
 ### Text
 
@@ -3726,36 +3909,38 @@ Regenerate with `./scripts/update-docs.ps1`. Each bullet is one visual row; [emp
 - Preview rolls | Base potency
 - Double-Up window
 
-### Layout
+### Appearance / Size & Position
 
+- Scale (%) | Lock proportions
+- Reset scale | [empty]
 - Width | Bar height
 - Roll layout | Content scale
 - Container | Container opacity
 - Container padding
 
-### Bar Style
+### Appearance / Bar Style
 
 - Bar style | Bookends
 
-### Animation
+### Appearance / Colors
 
-- Animated sheen | [empty]
-- Sheen width | Sheen speed
-- Smooth fill | Fill response
+- Background opacity | Shadow color
+- Sheen color | Lucky / eleven
+- Unlucky | Bust
+- Duration top | Duration bottom
 
-### Effects
+### Appearance / Effects
 
 - Drop shadow | Shadow strength
 - Shadow radius | [empty]
 - Shadow X offset | Shadow Y offset
 - Outer glow | Fill glow
 
-### Colors
+### Appearance / Animation
 
-- Background opacity | Shadow color
-- Sheen color | Lucky / eleven
-- Unlucky | Bust
-- Duration top | Duration bottom
+- Animated sheen | [empty]
+- Sheen width | Sheen speed
+- Smooth fill | Fill response
 
 ### Text
 
@@ -3772,7 +3957,8 @@ Regenerate with `./scripts/update-docs.ps1`. Each bullet is one visual row; [emp
 
 ### General
 
-- Magic Burst HUD
+- Scale (%) | Lock proportions
+- Reset scale | Magic Burst HUD
 
 ### Appearance
 
@@ -3797,14 +3983,16 @@ Regenerate with `./scripts/update-docs.ps1`. Each bullet is one visual row; [emp
 
 ### General
 
-- Enabled | Open pool
+- Scale (%) | Lock proportions
+- Reset scale | Enabled
+- Show title | Show details
+- Show timers | Open pool
 - Show automatically | Expanded rows
 
 ### Appearance
 
-- Show title | Show details
-- Show timers | Width
-- Opacity | Padding
+- Width | Opacity
+- Padding
 
 ### Text
 
@@ -3817,14 +4005,18 @@ Regenerate with `./scripts/update-docs.ps1`. Each bullet is one visual row; [emp
 - Soft shadow | Stroke
 - Glow
 
-## General
+## Global
 
-### Appearance / Window
+### Appearance
 
-- Window theme | Status icon theme
-- Job icon theme | Dark backing opacity
+- Global Scale (%) | Reset global scale
+- Theme | Native Window Type
+- Status icon theme | Job icon theme
+- Dark backing opacity | [empty]
+- Classic | XIV
+- XIVClassic
 
-### Appearance / Global Text
+### Global Text
 
 - Global font | Global text size (px)
 - Letter spacing | [empty]
@@ -3834,7 +4026,7 @@ Regenerate with `./scripts/update-docs.ps1`. Each bullet is one visual row; [emp
 - Stroke outline | Outline color
 - Outer glow | Animated sheen
 
-### Appearance / Config Text
+### Config Text
 
 - Config font | Config text size (px)
 - Letter spacing | [empty]
@@ -3844,7 +4036,7 @@ Regenerate with `./scripts/update-docs.ps1`. Each bullet is one visual row; [emp
 - Stroke outline | Outline color
 - Outer glow | Animated sheen
 
-### Appearance / Controller Focus
+### Controller Focus
 
 - Border padding | Corner radius
 - Border thickness | Border color
@@ -3854,7 +4046,7 @@ Regenerate with `./scripts/update-docs.ps1`. Each bullet is one visual row; [emp
 - Glow | Glow color
 - Glow opacity | Glow spread
 
-### Appearance / HP Feedback
+### HP Feedback
 
 - HP feedback | HP warning colors
 - Trail delay | Trail decay
@@ -3880,7 +4072,8 @@ Regenerate with `./scripts/update-docs.ps1`. Each bullet is one visual row; [emp
 - Commands | Blue Magic Learned
 - Phantom Roll | Ready Check
 - Magic Burst | Fishing
-- Target of Target | Subtarget
+- Native Menus | Target of Target
+- Subtarget
 
 ### Attribution
 
@@ -3908,23 +4101,11 @@ Regenerate with `./scripts/update-docs.ps1`. Each bullet is one visual row; [emp
 - Apply to | Hide during events
 - Hide with menus | Hide Player in party
 
-### Game HUD
-
-- Game HUD controls | Hide native UI
-- Restore native UI | Player bars
-- Party list | Alliance 1
-- Alliance 2 | Target box
-- Cast bar | Status icons
-- Compass | Clock
-- Connection info | Menu title
-- Help bar | Chat window 1
-- Chat window 2 | Expanded chat
-
-## Game HUD
+## Native Menus
 
 ### General
 
-- Game HUD controls | Hide native UI
+- Native menu controls | Hide native UI
 - Restore native UI | Player bars
 - Party list | Alliance 1
 - Alliance 2 | Target box
@@ -3941,20 +4122,31 @@ Regenerate with `./scripts/update-docs.ps1`. Each bullet is one visual row; [emp
 - Enabled | Send channel
 - Second window | Character counter
 
-### Messages
+### Appearance / Size & Position
 
-- Timestamps | Messages
-- Window 1 tab | Window 2 tab
-
-### Layout
-
+- Scale (%) | Reset scale
 - Width | Height
 - Line spacing | Reactive window sizing
 - Use window height for maximum | Padding
 
-### Appearance
+### Appearance / Window
 
 - Opacity
+
+### Appearance / Colors
+
+- Incoming tells | Outgoing tells
+- Say | Party / alliance
+- Linkshell | Linkshell 2
+- Shout | Yell
+- Unity | Emotes
+- Other chat | Combat
+- System | Separate timestamp color
+- Timestamp color
+
+### Appearance / Animation
+
+- New messages | Animation speed (%)
 
 ### Text
 
@@ -3967,6 +4159,11 @@ Regenerate with `./scripts/update-docs.ps1`. Each bullet is one visual row; [emp
 - Soft shadow | Stroke
 - Glow
 
+### Messages
+
+- Timestamps | Messages
+- Window 1 tab | Window 2 tab
+
 ### Sounds
 
 - Keywords | Incoming tells
@@ -3977,17 +4174,6 @@ Regenerate with `./scripts/update-docs.ps1`. Each bullet is one visual row; [emp
 - Emotes | Other chat
 - Combat | System
 - Keyword sound
-
-### Colors
-
-- Incoming tells | Outgoing tells
-- Say | Party / alliance
-- Linkshell | Linkshell 2
-- Shout | Yell
-- Unity | Emotes
-- Other chat | Combat
-- System | Separate timestamp color
-- Timestamp color
 
 ### Native Filters
 
@@ -4037,10 +4223,6 @@ Regenerate with `./scripts/update-docs.ps1`. Each bullet is one visual row; [emp
 - Effects others resist | Effects others evade
 - Standard battle messages | Calls for help
 - Basic system messages
-
-### Animation
-
-- New messages | Animation speed (%)
 
 ## Chat 2
 
@@ -4048,20 +4230,31 @@ Regenerate with `./scripts/update-docs.ps1`. Each bullet is one visual row; [emp
 
 - Enabled | Match Window 1 settings
 
-### Messages
+### Appearance / Size & Position
 
-- Timestamps | Messages
-- Window 1 tab | Window 2 tab
-
-### Layout
-
+- Scale (%) | Reset scale
 - Width | Height
 - Line spacing | Reactive window sizing
 - Use window height for maximum | Padding
 
-### Appearance
+### Appearance / Window
 
 - Opacity
+
+### Appearance / Colors
+
+- Incoming tells | Outgoing tells
+- Say | Party / alliance
+- Linkshell | Linkshell 2
+- Shout | Yell
+- Unity | Emotes
+- Other chat | Combat
+- System | Separate timestamp color
+- Timestamp color
+
+### Appearance / Animation
+
+- New messages | Animation speed (%)
 
 ### Text
 
@@ -4074,6 +4267,11 @@ Regenerate with `./scripts/update-docs.ps1`. Each bullet is one visual row; [emp
 - Soft shadow | Stroke
 - Glow
 
+### Messages
+
+- Timestamps | Messages
+- Window 1 tab | Window 2 tab
+
 ### Sounds
 
 - Keywords | Incoming tells
@@ -4084,17 +4282,6 @@ Regenerate with `./scripts/update-docs.ps1`. Each bullet is one visual row; [emp
 - Emotes | Other chat
 - Combat | System
 - Keyword sound
-
-### Colors
-
-- Incoming tells | Outgoing tells
-- Say | Party / alliance
-- Linkshell | Linkshell 2
-- Shout | Yell
-- Unity | Emotes
-- Other chat | Combat
-- System | Separate timestamp color
-- Timestamp color
 
 ### Native Filters
 
@@ -4145,23 +4332,13 @@ Regenerate with `./scripts/update-docs.ps1`. Each bullet is one visual row; [emp
 - Standard battle messages | Calls for help
 - Basic system messages
 
-### Animation
-
-- New messages | Animation speed (%)
-
 ## Bubbles
 
 ### General
 
-- Enabled | Range
-- Duration
-
-### Channels
-
-- Say | Linkshell 1
-- Linkshell 2 | Party
-- Yell | Shout
-- NPC dialogue
+- Scale (%) | Lock proportions
+- Reset scale | Enabled
+- Range | Duration
 
 ### Appearance
 
@@ -4180,20 +4357,28 @@ Regenerate with `./scripts/update-docs.ps1`. Each bullet is one visual row; [emp
 - Soft shadow | Stroke
 - Glow
 
+### Channels
+
+- Say | Linkshell 1
+- Linkshell 2 | Party
+- Yell | Shout
+- NPC dialogue
+
 ## Compass
 
 ### General
 
-- Enabled | Directions
-- Heading
-
-### Markers
-
-- Markers | Range
+- Scale (%) | Lock proportions
+- Reset scale | Enabled
+- Directions | Heading
 
 ### Appearance
 
 - Size | Opacity
+
+### Markers
+
+- Markers | Range
 
 ### Heading Text
 
@@ -4202,9 +4387,10 @@ Regenerate with `./scripts/update-docs.ps1`. Each bullet is one visual row; [emp
 
 ### General
 
-- Enabled | Coordinate edges
-- Shape | Map artwork
-- Zoom
+- Scale (%) | Lock proportions
+- Reset scale | Enabled
+- Coordinate edges | Shape
+- Map artwork | Zoom
 
 ### Appearance
 
@@ -4212,15 +4398,6 @@ Regenerate with `./scripts/update-docs.ps1`. Each bullet is one visual row; [emp
 - Drop shadow | Frame
 - Background | Map opacity
 - Background opacity | Frame opacity
-
-### Markers
-
-- Enemies | Player icon
-- Vision cone | Marker size
-- Marker opacity | Party
-- Alliance | Pet
-- Target | North indicator
-- NPCs | Distant party markers
 
 ### Text
 
@@ -4245,6 +4422,15 @@ Regenerate with `./scripts/update-docs.ps1`. Each bullet is one visual row; [emp
 - Soft shadow | Stroke
 - Glow
 
+### Markers
+
+- Enemies | Player icon
+- Vision cone | Marker size
+- Marker opacity | Party
+- Alliance | Pet
+- Target | North indicator
+- NPCs | Distant party markers
+
 ## World Info
 
 ### General
@@ -4253,9 +4439,11 @@ Regenerate with `./scripts/update-docs.ps1`. Each bullet is one visual row; [emp
 - Weekday | Weather
 - Date
 
-### Layout
+### Appearance
 
-- Arrangement | Width
+- Scale (%) | Lock proportions
+- Reset scale | Arrangement
+- Width
 
 ### Text
 
@@ -4276,9 +4464,11 @@ Regenerate with `./scripts/update-docs.ps1`. Each bullet is one visual row; [emp
 - Weekday | Weather
 - Date
 
-### Layout
+### Appearance
 
-- Arrangement | Width
+- Scale (%) | Lock proportions
+- Reset scale | Arrangement
+- Width
 
 ### Text
 
@@ -4299,9 +4489,11 @@ Regenerate with `./scripts/update-docs.ps1`. Each bullet is one visual row; [emp
 - Weekday | Weather
 - Date
 
-### Layout
+### Appearance
 
-- Arrangement | Width
+- Scale (%) | Lock proportions
+- Reset scale | Arrangement
+- Width
 
 ### Text
 
@@ -4322,9 +4514,11 @@ Regenerate with `./scripts/update-docs.ps1`. Each bullet is one visual row; [emp
 - Weekday | Weather
 - Date
 
-### Layout
+### Appearance
 
-- Arrangement | Width
+- Scale (%) | Lock proportions
+- Reset scale | Arrangement
+- Width
 
 ### Text
 
@@ -4345,9 +4539,11 @@ Regenerate with `./scripts/update-docs.ps1`. Each bullet is one visual row; [emp
 - Weekday | Weather
 - Date
 
-### Layout
+### Appearance
 
-- Arrangement | Width
+- Scale (%) | Lock proportions
+- Reset scale | Arrangement
+- Width
 
 ### Text
 
@@ -4375,12 +4571,14 @@ Regenerate with `./scripts/update-docs.ps1`. Each bullet is one visual row; [emp
 - Sound when receiving | Sound volume
 - Test sound | Sound
 
-### Layout
+### Appearance / Size & Position
 
-- Party column width | Icon size
-- Entry spacing | Job icons
+- Scale (%) | Lock proportions
+- Reset scale | Party column width
+- Icon size | Entry spacing
+- Job icons
 
-### Appearance
+### Appearance / Window
 
 - Container padding | Container opacity
 - Ready | Not ready
@@ -4406,16 +4604,18 @@ Regenerate with `./scripts/update-docs.ps1`. Each bullet is one visual row; [emp
 - Unknown timer markers | Timer placement
 - Status tooltips | Heading
 
-### Layout
+### Appearance / Size & Position
 
-- Width | Status icon size
+- Scale (%) | Lock proportions
+- Reset scale | Width
+- Status icon size | [empty]
 - Statuses per row | Status limit
 - Status alignment | [empty]
 - Status X offset | Status Y offset
 - Status icon spacing | Status row spacing
 - Padding | Status overflow count
 
-### Appearance
+### Appearance / Window
 
 - Container | Status icon theme
 - Status opacity
@@ -4441,16 +4641,18 @@ Regenerate with `./scripts/update-docs.ps1`. Each bullet is one visual row; [emp
 - Timer placement | Status tooltips
 - Heading
 
-### Layout
+### Appearance / Size & Position
 
-- Width | Status icon size
+- Scale (%) | Lock proportions
+- Reset scale | Width
+- Status icon size | [empty]
 - Statuses per row | Status limit
 - Status alignment | [empty]
 - Status X offset | Status Y offset
 - Status icon spacing | Status row spacing
 - Padding | Status overflow count
 
-### Appearance
+### Appearance / Window
 
 - Container | Status icon theme
 - Status opacity
@@ -4468,4 +4670,4 @@ Regenerate with `./scripts/update-docs.ps1`. Each bullet is one visual row; [emp
 
 ## Coverage
 
-72 registered modules, 575 distinct pages, 4523 controls across those pages, and 1934 selector/view combinations.
+73 registered modules, 590 distinct pages, 4793 controls across those pages, and 2049 selector/view combinations.

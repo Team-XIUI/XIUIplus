@@ -25,6 +25,9 @@ configure_file("${CMAKE_SOURCE_DIR}/assets/recast/recast.rc.in" "${CMAKE_BINARY_
 set(XIUI_RECAST_RESOURCE "${CMAKE_BINARY_DIR}/generated/xiui-recast.rc")
 configure_file("${CMAKE_SOURCE_DIR}/assets/fonts/fonts.rc.in" "${CMAKE_BINARY_DIR}/generated/xiui-fonts.rc" @ONLY)
 set(XIUI_FONT_RESOURCE "${CMAKE_BINARY_DIR}/generated/xiui-fonts.rc")
+configure_file("${CMAKE_SOURCE_DIR}/assets/xiv1/xiv1.rc.in" "${CMAKE_BINARY_DIR}/generated/xiui-xiv1.rc" @ONLY)
+set(XIUI_XIV1_RESOURCE "${CMAKE_BINARY_DIR}/generated/xiui-xiv1.rc")
+set_property(SOURCE "${XIUI_XIV1_RESOURCE}" PROPERTY OBJECT_DEPENDS "${CMAKE_SOURCE_DIR}/assets/xiv1/theme.bgra;${CMAKE_SOURCE_DIR}/assets/xiv1/NOTICE.txt")
 configure_file("${CMAKE_SOURCE_DIR}/assets/chatmon/chatmon.rc.in" "${CMAKE_BINARY_DIR}/generated/xiui-chatmon.rc" @ONLY)
 set(XIUI_CHATMON_RESOURCE "${CMAKE_BINARY_DIR}/generated/xiui-chatmon.rc")
 configure_file("${CMAKE_SOURCE_DIR}/assets/mobs/mobs.rc.in" "${CMAKE_BINARY_DIR}/generated/xiui-mobs.rc" @ONLY)
@@ -41,6 +44,8 @@ set_property(SOURCE "${XIUI_DEFAULTS_RESOURCE}" PROPERTY OBJECT_DEPENDS
     "${CMAKE_SOURCE_DIR}/config/xiuinative-defaults.ini;${CMAKE_SOURCE_DIR}/config/xiuinative-theme.ini;${CMAKE_SOURCE_DIR}/assets/cursors/LICENSE.txt;${CMAKE_SOURCE_DIR}/third_party/minhook/LICENSE.txt;${CMAKE_SOURCE_DIR}/assets/profiles/share-v2.ini;${CMAKE_SOURCE_DIR}/config/party-classic.ini;${CMAKE_SOURCE_DIR}/config/party-xiv.ini;${CMAKE_SOURCE_DIR}/assets/status/NOTICE.txt;${CMAKE_SOURCE_DIR}/assets/status/LICENSE.txt")
 set_property(SOURCE "${XIUI_DEFAULTS_RESOURCE}" APPEND PROPERTY OBJECT_DEPENDS
     "${CMAKE_SOURCE_DIR}/assets/satchel/NOTICES.txt;${CMAKE_SOURCE_DIR}/assets/satchel/LICENSE.txt")
+set_property(SOURCE "${XIUI_DEFAULTS_RESOURCE}" APPEND PROPERTY OBJECT_DEPENDS
+    "${CMAKE_SOURCE_DIR}/config/hud-classic.ini;${CMAKE_SOURCE_DIR}/config/hud-xiv.ini;${CMAKE_SOURCE_DIR}/config/hud-xivclassic.ini")
 
 function(pack_xiui_resource variable)
     set(source "${${variable}}")
@@ -71,6 +76,6 @@ function(pack_xiui_resource variable)
     set(${variable} "${output}" PARENT_SCOPE)
 endfunction()
 foreach(resource XIUI_CURSOR_RESOURCE XIUI_JOB_RESOURCE XIUI_NOTIFICATION_RESOURCE XIUI_RECAST_RESOURCE
-    XIUI_FONT_RESOURCE XIUI_CHATMON_RESOURCE XIUI_DEFAULTS_RESOURCE XIUI_MOB_RESOURCE XIUI_BLUE_MAGIC_RESOURCE)
+    XIUI_FONT_RESOURCE XIUI_CHATMON_RESOURCE XIUI_DEFAULTS_RESOURCE XIUI_MOB_RESOURCE XIUI_BLUE_MAGIC_RESOURCE XIUI_XIV1_RESOURCE)
     pack_xiui_resource(${resource})
 endforeach()

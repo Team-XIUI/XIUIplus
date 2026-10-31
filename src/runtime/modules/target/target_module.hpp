@@ -60,18 +60,21 @@ namespace xiui
         auto ResetDefaults(const ui::theme& themeDefaults) -> void override;
         auto Load(const settings_store& store) -> void override;
         auto Save(const settings_store& store) const -> void override;
-        auto OptionCount(void) const -> size_t override;
-        auto Option(size_t index) -> module_option override;
+        auto ContentOptionCount(void) const -> size_t override;
+        auto ContentOption(size_t index) -> module_option override;
         auto ConfigViews(void) const -> std::span<const char* const> override
         {
             static constexpr const char* views[]{"Target", "Target of Target", "Subtarget", "World Target Bar", "Target Rings"};
             return views;
         }
         auto ConfigView(void) const -> size_t override { return this->config_view_; }
+        auto ConfigScaleState(void) -> module_state& override { return this->config_view_ == 3 ? this->settings_.world_bar.scale_state : this->config_view_ == 1 ? this->recipient_state_ : this->config_view_ == 2 ? this->subtarget_state_ : this->State(); }
+        auto ConfigScaleEditable(void) const -> bool override { return this->config_view_ != 4; }
+        auto ConfigScaleVisible(void) const -> bool override { return this->config_view_ != 4; }
         auto SelectConfigView(size_t index) -> void override { this->config_view_ = index <= 4 ? index : 0; }
         auto ConfigSections(void) const -> std::span<const module_config_section> override;
-        auto ConfigSectionContains(size_t section, size_t index) -> bool override;
-        auto OnOptionChanged(size_t index) -> void override;
+        auto ContentConfigSectionContains(size_t section, size_t index) -> bool override;
+        auto OnContentOptionChanged(size_t index) -> void override;
         auto ShouldRender(const hud_snapshot& snapshot) const -> bool override;
         auto Update(IAshitaCore* core) -> void;
         auto UpdateDetails(IAshitaCore* core, const combat_source& combat, const party_source& party, uint64_t now) -> void;
@@ -176,10 +179,11 @@ namespace xiui
         auto PreviewVisible(void) const -> bool override { return this->HasEditableBounds(); }
         auto OnPositionChanged(void) -> void override { this->parent_.cast_positioned_ = true; }
         auto ResetDefaults(const ui::theme&) -> void override {}
+        auto ResetSettingsFrom(const hud_module& defaults, const ui::theme&) -> void override;
         auto Load(const settings_store&) -> void override {}
         auto Save(const settings_store&) const -> void override {}
-        auto OptionCount(void) const -> size_t override { return 0; }
-        auto Option(size_t) -> module_option override { return {}; }
+        auto ContentOptionCount(void) const -> size_t override { return 0; }
+        auto ContentOption(size_t) -> module_option override { return {}; }
         auto ShouldRender(const hud_snapshot&) const -> bool override;
         auto Render(const hud_snapshot&, const module_render_context& context) -> void override;
     private:

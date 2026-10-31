@@ -9,6 +9,7 @@
 #include <cstring>
 #include <memory>
 #include <stdexcept>
+#include <set>
 
 namespace
 {
@@ -198,6 +199,86 @@ namespace xiui
         }
         static auto Overlaps(const ui::rect& a, const ui::rect& b) -> bool
         { return std::min(a.x + a.width, b.x + b.width) - std::max(a.x, b.x) > 0.01f && std::min(a.y + a.height, b.y + b.height) - std::max(a.y, b.y) > 0.01f; }
+        static auto MacroEditor(void) -> void
+        {
+            action_store store; action_executor executor; actionbars_module module;
+            store.SetContext({2, 0, {}}); module.Initialize(nullptr, &store, &executor); module.ApplyTextDefaults(ui::theme::CreateDefault());
+            module.viewport_ = {0, 0, 1280, 900}; module.workspace_bounds_[2] = {100, 80, 480, 548};
+            module.NewDraft(action_kind::macro);
+            module.HandleControllerAction(controller_action::confirm, false);
+            Check(module.setup_choice_input_.Opened(), "a new macro starts controller focus on a visible action-type dropdown");
+            module.HandleControllerAction(controller_action::cancel, false);
+            Check(module.dialog_ == actionbars_module::dialog::editor && !module.setup_choice_input_.Opened(),
+                "controller Cancel dismisses the dropdown and preserves the macro draft");
+            module.ActivateControl(540);
+            const auto typeRow = module.setup_choice_input_.Row(6, module.SetupViewport());
+            Click(module, typeRow);
+            Check(module.dialog_ == actionbars_module::dialog::editor && !module.setup_choice_input_.Opened() && module.draft_.kind == action_kind::macro,
+                "pointer selection uses the same dropdown without saving or closing the draft");
+            const auto countLines = [&] {
+                const auto controls = module.Controls();
+                return std::count_if(controls.begin(), controls.end(), [](const auto& control) { return control.id >= 400 && control.id < 432; });
+            };
+            Check(countLines() == 8, "the Lua-style macro editor starts with eight contiguous command rows");
+            const auto bounds = module.DialogBounds(); const auto layout = module.EditorLayout();
+            Check(layout.icon.width == 64 && layout.icon.x > layout.type.x + layout.type.width && layout.commands.y > layout.icon.y + layout.icon.height,
+                "icon preview sits beside the action type above the command block");
+            for (const auto& control : module.Controls())
+                if (control.enabled && control.kind != actionbars_module::control_kind::label && (control.id < 700 || control.id > 702))
+                    Check(control.bounds.x >= bounds.x && control.bounds.y >= bounds.y && control.bounds.x + control.bounds.width <= bounds.x + bounds.width &&
+                        control.bounds.y + control.bounds.height <= bounds.y + bounds.height - 8, "primary editor controls fit the compact window without clipping");
+            module.BeginField(400);
+            Check(module.PasteEditorLines("/ja \"Boost\" <me>\r\n/wait 2\r\n/ws \"Combo\" <t>"), "multiline paste uses the existing focused macro row");
+            module.CommitField();
+            const std::vector<std::string> commands{"/ja \"Boost\" <me>", "/wait 2", "/ws \"Combo\" <t>"};
+            Check(module.draft_.lines == commands && store.Resolve(action_surface::hotbar, 0, 0).Empty(),
+                "pasting preserves command order and changes only the draft");
+            module.BeginField(407); module.HandleKey(VK_RETURN, 0); module.HandleKey(VK_RETURN, static_cast<LPARAM>(0x80000000u));
+            Check(module.editing_field_ == 408 && module.line_scroll_ == 1, "Enter advances and reveals the next command row");
+            module.HandleKey(VK_DOWN, 0); module.HandleKey(VK_DOWN, static_cast<LPARAM>(0x40000000u)); module.HandleKey(VK_DOWN, static_cast<LPARAM>(0x80000000u));
+            Check(module.editing_field_ == 410, "held arrow keys repeat row navigation without repeating Enter activation");
+            module.CommitField(); module.draft_.lines = commands; module.draft_.label = "BC";
+            module.SaveDraft();
+            Check(store.ExpandMacro(store.Resolve(action_surface::hotbar, 0, 0)).lines == commands, "saving preserves the pasted wait and final weapon skill");
+            module.OpenEditor(false, 0, 0); module.draft_.lines.resize(32);
+            for (size_t line = 0; line < 32; ++line) module.draft_.lines[line] = "/echo " + std::to_string(line + 1);
+            std::set<int> reached;
+            for (int page = 0; page < 8; ++page)
+            {
+                const auto controls = module.Controls(); bool next{};
+                for (const auto& control : controls)
+                { if (control.id >= 400 && control.id < 432) reached.insert(control.id); if (control.id == 521) next = control.enabled; }
+                if (!next) break;
+                module.ActivateControl(521);
+            }
+            Check(reached.size() == 32, "paging can reach every command without skipping rows");
+            module.ActivateControl(570);
+            Check(countLines() < 8 && countLines() >= 3, "optional recast controls reserve space without overlapping command rows");
+            module.ActivateControl(563);
+            Check(module.setup_choice_input_.Opened(), "recast selection uses the shared native dropdown");
+            const auto ws = std::find_if(module.setup_choices_.begin(), module.setup_choices_.end(), [](const auto& choice) { return choice.second == ActionKindName(action_kind::weapon_skill); });
+            Check(ws != module.setup_choices_.end(), "weapon skills are available as an optional recast source");
+            module.SelectSetupChoice(static_cast<int>(ws - module.setup_choices_.begin()));
+            Check(module.draft_.recast_kind == action_kind::weapon_skill, "dropdown selection updates the unsaved recast choice");
+            module.ActivateControl(569);
+            Check(module.editor_options_ && countLines() == 0 && Control(module, "Clear slot") != 0, "native extras leave the primary create view uncluttered");
+            module.ActivateControl(500);
+            Check(store.ExpandMacro(store.Resolve(action_surface::hotbar, 0, 0)).lines == commands, "Cancel keeps the saved macro intact");
+            module.NewDraft(action_kind::macro); module.BeginField(400);
+            const auto before = module.draft_.lines;
+            Check(module.PasteEditorLines(std::string(241, 'x') + "\n/echo next") && module.draft_.lines == before,
+                "oversized multiline paste is rejected atomically");
+            module.CommitField(); module.OpenIconPicker();
+            Check(std::any_of(module.icon_catalog_.begin(), module.icon_catalog_.end(), [](const auto& icon) { return icon.source == 2 && icon.key == "spell:1"; }),
+                "the picker includes default XIUI spell artwork alongside custom icons");
+            module.ActivateControl(actionbars_module::icon_source_first + 2);
+            Check(!module.icon_results_.empty() && std::all_of(module.icon_results_.begin(), module.icon_results_.end(), [&](const auto index) { return module.icon_catalog_[index].source == 2; }),
+                "source filtering uses the same icon catalog as rendering and selection");
+            const auto icon = module.icon_results_.front(); module.SelectIcon(icon);
+            Check(module.draft_.icon == module.icon_catalog_[icon].key && store.Resolve(action_surface::hotbar, 0, 0).icon.empty(),
+                "default artwork selection remains a draft until Save");
+        }
+
         static auto CustomMacroIcons(void) -> void
         {
             using dialog = actionbars_module::dialog;
@@ -210,7 +291,8 @@ namespace xiui
             auto macro = Command("Icon macro"); macro.kind = action_kind::macro; macro.lines.push_back("/echo second line");
             Check(store.Assign(action_surface::hotbar, 0, 0, macro), "create macro icon fixture");
             module.OpenEditor(false, 0, 0);
-            Click(module, ControlBounds(module, "Choose..."));
+            module.icon_source_ = 3;
+            Click(module, ControlBounds(module, "Change"));
             Check(module.dialog_ == dialog::icons && module.WindowIndex() == 2 && module.icon_results_.size() == icons.size() &&
                 module.draft_.lines == macro.lines && store.Resolve(action_surface::hotbar, 0, 0).icon.empty(),
                 "the visual picker preserves the editor draft and makes no live assignment");
@@ -242,7 +324,7 @@ namespace xiui
             Check(selected != cells.end(), "a filtered icon has a mouse target");
             Click(module, selected->bounds);
             Check(module.dialog_ == dialog::editor && module.draft_.icon == icons[index].key, "mouse and controller use the same icon selection");
-            Click(module, ControlBounds(module, "Save action"));
+            Click(module, ControlBounds(module, "Save"));
             const auto savedMacro = store.Resolve(action_surface::hotbar, 0, 0);
             Check(savedMacro.icon == icons[index].key && savedMacro.lines == macro.lines, "saving changes artwork while preserving macro commands");
             Check(store.Assign(action_surface::crossbar, 0, 0, savedMacro), "custom icons can be assigned to crossbar macros");
@@ -251,7 +333,7 @@ namespace xiui
             Check(restored.Resolve(action_surface::hotbar, 0, 0).icon == savedMacro.icon && restored.Resolve(action_surface::crossbar, 0, 0).icon == savedMacro.icon,
                 "portable icon keys survive hotbar and crossbar persistence");
             module.OpenEditor(false, 0, 0); module.OpenIconPicker();
-            Click(module, ControlBounds(module, "Default artwork"));
+            Click(module, ControlBounds(module, "Automatic (from action)"));
             Check(module.dialog_ == dialog::editor && module.draft_.icon.empty() && store.Resolve(action_surface::hotbar, 0, 0).icon == savedMacro.icon,
                 "Default artwork clears only the draft until Save");
             ui::game_icon_cache cache;
@@ -486,7 +568,7 @@ namespace xiui
             store.Assign(action_surface::hotbar, 0, 0, Command("Bound action"));
             module.bars_[0].keys[0] = {'1', 1};
             keys[VK_CONTROL] = keys[VK_LCONTROL] = 0x80; Check(SetKeyboardState(keys) != FALSE, "set Ctrl modifier");
-            Check(module.ReplaceNativeMacros(), "native macro replacement starts enabled"); module.allow_native_keys_ = false;
+            Check(!module.ReplaceNativeMacros(), "native macro replacement starts disabled");
             Check(!module.HandleKey('1', 0), "saved Ctrl-number bindings preserve native macros while replacement is off");
             module.allow_native_keys_ = true; Check(module.HandleKey('1', 0), "explicit replacement activates the configured binding route");
             module.SuspendInput(); Check(module.HandleKey('1', static_cast<LPARAM>(0x80000000u)) && !module.HandleKey('1', static_cast<LPARAM>(0x80000000u)), "held binding release drains exactly once across suspension");
@@ -1030,6 +1112,176 @@ namespace xiui
             Click(module, ControlBounds(module, "Done"));
             Check(!module.InputFocused() && !module.PointerDown() && !module.navigation_focus_ && !module.HandleKey('W', 0), "Done closes setup and returns native movement without retained mouse or browsing focus");
         }
+        static auto ConfigurationClose(void) -> void
+        {
+            class mouse final : public IMouse
+            {
+            public:
+                bool blocked{};
+                void AddCallback(const char*, mousecallback_f) override {}
+                void RemoveCallback(const char*) override {}
+                bool GetBlockInput(void) const override { return this->blocked; }
+                void SetBlockInput(bool value) override { this->blocked = value; }
+            } input;
+            for (int dismissal = 0; dismissal < 3; ++dismissal)
+            {
+                auto runtime = std::make_unique<hud_runtime>(); auto& module = runtime->actionbars_;
+                runtime->mouse_ = &input;
+                module.Initialize(nullptr, &runtime->action_store_, &runtime->action_executor_);
+                module.ApplyTextDefaults(ui::theme::CreateDefault()); module.viewport_ = {0, 0, 1920, 1080};
+                runtime->config_.bounds = {1100, 40, 680, 700};
+                Check(runtime->SetEditing(true, false), "open Configuration with normal mouse ownership");
+                module.NewDraft(action_kind::macro); module.BeginField(2); module.input_.Insert("Unsaved macro");
+                const D3DVIEWPORT8 viewport{0, 0, 1920, 1080, 0, 1};
+                const auto close = runtime->ConfigLayout().CloseButton();
+                runtime->mouse_x_ = static_cast<int>(close.x + 4); runtime->mouse_y_ = static_cast<int>(close.y + 4);
+                runtime->UpdateMouseCapture(viewport, 0);
+                for (const auto message : {WM_LBUTTONDOWN, WM_LBUTTONUP})
+                {
+                    const auto buttons = message == WM_LBUTTONDOWN ? MK_LBUTTON : 0;
+                    Check(!runtime->HandleActionBarsMouse(message, buttons, close.x + 4, close.y + 4, input.GetBlockInput()),
+                        "Configuration keeps its own close gesture while the macro editor is open");
+                    Check(runtime->ProcessPointerMessage(message, buttons, viewport), "Configuration consumes its close gesture");
+                }
+                Check(!runtime->IsEditing() && module.FloatingWindowOpen() && module.WindowFocused() && module.InputFocused(),
+                    "closing Configuration transfers focus to the surviving macro editor");
+                Check(module.draft_.name == "Unsaved macro" && runtime->action_store_.Macros().empty() && !module.PointerDown(),
+                    "the focus handoff preserves the unsaved macro without saving or retaining a pointer gesture");
+                runtime->UpdateActionBars(1000);
+                Check(module.WindowFocused(), "frame updates retain the surviving editor's focus");
+                if (dismissal == 0)
+                {
+                    const auto editorClose = module.WindowCloseBounds();
+                    runtime->SetChatMouseCapture(true);
+                    for (const auto message : {WM_LBUTTONDOWN, WM_LBUTTONUP})
+                        Check(runtime->HandleActionBarsMouse(message, message == WM_LBUTTONDOWN ? MK_LBUTTON : 0,
+                            editorClose.x + 4, editorClose.y + 4, input.GetBlockInput()), "the macro editor's X accepts captured mouse input after Configuration closes");
+                }
+                else
+                {
+                    for (int layer = 0; layer < 2 && module.DialogOpen(); ++layer)
+                    {
+                        if (dismissal == 1)
+                        {
+                            Check(runtime->HandleActionBarsKey(VK_ESCAPE, 0, false), "Escape dismisses the focused macro workspace");
+                            Check(runtime->HandleActionBarsKey(VK_ESCAPE, static_cast<LPARAM>(0x80000000u), false), "Escape release remains owned after dismissal");
+                        }
+                        else
+                        {
+                            controller_event event{}; event.action = controller_action::cancel; event.pressed = true;
+                            Check(runtime->HandleController(event), "controller Cancel dismisses the focused macro workspace");
+                        }
+                    }
+                }
+                Check(!module.DialogOpen() && !module.PointerDown(), "macro workspace can fully close after Configuration closes");
+                runtime->SetChatMouseCapture(false);
+                Check(!input.blocked, "closing both windows restores native mouse input");
+            }
+        }
+        static auto ClosePointerOwnership(void) -> void
+        {
+            class mouse final : public IMouse
+            {
+            public:
+                bool blocked{};
+                void AddCallback(const char*, mousecallback_f) override {}
+                void RemoveCallback(const char*) override {}
+                bool GetBlockInput(void) const override { return this->blocked; }
+                void SetBlockInput(bool value) override { this->blocked = value; }
+            } input;
+            const D3DVIEWPORT8 viewport{0, 0, 1920, 1080, 0, 1};
+            for (const bool editing : {false, true})
+                {
+                    auto runtime = std::make_unique<hud_runtime>(); auto& module = runtime->actionbars_;
+                    runtime->mouse_ = &input; input.blocked = false;
+                    module.Initialize(nullptr, &runtime->action_store_, &runtime->action_executor_);
+                    module.ApplyTextDefaults(ui::theme::CreateDefault()); module.viewport_ = {0, 0, 1920, 1080};
+                    runtime->config_.bounds = {1100, 40, 680, 700};
+                    for (auto* item : runtime->modules_.All()) { item->State().bounds = {-1000, -1000, 100, 60}; item->State().content_bounds = {}; }
+                    if (editing) runtime->SetEditing(true, false);
+                    const auto send = [&](uint32_t message, uint32_t buttons, float x, float y) {
+                        runtime->mouse_x_ = static_cast<int>(x); runtime->mouse_y_ = static_cast<int>(y);
+                        return runtime->HandleActionBarsMouse(message, buttons, x, y, input.GetBlockInput());
+                    };
+                    for (int window = 0; window < 6; ++window)
+                    {
+                        if (window == 0) module.NewDraft(action_kind::macro);
+                        else if (window == 1) module.OpenLibrary();
+                        else if (window == 2) module.OpenPalettes();
+                        else if (window == 3) module.OpenSetup();
+                        else if (window == 4) module.OpenKeybinds();
+                        else module.OpenImport();
+                        const auto close = module.WindowCloseBounds();
+                        const auto press = [&](uint32_t message) {
+                            runtime->mouse_x_ = static_cast<int>(close.x + 4); runtime->mouse_y_ = static_cast<int>(close.y + 4);
+                            return runtime->HandleActionBarsMouse(message, MK_LBUTTON, close.x + 4, close.y + 4, input.GetBlockInput());
+                        };
+                        Check(press(WM_LBUTTONDOWN) && module.DialogOpen() && input.blocked, "workspace close waits for release and blocks the native mouse");
+                        Check(send(WM_MOUSEMOVE, MK_LBUTTON, 1900, 5) && module.DialogOpen(), "held workspace close stays with XIUI outside the window");
+                        Check(send(WM_LBUTTONUP, 0, 1900, 5) && module.DialogOpen(), "releasing outside cancels workspace close");
+                        Check(press(WM_LBUTTONDBLCLK) && module.DialogOpen() &&
+                            send(WM_LBUTTONUP, 0, close.x + 4, close.y + 4) && !module.DialogOpen(),
+                            "workspace close consumes its matching release");
+                    }
+                    module.OpenSlotMenu({action_surface::hotbar, 0, 0});
+                    Check(send(WM_RBUTTONDOWN, MK_RBUTTON, 1900, 5) && !module.DialogOpen(), "right-click dismisses an action popup");
+                    runtime->UpdateMouseCapture(viewport, 0);
+                    Check(input.blocked && send(WM_MOUSEMOVE, MK_RBUTTON, 1900, 5), "dismissed popup keeps held native camera movement captured");
+                    Check(send(WM_RBUTTONUP, 0, 1900, 5) && runtime->actionbar_pointer_release_ == 0, "dismissed popup drains its owned release");
+                    if (editing) runtime->SetEditing(false, false);
+                    else runtime->SetChatMouseCapture(false);
+                    Check(!input.blocked, "closing workspaces restores native mouse input");
+                }
+        }
+
+        static auto WorkspaceChatCapture(void) -> void
+        {
+            class mouse final : public IMouse
+            {
+            public:
+                bool blocked{};
+                void AddCallback(const char*, mousecallback_f) override {}
+                void RemoveCallback(const char*) override {}
+                bool GetBlockInput(void) const override { return this->blocked; }
+                void SetBlockInput(bool value) override { this->blocked = value; }
+            } input;
+            auto runtime = std::make_unique<hud_runtime>(); auto& module = runtime->actionbars_;
+            runtime->mouse_ = &input; runtime->native_ui_.menu_visible = true;
+            module.Initialize(nullptr, &runtime->action_store_, &runtime->action_executor_); module.ApplyTextDefaults(ui::theme::CreateDefault());
+            module.viewport_ = {0, 0, 1280, 900};
+            const auto capture = reinterpret_cast<HWND>(uintptr_t{0x1234});
+            const auto send = [&](const uint32_t message, const float x, const float y) {
+                runtime->mouse_x_ = static_cast<int>(x); runtime->mouse_y_ = static_cast<int>(y);
+                return runtime->HandleActionBarsMouse(message, message == WM_LBUTTONUP ? 0 : MK_LBUTTON, x, y, input.GetBlockInput());
+            };
+            for (const bool targeting : {true, false})
+            {
+                module.OpenLibrary(); const auto original = module.WindowBounds(); const auto title = module.WindowTitleBounds();
+                Check(send(WM_LBUTTONDOWN, title.x + 8, title.y + 8) && module.WindowDragging(), "the macros title starts a held drag");
+                runtime->mouse_capture_window_ = capture;
+                runtime->SyncNativeChatInput(nullptr, true, targeting);
+                Check(runtime->mouse_capture_window_ == capture && input.blocked && module.PointerDown(),
+                    "native chat polling preserves another window's pointer capture during and after combat");
+                runtime->UpdateActionBars(1000);
+                Check(send(WM_MOUSEMOVE, title.x + 48, title.y + 28), "the held macros drag continues after a render update");
+                runtime->SyncNativeChatInput(nullptr, true, targeting);
+                Check(send(WM_LBUTTONUP, title.x + 48, title.y + 28) && !module.WindowDragging() && module.WindowBounds().x == original.x + 40 &&
+                    module.WindowBounds().y == original.y + 20, "release saves the complete drag instead of rolling it back");
+                const auto create = ControlBounds(module, "New macro");
+                Check(send(WM_LBUTTONDOWN, create.x + 8, create.y + 8), "New macro owns its press");
+                runtime->mouse_capture_window_ = capture;
+                runtime->SyncNativeChatInput(nullptr, true, targeting); runtime->UpdateActionBars(1100);
+                Check(send(WM_LBUTTONUP, create.x + 8, create.y + 8) && module.dialog_ == actionbars_module::dialog::editor && module.draft_.kind == action_kind::macro,
+                    "New macro opens after its press and release span native chat polling");
+                module.CloseDialog(); runtime->ReleaseChatInput();
+            }
+            module.OpenLibrary(); const auto title = module.WindowTitleBounds();
+            send(WM_LBUTTONDOWN, title.x + 8, title.y + 8); runtime->mouse_capture_window_ = capture;
+            runtime->window_input_suspended_ = true; runtime->ReleaseChatInput();
+            Check(runtime->mouse_capture_window_ == nullptr && !input.blocked, "window suspension still releases all pointer capture immediately");
+            module.CancelPointerGesture(); module.CloseDialog();
+        }
+
         static auto RuntimeOwnership(void) -> void
         {
             class mouse final : public IMouse
@@ -1061,6 +1313,14 @@ namespace xiui
             runtime->native_ui_.menu_visible = true;
             Check(!runtime->ActionBarsInputAvailable() && runtime->ActionBarsInputAvailable(false, true),
                 "native menu keyboard ownership does not disable pointer management");
+            runtime->visibility_context_.menu_available = true;
+            runtime->visibility_context_.window_focus = native_window_focus::commands;
+            Check(runtime->ActionBarsInputAvailable() && runtime->ActionBarsNativeMenuAllowed(),
+                "the verified Attack command menu permits configured action-bar input");
+            runtime->visibility_context_.menu_open = true;
+            Check(!runtime->ActionBarsInputAvailable() && !runtime->ActionBarsNativeMenuAllowed(),
+                "a conflicting native menu remains guarded even with an old command focus");
+            runtime->visibility_context_ = {};
             Check(runtime->HandleActionBarsMouse(WM_LBUTTONDOWN, 0, bounds.x + bounds.width / 2, bounds.y + bounds.height / 2, input.GetBlockInput()) &&
                 runtime->HandleActionBarsMouse(WM_LBUTTONUP, 0, bounds.x + bounds.width / 2, bounds.y + bounds.height / 2, input.GetBlockInput()) && runtime->KeyboardFocused(),
                 "mouse-opened hotbar dropdowns retain their keyboard editor over a native menu");
@@ -1073,28 +1333,47 @@ namespace xiui
         static auto NativeMacroKeyboardOwnership(void) -> void
         {
             actionbars_module preferences; const auto theme = ui::theme::CreateDefault(); preferences.ApplyTextDefaults(theme);
-            Check(preferences.ReplaceNativeMacros() && std::string{preferences.Option(actionbars_module::native_keys).label} == "Replace native macros",
-                "native macro replacement defaults on and has a global settings label");
-            preferences.allow_native_keys_ = false; preferences.ResetDefaults(theme);
-            Check(preferences.ReplaceNativeMacros(), "reset restores the native macro replacement default");
-            preferences.Load(settings_store::FromIniText("[actionbars]\nreplace_native_keyboard_macros=false\n"));
-            Check(preferences.ReplaceNativeMacros(), "the former explicit-binding permission does not disable the new global default");
+            Check(!preferences.ReplaceNativeMacros() && std::string{preferences.Option(actionbars_module::native_keys).label} == "Replace native macros",
+                "native macro replacement defaults off and has a global settings label");
+            preferences.allow_native_keys_ = true; preferences.ResetDefaults(theme);
+            Check(!preferences.ReplaceNativeMacros(), "reset restores native macro controls");
+            preferences.Load(settings_store::FromIniText("[actionbars]\nreplace_native_keyboard_macros=true\n"));
+            Check(!preferences.ReplaceNativeMacros(), "the retired explicit-binding key does not enable global replacement");
             preferences.Load(settings_store::FromIniText("[actionbars]\nreplace_native_macros=false\n"));
             auto saved = settings_store::FromIniText(""); preferences.Save(saved);
             Check(!preferences.ReplaceNativeMacros() && !saved.ReadBool("actionbars", "replace_native_macros", true), "explicit native macro opt-out persists under the new setting key");
             actionbars_module restored; restored.ApplyTextDefaults(theme); restored.Load(saved);
             Check(!restored.ReplaceNativeMacros(), "loading an explicit opt-out restores native macro ownership");
+            preferences.Load(settings_store::FromIniText("[actionbars]\nreplace_native_macros=1\n")); preferences.Save(saved); restored.Load(saved);
+            Check(restored.ReplaceNativeMacros(), "an explicit opt-in survives saving and loading");
 
             keyboard_restore restore; BYTE keys[256]{}; keys[VK_CONTROL] = keys[VK_LCONTROL] = 0x80;
             Check(SetKeyboardState(keys) != FALSE, "set Ctrl for native palette replacement");
             auto runtime = std::make_unique<hud_runtime>(); auto& module = runtime->actionbars_;
             module.Initialize(nullptr, &runtime->action_store_, &runtime->action_executor_);
+            const auto pages = runtime->ConfigPages();
+            const auto page = std::find_if(pages.begin(), pages.end(), [](const auto& item) { return std::strcmp(item.id, "hotbar") == 0; });
+            Check(page != pages.end(), "Action Bars has a grouped sidebar page");
+            for (size_t index = 0; index <= action_bar_count; ++index) module.BarState(index).enabled = false;
+            Check(!runtime->ConfigPageVisible(*page), "disabled Action Bars leaves the sidebar");
+            module.BarState(action_bar_count).enabled = true;
+            Check(runtime->ConfigPageVisible(*page), "an enabled crossbar keeps Action Bars settings reachable");
+            module.BarState(action_bar_count).enabled = false; module.BarState(0).enabled = true;
+            Check(runtime->ConfigPageVisible(*page), "reenabling a hotbar restores the sidebar page");
             module.bars_[0].keys[0] = {'2', 1};
             runtime->action_store_.Assign(action_surface::hotbar, 0, 0, Command("Cure II"));
-            Check((runtime->NativeHudHiddenMask() & native_keyboard_macro_palette) != 0, "the default replacement hides native macro UI before a chord is pressed");
+            Check((runtime->NativeHudHiddenMask() & native_keyboard_macro_palette) == 0 && !module.ReplacesNativeMacroKey('2') &&
+                !runtime->HandleActionBarsKey('2', 0, false), "native macro UI and chords stay native by default");
+            module.allow_native_keys_ = true;
+            Check((runtime->NativeHudHiddenMask() & native_keyboard_macro_palette) != 0, "explicit replacement hides native macro UI before a chord is pressed");
             runtime->visibility_context_.macro_available = runtime->visibility_context_.macro_palette = true;
+            runtime->visibility_context_.menu_available = runtime->visibility_context_.menu_open = true;
+            runtime->visibility_context_.window_focus = native_window_focus::other;
             Check(module.ReplacesNativeMacroKey('2') && module.ReplacesNativeMacroKey('8') && runtime->ActionBarsNativePaletteOwned(),
-                "default replacement owns assigned and unassigned native chords and a verified macro palette");
+                "explicit replacement owns assigned and unassigned native chords and a verified macro palette");
+            runtime->native_ui_.menu_visible = true;
+            Check(runtime->ActionBarsNativePaletteOwned() && runtime->ActionBarsNativeMenuAllowed() && runtime->ActionBarsInputAvailable(),
+                "holding Ctrl over a visible command menu retains macro palette ownership and the delayed executor permission");
             for (WPARAM key = '0'; key <= '9'; ++key) Check(module.ReplacesNativeMacroKey(key), "every native Ctrl-number chord is replaced");
             Check(runtime->HandleActionBarsKey('2', 0, false) && module.NativeMacroKeysOwned() &&
                 (runtime->NativeHudHiddenMask() & native_keyboard_macro_palette) != 0, "a custom Ctrl chord consumes the key and suppresses the native palette drawing");
@@ -1112,8 +1391,22 @@ namespace xiui
             Check(!module.NativeMacroKeysOwned() && (runtime->NativeHudHiddenMask() & native_keyboard_macro_palette) != 0,
                 "modifier release clears held state while global native macro replacement remains enabled");
             runtime->native_ui_.menu_visible = true;
+            runtime->visibility_context_.macro_palette = false;
             Check(!runtime->ActionBarsNativePaletteOwned(true) && !runtime->HandleActionBarsKey('2', 0, false),
-                "an ordinary native command menu still owns Ctrl shortcuts even with a palette marker present");
+                "an unclassified native menu still owns Ctrl shortcuts even with a palette marker present");
+            runtime->visibility_context_.menu_available = true;
+            runtime->visibility_context_.window_focus = native_window_focus::commands;
+            runtime->visibility_context_.menu_open = false;
+            Check(runtime->ActionBarsNativeMenuAllowed() && !runtime->ActionBarsNativePaletteOwned(true) &&
+                runtime->HandleActionBarsKey('2', 0, false), "verified Attack command menus permit assigned Ctrl-number chords");
+            runtime->HandleActionBarsKey('2', static_cast<LPARAM>(0x80000000u), false);
+            runtime->visibility_context_.window_focus = native_window_focus::other;
+            Check(!runtime->ActionBarsNativeMenuAllowed() && !runtime->HandleActionBarsKey('2', 0, false),
+                "other native menus retain their keyboard shortcuts");
+            runtime->visibility_context_.window_focus = native_window_focus::commands;
+            runtime->visibility_context_.menu_available = false;
+            Check(!runtime->ActionBarsNativeMenuAllowed(), "unavailable native focus cannot grant action execution");
+            runtime->visibility_context_.window_focus = native_window_focus::unknown;
             runtime->native_ui_.menu_visible = false; runtime->visibility_context_.macro_available = false;
             Check(!runtime->ActionBarsNativePaletteOwned(true), "unavailable native palette detection cannot grant a menu exception");
             module.available_[0] = false;
@@ -1535,6 +1828,11 @@ namespace xiui
 
 auto main(const int argc, char** argv) -> int
 {
+    if (argc == 2 && std::strcmp(argv[1], "--macro-editor-only") == 0)
+    {
+        try { xiui::actionbars_ui_test::MacroEditor(); xiui::actionbars_ui_test::CustomMacroIcons(); std::puts("Macro editor layout, line editing, shared dropdowns, icon sources and draft persistence passed."); return 0; }
+        catch (const std::exception& error) { std::fprintf(stderr, "Macro editor check failed: %s\n", error.what()); return 1; }
+    }
     if (argc == 2 && std::strcmp(argv[1], "--global-only") == 0)
     {
         try { xiui::actionbars_ui_test::GlobalSettings(); std::puts("Global hotbar inheritance, independent settings and persistence passed."); return 0; }
@@ -1542,7 +1840,7 @@ auto main(const int argc, char** argv) -> int
     }
     if (argc == 2 && std::strcmp(argv[1], "--input-ownership-only") == 0)
     {
-        try { xiui::actionbars_ui_test::RuntimeOwnership(); xiui::actionbars_ui_test::NativeMacroKeyboardOwnership(); std::puts("Action bar pointer, menu and keyboard ownership checks passed."); return 0; }
+        try { xiui::actionbars_ui_test::WorkspaceChatCapture(); xiui::actionbars_ui_test::RuntimeOwnership(); xiui::actionbars_ui_test::NativeMacroKeyboardOwnership(); xiui::actionbars_ui_test::ConfigurationClose(); xiui::actionbars_ui_test::ClosePointerOwnership(); std::puts("Action bar pointer, menu and keyboard ownership checks passed."); return 0; }
         catch (const std::exception& error) { std::fprintf(stderr, "Action bar input check failed: %s\n", error.what()); return 1; }
     }
     if (argc == 2 && std::strcmp(argv[1], "--custom-icons-only") == 0)

@@ -10,6 +10,7 @@ Use `module_text_profile` with shared title, meter and caption roles. Render thr
 - Apply game-state colors with `TintTextProfile`; it multiplies colors without losing the profile's effects. Use shared entity/claim helpers.
 - Profile visibility controls glyphs and text hit bounds, independently of the surrounding meter/window.
 - Use shared meter text layout for labels and values, including native cap insets and explicit placement. Use `ui::FitText` for fitted UTF-8 labels and `design_system::TextHeight` for layout.
+- Meter values reserve six pixels at the right edge of their text area; labels retain their independent inset. XIV overlapping values use the same six-pixel right clearance from the gauge edge.
 - Tabular numbers are a temporary rendering hint, not a font/profile replacement. Measurement, clipping and every effect pass must agree.
 
 Configuration text is separate: `config/config_text` owns its plain presentation and effects. Global typography in `config/global_text` changes only the selected property across HUD profiles; later module edits remain authoritative. Keep new profiles compatible with inherited global settings.
@@ -20,7 +21,7 @@ Configuration text is separate: `config/config_text` owns its plain presentation
 
 Use `ui::container_renderer` through the render context. It reads the installed native Window Type DATs, caches textures per device and preserves patch geometry, colors and blends. Theme changes select cached skins; rendering performs no file reads or uploads.
 
-The game's Window Type remains authoritative. General's theme control uses the validated native setter; XIUI stores no competing override. Do not reset that client preference when resetting XIUI.
+The game's Window Type remains authoritative for XI Theme. Global's Native Window Type control uses the validated native setter. The separate Theme control selects XI Theme or XIV 1.0 Theme without changing that client preference. XIV 1.0 uses embedded screenshot-derived frames and gauges; selecting XI Theme restores the existing artwork and saved module styles. Do not reset the client preference when resetting XIUI.
 
 Keep opacity, padding and dark backing independent of module position/size. Tooltips use `DrawTooltip`. To put artwork under a native frame, draw the container without its border, clip the artwork, then use `DrawContainerFrame`. Preserve supported DAT-specific corrections rather than inventing replacement pixels.
 
@@ -28,17 +29,30 @@ Keep opacity, padding and dark backing independent of module position/size. Tool
 
 Use the shared meter renderer, skins, text layout and controls. Native/Modern appearance, gradients, caps, effects and fill direction remain independent preferences. Reuse frame-rate-independent `meter_animation_state`; reset transient interpolation on identity changes. Native cooldown time must not acquire resource-bar smoothing.
 
+Window-theme meter bodies use the fill artwork across the full authored height. Do not reintroduce the native gauge's top/bottom frame strips or vertical fill insets; optional side bookends retain their own geometry. Fills and resource overlays share the same full-height content bounds.
+
+XIV 1.0 gauges have authored copper rails and caps; their content inset comes from `LayoutMeterSkin`. All fills, predictions and feedback use that same content geometry. Theme typography resolves through shared draw/measurement paths without changing saved profiles. Configuration text opts out with `theme_text = false` through shared controls.
+
+XIV 1.0 meter values use the shared lining-number face, avoiding Georgia's old-style digit ascenders and descenders. Player and Party use `ui/xiv1_resource_layout.hpp` for taller HP/MP tracks and text centered on the lower rim. Preserve shared measurement and hit geometry when adjusting overlap.
+
 ## Configuration presentation
 
 `config/config_session.hpp` owns selection, focus, scrolling, search and editors. `hud_runtime_config.cpp`, `hud_runtime_config_input.cpp` and `hud_runtime_config_render.cpp` coordinate pages, pointer actions and drawing. Controller adapters call the same operations and geometry.
 
 - Use `module_option::VisibleWhen` for dependent controls; hidden values persist but leave layout, search and focus. `available` represents capability/action availability.
 - Preserve named option IDs and INI keys. Presentation order uses `module_option::Ordered` and `config/option_layout.hpp`.
+- Use `config/settings_topics.hpp` for the shared Appearance hierarchy and visible topic paths. Use the shared sidebar rows for animated module destinations; drawing, hit targets, controller focus and scrolling must use those rows together.
 - Keep dimensions before positions; pair width/height and X/Y rows. Text starts with font and size. Related empty cells must not become focus targets.
 - Shared controls own toggles, dropdowns, numeric/text editing, dialogs and resizing. Cancel stale editors before profile, selection or visibility changes.
 - Movement adapters own independent HUD elements. Preview changes commit through the same mouse/keyboard/controller actions and roll back on Cancel.
 
 See [configuration](reference/configuration.md) and [settings organization](reference/settings.md) for the current navigation rules.
+
+## HUD scale
+
+[HUD scaling](reference/hud-scaling.md) owns Basic/Advanced presentation, complete captured HUD presets, element transforms and edit grips. Keep authored dimensions/positions separate from resolved screen bounds. Every HUD primitive uses the shared scoped transform; pointer entry points invert it once and screen-space overlays map their anchors once. Apply global scale once, retain text effects, and serialize committed values while gestures are pending.
+
+Shared module controls append scale options after existing option IDs. Preserve each independent element's stable scale identity, including disabled and inactive children. Configuration, native windows and world-space target rings keep their own sizing.
 
 ## Input ownership
 
