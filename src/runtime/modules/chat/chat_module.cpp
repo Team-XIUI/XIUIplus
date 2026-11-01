@@ -193,7 +193,7 @@ namespace xiui
     {
         return {this->state_.bounds.width, this->state_.bounds.height, this->container_, this->text_, this->chrome_, this->line_spacing_,
             this->message_animation_, this->message_animation_speed_, this->collapse_mode_, this->collapse_delay_, this->collapse_min_lines_,
-            this->collapse_max_lines_, this->height_limits_lines_, this->timestamp_display_, this->timestamp_color_enabled_, this->timestamp_color_};
+            this->collapse_max_lines_, this->height_limits_lines_, this->timestamp_display_, this->timestamp_color_enabled_, this->timestamp_color_, this->background_};
     }
 
     auto chat_module::ApplyWindowSettings(const window_settings& settings) -> void
@@ -210,6 +210,7 @@ namespace xiui
         this->state_.bounds.width = settings.width;
         this->state_.bounds.height = settings.height;
         this->container_ = settings.container;
+        this->background_ = settings.background;
         this->text_ = settings.text; this->chrome_ = settings.chrome;
         this->line_spacing_ = settings.line_spacing;
         this->message_animation_ = settings.message_animation;
@@ -249,6 +250,7 @@ namespace xiui
         this->defaults_initialized_ = false;
         this->match_window1_ = false; this->independent_settings_.reset();
         this->container_ = {};
+        this->background_ = true;
         this->text_ = {};
         this->ApplyTextDefaults(theme);
         this->channel_ = game_channel;
@@ -273,8 +275,10 @@ namespace xiui
         if (!this->secondary_) this->shared_windows_ = store.ReadBool("chat", "shared_windows", false);
         this->state_.enabled = store.ReadBool(this->Id(), "enabled", !this->secondary_);
         this->state_.bounds = store.ReadRect(this->secondary_ ? "layout.chat2" : "layout.chat", this->state_.bounds);
-        this->container_ = {.opacity = std::clamp(store.ReadFloat(this->Id(), "opacity", 1.0f), 0.1f, 1.0f),
-            .padding = std::clamp(store.ReadFloat(this->Id(), "padding", 8.0f), 4.0f, 24.0f)};
+        this->container_ = {.opacity = std::clamp(store.ReadFloat(this->Id(), "opacity", 1.0f), 0.0f, 1.0f),
+            .padding = std::clamp(store.ReadFloat(this->Id(), "padding", 8.0f), 4.0f, 24.0f),
+            .border = store.ReadBool(this->Id(), "borders", true)};
+        this->background_ = store.ReadBool(this->Id(), "background", true);
         this->line_spacing_ = std::clamp(store.ReadFloat(this->Id(), "line_spacing", 2.0f), 0.0f, 10.0f);
         this->message_animation_ = std::clamp(store.ReadInt(this->Id(), "message_animation", 1), 0, 2);
         const auto animationSpeed = store.ReadFloat(this->Id(), "message_animation_speed", 100);
@@ -366,6 +370,8 @@ namespace xiui
         store.WriteRect(this->secondary_ ? "layout.chat2" : "layout.chat", bounds);
         store.WriteFloat(this->Id(), "opacity", window.container.opacity);
         store.WriteFloat(this->Id(), "padding", window.container.padding);
+        store.WriteBool(this->Id(), "background", window.background);
+        store.WriteBool(this->Id(), "borders", window.container.border);
         store.WriteFloat(this->Id(), "line_spacing", window.line_spacing);
         store.WriteInt(this->Id(), "message_animation", window.message_animation);
         store.WriteFloat(this->Id(), "message_animation_speed", window.message_animation_speed);
@@ -398,7 +404,7 @@ namespace xiui
             {"General", "Window visibility, default send channel and the optional second window.", "general"},
             {"Messages", "Native message filters, timestamps and optional window tabs.", "messages"},
             {"Layout", "Window dimensions, inner padding and message spacing.", "layout"},
-            {"Appearance", "Chat container opacity using the game's Window Type.", "appearance"},
+            {"Appearance", "Chat background, frame and opacity using the current window theme.", "appearance"},
             {"Text", "Message text size, colors, effects and offsets.", "text"},
             {"Sounds", "Choose a sound for each chat type and keyword alerts. Shared by both windows.", "sounds"},
             {"Colors", "XIUI colors override your game settings colors. Choose Game to restore native colors.", "colors"},
@@ -410,6 +416,7 @@ namespace xiui
     auto chat_module::ContentConfigSectionContains(const size_t section, const size_t index) -> bool
     {
         if (section >= this->ConfigSections().size() || index >= this->OptionCount()) return false;
+        if (index >= this->ContainerOptionStart()) return section == 3;
         if (this->secondary_ && index == this->MatchWindow1Option()) return section == 0;
         if (index >= this->CollapseOptionStart()) return section == 2;
         if (index == this->AnimationOptionStart() + 2) return !this->secondary_ && section == 0;
@@ -445,12 +452,18 @@ namespace xiui
 
     auto chat_module::InheritedWindowOption(const size_t index) const -> bool
     {
-        return index != 0 && index != this->MatchWindow1Option() && !(index >= 7 && index <= 9) &&
+        return index < this->ContentOptionCount() && index != 0 && index != this->MatchWindow1Option() && !(index >= 7 && index <= 9) &&
             !(index >= this->NativeFiltersStart() && index < this->AnimationOptionStart());
     }
 
     auto chat_module::WindowOption(const size_t index) -> module_option
     {
+        if (index == this->ContainerOptionStart())
+            return module_option::Toggle("Background", "Show the themed background behind normal and expanded chat.",
+                &this->background_, module_option_group::appearance).Ordered(440);
+        if (index == this->ContainerOptionStart() + 1)
+            return module_option::Toggle("Frame", "Show the current theme's window border around normal and expanded chat.",
+                &this->container_.border, module_option_group::appearance).Ordered(470);
         if (index == this->CollapseOptionStart() + (this->secondary_ ? 4 : 5))
             return module_option::Toggle("Use window height for maximum", "Resizing the window enables this automatically. Turn off to follow the maximum line setting again.",
                 &this->height_limits_lines_).Ordered(314).VisibleWhen(this->collapse_mode_ != 1);
@@ -516,7 +529,7 @@ namespace xiui
         case 0: return module_option::Toggle("Enabled", "Show XIUI chat. Native Menus controls the native chat windows.", &this->state_.enabled).Ordered(-50);
         case 1: return ModuleWidthOption(this->state_);
         case 2: return module_option::Slider("Height", "Resize the chat viewport without changing text size. The top-right corner resizes the window in edit mode and while the HUD is locked.", &this->state_.bounds.height, this->state_.minimum_height, 900.0f, 1.0f, module_option_group::appearance).Ordered(101);
-        case 3: return module_option::Slider("Opacity", "Native window background opacity.", &this->container_.opacity, 0.1f, 1.0f, 0.05f, module_option_group::appearance).Ordered(450);
+        case 3: return module_option::Slider("Opacity", "Background and frame opacity. Message text keeps its own opacity.", &this->container_.opacity, 0.0f, 1.0f, 0.05f, module_option_group::appearance).Ordered(450).VisibleWhen(this->background_ || this->container_.border);
         case 4: return module_option::Slider("Padding", "Space inside the chat frame.", &this->container_.padding, 4.0f, 24.0f, 1.0f, module_option_group::appearance).Ordered(402);
         case 5:
         {
@@ -561,7 +574,7 @@ namespace xiui
         if (this->MatchingWindow1() && this->InheritedWindowOption(index)) { this->EnsureWindowDefaults(); return; }
         if (index == 2) { this->height_limits_lines_ = true; this->ResetCollapse(); }
         if (index == this->CollapseOptionStart() || index == this->CollapseOptionStart() + 3) this->height_limits_lines_ = false;
-        if (index >= this->CollapseOptionStart())
+        if (index >= this->CollapseOptionStart() && index < this->ContainerOptionStart())
         {
             if (index == this->CollapseOptionStart() + 2) this->collapse_max_lines_ = std::max(this->collapse_max_lines_, this->collapse_min_lines_);
             else this->collapse_min_lines_ = std::min(this->collapse_min_lines_, this->collapse_max_lines_);
@@ -1723,6 +1736,12 @@ namespace xiui
         }
     }
 
+    auto chat_module::DrawWindowContainer(const module_render_context& context, const ui::rect& bounds) const -> void
+    {
+        if (this->background_) context.DrawContainer(bounds, this->container_);
+        else if (this->container_.border) context.DrawContainerFrame(bounds, this->container_);
+    }
+
     auto chat_module::Render(const hud_snapshot& snapshot, const module_render_context& context) -> void
     {
         if (this->HistoryExpanded()) return;
@@ -1732,7 +1751,7 @@ namespace xiui
         this->UpdateCompactLayout(context.Design(), now);
         const auto frame = this->FrameBounds(context.Design());
         if (frame.height <= 0 && !this->TabsVisible()) return;
-        if (frame.height > 0 && !context.Design().IsXiv1Theme()) context.DrawContainer(frame, this->container_);
+        if (frame.height > 0) this->DrawWindowContainer(context, frame);
         const auto layout = this->Layout(context.Design());
         const auto& theme = context.Design().GetTheme();
         for (size_t index = 0; index < layout.tabs.size(); ++index)

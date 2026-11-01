@@ -268,7 +268,7 @@ namespace xiui
         if (!this->HistoryTabAvailable(this->history_view_.tab)) this->SelectHistoryTab(static_cast<size_t>(chat_history_tab::window1));
         this->SetHistoryViewport(context.Viewport());
         const auto layout = this->HistoryLayout(context.Design());
-        if (!context.Design().IsXiv1Theme()) context.DrawContainer(layout.frame, this->container_);
+        this->DrawWindowContainer(context, layout.frame);
         auto label = this->chrome_; label.style.alignment = ui::text_alignment::center;
         for (size_t index = 0; index < layout.tabs.size(); ++index)
             if (layout.tabs[index].height > 0)

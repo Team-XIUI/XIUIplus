@@ -102,6 +102,21 @@ namespace xiui
                 "**Shuu** uses **Fast Blade**.**The Forest Hare** takes **1,234** points of damage.", "weaponskills and grouped damage values retain separate emphasis");
             Check(formatted(121, "Obtained: rabbit hide.") == "Obtained: **rabbit hide**.", "obtained item names are emphasized");
             Check(formatted(121, "Obtained: \x1e\x02" "rabbit hide\x1e\x01.") == "Obtained: **rabbit hide**.", "native inline item colors preserve semantic boundaries");
+            Check(formatted(121, "Sloth caught a \x1e\x02" "Nosteau herring\x1e\x01!") ==
+                "**Sloth** caught a **Nosteau herring**!", "fishing success emphasizes the player while retaining native item emphasis");
+            Check(formatted(121, "Andurilus caught a tiger cod!") == "**Andurilus** caught a **tiger cod**!" &&
+                formatted(121, "Phro caught an enormous fish!") == "**Phro** caught an **enormous fish**!",
+                "fishing player and item fields are bold while articles and prose stay regular");
+            for (const auto mode : {7u, 15u})
+            {
+                Check(formatted(mode, "Emilybydefault kneels respectfully before Shuu.") ==
+                    "**Emilybydefault** kneels respectfully before **Shuu**.", "targeted emotes emphasize actor and target names");
+                Check(formatted(mode, "Emilybydefault smiles happily.") == "**Emilybydefault** smiles happily." &&
+                    formatted(mode, "Emilybydefault's pet says: hello 123.") == "**Emilybydefault**'s pet says: hello 123.",
+                    "custom emotes emphasize their actor without interpreting authored prose or numbers");
+            }
+            Check(formatted(9, "Shuu: Sloth caught a tiger cod!") == "**Shuu**: Sloth caught a tiger cod!",
+                "fishing and emote rules do not parse player-authored speech");
             Check(formatted(9, "Shuu: I hit for 384 points of damage.") == "**Shuu**: I hit for 384 points of damage.", "authored speech remains normal after the speaker prefix");
             Check(formatted(13, "(Shuu) Casting Cure IV.") == "(**Shuu**) Casting Cure IV." &&
                 formatted(14, "[Linkshell] <Phro> Hello.") == "[Linkshell] <**Phro**> Hello.", "party and linkshell speaker brackets remain normal weight");
@@ -828,6 +843,11 @@ namespace xiui
             Check(chat.BeginHistory() && key('F') && runtime.buffs_.ControllerFocused() && !second.HistoryFocused() &&
                 !runtime.ChatFocused() && second.history_view_.tab == 3 && second.history_view_.scroll[3] == 7 && chat.editor_.Text() == cyclingDraft,
                 "the second compact F selects Buffs directly, retaining both windows' tabs and the shared draft");
+            Check(runtime.ControllerCapture() == controller_capture_mode::navigation &&
+                (runtime.ControllerInputState() & controller_capture_mask) == static_cast<uint32_t>(controller_capture_mode::navigation) &&
+                runtime.KeyboardInputState() == keyboard_capture_status && !runtime.KeyboardFocused() &&
+                !key('W') && !key(VK_NUMPAD8) && runtime.buffs_.ControllerFocused(),
+                "keyboard Buffs highlighting keeps controller sticks and keyboard movement available outside native menus");
             const auto firstBuff = runtime.buffs_.ControllerBounds();
             Check(key(VK_RIGHT) && runtime.buffs_.ControllerBounds().x > firstBuff.x,
                 "keyboard arrows move between the actual XIUI effect icons");
@@ -852,6 +872,8 @@ namespace xiui
             Check(key('F', 0x40000000) && runtime.buffs_.ControllerFocused(), "held F cannot skip a status group");
             Check(key('F') && runtime.debuffs_.ControllerFocused() && !runtime.buffs_.ControllerFocused(),
                 "F continues from XIUI Buffs to XIUI Debuffs");
+            Check(runtime.ControllerCapture() == controller_capture_mode::navigation && !runtime.KeyboardFocused(),
+                "keyboard Debuffs highlighting also keeps movement available outside native menus");
             runtime.UpdateControllerStatus(unavailable);
             runtime.UpdateControllerFocus();
             Check(runtime.debuffs_.ControllerFocused() && runtime.KeyboardStatusFocusBounds().width > 0,
@@ -896,11 +918,20 @@ namespace xiui
             Check(runtime.ControllerCapture() == controller_capture_mode::navigation && controllerBuff.width > 0 &&
                 cycle(controller_action::right) && runtime.buffs_.ControllerBounds().x > controllerBuff.x,
                 "controller Buffs focus stays visible and navigable over the combat menu without capturing movement sticks");
+            runtime.native_ui_.menu_visible = false;
+            Check(runtime.ControllerCapture() == controller_capture_mode::navigation &&
+                cycle(controller_action::left) && runtime.buffs_.ControllerBounds().x == controllerBuff.x,
+                "closing the combat menu keeps Buffs navigation without taking movement sticks");
+            runtime.native_ui_.menu_visible = true;
             Check(cycle(controller_action::cycle_window) && runtime.debuffs_.ControllerFocused(), "controller cycle continues to XIUI Debuffs");
             runtime.SyncNativeChatInput(nullptr, true);
             runtime.UpdateControllerFocus();
             Check(runtime.ControllerCapture() == controller_capture_mode::navigation && runtime.debuffs_.ControllerBounds().width > 0,
                 "controller Debuffs focus retains navigation capture over the combat menu");
+            runtime.native_ui_.menu_visible = false;
+            Check(runtime.ControllerCapture() == controller_capture_mode::navigation && runtime.debuffs_.ControllerFocused(),
+                "closing the combat menu keeps Debuffs highlighting without taking movement sticks");
+            runtime.native_ui_.menu_visible = true;
             Check(cycle(controller_action::cycle_window) && chat.HistoryFocused() && !second.HistoryFocused(),
                 "controller focus wraps from status effects to Chat 1");
             runtime.native_ui_.menu_visible = false;
@@ -2132,13 +2163,18 @@ namespace xiui
         {
             chat_module first, second{true};
             first.AttachSecondWindow(second);
+            Check(first.background_ && first.container_.border && first.ConfigSectionContains(3, first.ContainerOptionStart()) &&
+                first.ConfigSectionContains(3, first.ContainerOptionStart() + 1),
+                "chat starts framed and exposes background/frame controls under Appearance");
             const auto settings = settings_store::FromIniText(
                 "[chat]\nlayout_version=4\nopacity=0.8\npadding=12\nline_spacing=4\nmessage_animation=2\nmessage_animation_speed=150\n"
                 "collapse_mode=2\ncollapse_delay=8\ncollapse_min_lines=2\ncollapse_max_lines=18\nheight_limits_lines=1\ntimestamp_display=3\n"
                 "[layout.chat]\nx=20\ny=500\nwidth=600\nheight=300\n"
-                "[chat2]\nenabled=1\ndefaults_initialized=1\nlayout_version=4\nopacity=0.3\nline_spacing=1\nsource=1\ntab_window2=1\n"
+                "[chat2]\nenabled=1\ndefaults_initialized=1\nlayout_version=4\nopacity=0.3\nbackground=0\nborders=0\nline_spacing=1\nsource=1\ntab_window2=1\n"
                 "[layout.chat2]\nx=650\ny=200\nwidth=420\nheight=180\n");
             first.Load(settings); second.Load(settings);
+            Check(first.background_ && first.container_.border && !second.background_ && !second.container_.border,
+                "legacy settings retain a background while explicit transparent choices load independently");
             first.text_.style.scale = 1.2f; first.text_.style.top_color = 0xFF123456;
             first.chrome_.style.scale = 0.7f; second.text_.style.scale = 0.8f;
             const auto match = second.MatchWindow1Option();
@@ -2148,7 +2184,7 @@ namespace xiui
             Check(second.State().bounds.x == 650 && second.State().bounds.y == 200 && second.State().bounds.width == 600 &&
                 second.State().bounds.height == 300 && second.state_.enabled && second.source_ == 1 && second.visible_tabs_[1] && !second.visible_tabs_[0],
                 "matching copies dimensions while retaining position, visibility, message source and tabs");
-            Check(second.container_.opacity == 0.8f && second.container_.padding == 12 && second.line_spacing_ == 4 &&
+            Check(second.background_ && second.container_.border && second.container_.opacity == 0.8f && second.container_.padding == 12 && second.line_spacing_ == 4 &&
                 second.text_.style.scale == 1.2f && second.text_.style.top_color == 0xFF123456 && second.chrome_.style.scale == 0.7f &&
                 second.message_animation_ == 2 && second.message_animation_speed_ == 150 && second.timestamp_display_ == 3 &&
                 second.height_limits_lines_ && second.CollapseSettings()->maximum_lines == 18,
@@ -2157,11 +2193,16 @@ namespace xiui
                 if (second.InheritedWindowOption(index)) Check(!second.Option(index).available, "inherited controls cannot receive pointer or controller edits");
             Check(second.Option(0).available && second.Option(7).available && second.Option(8).available && second.Option(9).available &&
                 second.Option(match).available, "visibility, routing, tabs and unlink remain editable");
+            Check(!second.InheritedWindowOption(second.ContentOptionCount()) && second.Option(second.ContentOptionCount()).available,
+                "the linked window retains its independent element scale");
             native_chat_filters filters;
             first.SetNativeFilters(filters); second.SetNativeFilters(filters);
             Check(!second.InheritedWindowOption(second.NativeFiltersStart()), "native filters remain independent when matching");
             first.container_.opacity = 0.65f; first.message_animation_speed_ = 200; first.OnOptionChanged(3);
             Check(second.container_.opacity == 0.65f && second.message_animation_speed_ == 200, "Window 1 edits update the linked window immediately");
+            *first.Option(first.ContainerOptionStart()).toggle = false;
+            first.OnOptionChanged(first.ContainerOptionStart());
+            Check(!second.background_ && second.container_.border, "linked chat follows background changes while retaining the frame");
             first.State().bounds.width = 620; second.EnsureWindowDefaults();
             Check(second.State().bounds.width == 620, "direct resizing of Window 1 reaches the linked window");
             second.State().bounds.height = 280; second.collapse_due_ = 1234; second.EnsureWindowDefaults();
@@ -2171,16 +2212,19 @@ namespace xiui
             second.State().bounds.x = 700;
             auto saved = settings_store::FromIniText(""); first.Save(saved); second.Save(saved);
             Check(saved.ReadBool("chat2", "match_window1", false) && saved.ReadFloat("chat2", "opacity", 0) == 0.3f &&
+                !saved.ReadBool("chat2", "background", true) && !saved.ReadBool("chat2", "borders", true) &&
                 saved.ReadFloat("layout.chat2", "width", 0) == 420 && saved.ReadFloat("layout.chat2", "x", 0) == 700,
                 "saving retains independent overrides and the current position alongside the link");
             chat_module reloadedFirst, reloadedSecond{true}; reloadedFirst.AttachSecondWindow(reloadedSecond);
             reloadedFirst.Load(saved); reloadedSecond.Load(saved);
             Check(reloadedSecond.MatchingWindow1() && reloadedSecond.container_.opacity == 0.65f && reloadedSecond.text_.style.scale == 1.2f &&
+                !reloadedSecond.background_ && reloadedSecond.container_.border &&
                 reloadedSecond.State().bounds.width == 620 && reloadedSecond.State().bounds.x == 700 && reloadedSecond.source_ == 1,
                 "ordinary profile reload restores the live link without changing its independent routing or position");
             *reloadedSecond.Option(reloadedSecond.MatchWindow1Option()).toggle = false;
             reloadedSecond.OnOptionChanged(reloadedSecond.MatchWindow1Option());
             Check(reloadedSecond.container_.opacity == 0.3f && reloadedSecond.text_.style.scale == 0.8f &&
+                !reloadedSecond.background_ && !reloadedSecond.container_.border &&
                 reloadedSecond.State().bounds.width == 420 && reloadedSecond.State().bounds.height == 180 && reloadedSecond.State().bounds.x == 700 &&
                 reloadedSecond.source_ == 1 && reloadedSecond.visible_tabs_[1], "unlink restores prior settings while preserving movement and filters");
             first.collapse_mode_ = 0; first.SetNativeWindowConfig(native_chat_window_settings{true, 1, 14, 5});

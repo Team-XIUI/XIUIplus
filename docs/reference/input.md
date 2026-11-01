@@ -54,7 +54,7 @@ If the game's native expanded log becomes active, XIUI releases chat/controller 
 
 F/Cycle Window selects XIUI chat directly over the combat command menu; Enter/Confirm expands its log. Enter remains owned through its release so it cannot also activate the native menu. Equipment, inventory and other native menus keep the game's original cycle so Storage Options and Sort remain accessible. XIUI mirrors the validated native focus identity for replaced chat/status windows and releases navigation when focus returns to a native control. The host leaves the mapped cycle control's press, held state and release native in both controller backends while native cycling owns it. Native text editors and action subtargets still take priority.
 
-Deliberate controller browsing of Buffs/Debuffs keeps its focus frame and navigation over the combat command menu. This captures navigation only, preserving movement/camera sticks; native text entry and action subtargets still take priority.
+Deliberate controller browsing of Buffs/Debuffs keeps its focus frame and navigation over the combat command menu. This captures navigation only with native menus open or closed, preserving movement/camera sticks; native text entry and action subtargets still take priority.
 
 Within local Buffs/Debuffs, Confirm/A or Enter requests removal only for a client-marked cancellable effect. Navigation/hover never removes effects, held Confirm does not repeat, and Cancel/B exits browsing. Remote status inspection stays read-only.
 

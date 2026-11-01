@@ -115,7 +115,8 @@ namespace xiui
             return windowBrowse ? controller_capture_mode::navigation : controller_capture_mode::none;
         }
         if (this->ActionBarsInputAvailable() && this->actionbars_.InputFocused()) return controller_capture_mode::exclusive;
-        if (this->ChatFocused()) return controller_capture_mode::navigation;
+        if (this->ChatFocused() || this->controller_surface_ == controller_surface::buffs ||
+            this->controller_surface_ == controller_surface::debuffs) return controller_capture_mode::navigation;
         return this->controller_surface_ != controller_surface::none ? controller_capture_mode::exclusive : controller_capture_mode::none;
     }
 

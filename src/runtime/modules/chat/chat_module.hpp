@@ -35,7 +35,7 @@ namespace xiui
         { const auto scope = design.Transform(this->state_.transform); return this->state_.transform.Map(this->Grip(design)); }
         auto OnBoundsResized(const ui::rect& original) -> void override;
         auto Save(const settings_store& store) const -> void override;
-        auto ContentOptionCount(void) const -> size_t override { return this->CollapseOptionStart() + 6; }
+        auto ContentOptionCount(void) const -> size_t override { return this->ContainerOptionStart() + 2; }
         auto ContentOption(size_t index) -> module_option override;
         auto ConfigSections(void) const -> std::span<const module_config_section> override;
         auto ContentConfigSectionContains(size_t section, size_t index) -> bool override;
@@ -143,9 +143,11 @@ namespace xiui
             int timestamp_display{};
             bool timestamp_color_enabled{};
             D3DCOLOR timestamp_color{};
+            bool background{true};
         };
         module_state state_{true, {18.0f, -1.0f, 560.0f, 260.0f}, 380.0f, 64.0f};
         ui::container_style container_{};
+        bool background_{true};
         module_text_profile text_{};
         module_text_profile chrome_{};
         chat_model model_{};
@@ -228,6 +230,7 @@ namespace xiui
         auto NativeFiltersStart(void) const -> size_t { return this->TimestampColorOptionStart() + 2; }
         auto AnimationOptionStart(void) const -> size_t { return this->NativeFiltersStart() + (this->native_filters_ != nullptr ? native_chat_filters::option_count : 0); }
         auto CollapseOptionStart(void) const -> size_t { return this->AnimationOptionStart() + 3; }
+        auto ContainerOptionStart(void) const -> size_t { return this->CollapseOptionStart() + 6; }
         auto MatchWindow1Option(void) const -> size_t { return this->CollapseOptionStart() + 5; }
         auto MatchingWindow1(void) const -> bool { return this->secondary_ && this->match_window1_ && this->parent_ != nullptr; }
         auto InheritedWindowOption(size_t index) const -> bool;
@@ -274,6 +277,7 @@ namespace xiui
             return this->history_view_.tab == 0 && this->CombinedHistory() ? 200 : static_cast<int>(100 + this->history_view_.tab);
         }
         auto DrawLog(const hud_snapshot& snapshot, const module_render_context& context, const ui::rect& log, const ui::rect& scrollbar) -> void;
+        auto DrawWindowContainer(const module_render_context& context, const ui::rect& bounds) const -> void;
         auto HandleHistoryMouse(uint32_t message, WPARAM wParam, float x, float y, const ui::design_system& design) -> bool;
         auto HistorySoundTarget(const ui::design_system& design, float x, float y) const -> uint32_t;
         auto TimestampMode(void) const -> int { return this->timestamp_display_ == 0 ? this->native_timestamp_mode_ : this->timestamp_display_ - 1; }

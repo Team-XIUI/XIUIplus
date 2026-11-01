@@ -2,6 +2,7 @@
 
 #include <algorithm>
 #include <array>
+#include <span>
 
 namespace
 {
@@ -23,8 +24,11 @@ namespace
         "{} blocks {}'s attack with his shield.", "{} blocks {}'s attack with her shield.",
         "{} obtains: {}.", "{} obtains {}.", "Obtained key item: {}.", "Obtained: {}.",
         "You find {} on {}.", "{} finds {} on {}.",
+        "{} caught a {}!", "{} caught an {}!", "{} caught {}!",
         "{} learns the spell {}.", "{} learns \"{}\"!", "{} learns {}!",
         "Skillchain: {}.", "{} gains {n} experience points.", "{} gains {n} limit points."};
+
+    constexpr std::string_view emotes[]{"{} kneels respectfully before {}."};
 
     auto Number(const std::string_view text) -> bool
     {
@@ -66,6 +70,27 @@ namespace
         while (end > begin && (text[end - 1] == ' ' || text[end - 1] == '\t')) --end;
         std::fill(emphasis.begin() + begin, emphasis.begin() + end, true);
     }
+
+    auto MarkFields(std::vector<bool>& emphasis, const std::string_view text,
+        const std::span<const std::string_view> patterns) -> void
+    {
+        for (size_t at = 0; at < text.size();)
+        {
+            if (text[at] == ' ' || text[at] == '\n' || text[at] == '\t') { ++at; continue; }
+            size_t matched = at;
+            for (const auto pattern : patterns)
+            {
+                std::array<field, 4> fields{}; size_t count{};
+                matched = Match(text, at, pattern, fields, count);
+                if (matched == at) continue;
+                for (size_t i = 0; i < count; ++i) Mark(emphasis, fields[i].begin, fields[i].end, text);
+                break;
+            }
+            if (matched > at) { at = matched; continue; }
+            const auto end = text.find_first_of(".!?\n", at);
+            at = end == std::string_view::npos ? text.size() : end + 1;
+        }
+    }
 }
 
 namespace xiui
@@ -89,22 +114,7 @@ namespace xiui
         }
         if (messagesOnly)
         {
-            for (size_t at = 0; at < text.size();)
-            {
-                if (text[at] == ' ' || text[at] == '\n' || text[at] == '\t') { ++at; continue; }
-                size_t matched = at;
-                for (const auto pattern : messages)
-                {
-                    std::array<field, 4> fields{}; size_t count{};
-                    matched = Match(text, at, pattern, fields, count);
-                    if (matched == at) continue;
-                    for (size_t i = 0; i < count; ++i) Mark(emphasis, fields[i].begin, fields[i].end, text);
-                    break;
-                }
-                if (matched > at) { at = matched; continue; }
-                const auto end = text.find_first_of(".!?\n", at);
-                at = end == std::string::npos ? text.size() : end + 1;
-            }
+            MarkFields(emphasis, text, messages);
             for (size_t at = 0; at < text.size(); ++at)
             {
                 const auto c = static_cast<unsigned char>(text[at]);
@@ -115,6 +125,19 @@ namespace xiui
                 const auto word = [](const unsigned char c) { return c >= 128 || (c >= 'a' && c <= 'z') || (c >= 'A' && c <= 'Z') || c == '_'; };
                 if ((begin == 0 || !word(text[begin - 1])) && (at + 1 == text.size() || !word(text[at + 1])))
                     Mark(emphasis, begin, at + 1, text);
+            }
+        }
+        else if (channel == 7 || channel == 15)
+        {
+            MarkFields(emphasis, text, emotes);
+            const auto begin = text.find_first_not_of(" \t");
+            if (begin != std::string::npos)
+            {
+                auto name = std::string_view{text}.substr(begin, text.find_first_of(" \t\r\n", begin) - begin);
+                if (name.ends_with("'s")) name.remove_suffix(2);
+                if (!name.empty() && name.size() <= 64 && std::all_of(name.begin(), name.end(), [](const char c) {
+                    return (c >= 'A' && c <= 'Z') || (c >= 'a' && c <= 'z'); }))
+                    Mark(emphasis, begin, begin + name.size(), text);
             }
         }
         else
