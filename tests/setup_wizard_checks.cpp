@@ -10,6 +10,11 @@ namespace xiui
         using control = ui::setup_control;
         auto runtime = std::make_unique<hud_runtime>();
         auto& hud = *runtime;
+        std::array<std::array<uint32_t, 11>, 189> nativeSettings{};
+        std::array<uintptr_t, 2> nativeManager{0, reinterpret_cast<uintptr_t>(nativeSettings.data())};
+        const auto nativeConfig = reinterpret_cast<uintptr_t>(nativeManager.data());
+        hud.window_config_.config_slot_ = reinterpret_cast<uintptr_t>(&nativeConfig); hud.window_config_.setter_ = 1;
+        nativeSettings[180][1] = 180; nativeSettings[180][2] = 1; nativeSettings[180][3] = 4; nativeSettings[180][7] = 2;
         std::ifstream file{defaultsPath, std::ios::binary};
         const std::string defaults{std::istreambuf_iterator<char>{file}, {}};
         if (!check(!defaults.empty(), "setup has shipped defaults")) return false;
@@ -58,6 +63,47 @@ namespace xiui
         if (!check(!hud.chat_.WindowVisible() && !hud.chat_second_.WindowVisible() && (hud.game_hud_.HiddenMask() & chatMask) == 0,
             "Chat off restores both native logs and native expanded history")) return false;
         hud.ActivateSetup(control::enable);
+        const auto nativeBefore = nativeSettings;
+        const auto chatBounds = hud.chat_.State().bounds, secondBounds = hud.chat_second_.State().bounds;
+        hud.chat_.Clear();
+        chat_event chat{}; chat.sequence = 100; chat.mode = 14; chat.windows = 2; strcpy_s(chat.text, "Second-window chat");
+        hud.chat_.Receive(nullptr, chat, false);
+        chat.sequence = 101; chat.mode = 20; chat.windows = 1; strcpy_s(chat.text, "First-window combat");
+        hud.chat_.Receive(nullptr, chat, false);
+        hud.chat_.RebuildRows(hud.design_system_, 1000); hud.chat_second_.RebuildRows(hud.design_system_, 1000);
+        if (!check(hud.chat_.WindowLayout() == chat_window_layout::follow_game && hud.chat_second_.State().enabled &&
+            hud.chat_.rows_.size() == 1 && hud.chat_.rows_[0].sequence == 101 &&
+            hud.chat_second_.rows_.size() == 1 && hud.chat_second_.rows_[0].sequence == 100,
+            "setup's default follows native two-window admission without duplicating chat into combat")) return false;
+        hud.setup_.focus = control::chat_combined;
+        key(VK_RETURN);
+        hud.chat_.RebuildRows(hud.design_system_, 1000);
+        if (!check(hud.chat_.WindowLayout() == chat_window_layout::combined && !hud.chat_second_.State().enabled &&
+            hud.chat_.rows_.size() == 2 && !hud.chat_.InitializeNativeWindows(2),
+            "keyboard selection combines both native logs once and prevents deferred window-count initialization from undoing it")) return false;
+        hud.setup_.focus = control::chat_native;
+        key(VK_RETURN, 0x40000000);
+        if (!check(hud.chat_.WindowLayout() == chat_window_layout::combined, "held Enter cannot select a different chat layout")) return false;
+        key(VK_RETURN, 0x80000000);
+        auto combined = settings_store::FromIniText(""); hud.chat_.Save(combined); hud.chat_second_.Save(combined);
+        chat_module primary, secondary{true}; primary.AttachSecondWindow(secondary); primary.Load(combined); secondary.Load(combined);
+        if (!check(primary.WindowLayout() == chat_window_layout::combined && !primary.InitializeNativeWindows(2),
+            "the combined layout persists through reload without changing native settings")) return false;
+        hud.HandleSetupAction(controller_action::confirm, false);
+        if (!check(hud.chat_.WindowLayout() == chat_window_layout::follow_game && hud.chat_second_.State().enabled && nativeSettings == nativeBefore &&
+            hud.chat_.State().bounds.x == chatBounds.x && hud.chat_.State().bounds.y == chatBounds.y &&
+            hud.chat_second_.State().bounds.x == secondBounds.x && hud.chat_second_.State().bounds.y == secondBounds.y,
+            "controller selection restores native routing while retaining positions and every native filter setting")) return false;
+        nativeSettings[180][1] = 0;
+        hud.ActivateSetup(control::chat_native);
+        if (!check(!hud.chat_second_.State().enabled && hud.chat_.InitializeNativeWindows(2) && hud.chat_second_.State().enabled,
+            "Follow game waits for unavailable native settings, then adopts the real window count")) return false;
+        nativeSettings[180][1] = 180; nativeSettings[180][2] = 0;
+        hud.ActivateSetup(control::chat_native);
+        if (!check(!hud.chat_second_.State().enabled && hud.chat_.WindowLayout() == chat_window_layout::follow_game,
+            "a native one-window layout stays one window")) return false;
+        nativeSettings[180][2] = 1;
+        hud.ActivateSetup(control::chat_native);
         const auto saved = hud.CaptureSettings();
         auto resumed = std::make_unique<hud_runtime>(); resumed->LoadSetup(saved, false); resumed->UpdateSetup();
         if (!check(resumed->setup_.open && resumed->setup_.step == 3 && saved.Preferences("").ReadString("session.setup", "pending").empty(),
@@ -97,15 +143,16 @@ namespace xiui
         hud.ActivateSetup(control::skip);
         if (!check(hud.ContextVisible(hud.experience_), "Skip releases temporary hiding without changing untouched settings")) return false;
         const auto shipped = settings_store::FromIniText(defaults);
-        if (!check(!shipped.ReadBool("chat2", "enabled", true) && shipped.ReadInt("chat", "collapse_mode", -1) == 0 &&
-            shipped.ReadInt("chat2", "collapse_mode", -1) == 0 && shipped.ReadInt("layout.chat", "width", 0) == 620,
-            "shipped chat is smaller, starts with one window and follows native reactive sizing")) return false;
+        if (!check(shipped.ReadInt("chat", "source", -1) == 0 && shipped.ReadInt("chat2", "source", -1) == 1,
+            "shipped chat sources follow the corresponding native windows")) return false;
+        auto freshChat = shipped; freshChat.WriteBool("chat", "native_windows_initialized", false);
+        hud.chat_.Load(freshChat); hud.chat_second_.Load(freshChat);
         if (!check(hud.chat_.InitializeNativeWindows(2) && hud.chat_second_.State().enabled && !hud.chat_.InitializeNativeWindows(1),
             "fresh chat adopts two native windows once and preserves later choices")) return false;
-        hud.chat_.Load(shipped); hud.chat_second_.Load(shipped);
+        hud.chat_.Load(freshChat); hud.chat_second_.Load(freshChat);
         if (!check(!hud.chat_.InitializeNativeWindows(std::nullopt) && hud.chat_.InitializeNativeWindows(1) && !hud.chat_second_.State().enabled,
             "unavailable native settings defer initialization and one native window stays one")) return false;
-        hud.chat_.Load(shipped); hud.chat_second_.State().enabled = true; hud.chat_.OnOptionChanged(11);
+        hud.chat_.Load(freshChat); hud.chat_second_.State().enabled = true; hud.chat_.OnOptionChanged(11);
         if (!check(!hud.chat_.InitializeNativeWindows(1) && hud.chat_second_.State().enabled, "manual window choices cancel deferred native initialization")) return false;
         hud.chat_.Load(settings_store::FromIniText("[chat]\nenabled=1\n"));
         hud.chat_second_.State().enabled = true;

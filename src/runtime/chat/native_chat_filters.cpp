@@ -75,7 +75,8 @@ namespace xiui
 
     auto native_chat_filters::Refresh(void) -> void
     {
-        this->global_available_ = this->window_available_ = false;
+        this->global_available_ = false;
+        this->window_available_ = {};
         if (this->config_ == nullptr) return;
         const auto first = this->config_->ChatFilterValue(50), second = this->config_->ChatFilterValue(51);
         const auto holds = this->config_->ChatFilterValue(52), level = this->config_->ChatFilterValue(53), tell = this->config_->ChatFilterValue(71);
@@ -95,15 +96,16 @@ namespace xiui
                 }
             }
         }
-        const uint32_t id = this->group_ == 2 ? 187 : 185;
-        const auto low = this->config_->ChatFilterValue(id), high = this->config_->ChatFilterValue(id + 1);
-        if (low && high)
+        for (size_t window = 0; window < this->window_values_.size(); ++window)
         {
-            this->window_available_ = true;
-            for (size_t i = 0; i < this->window_values_.size(); ++i)
+            const uint32_t id = window == 1 ? 187 : 185;
+            const auto low = this->config_->ChatFilterValue(id), high = this->config_->ChatFilterValue(id + 1);
+            if (!low || !high) continue;
+            this->window_available_[window] = true;
+            for (size_t i = 0; i < this->window_values_[window].size(); ++i)
             {
                 const auto bit = window_bits[i];
-                this->window_values_[i] = (((bit < 32 ? *low : *high) >> (bit % 32)) & 1) != 0;
+                this->window_values_[window][i] = (((bit < 32 ? *low : *high) >> (bit % 32)) & 1) != 0;
             }
         }
     }
@@ -121,15 +123,15 @@ namespace xiui
         });
     }
 
-    auto native_chat_filters::Visible(const size_t index) const -> bool
-    { return index == 0 || (index <= global_count ? this->group_ == 0 : this->group_ != 0); }
+    auto native_chat_filters::Visible(const size_t index, const bool secondary) const -> bool
+    { return index == 0 || (index <= global_count ? this->groups_[secondary] == 0 : this->groups_[secondary] != 0); }
 
-    auto native_chat_filters::Option(const size_t index) -> module_option
+    auto native_chat_filters::Option(const size_t index, const bool secondary) -> module_option
     {
         if (index == 0)
         {
             static constexpr const char* groups[]{"Chat Filters", "Log: Window 1", "Log: Window 2"};
-            return module_option::Dropdown("Native filter group", "Edits the game's settings directly. Selecting a group leaves every filter unchanged.", &this->group_, groups, std::size(groups)).Ordered(-40);
+            return module_option::Dropdown("Native filter group", "Edits the game's settings directly. Each XIUI window remembers its own group. Selecting a group leaves every filter unchanged.", &this->groups_[secondary], groups, std::size(groups)).Ordered(-40);
         }
         module_option result{};
         if (index <= global_count)
@@ -152,26 +154,30 @@ namespace xiui
         else if (index < option_count)
         {
             const auto i = index - 1 - global_count;
-            result = module_option::Toggle(window_names[i], "Show this message type in the selected native Log window. XIUI follows that window's routing.", &this->window_values_[i]);
-            result.available = this->window_available_;
+            const size_t window = this->groups_[secondary] == 2 ? 1 : 0;
+            result = module_option::Toggle(window_names[i], window == 1 ?
+                "Show new messages of this type in native Log Window 2. XIUI follows that window's routing." :
+                "Show new messages of this type in native Log Window 1. XIUI follows that window's routing.", &this->window_values_[window][i]);
+            result.available = this->window_available_[window];
         }
         return result;
     }
 
-    auto native_chat_filters::Apply(const size_t index) -> bool
+    auto native_chat_filters::Apply(const size_t index, const bool secondary) -> bool
     {
         if (index == 0) { this->Refresh(); return true; }
         if (this->config_ == nullptr || index >= option_count) return false;
-        const auto option = this->Option(index);
+        const auto option = this->Option(index, secondary);
         if (!option.available || (option.choice != nullptr && (*option.choice < 0 || static_cast<size_t>(*option.choice) >= option.choice_count))) return false;
         bool applied = false;
-        if (index > global_count && this->window_available_)
+        const size_t window = this->groups_[secondary] == 2 ? 1 : 0;
+        if (index > global_count && this->window_available_[window])
         {
             const auto i = index - 1 - global_count;
             const auto bit = window_bits[i];
-            const uint32_t id = (this->group_ == 2 ? 187 : 185) + bit / 32;
+            const uint32_t id = (window == 1 ? 187 : 185) + bit / 32;
             if (const auto current = this->config_->ChatFilterValue(id))
-                applied = this->config_->SetChatFilterValue(id, WithBit(*current, bit % 32, this->window_values_[i]));
+                applied = this->config_->SetChatFilterValue(id, WithBit(*current, bit % 32, this->window_values_[window][i]));
         }
         else if (index <= global_count && this->global_available_)
         {

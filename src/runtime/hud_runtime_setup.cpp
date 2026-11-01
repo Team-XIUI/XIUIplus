@@ -96,7 +96,7 @@ namespace xiui
     auto hud_runtime::SetupBounds(const D3DVIEWPORT8& viewport) -> rect
     {
         const float width = std::min(500.0f, std::max(1.0f, viewport.Width - 24.0f));
-        const float height = std::min(400.0f, std::max(1.0f, viewport.Height - 24.0f));
+        const float height = std::min(this->setup_.step == 3 ? 444.0f : 400.0f, std::max(1.0f, viewport.Height - 24.0f));
         rect bounds{(viewport.Width - width) * .5f, (viewport.Height - height) * .5f, width, height};
         if (auto* module = this->SetupModule())
         {
@@ -135,6 +135,12 @@ namespace xiui
             items.push_back({control::enable, {x, panel.y + 200, (width - 12) * .5f, 34}, replacement ? "Use XIUI" : "On", module->State().enabled});
             items.push_back({control::disable, {x + (width + 12) * .5f, panel.y + 200, (width - 12) * .5f, 34}, replacement ? "Use game HUD" : "Off", !module->State().enabled});
         }
+        if (this->setup_.step == 3 && this->chat_.State().enabled)
+        {
+            const auto layout = this->chat_.WindowLayout();
+            items.push_back({control::chat_native, {x, panel.y + 248, (width - 12) * .5f, 34}, "Follow game windows", layout == chat_window_layout::follow_game});
+            items.push_back({control::chat_combined, {x + (width + 12) * .5f, panel.y + 248, (width - 12) * .5f, 34}, "One combined window", layout == chat_window_layout::combined});
+        }
         if (this->setup_.step == 8)
         {
             const std::array<hud_module*, 6> modules{&this->cast_bar_, &this->recast_, &this->buffs_, &this->pet_, &this->experience_, &this->actionbars_};
@@ -162,9 +168,17 @@ namespace xiui
         if (control == item::next || control == item::back)
         {
             if (control == item::back && this->setup_.step == 0) return;
+            if (control == item::next && this->setup_.step == 3 && this->chat_.State().enabled)
+                if (const auto layout = this->chat_.WindowLayout()) this->chat_.SetWindowLayout(*layout, this->window_config_.ChatWindowCount());
             if (control == item::next && this->setup_.step >= 2 && this->setup_.step < 8) this->setup_.revealed |= 1u << (this->setup_.step - 2);
             this->setup_.step = control == item::next ? std::min(size_t{8}, this->setup_.step + 1) : this->setup_.step - 1;
             this->setup_.focus = item::next;
+        }
+        else if (control == item::chat_native || control == item::chat_combined)
+        {
+            if (this->setup_.step != 3 || !this->chat_.State().enabled) return;
+            this->chat_.SetWindowLayout(control == item::chat_native ? chat_window_layout::follow_game : chat_window_layout::combined,
+                this->window_config_.ChatWindowCount());
         }
         else if (control == item::enable || control == item::disable)
         {
@@ -182,7 +196,11 @@ namespace xiui
             if (module == &this->player_ || module == &this->party_)
                 this->game_hud_.SetShown("party", !this->player_.State().enabled || !this->party_.State().enabled || !this->general_.PartyEnabled());
             if (module == &this->chat_)
+            {
+                if (enabled)
+                    if (const auto layout = this->chat_.WindowLayout()) this->chat_.SetWindowLayout(*layout, this->window_config_.ChatWindowCount());
                 for (const auto* key : {"chat1", "chat2", "chatlog"}) this->game_hud_.SetShown(key, !enabled);
+            }
         }
         else if (control >= item::castbar && control <= item::hotbars)
         {
@@ -308,12 +326,16 @@ namespace xiui
         {
             const module_render_context preview{this->design_system_, &this->container_renderer_, true, &this->game_icons_,
                 {0, 0, static_cast<float>(viewport.Width), static_cast<float>(viewport.Height)}, &this->native_assets_, &this->general_.HealthFeedback()};
-            this->design_system_.BeginContentBounds();
-            { const auto transform = this->design_system_.Transform(module->State().transform); module->Render(snapshot, preview); }
-            const auto content = this->design_system_.EndContentBounds();
-            auto& state = module->State();
-            state.content_bounds = {content.x - state.bounds.x, content.y - state.bounds.y, content.width, content.height};
-            this->design_system_.DrawFocusFrame(this->MovementBounds(*module), this->general_.FocusStyle());
+            const auto draw = [&](hud_module& target) {
+                this->design_system_.BeginContentBounds();
+                { const auto transform = this->design_system_.Transform(target.State().transform); target.Render(snapshot, preview); }
+                const auto content = this->design_system_.EndContentBounds();
+                auto& state = target.State();
+                state.content_bounds = {content.x - state.bounds.x, content.y - state.bounds.y, content.width, content.height};
+                this->design_system_.DrawFocusFrame(this->MovementBounds(target), this->general_.FocusStyle());
+            };
+            draw(*module);
+            if (module == &this->chat_ && this->chat_second_.State().enabled) draw(this->chat_second_);
         }
         const auto bounds = this->SetupBounds(viewport);
         this->config_controls_.Panel(bounds);
@@ -341,7 +363,9 @@ namespace xiui
             return y;
         };
         const float after = paragraph(page.description, bounds.y + 96, body);
-        paragraph(page.tip, this->setup_.step == 8 ? bounds.y + 276 : this->setup_.step >= 2 ? bounds.y + 250 : after + 18, caption);
+        const bool chatLayout = this->setup_.step == 3 && this->chat_.State().enabled;
+        paragraph(this->setup_.step == 3 && !chatLayout ? "The game's chat windows stay in use." : page.tip,
+            this->setup_.step == 8 ? bounds.y + 276 : chatLayout ? bounds.y + 294 : this->setup_.step >= 2 ? bounds.y + 250 : after + 18, caption);
         if (auto* module = this->SetupModule())
             this->config_controls_.Text(module->State().enabled ? "Preview - enabled in your HUD" : this->setup_.step <= 5 ? "Using game HUD" : "Off",
                 {bounds.x + 20, bounds.y + 174, bounds.width - 40, 22}, caption);

@@ -13,9 +13,9 @@ namespace xiui
         auto Initialize(native_window_config& config) -> void;
         auto Refresh(void) -> void;
         auto WindowHasRouting(bool secondary) const -> std::optional<bool>;
-        auto Visible(size_t index) const -> bool;
-        auto Option(size_t index) -> module_option;
-        auto Apply(size_t index) -> bool;
+        auto Visible(size_t index, bool secondary = false) const -> bool;
+        auto Option(size_t index, bool secondary = false) -> module_option;
+        auto Apply(size_t index, bool secondary = false) -> bool;
 
     private:
 #if defined(XIUI_ENABLE_CHAT_TESTS)
@@ -27,8 +27,9 @@ namespace xiui
         std::array<filter, global_count> filters_{};
         std::array<std::string, global_count> names_{};
         std::array<int, global_count> values_{};
-        std::array<bool, window_count> window_values_{};
-        int group_{};
-        bool definitions_available_{}, global_available_{}, window_available_{};
+        std::array<std::array<bool, window_count>, 2> window_values_{};
+        std::array<int, 2> groups_{1, 2};
+        std::array<bool, 2> window_available_{};
+        bool definitions_available_{}, global_available_{};
     };
 }

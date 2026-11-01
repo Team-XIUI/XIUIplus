@@ -2,15 +2,17 @@
 
 Full keyboard mode opens XIUI composition directly on the first text key; Compact 1/2 retain native gameplay shortcuts. `/xiui chat input` reports each native layout distinctly. Keep numpad movement, command modifiers, native editors and targeting outside implicit composition. Focused check: `xiui_chat_smoke --full-keyboard-only`.
 
-Fresh reset defaults use smaller 620×180 windows and Follow game reactive sizing. `chat_module::InitializeNativeWindows` adopts the native one/two-window count once, after a validated read succeeds. The saved `chat.native_windows_initialized` marker keeps later custom layouts intact; older settings without the marker remain authoritative.
+The Chat setup page offers Follow game windows and One combined window through `SetWindowLayout`. Follow selects each native log's matching source and adopts its one/two-window count after a validated read succeeds. Combined selects All in the primary log and disables the second. The saved `chat.native_windows_initialized` marker keeps a selected combined layout and later customizations intact; older settings without the marker remain authoritative.
 
 Foreground loss suspends input without clearing chat composition, caret, channel, recipient or the selected chat/status window. Each fresh opening of expanded history selects the first tab and resets its history-tab scroll positions to newest. F/Cycle Window selects chat over the combat command menu, then Enter/Confirm expands the log; Enter owns its release. Equipment/Storage and inventory Sort retain native cycling. `window-input` and `controller-input` cover these ownership boundaries.
 
 Two independently placed chat windows share captured messages, composition, reply history, alerts and color preferences. History browsing and typing have distinct ownership.
 
-The character counter shares the typing row, with reserved space on the right. Draft rendering, selection, caret measurement and pointer placement use the chat body's weight. Normal and expanded logs use a short top-edge alpha fade across glyphs, effects and auto-translate artwork; the container and typing area stay outside that fade.
+Native Filters keeps separate view selections for Window 1 and Window 2, defaulting to each page's corresponding native Log window. Routing toggles update and read back only the selected native destination, independently of Match Window 1 appearance settings. Existing scrollback retains its original admission; native filter changes govern new messages.
 
-For a single combined log, select Messages → All in Window 1 and turn off Second window. Its expanded history starts with an All tab that retains output from both native logs; channel tabs remain available. Changing the source invalidates the history cache without touching the draft.
+The character counter shares the typing row, with reserved space on the right. Draft rendering, selection, caret measurement and pointer placement use the chat body's font and weight. The default XIUI face follows the appearance theme; explicitly selected faces retain their family and italic style in logs, typing, tabs and bubbles without losing themed text effects. Normal and expanded logs use a short top-edge alpha fade across glyphs, effects and auto-translate artwork; the container and typing area stay outside that fade.
+
+Shipped defaults follow native Window 1 in the primary log and native Window 2 in the secondary log. For a single combined log, select Messages → All in Window 1 and turn off Second window. Its expanded history starts with an All tab that retains output from both native logs; channel tabs remain available. Changing the source invalidates the history cache without touching the draft.
 
 Empty filtered and expanded logs stay blank. Startup guidance only appears in a compact log before any messages have been captured.
 

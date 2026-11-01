@@ -158,6 +158,33 @@ namespace xiui
         return true;
     }
 
+    auto chat_module::WindowLayout(void) const -> std::optional<chat_window_layout>
+    {
+        if (this->secondary_ || this->second_window_ == nullptr) return {};
+        if (this->source_ == 2 && !this->second_window_->state_.enabled) return chat_window_layout::combined;
+        if (this->source_ == 0 && this->second_window_->source_ == 1) return chat_window_layout::follow_game;
+        return {};
+    }
+
+    auto chat_module::SetWindowLayout(const chat_window_layout layout, const std::optional<unsigned> nativeCount) -> void
+    {
+        if (this->secondary_ || this->second_window_ == nullptr) return;
+        const bool combined = layout == chat_window_layout::combined;
+        const bool countReady = nativeCount && (*nativeCount == 1 || *nativeCount == 2);
+        this->native_windows_initialized_ = combined || countReady;
+        this->second_window_->state_.enabled = !combined && countReady && *nativeCount == 2;
+        if (this->second_window_->state_.enabled) this->second_window_->EnsureWindowDefaults();
+        this->source_ = combined ? 2 : 0;
+        this->second_window_->source_ = 1;
+        for (auto* window : {this, this->second_window_})
+        {
+            window->active_tab_ = static_cast<int>(window->source_ == 0 ? chat_tab::window1 : window->source_ == 1 ? chat_tab::window2 : chat_tab::all);
+            window->cache_revision_ = UINT64_MAX;
+            window->message_entrances_.clear();
+            window->ResetCollapse();
+        }
+    }
+
     auto chat_module::EnsureWindowDefaults(void) -> void
     {
         if (!this->secondary_ || this->parent_ == nullptr) return;
@@ -421,7 +448,7 @@ namespace xiui
         if (index >= this->CollapseOptionStart()) return section == 2;
         if (index == this->AnimationOptionStart() + 2) return !this->secondary_ && section == 0;
         if (index >= this->AnimationOptionStart()) return section == 8;
-        if (index >= this->NativeFiltersStart()) return section == 7 && this->native_filters_ != nullptr && this->native_filters_->Visible(index - this->NativeFiltersStart());
+        if (index >= this->NativeFiltersStart()) return section == 7 && this->native_filters_ != nullptr && this->native_filters_->Visible(index - this->NativeFiltersStart(), this->secondary_);
         if (index >= this->ColorsOptionStart()) return section == 6;
         if (index >= this->SoundsOptionStart()) return section == 5;
         const size_t textStart = this->secondary_ ? 10 : 12;
@@ -499,7 +526,7 @@ namespace xiui
                 &this->message_animation_, animations, std::size(animations));
         }
         if (index >= this->NativeFiltersStart() && this->native_filters_ != nullptr)
-            return this->native_filters_->Option(index - this->NativeFiltersStart());
+            return this->native_filters_->Option(index - this->NativeFiltersStart(), this->secondary_);
         if (index == this->TimestampColorOptionStart())
             return module_option::Toggle("Separate timestamp color", "Use an independent timestamp color in this window; messages retain their channel colors.", &this->timestamp_color_enabled_, module_option_group::colors).VisibleWhen(this->timestamp_display_ != 1);
         if (index == this->TimestampColorOptionStart() + 1)
@@ -582,7 +609,7 @@ namespace xiui
         }
         if ((index >= this->AnimationOptionStart() && index < this->AnimationOptionStart() + 2) || index == (this->secondary_ ? 7u : 8u) || !this->WindowVisible()) this->message_entrances_.clear();
         if (!this->WindowVisible() && this->second_window_ != nullptr) this->second_window_->message_entrances_.clear();
-        if (index >= this->NativeFiltersStart() && index < this->AnimationOptionStart() && this->native_filters_ != nullptr) this->native_filters_->Apply(index - this->NativeFiltersStart());
+        if (index >= this->NativeFiltersStart() && index < this->AnimationOptionStart() && this->native_filters_ != nullptr) this->native_filters_->Apply(index - this->NativeFiltersStart(), this->secondary_);
         if (index == this->SoundsOptionStart()) this->Alerts().UpdateKeywords();
         if (!this->secondary_ && index == 11 && this->second_window_ != nullptr && this->second_window_->state_.enabled)
             this->second_window_->EnsureWindowDefaults();

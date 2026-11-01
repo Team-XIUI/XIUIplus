@@ -1,6 +1,6 @@
 # Native chat filters
 
-Open **Chat → Native Filters** or **Chat 2 → Native Filters**. Both pages edit the same live game settings. **Native filter group** selects Chat Filters, Log: Window 1 or Log: Window 2; selecting a group does not change any filter.
+Open **Chat → Native Filters** or **Chat 2 → Native Filters**. Each page starts on its corresponding native Log window and keeps its own group selection. **Native filter group** selects Chat Filters, Log: Window 1 or Log: Window 2; selecting a group does not change any filter or retarget the other page. Global Chat Filters remain shared game settings.
 
 **Chat Filters** exposes all 55 entries from the installed client's menu, using its labels and supported choices. **Show** means the native filter is Off; **Hide** means it is On. Channels that support **Hold** retain that native behavior. Tell offers native notification and Hold separately or together. System levels are cumulative, matching the game: hiding a higher level also hides lower levels.
 
@@ -10,7 +10,7 @@ For missing emotes, set **Chat Filters → Emotes → Show**, then enable **Log:
 
 For missing item-reward or inventory-full warnings, enable **Log: Window 1 > NPC conversations** (or Window 2 for that destination). FFXI routes general zone messages through this category, including "You cannot obtain the item. Come back after sorting your inventory." Enabling Basic system messages alone does not include them. On October 16, both native windows had NPC conversations disabled; enabling only Window 1's routing bit made a local replay of the exact Windurst Waters inventory-full message reach XIUI. No item was granted and all other routing/filter bits were retained.
 
-These controls use the client's configuration setter and read back the result. They refresh from the game, preserve unrelated bits, and are not copied into XIUI portable profiles or changed by XIUI Reset defaults. Unavailable client bindings disable the affected controls. Native Hold affects the game's log behavior; XIUI keeps its own bounded scrollback.
+These controls use the client's configuration setter and read back the result. They refresh both windows from the game, preserve unrelated bits, and are not copied into XIUI portable profiles or changed by XIUI Reset defaults. Unavailable client bindings disable the affected controls. Changes affect newly received messages; existing scrollback retains its original routing. Native Hold affects the game's log behavior; XIUI keeps its own bounded scrollback.
 
 On October 15, Cody's native Log settings had Emotes disabled in both windows. Window 1 Emotes was enabled, changing only that routing bit. Local-only incoming/outgoing emote checks then reached XIUI; no emote was sent to other players. `/xiui chat status` reports native-filter availability and Window 1's Emotes routing.
 

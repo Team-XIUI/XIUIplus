@@ -18,8 +18,8 @@ namespace xiui
             auto ResetDefaults(const ui::theme&) -> void override {}
             auto Load(const settings_store&) -> void override {}
             auto Save(const settings_store&) const -> void override {}
-            auto OptionCount(void) const -> size_t override { return 0; }
-            auto Option(size_t) -> module_option override { return {}; }
+            auto ContentOptionCount(void) const -> size_t override { return 0; }
+            auto ContentOption(size_t) -> module_option override { return {}; }
             auto ShouldRender(const hud_snapshot&) const -> bool override { return this->state_.enabled; }
             auto Render(const hud_snapshot&, const module_render_context&) -> void override {}
 

@@ -122,7 +122,14 @@ namespace xiui
         if (this->debuffs_ && index == preference_options_start + 1)
             return module_option::Toggle("Follow Buffs settings", "Match Buffs icon, timer, text, heading and container settings. Position, width, visibility and preview stay independent.", &this->follow_buffs_).Ordered(-40);
         auto& style = this->StyleModule();
-        const auto inherited = [&](module_option option) { return option.VisibleWhen(&style == this); };
+        const auto inherited = [&](module_option option) {
+            if (&style != this)
+            {
+                option.available = false;
+                option.description = "Follows Buffs. Turn off Follow Buffs settings under General to customize Debuffs.";
+            }
+            return option;
+        };
         if (index < appearance_options_start) return inherited(style.settings_.Option(index));
         if (index >= text_options_start) return inherited(TextProfileOption(index - text_options_start, style.text_[this->selected_text_])).VisibleWhen(
             this->selected_text_ == 0 ? style.heading_ : this->selected_text_ == 1 ? style.settings_.enabled : style.settings_.enabled && style.settings_.tooltips);
@@ -134,7 +141,7 @@ namespace xiui
         case 2: return inherited(module_option::Slider("Container opacity", "Opacity of the native group container.", &style.container_.opacity, 0, 1, 0.05f, module_option_group::appearance).Ordered(450)).VisibleWhen(style.background_);
         case 3: return inherited(module_option::Slider("Padding", "Space around the heading and status icons.", &style.container_.padding, 0, 24, 1).Ordered(402));
         case 4: return ModuleWidthOption(this->state_);
-        default: return inherited(module_option::Element("Selected text", "Edit heading, timers and tooltip styles separately.", &this->selected_text_, profiles, 3, module_option_group::text));
+        default: return module_option::Element("Selected text", "Edit heading, timers and tooltip styles separately.", &this->selected_text_, profiles, 3, module_option_group::text);
         }
     }
 

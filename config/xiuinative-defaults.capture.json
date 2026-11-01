@@ -5,6 +5,8 @@
   "theme_path": "C:\\Games\\PhoenixXI-dev\\PhoenixXI\\config\\xiuinative-theme.ini",
   "sections": 2667,
   "preferences": 15741,
-  "defaults_sha256": "E39398465333E94D731A6E627DA9180674EB08EEF85CD1A08DED3FB055CB9332",
-  "theme_sha256": "3F7ACD509C16DA7C8C65F6BB93B3EA9C82BFCFF29D34DC38469543805C2AA5D8"
+  "defaults_sha256": "FCFD58084E9248BAE5F93434AEC67AD96FFF3A62A16CAD412E593531F2293BBB",
+  "theme_sha256": "3F7ACD509C16DA7C8C65F6BB93B3EA9C82BFCFF29D34DC38469543805C2AA5D8",
+  "amended_at": "2026-11-01T14:17:42.6472706-08:00",
+  "amendment": "Primary chat follows native Window 1 (source=0) instead of combining both native logs; all other captured preferences retained."
 }

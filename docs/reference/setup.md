@@ -12,7 +12,9 @@ Choosing Use game HUD for Player Bar also restores the native party/status panel
 
 Mouse buttons activate on a matching release. Tab / Shift+Tab and arrows move focus; Enter or Space selects; Escape goes back, or skips from the first page. Controllers use the same actions with directions, Confirm and Cancel. Confirmation does not repeat while held. Setup suspends input and preview during native text entry, targeting, events, zoning and foreground loss, keeping the page for later.
 
-Fresh chat defaults use a 620×180 main window, native colors, filters, timestamps and reactive sizing. A second window starts disabled and is enabled once if the game's Multi-Window setting requests it. If native settings are unavailable, initialization waits; it never guesses two windows. Later chat edits and existing saved layouts remain intact.
+The Chat page offers **Follow game windows** and **One combined window** when using XIUI. Follow uses the game's one- or two-window count and sends each native window's messages to the corresponding XIUI log. Combined merges messages admitted to either native window into one XIUI log and disables the second XIUI window. Both choices retain native filters and HUD positions; they save through the existing Messages and Second window settings. Back and reopening setup show the current choice, and the preview includes both logs when enabled. Use game HUD keeps the original chat windows instead.
+
+If native settings are unavailable, Follow waits for a validated count instead of guessing two windows. Combined prevents deferred native initialization from re-enabling the second log. Later chat edits and existing saved layouts remain intact until a setup choice is selected or accepted with Next. Change the choice later through Chat → Messages and General, or revisit `/xiui setup`.
 
 The native window count uses validated config record 180, documented by the [official Ashita config addon](https://github.com/AshitaXI/Ashita-v4beta/blob/main/addons/config/README.md). Reactive sizing and independent-window behavior are covered in [Chat windows](chat-windows.md).
 

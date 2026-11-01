@@ -14,7 +14,7 @@ namespace xiui
         auto result = design.ResolveHudText(style);
         if (design.IsXiv1Theme())
         {
-            result.font = tab ? ui::xiv1_italic_font : ui::xiv1_font;
+            result.font = style.theme_text && style.font == 0 ? (tab ? ui::xiv1_italic_font : ui::xiv1_font) : style.font;
             if (style.theme_text) result.letter_spacing += .4f;
             result.theme_text = false;
         }

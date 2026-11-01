@@ -68,9 +68,23 @@ namespace xiui
             const auto ownBounds = debuffs.state_.bounds;
             debuffs.follow_buffs_ = true;
             if (!Check(debuffs.Layout(debuffPreview).size == 36 && debuffs.StyleModule().text_[1].offset_y == -7 &&
-                debuffs.StyleModule().settings_.timer_placement == 2 && !debuffs.Option(1).visible && debuffs.preview_ &&
+                debuffs.StyleModule().settings_.timer_placement == 2 && debuffs.Option(1).visible && !debuffs.Option(1).available && debuffs.preview_ &&
                 debuffs.state_.bounds.x == ownBounds.x && debuffs.state_.bounds.y == ownBounds.y && debuffs.state_.bounds.width == ownBounds.width,
                 "Debuffs inherits Buffs presentation while retaining its position, width, visibility and preview")) return false;
+            const auto container = debuffs.Option(status_effects_module::appearance_options_start + 1);
+            const auto selector = debuffs.Option(status_effects_module::text_options_start - 1);
+            if (!Check(container.visible && !container.available && container.toggle == &buffs.background_ &&
+                debuffs.ConfigSectionContains(2, status_effects_module::appearance_options_start + 1) &&
+                selector.visible && selector.available && selector.choice == &debuffs.selected_text_,
+                "linked Appearance keeps inherited values visible and Text retains its independent profile selector")) return false;
+            for (int profile = 0; profile < 3; ++profile)
+            {
+                *selector.choice = profile;
+                const auto alignment = debuffs.Option(status_effects_module::text_options_start);
+                if (!Check(alignment.visible && !alignment.available && alignment.choice == &buffs.text_[profile].placement &&
+                    debuffs.ConfigSectionContains(3, status_effects_module::text_options_start),
+                    "every linked text profile remains visible and read-only")) return false;
+            }
             buffs.settings_.size = 40;
             if (!Check(debuffs.Layout(debuffPreview).size == 40 && debuffs.settings_.size == 18 && debuffs.text_[1].offset_y == 3,
                 "following tracks live Buffs changes without overwriting Debuffs preferences")) return false;
@@ -81,7 +95,9 @@ namespace xiui
             if (!Check(linkedDebuffs.follow_buffs_ && linkedDebuffs.preview_ && linkedBuffs.preview_ && linkedDebuffs.settings_.size == 18 &&
                 linkedDebuffs.Layout(debuffPreview).size == 40, "preview/follow options persist without copying inherited values into saved Debuffs settings")) return false;
             debuffs.follow_buffs_ = false;
-            if (!Check(debuffs.Layout(debuffPreview).size == 18 && debuffs.StyleModule().text_[1].offset_y == 3 && debuffs.Option(1).visible,
+            if (!Check(debuffs.Layout(debuffPreview).size == 18 && debuffs.StyleModule().text_[1].offset_y == 3 && debuffs.Option(1).visible && debuffs.Option(1).available &&
+                debuffs.Option(status_effects_module::appearance_options_start + 1).toggle == &debuffs.background_ &&
+                debuffs.Option(status_effects_module::text_options_start).choice == &debuffs.text_[2].placement,
                 "turning follow off restores the independent Debuffs presentation")) return false;
             return true;
         }

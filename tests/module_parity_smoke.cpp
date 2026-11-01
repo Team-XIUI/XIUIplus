@@ -474,7 +474,10 @@ namespace xiui
 int main(int argc, char** argv)
 {
     try {
-        if (argc > 1 && std::string_view{argv[1]} == "--status-timers-only") {
+        if (argc > 1 && std::string_view{argv[1]} == "--status-module-only") {
+            Check(xiui::RunStatusModuleChecks(), "Native Status Effects module checks failed");
+            std::puts("Status module configuration, inheritance and persistence checks passed.");
+        } else if (argc > 1 && std::string_view{argv[1]} == "--status-timers-only") {
             Combat();
             xiui::RunXIUIStatusTimerChecks();
             std::puts("XIUI duration lookup, estimates, real early removal, refresh, native timer distinction and expiry checks passed.");

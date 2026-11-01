@@ -15,6 +15,7 @@
 
 namespace xiui
 {
+    enum class chat_window_layout : uint8_t { follow_game, combined };
     class chat_module final : public hud_module
     {
     public:
@@ -73,6 +74,8 @@ namespace xiui
         auto ColorOverrides(void) const -> const chat_color_overrides& { return this->Colors(); }
         auto AttachSecondWindow(chat_module& second) -> void;
         auto InitializeNativeWindows(std::optional<unsigned> count) -> bool;
+        auto WindowLayout(void) const -> std::optional<chat_window_layout>;
+        auto SetWindowLayout(chat_window_layout layout, std::optional<unsigned> nativeCount) -> void;
         auto EnsureWindowDefaults(void) -> void;
         auto ViewName(void) const -> const char* { return chat_tab_names[this->active_tab_]; }
         auto TabsVisible(void) const -> bool { return this->visible_tabs_[0] || this->visible_tabs_[1]; }

@@ -147,6 +147,16 @@ namespace xiui
                 ChatNameColor(0xCCFFFFFF) == 0xCCFFFFFF,
                 "name brightness preserves message hue and alpha without clipping white");
             ui::design_system design; design.SetAppearanceTheme(ui::xiv1_appearance);
+            auto selectedStyle = ui::theme::CreateDefault().body_text;
+            for (int font = 1; font < ui::font_count; ++font)
+            {
+                selectedStyle.font = font;
+                const auto resolved = ChatThemeStyle(design, selectedStyle);
+                Check(resolved.font == font && ChatInputStyle(design, selectedStyle).font == font &&
+                    ChatThemeStyle(design, selectedStyle, true).font == font &&
+                    ChatThemeStyle(design, resolved).font == font && resolved.stroke.enabled && resolved.shadow.enabled,
+                    "authored chat fonts survive XIV theme resolution in logs, typing and tabs while retaining text effects");
+            }
             auto regular = ChatThemeStyle(design, ui::theme::CreateDefault().body_text);
             regular.weight = ui::font_weight::regular;
             auto bold = regular; bold.weight = ui::font_weight::bold;
@@ -185,6 +195,13 @@ namespace xiui
                 }
                 Check(width <= 160.01f, "mixed-weight rows stay within the viewport");
             }
+            module.text_.style.font = ui::xiv1_italic_font;
+            module.RebuildRows(design, 160);
+            Check(module.cache_font_ == ui::xiv1_italic_font, "changing the chat face invalidates wrapped rows immediately");
+            auto fontSettings = settings_store::FromIniText(""); module.Save(fontSettings);
+            chat_module restoredFont; restoredFont.Load(fontSettings);
+            Check(ChatThemeStyle(design, restoredFont.text_.style).font == ui::xiv1_italic_font,
+                "the selected chat face remains authoritative after settings reload");
             chat_module narrow;
             narrow.model_.Add(chat_event{1, 1, 12, 0xFFFFFFFF, 1}, ">>Emilybydefault: hello.");
             narrow.RebuildRows(design, 35);
@@ -198,6 +215,11 @@ namespace xiui
         {
             const keyboard_restore neutral;
             hud_runtime runtime;
+            std::array<std::array<uint32_t, 11>, 67> settings{};
+            std::array<uintptr_t, 2> manager{0, reinterpret_cast<uintptr_t>(settings.data())};
+            const auto config = reinterpret_cast<uintptr_t>(manager.data());
+            runtime.window_config_.config_slot_ = reinterpret_cast<uintptr_t>(&config); runtime.window_config_.setter_ = 1;
+            settings[66][1] = 66; settings[66][2] = 2; settings[66][3] = 4; settings[66][7] = 2;
             auto& player = const_cast<party_member&>(runtime.party_source_.Members()[0]);
             player.active = player.buffs_known = true; player.id = 50;
             player.buffs = {33, 33, 999, 2}; player.buff_count = 4;
@@ -207,10 +229,11 @@ namespace xiui
             status_packets packets;
             auto& buffs = runtime.buffs_;
             Check(!buffs.CancelControllerEffect(&packets, &icon, 50, active), "unfocused inspection never requests cancellation");
-            Check(runtime.BeginControllerFocus(hud_runtime::controller_surface::buffs) && buffs.ControllerEffect() == 33 &&
+            Check(runtime.HandleChatKey('F', 0, false, true, false, 0) && runtime.chat_.HistoryFocused() &&
+                runtime.HandleChatKey('F', 0, false, true, false, 0) && buffs.ControllerEffect() == 33 &&
                 buffs.CancelControllerEffect(&packets, &icon, 50, active) && packets.count == 1 && packets.id == 0x0F1 &&
                 packets.bytes == std::vector<uint8_t>({0xF1, 0x04, 0, 0, 33, 0, 0, 0}) && player.buff_count == 4,
-                "explicit cancellation sends the native effect request without removing a local icon before server confirmation");
+                "F then F focuses buffs and explicit cancellation sends the native request without removing an icon before server confirmation");
             icon.CanCancel = 0;
             Check(!buffs.CancelControllerEffect(&packets, &icon, 50, active), "client cancellation flags protect non-removable effects");
             icon.CanCancel = 1;
@@ -704,6 +727,26 @@ namespace xiui
             native_filter_records[50][1] = 0;
             filters.Refresh();
             Check(!module.Option(start + 9).available, "unavailable native settings disable edits");
+
+            chat_module second{true}; module.AttachSecondWindow(second); second.SetNativeFilters(filters);
+            second.match_window1_ = true;
+            const auto secondStart = second.NativeFiltersStart();
+            Check(*second.Option(secondStart).choice == 2 && *module.Option(start).choice == 0,
+                "Window 2 starts on its own routing group without changing Window 1's selected global filters");
+            const auto firstMask = native_filter_records[185][2], secondMask = native_filter_records[187][2];
+            const auto beforeGroups = native_filter_writes;
+            *module.Option(start).choice = 1; module.OnOptionChanged(start);
+            Check(*second.Option(secondStart).choice == 2 && native_filter_writes == beforeGroups,
+                "switching Window 1's filter view never retargets Window 2 or changes native values");
+            const auto party = secondStart + 1 + native_chat_filters::global_count + 4;
+            *second.Option(party).toggle = true; second.OnOptionChanged(party);
+            Check(native_filter_records[187][2] == (secondMask | 4) && native_filter_records[185][2] == firstMask &&
+                *second.Option(party).toggle && *module.Option(start).choice == 1,
+                "Window 2 Party edits reach only native Window 2, including when appearance follows Window 1");
+            *second.Option(party).toggle = false; second.OnOptionChanged(party);
+            Check(native_filter_records[187][2] == (secondMask & ~4u) && native_filter_records[185][2] == firstMask &&
+                !*second.Option(party).toggle,
+                "disabling a Window 2 category reads back immediately and preserves other routing bits");
 
             ui::design_system design;
             module.ApplyTextDefaults(ui::theme::CreateDefault());
