@@ -32,11 +32,11 @@ namespace xiui
         this->config_controls_.Panel(panel, std::span{fills}.first(this->config_.collapsed ? 1 : fills.size()));
         auto headerStyle = theme.accent_text;
         headerStyle.scale = 0.82f;
+        headerStyle.alignment = ui::text_alignment::left;
         if (this->design_system_.IsXiv1Theme())
         {
-            headerStyle.alignment = ui::text_alignment::center;
             const auto header = layout.HeaderBackground();
-            this->container_renderer_.DrawXiv1TitleSeparator(this->design_system_, {panel.x + 7, header.y + header.height - 3, panel.width - 14, 4});
+            this->container_renderer_.DrawXiv1TitleSeparator(this->design_system_, {panel.x + 7, header.y + header.height - 3, panel.width - 14, 4}, .65f);
         }
         this->config_controls_.Text("CONFIGURATION", layout.HeaderTitle(), headerStyle);
         const auto sidebarToggle = layout.SidebarToggle();

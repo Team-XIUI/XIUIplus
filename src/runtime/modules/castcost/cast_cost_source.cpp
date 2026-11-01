@@ -2,6 +2,7 @@
 #include "chat/chat_encoding.hpp"
 #include "combat/ability_recast.hpp"
 #include "Memory.h"
+#include "native_pattern.hpp"
 
 #include <algorithm>
 #include <array>
@@ -49,8 +50,8 @@ namespace xiui
         if (base == 0 || size == 0) return;
         const auto find = [&](const char* pattern, uint32_t occurrence = 0) { return Ashita::Memory::FindPattern(base, size, pattern, 0, occurrence); };
         const auto slot = [&](const char* pattern, size_t offset, uintptr_t& destination) {
-            const auto match = find(pattern);
-            if (match != 0 && find(pattern, 1) == 0) Read(match + offset, destination);
+            const auto match = FindUniquePattern(base, size, pattern);
+            if (match != 0) Read(match + offset, destination);
             if (destination < base || destination - base + 4 > size) destination = 0;
         };
         slot("8B480C85C974??8B510885D274??3B05", 16, this->menu_slot_);
@@ -63,8 +64,7 @@ namespace xiui
         if (find(getter, 2) != 0) this->ability_item_ = this->spell_item_ = 0;
         if (this->spell_item_ == 0) this->spell_item_ = this->ability_item_;
         constexpr char mountGetter[] = "8B44240485C07C??3B41447D??8B49208D04C185C075??83C8FFC204008B00C20400";
-        this->mount_item_ = find(mountGetter);
-        if (find(mountGetter, 1) != 0) this->mount_item_ = 0;
+        this->mount_item_ = FindUniquePattern(base, size, mountGetter);
     }
 
     auto cast_cost_source::AvailableMask(void) const -> uint32_t

@@ -10,8 +10,9 @@ Use `module_text_profile` with shared title, meter and caption roles. Render thr
 - Apply game-state colors with `TintTextProfile`; it multiplies colors without losing the profile's effects. Use shared entity/claim helpers.
 - Profile visibility controls glyphs and text hit bounds, independently of the surrounding meter/window.
 - Use shared meter text layout for labels and values, including native cap insets and explicit placement. Use `ui::FitText` for fitted UTF-8 labels and `design_system::TextHeight` for layout.
-- Meter values reserve six pixels at the right edge of their text area; labels retain their independent inset. XIV overlapping values use the same six-pixel right clearance from the gauge edge.
+- Native meter values reserve six pixels at the right edge of their text area; labels retain their independent inset. XIV Player/Party resources use ten-pixel label and fourteen-pixel value edge insets through their shared layout, including number-only Party TP.
 - Tabular numbers are a temporary rendering hint, not a font/profile replacement. Measurement, clipping and every effect pass must agree.
+- Font weight can be a temporary run style. Keep it in measurement, rasterization and glyph-cache identity; preserve the face's default weight elsewhere.
 
 Configuration text is separate: `config/config_text` owns its plain presentation and effects. Global typography in `config/global_text` changes only the selected property across HUD profiles; later module edits remain authoritative. Keep new profiles compatible with inherited global settings.
 

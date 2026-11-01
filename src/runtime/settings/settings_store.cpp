@@ -129,6 +129,7 @@ namespace xiui
     {
         settings_store result{std::move(path)};
         result.cache_sections_ = true;
+        result.cache_file_loaded_ = result.CacheFile();
         return result;
     }
 
@@ -223,6 +224,13 @@ namespace xiui
 
     auto settings_store::CachedValue(const char* section, const char* key) const -> const std::string*
     {
+        if (this->cache_file_loaded_)
+        {
+            const auto foundSection = this->reads_.find(section);
+            if (foundSection == this->reads_.end()) return nullptr;
+            const auto found = foundSection->second.find(key);
+            return found != foundSection->second.end() ? &found->second : nullptr;
+        }
         auto [foundSection, inserted] = this->reads_.try_emplace(section);
         if (inserted)
         {
@@ -242,6 +250,49 @@ namespace xiui
         }
         const auto found = foundSection->second.find(key);
         return found != foundSection->second.end() ? &found->second : nullptr;
+    }
+
+    auto settings_store::CacheFile(void) -> bool
+    {
+        std::string bytes;
+        if (!ReadIniFile(this->path_, bytes)) return false;
+        if (bytes.starts_with("\xFF\xFE"))
+        {
+            if (bytes.size() % 2 != 0) return false;
+            std::wstring wide((bytes.size() - 2) / 2, L'\0');
+            std::memcpy(wide.data(), bytes.data() + 2, bytes.size() - 2);
+            bytes = IniKey(std::wstring_view{wide});
+        }
+        std::string_view text{bytes};
+        const auto trim = [](std::string_view value) {
+            const auto start = value.find_first_not_of(" \t\r");
+            return start == value.npos ? std::string_view{} : value.substr(start, value.find_last_not_of(" \t\r") - start + 1);
+        };
+        decltype(this->reads_)::mapped_type* fields{};
+        while (!text.empty())
+        {
+            const auto end = text.find_first_of("\r\n\0", 0, 3);
+            const auto line = trim(text.substr(0, end));
+            text = end == text.npos || text[end] == '\0' ? std::string_view{} : text.substr(end + 1);
+            if (line.empty() || line.front() == ';') continue;
+            if (line.front() == '[')
+            {
+                const auto closing = line.find(']');
+                const auto name = trim(line.substr(1, closing == line.npos ? line.size() - 1 : closing - 1));
+                auto [section, inserted] = this->reads_.try_emplace(std::string{name});
+                // Windows reads the first occurrence of a section and each key.
+                fields = inserted ? &section->second : nullptr;
+                continue;
+            }
+            const auto equals = line.find('=');
+            if (fields == nullptr || equals == line.npos) continue;
+            const auto key = trim(line.substr(0, equals));
+            auto value = trim(line.substr(equals + 1));
+            if (value.size() >= 2 && (value.front() == '\'' || value.front() == '"') && value.back() == value.front())
+                value = value.substr(1, value.size() - 2);
+            fields->try_emplace(std::string{key}, value);
+        }
+        return true;
     }
 
     auto settings_store::ReadText(const char* section, const char* key, const char* fallback, char* value, const DWORD size) const -> void
@@ -427,6 +478,7 @@ namespace xiui
         { ::DeleteFileA(temporary.c_str()); return false; }
         ::WritePrivateProfileStringA(nullptr, nullptr, nullptr, this->path_.c_str());
         this->reads_.clear();
+        this->cache_file_loaded_ = false;
         this->writes_.clear();
         return true;
     }

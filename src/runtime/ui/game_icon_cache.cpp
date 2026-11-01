@@ -139,10 +139,11 @@ namespace xiui::ui
             (static_cast<float>(cell / 8) * 64 + .5f) / 256, 63.0f / 512, 63.0f / 256}};
     }
 
-    auto game_icon_cache::JobAtlas(void) const -> IDirect3DTexture8*
+    auto game_icon_cache::JobAtlas(const int theme) const -> IDirect3DTexture8*
     {
-        if (this->job_theme_ > 0)
-            if (const auto texture = this->Atlas(static_cast<uint16_t>(802 + this->job_theme_), 512, 256)) return texture;
+        const auto selected = theme < 0 ? this->job_theme_ : JobIconTheme(theme);
+        if (selected > 0)
+            if (const auto texture = this->Atlas(static_cast<uint16_t>(802 + selected), 512, 256)) return texture;
         return this->Atlas(201, 512, 256);
     }
 

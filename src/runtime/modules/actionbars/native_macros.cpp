@@ -2,6 +2,7 @@
 
 #include "Ashita.h"
 #include "Memory.h"
+#include "native_pattern.hpp"
 
 #include <cstring>
 
@@ -46,8 +47,7 @@ namespace xiui
         const auto size = Ashita::Memory::GetModuleSize("FFXiMain.dll");
         if (base == 0 || size == 0) return;
         const auto unique = [base, size](const char* pattern) -> uintptr_t {
-            const auto found = Ashita::Memory::FindPattern(base, size, pattern, 0, 0);
-            return found != 0 && Ashita::Memory::FindPattern(base, size, pattern, 0, 1) == 0 ? found : 0;
+            return FindUniquePattern(base, size, pattern);
         };
         const auto macro = unique("8B0D????????E8????????8B4424105EC38B15????????68");
         // The shorter Lua signature also matches the adjacent display controller.

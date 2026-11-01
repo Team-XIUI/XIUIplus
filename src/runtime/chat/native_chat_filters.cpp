@@ -1,6 +1,7 @@
 #include "native_chat_filters.hpp"
 #include "chat_encoding.hpp"
 #include "Memory.h"
+#include "native_pattern.hpp"
 
 #include <algorithm>
 #include <cstring>
@@ -52,8 +53,7 @@ namespace xiui
         const auto size = Ashita::Memory::GetModuleSize("FFXiMain.dll");
         if (base == 0 || size == 0) return;
         const auto find = [&](const char* pattern) {
-            const auto match = Ashita::Memory::FindPattern(base, size, pattern, 0, 0);
-            return match != 0 && Ashita::Memory::FindPattern(base, size, pattern, 0, 1) == 0 ? match : 0;
+            return FindUniquePattern(base, size, pattern);
         };
         const auto getter = find("56578B7C240C8BF18A04BD????????3C3375558A04BD????????84C07D1A");
         const auto text = find("56578B7C240C33F6393CF5????????74144683FE1C72F1");

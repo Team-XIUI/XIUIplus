@@ -1,6 +1,7 @@
 #include "world_source.hpp"
 #include "entities/entity_name_colors.hpp"
 #include "Memory.h"
+#include "native_pattern.hpp"
 
 #include <algorithm>
 #include <cstring>
@@ -41,8 +42,7 @@ namespace xiui
         const auto size = nt.OptionalHeader.SizeOfImage;
         const auto inside = [base, size](const uintptr_t address, const size_t bytes) { return address >= base && bytes <= size && address - base <= size - bytes; };
         const auto find = [base, size](const char* pattern) {
-            const auto match = Ashita::Memory::FindPattern(base, size, pattern, 0, 0);
-            return match != 0 && Ashita::Memory::FindPattern(base, size, pattern, 0, 1) == 0 ? match : 0;
+            return FindUniquePattern(base, size, pattern);
         };
         const auto time = find("E8????????0305????????C3");
         int32_t relative{}; uintptr_t offset{};

@@ -78,6 +78,65 @@ namespace xiui
 {
     struct chat_test
     {
+        static auto Emphasis(void) -> void
+        {
+            const auto formatted = [](const uint32_t mode, const char* text) {
+                chat_model model;
+                model.Add(chat_event{1, 1, mode, 0xFFFFFFFF, 1}, text);
+                std::string value; bool bold{};
+                for (const auto& span : model.Lines().front().spans)
+                {
+                    if (span.emphasis != bold) { value += "**"; bold = span.emphasis; }
+                    value += span.text;
+                }
+                if (bold) value += "**";
+                return value;
+            };
+            Check(formatted(20, "Shuu hits the Forest Hare for 384 points of damage.") ==
+                "**Shuu** hits **the Forest Hare** for **384** points of damage.", "melee names and damage stand out from prose");
+            Check(formatted(20, "The Forest Hare scores a critical hit!Shuu takes 1 point of damage.") ==
+                "**The Forest Hare** scores a critical hit!**Shuu** takes **1** point of damage.", "concatenated critical-hit sentences retain their text and separate fields");
+            Check(formatted(20, "The Forest Hare misses Shuu.") == "**The Forest Hare** misses **Shuu**.", "miss targets retain emphasis without a damage field");
+            Check(formatted(20, "Shuu casts Cure IV on Phro.") == "**Shuu** casts **Cure IV** on **Phro**.", "multiword spell names and targets are emphasized");
+            Check(formatted(20, "Shuu uses Fast Blade.The Forest Hare takes 1,234 points of damage.") ==
+                "**Shuu** uses **Fast Blade**.**The Forest Hare** takes **1,234** points of damage.", "weaponskills and grouped damage values retain separate emphasis");
+            Check(formatted(121, "Obtained: rabbit hide.") == "Obtained: **rabbit hide**.", "obtained item names are emphasized");
+            Check(formatted(121, "Obtained: \x1e\x02" "rabbit hide\x1e\x01.") == "Obtained: **rabbit hide**.", "native inline item colors preserve semantic boundaries");
+            Check(formatted(9, "Shuu: I hit for 384 points of damage.") == "**Shuu**: I hit for 384 points of damage.", "authored speech remains normal after the speaker prefix");
+            Check(formatted(13, "(Shuu) Casting Cure IV.") == "(**Shuu**) Casting Cure IV." &&
+                formatted(14, "[Linkshell] <Phro> Hello.") == "[Linkshell] <**Phro**> Hello.", "party and linkshell speaker brackets remain normal weight");
+            Check(formatted(150, "Shantotto : Hello there.") == "**Shantotto** : Hello there.", "NPC dialogue emphasizes its speaker without parsing the prose as battle output");
+            Check(formatted(20, "Unrecognized battle output.") == "Unrecognized battle output.", "unrecognized prose remains normal weight");
+            ui::design_system design; design.SetAppearanceTheme(ui::xiv1_appearance);
+            auto regular = ChatThemeStyle(design, ui::theme::CreateDefault().body_text);
+            regular.weight = ui::font_weight::regular;
+            auto bold = regular; bold.weight = ui::font_weight::bold;
+            const auto normalWidth = MeasureChatText(design, "Damage 1234", regular);
+            Check(MeasureChatText(design, "Damage 1234", bold) > normalWidth &&
+                MeasureChatText(design, "Damage 1234", regular) == normalWidth, "regular and bold measurements use distinct font caches");
+            ui::text_rasterizer rasterizer;
+            const auto normalGlyph = rasterizer.Rasterize(ui::xiv1_font, 15, 'W', ui::font_weight::regular);
+            const auto boldGlyph = rasterizer.Rasterize(ui::xiv1_font, 15, 'W', ui::font_weight::bold);
+            Check(normalGlyph && boldGlyph && normalGlyph->masks[0] != boldGlyph->masks[0], "font weights rasterize distinct glyphs without simulated overdraw");
+            chat_module module;
+            module.model_.Add(chat_event{1, 1, 20, 0xFFFFFFFF, 1}, "Shuu casts Cure IV on the Forest Hare.");
+            module.RebuildRows(design, 160);
+            Check(module.rows_.size() > 1, "mixed-weight messages wrap in a narrow log");
+            for (const auto& row : module.rows_)
+            {
+                float width{};
+                for (const auto& span : row.spans)
+                {
+                    auto style = ChatThemeStyle(design, module.text_.style);
+                    style.weight = span.emphasis ? ui::font_weight::bold : ui::font_weight::regular;
+                    Check(std::abs(span.width - MeasureChatText(design, span.text, style) - ChatThemeTracking(style)) < .01f,
+                        "wrapped spans measure the same weight and tracking used to draw them");
+                    width += span.width;
+                }
+                Check(width <= 160.01f, "mixed-weight rows stay within the viewport");
+            }
+        }
+
         static auto StatusCancellation(void) -> void
         {
             const keyboard_restore neutral;
@@ -2329,6 +2388,12 @@ int main(int argc, char** argv)
 {
     try
     {
+        if (argc == 2 && std::strcmp(argv[1], "--emphasis-only") == 0)
+        {
+            xiui::chat_test::Emphasis();
+            std::puts("Chat semantic emphasis, native colors, real font weights and mixed-weight wrapping passed.");
+            return 0;
+        }
         if (argc == 2 && std::strcmp(argv[1], "--match-window-only") == 0)
         {
             xiui::chat_test::MatchWindowSettings();

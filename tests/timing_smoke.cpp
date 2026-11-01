@@ -149,15 +149,15 @@ namespace
         {
             snapshot.mp_max = maximum;
             const auto tp = player.TPMeterBounds(snapshot), mini = player.AttackTimerBounds(snapshot);
-            if (!Check(Near(mini.x, tp.x) && Near(mini.width, tp.width) && Near(mini.y, tp.y + tp.height + settings.mini_gap) &&
-                Near(mini.height, 3), "mini track matches the actual TP track and sits directly beneath it")) return false;
+            if (!Check(Near(mini.x, tp.x) && Near(mini.width, tp.width) && Near(mini.y + mini.height, tp.y - settings.mini_gap) &&
+                Near(mini.height, 3), "mini track matches the actual TP track and sits directly above it")) return false;
             if (maximum) withMP = mini.width;
             else if (!Check(mini.width > withMP, "mini track follows TP when auto-hide MP changes the resource layout")) return false;
         }
         player.State().bounds.width = 520; player.Settings().tp_style.height = 24;
         settings.offset_x = -12; settings.offset_y = -8; settings.mini_height = 5; settings.mini_gap = 7;
         const auto tp = player.TPMeterBounds(snapshot), mini = player.AttackTimerBounds(snapshot);
-        if (!Check(Near(mini.x, tp.x - 12) && Near(mini.y, tp.y + tp.height - 1) && Near(mini.height, 5) && Near(mini.width, tp.width),
+        if (!Check(Near(mini.x, tp.x - 12) && Near(mini.y, tp.y - 20) && Near(mini.height, 5) && Near(mini.width, tp.width),
             "TP resizing, mini dimensions and signed offsets share live bar geometry")) return false;
         settings.attack_layout = 0;
         const auto below = player.AttackTimerBounds(snapshot);
@@ -172,7 +172,7 @@ namespace
         if (!Check(restored.TimingSettings().attack_layout == 2 && restored.TimingSettings().mini_text == 2 &&
             restored.TimingSettings().mini_height == 5 && restored.TimingSettings().mini_gap == 7, "attack layout and mini preferences persist in module settings/profiles")) return false;
         xiui::ui::player_timing_settings legacy; legacy.Load(xiui::settings_store::FromIniText(""));
-        return Check(legacy.attack_layout == 0 && legacy.mini_text == 0, "existing profiles keep the full readout and mini defaults to bar only");
+        return Check(legacy.attack_layout == 2 && legacy.mini_text == 0 && legacy.mini_gap == 0, "default attack mini track has zero gap and no text");
     }
 
     auto RecoveryLayouts(void) -> bool
@@ -188,7 +188,7 @@ namespace
         {
             snapshot.mp_max = maximum;
             const auto hp = player.HPMeterBounds(snapshot), mini = player.RecoveryTimerBounds(snapshot);
-            if (!Check(Near(mini.x, hp.x) && Near(mini.width, hp.width) && Near(mini.y, hp.y + hp.height + settings.recovery_mini_gap) &&
+            if (!Check(Near(mini.x, hp.x) && Near(mini.width, hp.width) && Near(mini.y + mini.height, hp.y - settings.recovery_mini_gap) &&
                 Near(mini.height, 3), "resting mini track attaches to the actual HP track")) return false;
             if (maximum) withMP = mini.width;
             else if (!Check(mini.width > withMP, "resting mini follows HP when MP auto-hides")) return false;
@@ -196,7 +196,7 @@ namespace
         player.State().bounds.width = 520; player.Settings().hp_style.height = 24;
         settings.offset_x = -12; settings.offset_y = -8; settings.recovery_mini_height = 5; settings.recovery_mini_gap = 7;
         const auto hp = player.HPMeterBounds(snapshot), mini = player.RecoveryTimerBounds(snapshot);
-        if (!Check(Near(mini.x, hp.x - 12) && Near(mini.y, hp.y + hp.height - 1) && Near(mini.height, 5) && Near(mini.width, hp.width),
+        if (!Check(Near(mini.x, hp.x - 12) && Near(mini.y, hp.y - 20) && Near(mini.height, 5) && Near(mini.width, hp.width),
             "resting mini follows custom HP height, player resizing and signed offsets")) return false;
         settings.recovery_layout = 0;
         const auto below = player.RecoveryTimerBounds(snapshot);
@@ -216,7 +216,7 @@ namespace
         for (size_t index = 27; index < xiui::ui::player_timing_settings::option_count; ++index)
             if (!Check(xiui::ui::player_timing_settings::RecoveryOption(index), "resting placement controls belong to Recovery")) return false;
         xiui::ui::player_timing_settings legacy; legacy.Load(xiui::settings_store::FromIniText(""));
-        return Check(legacy.recovery_layout == 0 && legacy.recovery_mini_text == 0, "legacy resting placement stays below Player Bar; mini defaults to bar only");
+        return Check(legacy.recovery_layout == 2 && legacy.recovery_mini_text == 0 && legacy.recovery_mini_gap == 0, "default recovery mini track has zero gap and no text");
     }
 }
 

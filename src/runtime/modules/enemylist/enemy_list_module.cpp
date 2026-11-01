@@ -240,10 +240,10 @@ namespace xiui
         case 5: return module_option::Toggle("Include selected", "Also list an unclaimed selected enemy.", &this->include_selected_);
         case 6: return module_option::Element("Selected text", "Text element configured in Text.", &this->selected_text_, textNames, 5);
         case 7: return ModuleWidthOption(this->state_);
-        case 8: return module_option::Slider("Rows per column", "Maximum enemy cards in each column.", &this->max_rows_, 1, 20, 1, module_option_group::appearance).Ordered(121);
+        case 8: return module_option::Slider("Rows per column", "Maximum enemy rows in each column.", &this->max_rows_, 1, 20, 1, module_option_group::appearance).Ordered(121);
         case 9: return module_option::Slider("Row spacing", "Gap between complete enemy rows.", &this->gap_, 0, 24, 1, module_option_group::appearance).Ordered(301);
         case 10: return module_option::Slider("Opacity", "Fade the native window skin.", &this->container_.opacity, 0, 1, 0.05f, module_option_group::appearance).Ordered(450);
-        case 11: return module_option::Slider("Padding", "Space inside each enemy container.", &this->container_.padding, 4, 24, 1, module_option_group::appearance).Ordered(402);
+        case 11: return module_option::Slider("Padding", "Space around enemy row content inside the shared container.", &this->container_.padding, 4, 24, 1, module_option_group::appearance).Ordered(402);
         case 12: return module_option::Color("HP fill top", "Upper health gradient.", &this->hp_top_, module_option_group::colors).Ordered(500, true);
         case 13: return module_option::Color("HP fill bottom", "Lower health gradient.", &this->hp_bottom_, module_option_group::colors).Ordered(501);
         case 14: return module_option::Color("Attacking you", "Target text when an enemy attacks you.", &this->aggro_color_, module_option_group::colors).VisibleWhen(this->targets_);
@@ -599,9 +599,7 @@ namespace xiui
 
     auto enemy_list_module::DrawRow(const enemy_entry& entry, const entry_layout& layout, const uint64_t now, const module_render_context& context) -> void
     {
-        auto style = this->container_;
-        style.border = this->borders_;
-        const auto content = context.DrawContainer(layout.bounds, style);
+        const auto content = ui::container_renderer::ContentBounds(layout.bounds, this->container_);
         if (this->borders_ && this->claim_border_)
             context.Design().BorderRect(layout.bounds, entry.name_color);
         const auto& design = context.Design();
@@ -724,6 +722,12 @@ namespace xiui
             entries = &preview;
         }
         const auto layout = this->LayoutEntries(*entries, now);
+        if (layout.count > 0)
+        {
+            auto style = this->container_;
+            style.border = this->borders_;
+            context.DrawContainer(layout.bounds, style);
+        }
         for (size_t i = 0; i < layout.count; ++i)
             this->DrawRow((*entries)[i], layout.entries[i], now, context);
         this->state_.minimum_height = layout.count > 0 ? layout.bounds.height : 50;

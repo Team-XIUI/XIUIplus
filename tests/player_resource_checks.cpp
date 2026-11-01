@@ -25,6 +25,14 @@ namespace xiui
         using namespace xiui;
         try
         {
+            player_module defaults;
+            defaults.Load(settings_store::FromIniText("[player]\nhp_display=4\nmp_display=4\n"));
+            Check(defaults.Settings().hp_display == 0 && defaults.Settings().mp_display == 0,
+                "old default resource fractions migrate to current numbers");
+            auto current = settings_store::FromIniText(""); defaults.Save(current);
+            current.WriteInt("player", "hp_display", 4); defaults.Load(current);
+            Check(defaults.Settings().hp_display == 4 && defaults.Settings().mp_display == 0,
+                "later resource format choices remain authoritative");
             for (const auto [percent, color] : std::array<std::pair<uint32_t, D3DCOLOR>, 9>{
                 {{100, 0xFFFFFFFF}, {75, 0xFFFFFFFF}, {74, 0xFFFFFF00}, {50, 0xFFFFFF00},
                  {49, 0xFFFFA500}, {25, 0xFFFFA500}, {24, 0xFFFF0000}, {1, 0xFFFF0000}, {0, 0xFFFF0000}}})
@@ -170,6 +178,21 @@ namespace xiui
                 "independent large text reserves a measured footprint and state rendering does not overwrite saved colors");
             snapshot.mp = snapshot.mp_max = 0;
             Check(!restored.ShowsMP(snapshot) && restored.MPMeterBounds(snapshot).width == 0, "automatic MP hiding keeps empty caster MP distinct from no MP maximum");
+            design.SetAppearanceTheme(ui::xiv1_appearance);
+            loaded.show_labels = false; loaded.show_values = true;
+            loaded.tp_value_text.visible = true;
+            restored.Render(snapshot, context);
+            const auto track = restored.TPMeterBounds(snapshot);
+            auto& timing = restored.TimingSettings();
+            timing.attack_layout = timing.recovery_layout = 2;
+            timing.mini_gap = timing.recovery_mini_gap = timing.offset_y = 0;
+            const auto attack = restored.AttackTimerBounds(snapshot), recovery = restored.RecoveryTimerBounds(snapshot);
+            Check(std::abs(attack.y + attack.height - track.y) < .001f &&
+                std::abs(recovery.y + recovery.height - restored.HPMeterBounds(snapshot).y) < .001f,
+                "mini attack and recovery tracks touch the top of the XIV 1.0 TP and HP tracks");
+            loaded.tp_value_text.visible = false; restored.Render(snapshot, context);
+            Check(std::abs(restored.AttackTimerBounds(snapshot).y - attack.y) < .001f,
+                "resource text visibility does not move the mini timer anchor");
             return true;
         }
         catch (const std::exception& error)

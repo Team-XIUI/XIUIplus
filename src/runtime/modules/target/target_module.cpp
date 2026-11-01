@@ -11,6 +11,26 @@
 
 namespace xiui
 {
+    namespace
+    {
+        constexpr D3DCOLOR distance_top = 0xFFD8D1C2, distance_bottom = 0xFFBFB8A9;
+
+        auto DistanceText(ui::text_style style) -> module_text_profile
+        {
+            style.top_color = distance_top; style.bottom_color = distance_bottom;
+            return {style};
+        }
+
+        auto MigrateDistanceColor(module_text_profile& profile) -> void
+        {
+            if (profile.style.top_color == 0xFF999388 && profile.style.bottom_color == 0xFF807B72)
+            {
+                profile.style.top_color = distance_top;
+                profile.style.bottom_color = distance_bottom;
+            }
+        }
+    }
+
     auto target_cast_module::ResetSettingsFrom(const hud_module& defaults, const ui::theme&) -> void
     {
         const auto& source = static_cast<const target_cast_module&>(defaults);
@@ -25,6 +45,7 @@ namespace xiui
 
     target_module::target_module(void)
     {
+        this->settings_.distance_text = DistanceText(ui::theme::CreateDefault().caption_text);
         this->ResetChild(true);
         this->settings_.display.fill_top.fill(this->settings_.hp_color_top);
         this->settings_.display.fill_bottom.fill(this->settings_.hp_color);
@@ -49,7 +70,7 @@ namespace xiui
         this->timers_.text = {theme.caption_text};
         this->settings_.status_text = {theme.caption_text};
         this->settings_.name_text = {theme.title_text};
-        this->settings_.distance_text = {theme.caption_text};
+        this->settings_.distance_text = DistanceText(theme.caption_text);
         this->settings_.distance_text.style.alignment = ui::text_alignment::right;
         this->settings_.label_text = {theme.meter_text};
         this->settings_.label_text.style.alignment = ui::text_alignment::left;
@@ -108,7 +129,11 @@ namespace xiui
         this->settings_.hp_color = store.ReadArgb("meter.target.hp", "fill_bottom", hpFallback);
         this->settings_.hp_style = LoadMeterStyle(store, "meter.target.hp", this->settings_.hp_style);
         this->settings_.name_text = LoadTextProfile(store, "text.target.name", this->settings_.name_text);
+        if (store.ReadInt("target", "name_anchor_version", 0) < 1 && this->settings_.name_text.placement == 0 && this->settings_.name_text.offset_x == 12)
+            this->settings_.name_text.offset_x = 0;
         this->settings_.distance_text = LoadTextProfile(store, "text.target.distance", this->settings_.distance_text);
+        const bool legacyDistanceColor = store.ReadInt("target", "distance_color_version", 0) < 1;
+        if (legacyDistanceColor) MigrateDistanceColor(this->settings_.distance_text);
         this->settings_.label_text = LoadTextProfile(store, "text.target.labels", this->settings_.label_text);
         this->settings_.value_text = LoadTextProfile(store, "text.target.values", this->settings_.value_text);
         this->settings_.recipient.text = {this->settings_.name_text, this->settings_.distance_text, this->settings_.label_text, this->settings_.value_text};
@@ -119,6 +144,11 @@ namespace xiui
         this->ResetChild(true);
         this->settings_.subtarget.Load(store, this->settings_.show_distance, this->settings_.show_percent, this->settings_.show_label,
             "target.subtarget", "target.subtarget");
+        if (legacyDistanceColor)
+        {
+            MigrateDistanceColor(this->settings_.recipient.text[1]);
+            MigrateDistanceColor(this->settings_.subtarget.text[1]);
+        }
         this->settings_.subtarget.selected_text = std::clamp(store.ReadInt("target.subtarget", "selected_text", 0), 0, 4);
         this->subtarget_placement_ = std::clamp(store.ReadInt("target.subtarget", "independent", 0), 0, 1);
         this->subtarget_statuses_ = this->settings_.statuses;
@@ -142,6 +172,8 @@ namespace xiui
         this->settings_.statuses.Save(store, "status.target");
         SaveTextProfile(store, "text.target.status", this->settings_.status_text);
         store.WriteBool("target", "enabled", this->state_.enabled);
+        store.WriteInt("target", "name_anchor_version", 1);
+        store.WriteInt("target", "distance_color_version", 1);
         store.WriteBool("target", "hide_when_empty", this->settings_.hide_when_empty);
         store.WriteBool("target", "show_distance", this->settings_.show_distance);
         store.WriteBool("target", "show_percent", this->settings_.show_percent);
@@ -173,6 +205,8 @@ namespace xiui
 
     auto target_module::OnContentOptionChanged(const size_t index) -> void
     {
+        if (index >= recipient_options_start && index < status_options_start)
+            this->settings_.recipient.OnOptionChanged(index - recipient_options_start);
         if (index == display_options_start + target_display_settings::layout_options && this->settings_.display.cast_placement == 1 && !this->cast_positioned_)
         {
             this->cast_state_.bounds = this->AttachedCastBounds(this->state_.bounds);
@@ -373,6 +407,8 @@ namespace xiui
         const bool showName = recipient ? options.name : this->settings_.display.name;
         const bool nameInside = recipient && options.name_placement == 1 && showHealth;
         const bool nameBelow = recipient && options.name_placement == 2;
+        const bool nameAbove = showName && !nameInside && !nameBelow;
+        const bool captionDistance = xiv1 && nameAbove;
         auto profiles = std::array{this->settings_.name_text, this->settings_.distance_text, this->settings_.label_text, this->settings_.value_text};
         if (recipient && !options.follow_text) profiles = options.text;
         auto nameText = valid && (!recipient || options.tint_name) ? TintTextProfile(profiles[0], view.color) : profiles[0];
@@ -383,8 +419,8 @@ namespace xiui
                 level = " " + MobLevel(*mob);
         const auto label = std::string{recipient && !options.prefix ? "" : prefix} + (valid ? view.name : "NO TARGET") + level +
             (!recipient && IsMonster(view.kind) ? TargetIdSuffix(view.id, this->settings_.display.id_format) : "");
-        const float nameInset = xiv1 ? 28.0f : 7.0f;
-        const float nameWidth = std::max(1.0f, showDistance && valid ? panel.width * 0.6f - nameInset : panel.width - nameInset - 7);
+        const float nameInset = !subtarget ? 17.0f : xiv1 ? 22.0f : 7.0f;
+        const float nameWidth = std::max(1.0f, showDistance && valid && !captionDistance ? panel.width * 0.6f - nameInset : panel.width - nameInset - 7);
         auto name = label;
         while (name.size() > 3 && context.Design().MeasureText(name.c_str(), nameText.style) > nameWidth)
         {
@@ -393,10 +429,26 @@ namespace xiui
             name.resize(last);
         }
         auto meterStyle = recipient && !options.follow_meter ? options.meter : this->settings_.hp_style;
-        if (xiv1) { meterStyle.height = 8; meterStyle.bookends = true; }
-        const float meterHeight = xiv1 ? 10 : recipient ? options.BarHeight(this->settings_.hp_style.height + 2) : std::max(1.0f, meterStyle.height) + 2;
+        if (xiv1) { meterStyle.height = 12; meterStyle.bookends = true; }
+        const float meterHeight = xiv1 ? 14 : recipient ? options.BarHeight(this->settings_.hp_style.height + 2) : std::max(1.0f, meterStyle.height) + 2;
         if (recipient) meterStyle.height = std::max(1.0f, meterHeight - 2);
-        const float header = showName || showDistance ? xiv1 ? 36.0f : 31.0f : 5.0f;
+        const ui::rect nameBounds{panel.x + nameInset, panel.y + (xiv1 ? 8.0f : 5.0f), nameWidth, 20};
+        ui::rect distanceBounds{panel.x + panel.width * 0.6f, panel.y + 5, panel.width * 0.38f - 7, 20};
+        auto distanceText = profiles[1];
+        char distance[32]{};
+        if (showDistance && valid) std::snprintf(distance, sizeof(distance), "%.1f yalms", view.distance);
+        constexpr float tickToRail = 12;
+        ui::rect flourish{panel.x + 7 + tickToRail, panel.y + 21, panel.width - 9 - tickToRail, 7};
+        ui::rect nameTextBounds{};
+        float header = showName || showDistance ? xiv1 ? 36.0f : 31.0f : 5.0f;
+        if (xiv1 && nameAbove)
+        {
+            nameTextBounds = context.TextBounds(name.c_str(), nameBounds, panel, nameText);
+            const float textBottom = nameTextBounds.y + nameTextBounds.height;
+            flourish.y = std::max(panel.y + 5, textBottom) + 1;
+            // Keep a one-pixel gap below the flipped rail's flat edge.
+            header = flourish.y + 5 - panel.y - (meterHeight - meterStyle.height) * .5f;
+        }
         float bottom = panel.y + header - 2;
         char hpValue[24]{};
         const bool percentType = IsMonster(view.kind) ? this->settings_.display.percent_mobs :
@@ -414,10 +466,12 @@ namespace xiui
                 context.DrawSelection({hp.x - 2, hp.y - 2, hp.width + 4, hp.height + 4}, false, {color, color, 0.06f, 0, 0, false});
             }
             const char* hpLabel = showName && nameInside ? name.c_str() : !xiv1 && (recipient ? options.label : this->settings_.show_label) ? "HP" : "";
+            auto hpText = profiles[3];
+            if (xiv1) hpText.offset_y += 1;
             context.DrawMeter(hp, hpLabel, hpValue, valid ? module_render_context::Ratio(view.hp, 100) : 0,
                 recipient && !options.follow_fill ? options.fill_top : fillTop,
                 recipient && !options.follow_fill ? options.fill_bottom : fillBottom,
-                meterStyle, animation, true, showName && nameInside ? &nameText : &profiles[2], &profiles[3],
+                meterStyle, animation, true, showName && nameInside ? &nameText : &profiles[2], &hpText,
                 nameInside ? ui::meter_text_anchor::center : ui::meter_text_anchor::bottom, ui::meter_text_anchor::automatic, meter_fill_mode::health);
             bottom = hp.y + hp.height + std::max(16.0f, context.Design().TextHeight(profiles[3].style)) * 0.5f + 4;
         }
@@ -451,7 +505,8 @@ namespace xiui
         }
         if (!recipient)
         {
-            const auto infoHeight = this->settings_.mob_info.Draw(view.mob, {panel.x + 7, bottom + 3, panel.width - 14, 0}, context);
+            const auto infoHeight = this->settings_.mob_info.Draw(view.mob, {panel.x + 7, bottom + 3, panel.width - 14, 0}, context,
+                mob_info_group_count, xiv1 && nameAbove);
             if (infoHeight > 0) bottom += infoHeight + 3;
         }
         const auto statuses = std::span<const combat_status>{view.statuses}.first(!recipient || options.statuses ? view.status_count : 0);
@@ -460,28 +515,44 @@ namespace xiui
         ui::DrawStatusStrip(statuses, strip, now, statusText, context, statusSettings);
         if (statusSettings.tooltips)
             for (size_t i = 0; i < layout.count; ++i) this->status_hits_.push_back({statuses[i], context.Design().Transform().Map(layout.Icon(i)), view.id});
-        if (showName && !nameInside && !nameBelow)
+        if (nameAbove)
         {
             if (xiv1)
             {
-                if (context.Containers() != nullptr) context.Containers()->DrawXiv1TargetHeader(context.Design(), {panel.x + 2, panel.y + 21, panel.width - 4, 12});
+                if (context.Containers() != nullptr) context.Containers()->DrawXiv1TargetHeader(context.Design(), flourish);
+                constexpr float captionScale = .72f;
                 auto caption = profiles[2]; caption.style.font = ui::xiv1_italic_font;
-                caption.style.scale *= .72f; caption.style.alignment = ui::text_alignment::right;
-                const float captionWidth = recipient && !subtarget ? 105.0f : 65.0f;
-                const ui::rect at{panel.x + panel.width - captionWidth - 12, panel.y + 22, captionWidth, 13};
-                context.DrawText(recipient ? subtarget ? "Subtarget" : "Target of Target" : "Target", at, at, TintTextProfile(caption, 0xFFE6D6A6));
+                caption.style.scale *= captionScale;
+                caption.style.alignment = ui::text_alignment::right;
+                const char* captionText = recipient ? subtarget ? "Subtarget" : "Target of Target" : "Target";
+                const float captionWidth = context.Design().MeasureText(captionText, caption.style);
+                const float captionHeight = context.Design().TextHeight(caption.style);
+                const ui::rect at{flourish.x + flourish.width - captionWidth - 8, flourish.y + (flourish.height - captionHeight) * .5f - 1, captionWidth, captionHeight};
+                context.DrawText(captionText, at, at, TintTextProfile(caption, 0xFFE6D6A6));
+                const auto captionBounds = caption.visible ? context.TextBounds(captionText, at, at, caption) : at;
+                if (!recipient)
+                    this->settings_.mob_info.DrawHeaderIcons(view.mob, {panel.x + 7, captionBounds.y - 2,
+                        captionBounds.x + captionBounds.width - panel.x - 7, 0}, context);
+                if (showDistance && valid)
+                {
+                    distanceText.style.scale *= captionScale;
+                    distanceText.style.alignment = ui::text_alignment::left;
+                    distanceText.placement = 0;
+                    const float distanceHeight = context.Design().TextHeight(distanceText.style);
+                    distanceBounds = {captionBounds.x + captionBounds.width + 8, captionBounds.y + (captionBounds.height - distanceHeight) * .5f,
+                        context.Design().MeasureText(distance, distanceText.style), distanceHeight};
+                }
                 const auto color = valid ? view.color : 0xFFAAA28D;
-                const ui::rect badge{panel.x + 9, panel.y + 8, 13, 13};
-                context.Design().DrawRing(badge, 0xFFBD9474, 2);
+                const ui::rect badge{flourish.x - 37, flourish.y + 1, 13, 13};
                 context.Design().DrawRing({badge.x + 3, badge.y + 3, 7, 7}, color, 2);
+                if (subtarget) nameText.offset_x -= 8;
+                nameText.offset_y += 4;
             }
-            context.DrawText(name.c_str(), {panel.x + nameInset, panel.y + 5, nameWidth, 20}, panel, nameText);
+            context.DrawText(name.c_str(), nameBounds, panel, nameText);
         }
         if (showDistance && valid)
         {
-            char distance[32]{};
-            std::snprintf(distance, sizeof(distance), "%.1f yalms", view.distance);
-            context.DrawText(distance, {panel.x + panel.width * 0.6f, panel.y + 5, panel.width * 0.38f - 7, 20}, panel, profiles[1]);
+            context.DrawText(distance, distanceBounds, captionDistance ? distanceBounds : panel, distanceText);
         }
         bottom += ui::StatusStripHeight(statuses.size(), panel.width - 14, statusSettings);
         return bottom - panel.y;

@@ -177,11 +177,43 @@ namespace xiui
             "Party and alliance icon offsets persist independently in Jobs, along with cast text offsets")) return false;
         party.ApplyPreset(0);
         if (!check(party.icon_offset_x_ == 0 && party.icon_offset_y_ == 1, "Classic starts its icon at the content edge")) return false;
+        for (const bool themed : {false, true}) for (const bool bottom : {false, true})
+        {
+            party_module stable;
+            stable.ApplyPreset(1); stable.xiv1_theme_ = themed; stable.bottom_ = bottom;
+            stable.casts_ = true; stable.cast_placement_ = party_module::cast_name;
+            stable.tp_display_ = 1; stable.job_icons_ = false;
+            stable.text_[0].offset_y = 0; stable.text_[0].style.scale = .867f;
+            stable.text_[5].style.scale = .867f; stable.text_[5].offset_y = -6;
+            stable.meters_[3].height = 6;
+            std::array members{stable.PreviewMember(0), stable.PreviewMember(1)};
+            for (auto& member : members) member.cast = {};
+            members[0].main_job = 3; members[0].mp = 60; members[0].mp_max = 100;
+            const auto idle = stable.LayoutRows(members, false);
+            members[0].cast = {"Cure IV", 4, ::GetTickCount64() - 100, 0, 4};
+            const auto casting = stable.LayoutRows(members, false);
+            const auto same = [](const ui::rect& a, const ui::rect& b) {
+                return a.x == b.x && a.y == b.y && a.width == b.width && a.height == b.height;
+            };
+            if (!check(same(idle.bounds, casting.bounds) && idle.heights == casting.heights &&
+                same(idle.entries[0].entry.header, casting.entries[0].entry.header) &&
+                std::equal(idle.entries[0].entry.resources.bars.begin(), idle.entries[0].entry.resources.bars.end(),
+                    casting.entries[0].entry.resources.bars.begin(), same),
+                "starting and ending a name-row cast preserves panel, member and resource geometry in both themes and anchors")) return false;
+            if (themed)
+            {
+                const auto& entry = idle.entries[0].entry;
+                const auto& tp = entry.resources.bars[2];
+                const auto& mp = entry.resources.bars[1];
+                if (!check(tp.y == entry.header.y && tp.y + tp.height <= mp.y && tp.x + tp.width == mp.x + mp.width,
+                    "XIV number-only TP occupies the name row directly above the MP right edge")) return false;
+            }
+        }
         ui::player_timing_settings timing;
-        if (!check(timing.attack_layout == 2 && timing.recovery_layout == 2 && timing.mini_gap == 2 && timing.recovery_mini_gap == 2,
-            "Player tickers default to Mini bar with two-pixel gaps")) return false;
+        if (!check(timing.attack_layout == 2 && timing.recovery_layout == 2 && timing.mini_gap == 0 && timing.recovery_mini_gap == 0,
+            "Player tickers default to Mini bar with zero gaps")) return false;
         timing.Load(settings_store::FromIniText(""));
-        if (!check(timing.attack_layout == 2 && timing.recovery_layout == 2 && timing.mini_gap == 2 && timing.recovery_mini_gap == 2,
+        if (!check(timing.attack_layout == 2 && timing.recovery_layout == 2 && timing.mini_gap == 0 && timing.recovery_mini_gap == 0,
             "missing timer settings use the same Mini bar defaults")) return false;
         std::puts("Party name/cast alignment, visual-only icon/cast offsets, independent persistence, Classic gutter and Player mini-ticker defaults passed.");
         return true;
@@ -770,6 +802,52 @@ namespace xiui
         source.Clear();
         return check(!source.Available() && source.Count(0) == 0 && source.Count(1) == 0 && !party.ShouldRender(snapshot),
             "zoning or logout clears membership and stale resources together");
+    }
+
+    auto config_input_test::TargetOfTargetThemeDefaults(void) -> bool
+    {
+        auto oldText = settings_store::FromIniText("[target.target_of_target]\nfollow_text=0\n[text.target.recipient.name]\nplacement=2\noffset_x=-82\noffset_y=16\n");
+        target_module sharedText; sharedText.Load(oldText);
+        if (!check(sharedText.Settings().recipient.follow_text, "the old centered recipient text defaults to following Target")) return false;
+        sharedText.Settings().recipient.follow_text = false; sharedText.Save(oldText);
+        sharedText.Load(oldText);
+        if (!check(!sharedText.Settings().recipient.follow_text, "later independent recipient text choices persist")) return false;
+        target_module themed;
+        themed.Load(settings_store::FromIniText("[appearance]\ntheme=1\n[target.target_of_target]\nlayout_version=1\nplacement=0\narrow=1\nwidth=312\ngap=6\n"));
+        auto& themedRecipient = themed.Settings().recipient;
+        if (!check(themedRecipient.placement == target_of_target_settings::below && !themedRecipient.ShowArrow() &&
+            !themedRecipient.arrow && themedRecipient.width == 312 && themedRecipient.gap == 6 &&
+            themedRecipient.offset_x == 240 && themedRecipient.offset_y == -32,
+            "XIV 1.0 stacks an untouched recipient below Target without resetting its size or spacing")) return false;
+        themedRecipient.ApplyThemeDefaults(false);
+        if (!check(themedRecipient.placement == target_of_target_settings::inline_right && themedRecipient.ShowArrow() &&
+            themedRecipient.offset_x == 0 && themedRecipient.offset_y == 0,
+            "XI restores the inline recipient and connecting arrow")) return false;
+        themedRecipient.ApplyThemeDefaults(true);
+        auto themedSaved = settings_store::FromIniText("[appearance]\ntheme=1\n"); themed.Save(themedSaved);
+        target_module themedReloaded; themedReloaded.Load(themedSaved);
+        if (!check(themedReloaded.Settings().recipient.placement == target_of_target_settings::below &&
+            !themedReloaded.Settings().recipient.theme_layout_customized &&
+            themedReloaded.Settings().recipient.offset_x == 240 && themedReloaded.Settings().recipient.offset_y == -32,
+            "theme-following defaults survive reload")) return false;
+        target_child_module recipientAdapter{themed, false};
+        *recipientAdapter.Option(13).choice = target_of_target_settings::inline_left;
+        recipientAdapter.OnOptionChanged(13); themedRecipient.ApplyThemeDefaults(false);
+        if (!check(themedRecipient.theme_layout_customized && themedRecipient.placement == target_of_target_settings::inline_left,
+            "shared child controls retain explicit placements across themes")) return false;
+        themedReloaded.OnOptionChanged(themedReloaded.recipient_options_start + 14);
+        if (!check(themedReloaded.Settings().recipient.theme_layout_customized,
+            "parent configuration uses the same explicit-layout operation")) return false;
+        auto customized = settings_store::FromIniText("[appearance]\ntheme=1\n"); themed.Save(customized);
+        themedReloaded.Load(customized);
+        if (!check(themedReloaded.Settings().recipient.placement == target_of_target_settings::inline_left &&
+            themedReloaded.Settings().recipient.theme_layout_customized, "explicit layouts survive themed profile reloads")) return false;
+        target_module moved; moved.Load(settings_store::FromIniText(""));
+        moved.Settings().recipient.placement = target_of_target_settings::detached;
+        moved.Settings().recipient.offset_x = 17;
+        auto detached = settings_store::FromIniText(""); moved.Save(detached); themedReloaded.Load(detached);
+        return check(themedReloaded.Settings().recipient.placement == target_of_target_settings::detached &&
+            themedReloaded.Settings().recipient.offset_x == 17, "programmatic custom placements also persist");
     }
 
     auto config_input_test::TargetOfTargetSettings(void) -> bool

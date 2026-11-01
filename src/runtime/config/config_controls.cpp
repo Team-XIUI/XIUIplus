@@ -1,4 +1,5 @@
 #include "config_controls.hpp"
+#include "ui/control_chrome.hpp"
 
 #include <algorithm>
 #include <cmath>
@@ -14,7 +15,17 @@ namespace xiui::ui
 
     auto config_controls::Panel(const rect& bounds, const std::span<const container_fill> fills) const -> void
     {
-        if (this->containers_ != nullptr) this->containers_->Draw(this->design_, bounds, {}, fills);
+        if (this->containers_ != nullptr)
+        {
+            container_style style{};
+            style.border = !this->design_.IsXiv1Theme();
+            this->containers_->Draw(this->design_, bounds, style, fills);
+            if (!style.border)
+            {
+                style.border = true; style.opacity = .75f;
+                this->containers_->DrawFrame(this->design_, bounds, style);
+            }
+        }
         else
         {
             this->design_.DrawPanel(bounds, this->design_.GetTheme().config_panel);
@@ -29,10 +40,11 @@ namespace xiui::ui
         const auto thumb = scrollbar.Thumb();
         const float center = track.x + track.width * 0.5f;
         const auto& theme = this->design_.GetTheme();
-        this->design_.FillRoundedRect({center - 3, track.y, 6, track.height}, (theme.colors.border & 0xFFFFFF) | 0x80000000, 3);
+        this->design_.FillRoundedRect({center - 3, track.y, 6, track.height}, (ControlBorderColor(this->design_) & 0xFFFFFF) | 0x80000000, 3);
         this->design_.FillRoundedRect({center - 2, track.y + 1, 4, std::max(0.0f, track.height - 2)}, (theme.config_panel.background & 0xFFFFFF) | 0xC0000000, 2);
-        this->design_.FillRoundedRect({center - 4, thumb.y, 8, thumb.height}, (theme.colors.border & 0xFFFFFF) | 0xD0000000, 4);
-        const auto tint = theme.colors.control_selected & 0xFFFFFF;
+        this->design_.FillRoundedRect({center - 4, thumb.y, 8, thumb.height}, (ControlBorderColor(this->design_) & 0xFFFFFF) |
+            (this->design_.IsXiv1Theme() ? 0xB0000000 : 0xD0000000), 4);
+        const auto tint = ControlBorderColor(this->design_, true) & 0xFFFFFF;
         const auto alpha = dragging ? 0xFF000000u : hovered ? 0xE0000000u : 0xB0000000u;
         this->design_.FillRoundedRect({center - 3, thumb.y + 1, 6, std::max(0.0f, thumb.height - 2)}, tint | alpha, 3);
     }
@@ -148,7 +160,7 @@ namespace xiui::ui
         this->design_.FillRoundedRect(bounds, 0x38000000, 3);
         if (input.Focused() || invalid)
             this->design_.FillRoundedRect({bounds.x + theme.spacing.sm, bounds.y + bounds.height - 3,
-                bounds.width - theme.spacing.sm * 2, 1.5f}, invalid ? 0xCCFF8080 : (theme.colors.control_selected & 0xFFFFFF) | 0x90000000, 0.75f);
+                bounds.width - theme.spacing.sm * 2, 1.5f}, invalid ? 0xCCFF8080 : (ControlBorderColor(this->design_, true) & 0xFFFFFF) | 0x90000000, 0.75f);
         auto style = theme.body_text; style.scale = 0.76f; style.alignment = text_alignment::left;
         style = this->Style(style);
         if (appearance != nullptr)
@@ -242,7 +254,7 @@ namespace xiui::ui
             const auto& theme = this->design_.GetTheme();
             const rect card{row.x + 2, row.y + 3, row.width - 4, row.height - 8};
             this->design_.FillRect(card, hovered ? theme.colors.selected : theme.colors.chrome);
-            this->design_.BorderRect(card, hovered && option.available ? theme.colors.control_selected : theme.colors.border);
+            this->design_.BorderRect(card, ControlBorderColor(this->design_, hovered && option.available));
             auto title = theme.body_text; title.scale = .92f;
             this->ButtonText(option.label, {card.x + 14, card.y + 7, card.width - 92, 25}, title, hovered);
             auto detail = theme.caption_text; detail.scale = .70f;
@@ -428,7 +440,7 @@ namespace xiui::ui
         else
         {
             this->buttons_.Face(field, true);
-            this->design_.BorderRect(field, input->Invalid() ? 0xFFFF6060 : theme.colors.control_selected);
+            this->design_.BorderRect(field, input->Invalid() ? 0xFFFF6060 : ControlBorderColor(this->design_, true));
             valueStyle = this->Style(valueStyle);
             valueStyle.alignment = text_alignment::left;
             const rect textBounds{field.x + 4, field.y, std::max(1.0f, field.width - 8), field.height};
@@ -450,8 +462,10 @@ namespace xiui::ui
         const float range = std::max(0.001f, option.maximum - option.minimum);
         const float ratio = std::clamp((*option.slider - option.minimum) / range, 0.0f, 1.0f);
         this->design_.FillRect(track, theme.colors.meter_track);
-        this->design_.FillRect({track.x, track.y, track.width * ratio, track.height}, option.available ? theme.colors.accent_dim : theme.colors.meter_track);
-        this->design_.FillRect({track.x + track.width * ratio - 2.0f, track.y - 4.0f, 4.0f, 12.0f}, option.available ? theme.colors.accent : theme.colors.muted);
+        const auto fill = this->design_.IsXiv1Theme() ? ControlBorderColor(this->design_) : theme.colors.accent_dim;
+        const auto thumb = this->design_.IsXiv1Theme() ? ControlBorderColor(this->design_, true) : theme.colors.accent;
+        this->design_.FillRect({track.x, track.y, track.width * ratio, track.height}, option.available ? fill : theme.colors.meter_track);
+        this->design_.FillRect({track.x + track.width * ratio - 2.0f, track.y - 4.0f, 4.0f, 12.0f}, option.available ? thumb : theme.colors.muted);
     }
 
     auto config_controls::ChoiceRow(const rect& row, const module_option& option, const bool hovered, const bool dropdownOpen) const -> void

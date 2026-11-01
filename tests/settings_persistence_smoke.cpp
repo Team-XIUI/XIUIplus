@@ -61,6 +61,10 @@ int main(void)
             "wide=4294967295\nspacedhex=\"  0x10\"\nplus=+17\n";
         file << "[large]\n";
         for (int key = 0; key < 1000; ++key) file << "key" << key << "=" << key << "\n";
+        file << "[values]\nonly_duplicate_section=ignored\nnegative=123\n"
+            " [ spaced ] trailing\r\n key = value  \r\n#hash=retained\r\n;comment=ignored\r\n"
+            "bare\r\nquoted=\" inner spaces \"\r\ninline=value;kept\r\n"
+            "[unfinished\nkey=accepted\n[carriage]\rkey=17\r";
     }
     const xiui::settings_store compatibilityDisk{compatibilityPath.string()};
     const auto compatibilityCached = xiui::settings_store::CachedFile(compatibilityPath.string());
@@ -69,6 +73,10 @@ int main(void)
             compatibilityCached.ReadInt("values", key, 51) == compatibilityDisk.ReadInt("values", key, 51),
             "cached reads match Windows INI quotes, empty values, integers and duplicate keys")) return 1;
     if (!check(compatibilityCached.ReadInt("large", "key999", -1) == 999, "large cached sections grow without truncating values")) return 1;
+    for (const auto* section : {"values", "spaced", "unfinished", "carriage"})
+        for (const auto* key : {"key", "#hash", ";comment", "bare", "quoted", "inline", "negative", "only_duplicate_section"})
+            if (!check(compatibilityCached.ReadString(section, key, "fallback") == compatibilityDisk.ReadString(section, key, "fallback"),
+                "single-pass cache retains Windows section, whitespace, comment and duplicate semantics")) return 1;
     compatibilityCached.WriteInt("values", "hex", 25);
     if (!check(compatibilityCached.ReadInt("values", "hex", 0) == 25 && compatibilityDisk.ReadInt("values", "hex", 0) == 16,
         "staged writes override cached reads without modifying the file")) return 1;
@@ -118,6 +126,42 @@ int main(void)
     if (!check(wide.Flush() && xiui::settings_store{widePath.string()}.ReadInt("values", "count", 0) == 2 &&
         xiui::settings_store{widePath.string()}.ReadString("values", "unknown") == "keep" && contents(widePath).starts_with("\xFF\xFE"),
         "atomic updates preserve UTF-16 INI encoding and unrelated fields")) return 1;
+    const auto wideCached = xiui::settings_store::CachedFile(widePath.string());
+    if (!check(wideCached.ReadInt("values", "count", 0) == 2 && wideCached.ReadString("values", "unknown") == "keep",
+        "single-pass cache decodes UTF-16 files through the Windows ANSI code page")) return 1;
+    const auto manyPath = root / "many-sections.ini";
+    {
+        std::ofstream file{manyPath};
+        for (int section = 0; section < 2700; ++section)
+        {
+            file << "[section." << section << "]\nvalue=" << section << "\n";
+            for (int key = 0; key < 8; ++key) file << "key" << key << "=some saved preference\n";
+        }
+    }
+    const auto cacheStart = std::chrono::steady_clock::now();
+    const auto manyCached = xiui::settings_store::CachedFile(manyPath.string());
+    for (int section = 0; section < 2700; ++section)
+        if (!check(manyCached.ReadInt(("section." + std::to_string(section)).c_str(), "value", -1) == section,
+            "thousands of sections load completely from one snapshot")) return 1;
+    const auto cacheEnd = std::chrono::steady_clock::now();
+    const auto manyFile = manyPath.string();
+    for (int section = 0; section < 2700; ++section)
+    {
+        char values[4096]{};
+        if (!check(::GetPrivateProfileSectionA(("section." + std::to_string(section)).c_str(), values, sizeof(values), manyFile.c_str()) > 0,
+            "Windows baseline reads the same complete sections")) return 1;
+    }
+    const auto sectionsEnd = std::chrono::steady_clock::now();
+    {
+        std::ofstream file{manyPath, std::ios::trunc};
+        file << "[section.0]\nvalue=99\n";
+    }
+    if (!check(manyCached.ReadInt("section.0", "value", -1) == 0 &&
+        xiui::settings_store::CachedFile(manyFile).ReadInt("section.0", "value", -1) == 99,
+        "a cached load keeps its snapshot and a fresh load observes file edits")) return 1;
+    std::printf("2700 sections: snapshot %.2f ms; repeated Windows section reads %.2f ms.\n",
+        std::chrono::duration<double, std::milli>(cacheEnd - cacheStart).count(),
+        std::chrono::duration<double, std::milli>(sectionsEnd - cacheEnd).count());
 
     xiui::settings_writer writer;
     const auto start = std::chrono::steady_clock::now();

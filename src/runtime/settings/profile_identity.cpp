@@ -1,5 +1,6 @@
 #include "profile_identity.hpp"
 #include "Memory.h"
+#include "native_pattern.hpp"
 #include <cstring>
 
 namespace
@@ -32,8 +33,7 @@ namespace xiui
         if (!ReadMemory(base, dos) || dos.e_magic != IMAGE_DOS_SIGNATURE ||
             !ReadMemory(base + dos.e_lfanew, nt) || nt.Signature != IMAGE_NT_SIGNATURE) return;
         const auto find = [base, size = nt.OptionalHeader.SizeOfImage](const char* pattern) {
-            const auto address = Ashita::Memory::FindPattern(base, size, pattern, 0, 0);
-            return address != 0 && Ashita::Memory::FindPattern(base, size, pattern, 0, 1) == 0 ? address : 0;
+            return FindUniquePattern(base, size, pattern);
         };
         // The same character-list lookups used by Ashita's ffxi.account library.
         this->characters_ = find("8B0D????????8D04808B8481????????C3");

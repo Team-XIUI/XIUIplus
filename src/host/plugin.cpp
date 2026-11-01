@@ -96,6 +96,9 @@ namespace xiui
 
     auto plugin::Initialize(IAshitaCore* core, ILogManager* logger, const uint32_t id) -> bool
     {
+        this->startup_profile_ = {};
+        startup_profile::scope total(this->startup_profile_, "plugin initialize total");
+        startup_profile::scope phase(this->startup_profile_, nullptr);
         this->core_ = core;
         this->log_ = logger;
         this->id_ = id;
@@ -103,7 +106,9 @@ namespace xiui
         const char* installPath = core != nullptr ? core->GetInstallPath() : ".";
         this->ring_capture_.Initialize(installPath,release_version,native_build_id);
         this->native_hud_.Initialize(core);
+        phase.Mark("native HUD discovery");
         const bool runtimeLoaded = this->runtime_.Initialize(core, installPath, &native_hud_controller::InvokeMacro, &this->native_hud_);
+        phase.Mark("runtime creation");
 #if defined(XIUI_SINGLE_DLL)
         if (!runtimeLoaded)
         {
@@ -113,6 +118,7 @@ namespace xiui
         }
 #endif
         const bool chatAvailable = this->native_chat_.Initialize(this->runtime_);
+        phase.Mark("native chat hooks");
         callback_gate_.Set(this);
 
         auto* input = core != nullptr ? core->GetInputManager() : nullptr;
@@ -132,6 +138,7 @@ namespace xiui
             this->registered_mouse_->AddCallback("xiuinative", &plugin::MouseCallback);
             this->mouse_callback_registered_ = true;
         }
+        phase.Mark("input callbacks");
 
         char message[320]{};
         std::snprintf(
@@ -221,6 +228,18 @@ namespace xiui
             ++argument;
         while (std::isspace(static_cast<unsigned char>(*argument)) != 0)
             ++argument;
+
+        if (::_stricmp(argument, "startup") == 0)
+        {
+            for (size_t index = 0; index < this->startup_profile_.count; ++index)
+            {
+                const auto& entry = this->startup_profile_.entries[index];
+                char message[192]{};
+                std::snprintf(message, sizeof(message), "[XIUI] Startup %s: %.2f ms.", entry.name, entry.milliseconds);
+                this->WriteChat(message);
+            }
+            return this->runtime_.HandleCommand("startup");
+        }
 
         if (*argument == '\0' || is_command(argument, "edit"))
         {

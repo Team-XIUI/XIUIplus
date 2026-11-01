@@ -245,6 +245,14 @@
       "requires_arguments": false
     },
     {
+      "name": "target-recipient-theme",
+      "target": "xiui_config_input_smoke",
+      "arguments": [
+        "--target-recipient-theme-only"
+      ],
+      "requires_arguments": false
+    },
+    {
       "name": "target-recipient",
       "target": "xiui_config_input_smoke",
       "arguments": [

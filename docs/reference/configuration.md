@@ -1,5 +1,7 @@
 # Configuration window
 
+Basic and Advanced titles align to the left of their header area. XIV1.0 configuration uses muted silver control rims, thinner layered borders and subdued window/separator decoration. Hover, keyboard/controller focus and error states remain distinct.
+
 [Setup](setup.md) introduces profiles and the core modules on a fresh install; `/xiui setup` reopens it without resetting your layout.
 
 [Basic settings and HUD scale](hud-scaling.md) documents Basic/Advanced modes, the Classic/XIV whole-HUD presets, Global Scale, element scale controls and edit grips. The General sidebar category is now Global.

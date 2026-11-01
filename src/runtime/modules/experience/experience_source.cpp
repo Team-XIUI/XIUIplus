@@ -1,6 +1,7 @@
 #include "experience_source.hpp"
 #include "combat/action_packet.hpp"
 #include "Memory.h"
+#include "native_pattern.hpp"
 
 #include <algorithm>
 #include <ctime>
@@ -24,8 +25,8 @@ namespace xiui
         const auto base = Ashita::Memory::GetModuleBase("FFXiMain.dll"), size = Ashita::Memory::GetModuleSize("FFXiMain.dll");
         if (base == 0 || size == 0) return;
         constexpr char pattern[] = "8B0D????????8B410C8B49108D04808D04808D04808D04C1C3";
-        const auto found = Ashita::Memory::FindPattern(base, size, pattern, 0, 0);
-        if (found != 0 && Ashita::Memory::FindPattern(base, size, pattern, 0, 1) == 0) Read(found + 2, this->time_slot_);
+        const auto found = FindUniquePattern(base, size, pattern);
+        if (found != 0) Read(found + 2, this->time_slot_);
         if (this->time_slot_ < base || this->time_slot_ - base + 4 > size) this->time_slot_ = 0;
     }
 

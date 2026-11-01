@@ -106,6 +106,11 @@ add_executable(xiui_tp_meter_smoke tests/tp_meter_smoke.cpp)
 configure_xiui_target(xiui_tp_meter_smoke)
 set_target_properties(xiui_tp_meter_smoke PROPERTIES RUNTIME_OUTPUT_DIRECTORY "${CMAKE_SOURCE_DIR}/bin/tests")
 
+add_executable(xiui_native_pattern_smoke tests/native_pattern_smoke.cpp)
+configure_xiui_target(xiui_native_pattern_smoke)
+set_target_properties(xiui_native_pattern_smoke PROPERTIES RUNTIME_OUTPUT_DIRECTORY "${CMAKE_SOURCE_DIR}/bin/tests")
+add_test(NAME xiui_native_pattern_smoke COMMAND xiui_native_pattern_smoke)
+
 add_executable(xiui_settings_smoke
     tests/settings_persistence_smoke.cpp
     src/runtime/settings/settings_store.cpp

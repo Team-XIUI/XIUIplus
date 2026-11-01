@@ -30,6 +30,25 @@ namespace xiui
             target.WriteInt("chat.bubbles", "appearance_version", source.ReadInt("chat.bubbles", "appearance_version", 0));
         if (!source.ReadString("meter.experience", "height").empty())
             target.WriteInt("exp", "bar_height_version", source.ReadInt("exp", "bar_height_version", 0));
+        if (!source.ReadString("player", "hp_display").empty() || !source.ReadString("player", "mp_display").empty())
+            target.WriteInt("player", "number_format_version", source.ReadInt("player", "number_format_version", 0));
+        if (!source.ReadString("timing.player", "mini_gap").empty() || !source.ReadString("timing.player", "recovery_mini_gap").empty())
+            target.WriteInt("timing.player", "mini_anchor_version", source.ReadInt("timing.player", "mini_anchor_version", 0));
+        if (!source.ReadString("text.target.name", "offset_x").empty())
+            target.WriteInt("target", "name_anchor_version", source.ReadInt("target", "name_anchor_version", 0));
+        if (!source.ReadString("text.target.distance", "top_color").empty() || !source.ReadString("text.target.distance", "bottom_color").empty())
+            target.WriteInt("target", "distance_color_version", source.ReadInt("target", "distance_color_version", 0));
+        if (!source.ReadString("equipment", "background").empty() || !source.ReadString("equipment", "slot_frames").empty())
+            target.WriteInt("equipment", "container_version", source.ReadInt("equipment", "container_version", 0));
+        if (!source.ReadString("notifications.group2", "enabled").empty())
+            target.WriteInt("notifications", "group2_enabled_version", source.ReadInt("notifications", "group2_enabled_version", 0));
+        if (!source.ReadString("target.target_of_target", "placement").empty() || !source.ReadString("target.target_of_target", "arrow").empty())
+            target.WriteInt("target.target_of_target", "theme_layout_version", source.ReadInt("target.target_of_target", "theme_layout_version", 0));
+        if (!source.ReadString("target.target_of_target", "follow_text").empty())
+            target.WriteInt("target.target_of_target", "shared_target_text_version", source.ReadInt("target.target_of_target", "shared_target_text_version", 0));
+        if (!source.ReadString("target.mobinfo", "enabled").empty() || !source.ReadString("mobinfo", "enabled").empty() ||
+            !source.ReadString("text.target.mobinfo", "offset_x").empty() || !source.ReadString("text.target.mobinfo", "offset_y").empty())
+            target.WriteInt("target.mobinfo", "header_layout_version", source.ReadInt("target.mobinfo", "header_layout_version", 0));
         for (const auto* section : {"meter.player.hp", "meter.player.mp", "meter.player.tp"})
             if (!source.ReadString(section, "height").empty())
             {

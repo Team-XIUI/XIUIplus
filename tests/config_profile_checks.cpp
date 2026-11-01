@@ -662,10 +662,9 @@ namespace xiui
         const auto xivClassicBytes = resources::LoadEmbeddedResource(reinterpret_cast<HMODULE>(&__ImageBase), 317, 1024 * 1024);
         if (!check(!xivClassicBytes.empty(), "complete XIVClassic preset is embedded")) return false;
         const auto xivClassicSource = settings_store::FromIniText(std::string_view{reinterpret_cast<const char*>(xivClassicBytes.data()), xivClassicBytes.size()});
-        auto derived = settings_store::FromIniText(classicSource.ToIniText());
-        derived.WriteInt("appearance", "theme", ui::xiv1_appearance);
-        derived.WriteInt("chat", "source", 2); derived.WriteBool("chat2", "enabled", false);
-        if (!check(same(derived, xivClassicSource), "XIVClassic changes only theme and the single All chat window")) return false;
+        if (!check(xivClassicSource.ReadInt("appearance", "theme", -1) == ui::xiv1_appearance &&
+            xivClassicSource.ReadInt("chat", "source", -1) == 2 && !xivClassicSource.ReadBool("chat2", "enabled", true),
+            "the independent XIVClassic capture selects XIV 1.0 and the single All chat window")) return false;
         expected->LoadSettings(xivClassicSource, size); expected->EnsureLayout(viewport);
         const auto xivClassic = expected->CaptureSettings();
         if (!check(classicSource.ReadInt("appearance", "theme", -1) == ui::native_appearance &&
@@ -692,7 +691,7 @@ namespace xiui
         }
         if (!check(current->HandleCommand("preset xivclassic"), "XIVClassic command shares the full Basic preset action")) return false;
         current->EnsureLayout(viewport);
-        if (!check(same(xivClassic, current->CaptureSettings()), "XIVClassic command restores the full derived snapshot")) return false;
+        if (!check(same(xivClassic, current->CaptureSettings()), "XIVClassic command restores the full captured snapshot")) return false;
         if (!check(current->HandleCommand("preset classic"), "named full preset command shares the Basic action")) return false;
         current->EnsureLayout(viewport);
         if (!check(same(classic, current->CaptureSettings()), "Classic changes only the captured Party settings")) return false;
@@ -711,10 +710,11 @@ namespace xiui
         std::ifstream file{source, std::ios::binary};
         const std::string expected{std::istreambuf_iterator<char>{file}, std::istreambuf_iterator<char>{}};
         if (!check(!expected.empty() && runtime.default_settings_text_ == expected, "runtime embeds the shipped defaults profile")) return false;
-        if (!check(!runtime.actionbars_.ReplaceNativeMacros(), "fresh bundled defaults preserve native macro controls")) return false;
+        const auto captured = settings_store::FromIniText(expected);
+        if (!check(runtime.actionbars_.ReplaceNativeMacros() == captured.ReadBool("actionbars", "replace_native_macros", false),
+            "fresh bundled defaults retain the captured native macro preference")) return false;
         const auto preferences = [](hud_runtime& hud) { return hud.CaptureSettings().Preferences("").ToIniText(); };
         const auto baseline = preferences(runtime);
-        const auto captured = settings_store::FromIniText(expected);
         size_t styles{};
         for (auto* module : runtime.modules_.All()) module->VisitTextSettings([&](ui::text_style&) { ++styles; });
         if (!check(styles > 70 && runtime.player_.Settings().name_text.style.font == captured.ReadInt("text.player.name", "font", 0),

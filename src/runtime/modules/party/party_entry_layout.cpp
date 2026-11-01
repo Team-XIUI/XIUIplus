@@ -32,7 +32,11 @@ namespace xiui
     {
         entry_layout result{};
         const float x = bounds.x, width = bounds.width;
-        result.header = {x, bounds.y, width, this->HeaderHeight(slots.casting, details, inZone)};
+        const bool reserveNameCast = inZone && this->casts_ && this->cast_placement_ == cast_name;
+        const bool headerTP = inZone && this->xiv1_theme_ && slots.tp && this->tp_display_ == 1;
+        const float headerHeight = std::max(this->HeaderHeight(reserveNameCast, details, inZone),
+            headerTP ? ResolvedLineHeight(ui::Xiv1ResourceValue(this->text_[tp_text], 0, true)) : 0);
+        result.header = {x, bounds.y, width, headerHeight};
         float top = std::numeric_limits<float>::max(), bottom = std::numeric_limits<float>::lowest();
         const auto include = [&](const ui::rect& at) {
             if (at.height <= 0) return;
@@ -62,16 +66,16 @@ namespace xiui
             }
             text(area,this->text_[1]);
         };
-        if (slots.casting && this->cast_placement_ == cast_name)
+        text(result.header, this->text_[0]);
+        if (reserveNameCast)
             cast(this->NameCastArea(result.header, result.header.x + this->text_[0].offset_x));
-        else text(result.header, this->text_[0]);
         if (details) text(result.header, this->text_[4]);
         if (inZone && this->jobs_ && this->job_anchor_ == job_anchor_name && this->job_placement_ == jobs_name)
         {
             auto jobs = result.header; jobs.y += this->text_[0].offset_y;
             jobText(jobs);
         }
-        if (inZone && this->job_icons_ && !this->xiv1_theme_)
+        if (inZone && this->job_icons_)
         {
             result.icon = {bounds.x, bounds.y, this->icon_size_, this->icon_size_};
             if (this->icon_follow_name_)
@@ -90,14 +94,19 @@ namespace xiui
         else
         {
             if (this->xiv1_theme_) y += std::max(0.0f, this->text_[0].offset_y);
-            y += this->HeaderPadding(slots.casting);
+            y += this->HeaderPadding(reserveNameCast);
             if (this->jobs_ && this->job_anchor_ == job_anchor_name && this->job_placement_ == jobs_below)
             {
                 result.jobs = {x, y, width, this->JobTextHeight()};
                 jobText(result.jobs); y += result.jobs.height;
             }
-            y += (!this->xiv1_theme_ && this->labels_ ? ResolvedLineHeight(this->text_[2]) * 0.5f : 0) + 1;
+            y += (!this->xiv1_theme_ && this->labels_ ? ResolvedLineHeight(this->text_[2]) * 0.5f : 0) + (this->xiv1_theme_ ? 0 : 1);
             result.resources = this->LayoutResources({x, y, width, 0}, slots);
+            if (headerTP)
+            {
+                const auto& anchor = result.resources.bars[slots.mp ? 1 : 0];
+                result.resources.bars[2] = {anchor.x, result.header.y + this->text_[0].offset_y, anchor.width, headerHeight};
+            }
             if (this->jobs_ && this->job_anchor_ == job_anchor_hp)
                 jobText(this->HPJobTextBounds(result.resources.bars[0]));
             for (size_t i = 0; i < result.resources.bars.size(); ++i)
@@ -113,10 +122,8 @@ namespace xiui
                 {
                     if (numberOnly)
                     {
-                        auto caption = ui::Xiv1ResourceLabel(this->text_[2]);
                         auto value = ui::Xiv1ResourceValue(valueProfile, 0, true);
-                        caption.offset_x = caption.offset_y = value.offset_x = value.offset_y = 0;
-                        if (this->ResourceLabels()) text(at, caption);
+                        value.offset_x = value.offset_y = 0;
                         text(at, value);
                         continue;
                     }
@@ -125,7 +132,7 @@ namespace xiui
                     const auto caption = ui::Xiv1ResourceLabel(this->text_[2]);
                     const auto value = ui::Xiv1ResourceValue(valueProfile, this->text_[i == 2 ? tp_text : 3].offset_y);
                     const auto placement = ui::LayoutXiv1ResourceText(track, glyphHeight(caption), glyphHeight(value));
-                    if (this->ResourceLabels()) text(placement.label, caption);
+                    if (i != 2 && this->ResourceLabels()) text(placement.label, caption);
                     if (i == 2 || (i == 0 ? this->hp_display_ : this->mp_display_) != 5)
                         text(placement.value, value);
                     continue;
@@ -133,7 +140,7 @@ namespace xiui
                 const auto track = numberOnly ? at : ui::LayoutMeterTrack(at, this->meters_[i]);
                 if (!numberOnly) include(track);
                 const auto labels = ui::LayoutMeterText(track, std::max(16.0f, ResolvedLineHeight(this->text_[2])), ResolvedLineHeight(valueProfile), 32);
-                if (this->labels_) text(labels.label, this->text_[2]);
+                if (i != 2 && this->labels_) text(labels.label, this->text_[2]);
                 if (i == 2 || (i == 0 ? this->hp_display_ : this->mp_display_) != 5)
                     text(numberOnly ? this->TPNumberBounds(at) : labels.value, valueProfile);
             }
@@ -187,7 +194,8 @@ namespace xiui
 
     auto party_module::JobIconBounds(const entry_layout& entry, const ui::rect& name, const float leaderSpace) const -> ui::rect
     {
-        auto result = this->icon_follow_name_ ? ui::rect{name.x - leaderSpace - 7 - this->icon_size_,
+        const float gap = this->xiv1_theme_ ? 3.0f : 7.0f;
+        auto result = this->icon_follow_name_ ? ui::rect{name.x - leaderSpace - gap - this->icon_size_,
             name.y + (name.height - this->icon_size_) * 0.5f, this->icon_size_, this->icon_size_} : entry.icon;
         result.x += this->icon_offset_x_; result.y += this->icon_offset_y_;
         return result;

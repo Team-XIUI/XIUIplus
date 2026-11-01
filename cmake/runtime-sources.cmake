@@ -56,6 +56,7 @@ set(XIUI_HUD_SOURCES
     src/runtime/ui/focus_frame.cpp
     src/runtime/ui/focus_frame.hpp
     src/runtime/chat/chat_model.cpp
+    src/runtime/chat/chat_emphasis.cpp
     src/runtime/chat/chat_bubbles.cpp
     src/runtime/modules/chat/chat_bubbles_module.cpp
     src/runtime/chat/chat_alerts.cpp

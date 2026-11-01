@@ -123,7 +123,7 @@ namespace xiui
         friend struct config_input_test;
 #endif
         struct tab_state { size_t scroll{}; uint32_t unread{}; };
-        struct rendered_span { std::string text; int color{-1}; float width{}; bool timestamp{}, dialogue_prompt{}; };
+        struct rendered_span { std::string text; int color{-1}; float width{}; bool timestamp{}, dialogue_prompt{}, emphasis{}; };
         struct rendered_row { uint64_t sequence{}; uint32_t mode{}, color{}; std::vector<rendered_span> spans; };
         struct message_entrance { uint64_t sequence{}, started{}; };
         struct message_motion { float opacity{1}, x{}; };

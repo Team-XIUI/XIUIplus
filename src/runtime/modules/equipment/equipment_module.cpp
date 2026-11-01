@@ -1,5 +1,6 @@
 #include "equipment_module.hpp"
 #include "ui/game_icon_cache.hpp"
+#include "ui/rounded_rect.hpp"
 
 #include <algorithm>
 #include <cmath>
@@ -40,6 +41,8 @@ namespace xiui
         this->tooltips_ = store.ReadBool("equipment", "tooltips", true);
         this->background_ = store.ReadBool("equipment", "background", true);
         this->slot_frames_ = store.ReadBool("equipment", "slot_frames", true);
+        if (store.ReadInt("equipment", "container_version", 0) < 1 && this->slot_frames_)
+            this->background_ = true;
         this->layout_ = std::clamp(store.ReadInt("equipment", "layout", 0), 0, 2);
         this->selected_text_ = std::clamp(store.ReadInt("equipment", "selected_text", 0), 0, 3);
         const auto number = [&](const char* key, const float fallback, const float minimum, const float maximum) {
@@ -66,6 +69,7 @@ namespace xiui
         store.WriteBool("equipment", "slot_labels", this->slot_labels_);
         store.WriteBool("equipment", "tooltips", this->tooltips_);
         store.WriteBool("equipment", "background", this->background_);
+        store.WriteInt("equipment", "container_version", 1);
         store.WriteBool("equipment", "slot_frames", this->slot_frames_);
         store.WriteInt("equipment", "layout", this->layout_);
         store.WriteInt("equipment", "selected_text", this->selected_text_);
@@ -113,9 +117,9 @@ namespace xiui
         case icon_size: return module_option::Slider("Icon size", "Native item icon size in pixels.", &this->icon_size_, 16, 64, 1).Ordered(110);
         case layout: return module_option::Choice("Grid", "Keep the native equipment order while changing row length.", &this->layout_, layouts, 3).Ordered(-30);
         case spacing: return module_option::Slider("Slot spacing", "Pixels between equipment slots.", &this->spacing_, 0, 24, 1).Ordered(300, true);
-        case inset: return module_option::Slider("Icon padding", "Pixels between the native slot frame and item icon.", &this->inset_, 0, 12, 1).Ordered(402);
+        case inset: return module_option::Slider("Icon padding", "Pixels between the slot outline and item icon.", &this->inset_, 0, 12, 1).Ordered(402);
         case background: return module_option::Toggle("Container", "Use the shared container for the complete equipment window.", &this->background_, module_option_group::appearance).Ordered(-10);
-        case slot_frames: return module_option::Toggle("Slot frames", "Decorative slot windows. Native item quality borders are part of each icon and remain visible with frames off.", &this->slot_frames_, module_option_group::appearance).Ordered(470);
+        case slot_frames: return module_option::Toggle("Slot frames", "Simple rounded slot backgrounds and outlines. Native item quality borders remain part of each icon.", &this->slot_frames_, module_option_group::appearance).Ordered(470);
         case opacity: return module_option::Slider("Container opacity", "Opacity of the outer container and slot frames.", &this->container_.opacity, 0, 1, 0.05f, module_option_group::appearance).Ordered(450).VisibleWhen(this->background_ || this->slot_frames_);
         case padding: return module_option::Slider("Container padding", "Space inside the equipment window's native frame.", &this->container_.padding, 0, 24, 1, module_option_group::appearance).Ordered(402).VisibleWhen(this->background_);
         case icon_opacity: return module_option::Slider("Icon opacity", "Opacity of the equipment icons.", &this->icon_opacity_, 0.1f, 1, 0.05f, module_option_group::appearance).Ordered(450);
@@ -148,13 +152,22 @@ namespace xiui
             context.DrawText("Equipment", at, at, this->text_[0]);
         }
         const auto& design = context.Design();
+        const auto fade = [&](const D3DCOLOR color, const float amount) {
+            return (color & 0xFFFFFF) | (static_cast<uint32_t>(std::round((color >> 24) * this->container_.opacity * amount)) << 24);
+        };
+        const auto& colors = design.GetTheme().colors;
+        const ui::contour_style slotStyle{fade(colors.surface, .7f), fade(colors.border, .45f), 1,
+            1 / std::max(design.Transform().x, design.Transform().y)};
+        std::array<ui::point, ui::rounded_rect_points> slotContour{};
+        for (size_t i = 0; i < slotContour.size(); ++i)
+            slotContour[i] = ui::RoundedRectPoint({0, 0, 1, 1}, 3 / this->CellSize(), i);
         for (size_t cell = 0; cell < equipment_grid_order.size(); ++cell)
         {
             const auto slot = equipment_grid_order[cell];
             const auto bounds = this->SlotBounds(cell);
             const auto item = this->source_ != nullptr && this->source_->Available() ? &this->source_->Items()[slot] : nullptr;
-            if (this->slot_frames_) context.DrawContainer(bounds, {this->container_.opacity, 5, 0, false});
-            const ui::rect icon{bounds.x + 5 + this->inset_, bounds.y + 5 + this->inset_, this->icon_size_, this->icon_size_};
+            if (this->slot_frames_) design.DrawContour(bounds, slotContour, slotStyle);
+            const ui::rect icon{bounds.x + 1 + this->inset_, bounds.y + 1 + this->inset_, this->icon_size_, this->icon_size_};
             auto* texture = item != nullptr && item->id != 0 && context.Icons() != nullptr ? context.Icons()->Item(item->id) : nullptr;
             if (texture != nullptr) design.DrawTexture(texture, icon, (static_cast<uint32_t>(std::round(this->icon_opacity_ * 255)) << 24) | 0xFFFFFF);
             else if ((item != nullptr && item->id != 0) || (this->empty_labels_ && !this->slot_labels_))

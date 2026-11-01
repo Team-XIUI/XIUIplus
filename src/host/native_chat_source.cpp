@@ -2,6 +2,7 @@
 #include "runtime_host.hpp"
 #include "callback_gate.hpp"
 #include "Memory.h"
+#include "native_pattern.hpp"
 
 #include <MinHook.h>
 #include <cstring>
@@ -81,8 +82,7 @@ namespace xiui
 
     auto native_chat_source::Find(const char* pattern) const -> uintptr_t
     {
-        const auto first = Ashita::Memory::FindPattern(this->module_, this->module_size_, pattern, 0, 0);
-        return first != 0 && Ashita::Memory::FindPattern(this->module_, this->module_size_, pattern, 0, 1) == 0 ? first : 0;
+        return FindUniquePattern(this->module_, this->module_size_, pattern);
     }
 
     auto native_chat_source::Initialize(runtime_host& runtime) -> bool

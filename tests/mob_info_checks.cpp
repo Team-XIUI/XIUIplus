@@ -32,6 +32,15 @@ namespace xiui
             "legacy choices move into Target without importing standalone position or saving retired sections")) return false;
         target_mob_info info; info.Load(settings_store::FromIniText("[target.mobinfo]\nenabled=0\n[mobinfo]\nenabled=1\n"));
         if (!check(!info.enabled && info.Rows(mob).empty(), "explicit Target setting wins over retired standalone preferences")) return false;
+        target_mob_info compact;
+        compact.Load(settings_store::FromIniText("[text.target.mobinfo]\noffset_x=15\noffset_y=-56\n[target.mobinfo.mobbehavior]\ncell_spacing=12\n"));
+        if (!check(compact.text.offset_x == 0 && compact.text.offset_y == 0 && compact.groups[0].cell_spacing == 2,
+            "legacy header offsets and default icon spacing migrate narrowly")) return false;
+        auto compactSaved = settings_store::FromIniText(""); compact.Save(compactSaved);
+        compactSaved.WriteFloat("target.mobinfo.mobbehavior", "cell_spacing", 12);
+        compactSaved.WriteFloat("text.target.mobinfo", "offset_y", -7); compact.Load(compactSaved);
+        if (!check(compact.groups[0].cell_spacing == 12 && compact.text.offset_y == -7,
+            "later header spacing and offsets survive the migration")) return false;
         info.enabled = true;
         if (!check(info.Rows(nullptr).empty(), "unknown targets add no information or invented fields")) return false;
         for (size_t i = 0; i < info.groups.size(); ++i) info.groups[i].state.enabled = i >= 3 && i <= 7;
@@ -77,6 +86,11 @@ namespace xiui
         view.id = mob->id; view.name = "Snipper"; view.hp = 75; view.health = true;
         view.kind = entity_class::unclaimed_mob; view.mob = mob;
         ui::design_system design; module_render_context context{design}; meter_animation_state animation;
+        behavior.text.offset_x = behavior.text.offset_y = 0;
+        const auto header = behavior.DrawHeaderIcons(&senses, {0, 100, 400, 0}, context);
+        if (!check(header.width > 0 && header.x + header.width == 400 && header.y + header.height == 100 &&
+            behavior.DrawHeaderIcons(nullptr, {0, 100, 400, 0}, context).width == 0,
+            "available header icons anchor to the right above their caption; unknown records occupy no space")) return false;
         target.settings_.mob_info.enabled = false;
         const auto normal = target.DrawView(view, {0, 0, 400, 0}, "", animation, 2000, context);
         target.settings_.mob_info.enabled = true;

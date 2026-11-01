@@ -31,7 +31,7 @@ namespace xiui
             bool tp_ready_blink{true};
             bool mp_cost_preview{true};
             heal_preview_settings heal_preview{};
-            int hp_display{4}, mp_display{4};
+            int hp_display{}, mp_display{};
             bool hp_state_colors{}, hp_state_text{}, tp_ready_text{};
             float hp_warning{50}, hp_critical{25};
             D3DCOLOR hp_warning_top{0xFF806030}, hp_warning_bottom{0xFFFFCA78};

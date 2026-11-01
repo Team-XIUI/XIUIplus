@@ -52,18 +52,18 @@ namespace xiui
         if (!check(hpTrack.y == tpTrack.y && hpTrack.height == tpTrack.height,
             "XIV resource gauges share the same vertical geometry")) return false;
         const auto values = ui::LayoutXiv1ResourceText(hpTrack, 14, 18);
-        if (!check(hpTrack.x + hpTrack.width - values.value.x - values.value.width == 6,
-            "XIV bar values retain a six-pixel right inset")) return false;
+        if (!check(values.label.x - hpTrack.x == 10 && hpTrack.x + hpTrack.width - values.value.x - values.value.width == 14,
+            "XIV resource labels use a ten-pixel inset and values use fourteen pixels")) return false;
         party_module party;
         party.ResetDefaults(ui::theme::CreateDefault());
         party.xiv1_theme_ = true; party.job_icons_ = true; party.tp_display_ = 1; party.labels_ = true;
         const auto entry = party.LayoutEntry({0, 0, 240, 0}, true, {true, true, true, true}, false);
-        if (!check(entry.icon.width == 0 && entry.icon.height == 0 && party.job_icons_,
-            "XIV 1.0 omits party job icons without changing the saved preference")) return false;
-        const auto tp = ui::LayoutXiv1TPNumber(entry.resources.bars[2], 16, 36, 14, 16);
-        if (!check(tp.label.x + tp.label.width < tp.value.x && tp.value.x + tp.value.width <= entry.resources.bars[2].x + entry.resources.bars[2].width &&
-            std::abs(tp.label.y + tp.label.height / 2 - tp.value.y - tp.value.height / 2) < .01f,
-            "number-only TP keeps its label and value together on one row")) return false;
+        if (!check(entry.icon.width == party.icon_size_ && entry.icon.height == party.icon_size_ && party.job_icons_,
+            "XIV 1.0 retains enabled party job icons and their saved size")) return false;
+        const auto tp = ui::LayoutXiv1TPNumber(entry.resources.bars[2], 0, 36, 0, 16);
+        if (!check(tp.label.width == 0 && tp.value.x + tp.value.width == entry.resources.bars[2].x + entry.resources.bars[2].width - 14 &&
+            std::abs(entry.resources.bars[2].y + entry.resources.bars[2].height / 2 - tp.value.y - tp.value.height / 2) < .01f,
+            "number-only TP keeps its header-row alignment and fourteen-pixel right inset without a label")) return false;
         const auto plain = ui::config_controls::TextStyle(style);
         if (!check(!plain.theme_text && design.ResolveHudText(plain).font == plain.font,
             "configuration typography remains independent")) return false;

@@ -2594,6 +2594,7 @@ namespace xiui
         this->commands_.Update(snapshot.native_ui, static_cast<float>(viewport.Width), static_cast<float>(viewport.Height));
         this->container_renderer_.SetAppearanceTheme(this->general_.AppearanceTheme());
         this->design_system_.SetAppearanceTheme(this->general_.AppearanceTheme());
+        this->target_.Settings().recipient.ApplyThemeDefaults(this->design_system_.IsXiv1Theme());
         if (this->native_ui_.window_type_available) this->container_renderer_.SelectSkin(this->native_ui_.window_type);
         this->design_system_.SetWindowPalette(this->container_renderer_.BackgroundColor());
         this->EnsureLayout(viewport);

@@ -136,8 +136,13 @@ namespace xiui
         this->settings_.tp_ready_blink = store.ReadBool("player", "tp_ready_blink", true);
         this->settings_.mp_cost_preview = store.ReadBool("player", "mp_cost_preview", true);
         this->settings_.heal_preview.Load(store, "player");
-        this->settings_.hp_display = std::clamp(store.ReadInt("player", "hp_display", 4), 0, 5);
-        this->settings_.mp_display = std::clamp(store.ReadInt("player", "mp_display", 4), 0, 5);
+        this->settings_.hp_display = std::clamp(store.ReadInt("player", "hp_display", 0), 0, 5);
+        this->settings_.mp_display = std::clamp(store.ReadInt("player", "mp_display", 0), 0, 5);
+        if (store.ReadInt("player", "number_format_version", 0) < 1)
+        {
+            if (this->settings_.hp_display == 4) this->settings_.hp_display = 0;
+            if (this->settings_.mp_display == 4) this->settings_.mp_display = 0;
+        }
         this->settings_.hp_state_colors = store.ReadBool("player", "hp_state_colors", false);
         this->settings_.hp_state_text = store.ReadBool("player", "hp_state_text", false);
         this->settings_.tp_ready_text = store.ReadBool("player", "tp_ready_text", false);
@@ -206,6 +211,7 @@ namespace xiui
         this->timers_.Save(store);
         store.WriteBool("player", "enabled", this->state_.enabled);
         store.WriteInt("player", "bar_height_version", 2);
+        store.WriteInt("player", "number_format_version", 1);
         store.WriteBool("player", "show_identity", this->settings_.show_identity);
         store.WriteBool("player", "show_labels", this->settings_.show_labels);
         store.WriteBool("player", "show_values", this->settings_.show_values);
@@ -418,7 +424,7 @@ namespace xiui
         if (this->timers_.attack_layout == 2)
         {
             const auto tp = this->TPMeterBounds(snapshot);
-            return {tp.x + this->timers_.offset_x, tp.y + tp.height + this->timers_.mini_gap + this->timers_.offset_y,
+            return {tp.x + this->timers_.offset_x, tp.y - this->timers_.mini_height - this->timers_.mini_gap + this->timers_.offset_y,
                 tp.width, this->timers_.mini_height};
         }
         const float height = ui::TimingHeight(this->timers_.attack_text, this->timers_.height, this->timers_.display == 1, true);
@@ -432,7 +438,7 @@ namespace xiui
         if (this->timers_.recovery_layout == 2)
         {
             const auto hp = this->HPMeterBounds(snapshot);
-            return {hp.x + this->timers_.offset_x, hp.y + hp.height + this->timers_.recovery_mini_gap + this->timers_.offset_y,
+            return {hp.x + this->timers_.offset_x, hp.y - this->timers_.recovery_mini_height - this->timers_.recovery_mini_gap + this->timers_.offset_y,
                 hp.width, this->timers_.recovery_mini_height};
         }
         const float height = ui::TimingHeight(this->timers_.rest_text, this->timers_.height, this->timers_.display == 1,
@@ -530,6 +536,7 @@ namespace xiui
 
         auto footprint = panel;
         const auto include = [&](const ui::rect& at) {
+            if (at.width <= 0 || at.height <= 0) return;
             const auto right = std::max(footprint.x + footprint.width, at.x + at.width), bottom = std::max(footprint.y + footprint.height, at.y + at.height);
             footprint.x = std::min(footprint.x, at.x); footprint.y = std::min(footprint.y, at.y);
             footprint.width = right - footprint.x; footprint.height = bottom - footprint.y;

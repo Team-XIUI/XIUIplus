@@ -1536,8 +1536,9 @@ namespace xiui
             rendered_row row{line.sequence, line.mode, line.color};
             float used{};
             const auto finish = [&] { this->rows_.push_back(std::move(row)); row = {line.sequence, line.mode, line.color}; used = 0.0f; };
-            const auto append = [&](const std::string& token, const int color, const bool timestamp = false, const bool prompt = false) {
-                const auto tokenWidth = MeasureChatText(design, token, style) + ChatThemeTracking(style) +
+            const auto append = [&](const std::string& token, const int color, const bool timestamp = false, const bool prompt = false, const bool emphasis = false) {
+                auto runStyle = style; runStyle.weight = emphasis ? ui::font_weight::bold : ui::font_weight::regular;
+                const auto tokenWidth = MeasureChatText(design, token, runStyle) + ChatThemeTracking(runStyle) +
                     (prompt ? dialogue_prompt_padding : 0.0f);
                 if (used > 0.0f && used + tokenWidth > width)
                 {
@@ -1546,8 +1547,8 @@ namespace xiui
                 }
                 if (tokenWidth <= width)
                 {
-                    if (!row.spans.empty() && row.spans.back().color == color && row.spans.back().timestamp == timestamp && row.spans.back().dialogue_prompt == prompt) { row.spans.back().text += token; row.spans.back().width += tokenWidth; }
-                    else row.spans.push_back({token, color, tokenWidth, timestamp, prompt});
+                    if (!row.spans.empty() && row.spans.back().color == color && row.spans.back().timestamp == timestamp && row.spans.back().dialogue_prompt == prompt && row.spans.back().emphasis == emphasis) { row.spans.back().text += token; row.spans.back().width += tokenWidth; }
+                    else row.spans.push_back({token, color, tokenWidth, timestamp, prompt, emphasis});
                     used += tokenWidth;
                     return;
                 }
@@ -1556,11 +1557,11 @@ namespace xiui
                     const size_t begin = pos;
                     NextUtf8(token, pos);
                     const auto glyph = token.substr(begin, pos - begin);
-                    const auto glyphWidth = MeasureChatText(design, glyph, style) + ChatThemeTracking(style) +
+                    const auto glyphWidth = MeasureChatText(design, glyph, runStyle) + ChatThemeTracking(runStyle) +
                         (prompt ? dialogue_prompt_padding : 0.0f);
                     if (used > 0 && used + glyphWidth > width) finish();
-                    if (!row.spans.empty() && row.spans.back().color == color && row.spans.back().timestamp == timestamp && row.spans.back().dialogue_prompt == prompt) { row.spans.back().text += glyph; row.spans.back().width += glyphWidth; }
-                    else row.spans.push_back({glyph, color, glyphWidth, timestamp, prompt});
+                    if (!row.spans.empty() && row.spans.back().color == color && row.spans.back().timestamp == timestamp && row.spans.back().dialogue_prompt == prompt && row.spans.back().emphasis == emphasis) { row.spans.back().text += glyph; row.spans.back().width += glyphWidth; }
+                    else row.spans.push_back({glyph, color, glyphWidth, timestamp, prompt, emphasis});
                     used += glyphWidth;
                 }
             };
@@ -1584,7 +1585,7 @@ namespace xiui
                     if (end == std::string::npos) end = span.text.size();
                     auto token = span.text.substr(position, end - position);
                     std::replace(token.begin(), token.end(), '\t', ' ');
-                    append(token, span.color_index);
+                    append(token, span.color_index, false, false, span.emphasis);
                     position = end;
                 }
             if (line.dialogue_prompt) append("\xE2\x96\xBC", -1, false, true);
@@ -1694,6 +1695,7 @@ namespace xiui
             {
                 const auto color = this->SpanColor(row, span, snapshot.chat_colors, context.Design().IsXiv1Theme());
                 auto profile = FadeText(TintTextProfile(this->text_, color), motion.opacity);
+                profile.style.weight = span.emphasis ? ui::font_weight::bold : ui::font_weight::regular;
                 profile.placement = 0; profile.style.alignment = ui::text_alignment::left;
                 const float padding = span.dialogue_prompt ? dialogue_prompt_padding : 0.0f;
                 ui::rect bounds{x + padding, y, std::max(0.0f, log.x + log.width - x - padding), lineHeight};

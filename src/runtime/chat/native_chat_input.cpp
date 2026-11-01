@@ -1,6 +1,7 @@
 #include "native_chat_input.hpp"
 #include "chat_encoding.hpp"
 #include "Memory.h"
+#include "native_pattern.hpp"
 
 #include <algorithm>
 #include <array>
@@ -96,19 +97,18 @@ namespace xiui
         if (base != 0 && size != 0)
         {
             constexpr char pattern[] = "8B0D????????85C9750333C0C36A00E8????????C3";
-            const auto match = Ashita::Memory::FindPattern(base, size, pattern, 0, 0);
-            if (match != 0 && Ashita::Memory::FindPattern(base, size, pattern, 0, 1) == 0)
+            const auto match = FindUniquePattern(base, size, pattern);
+            if (match != 0)
             {
                 this->last_teller_ = match;
                 constexpr char replyPattern[] =
                     "538A999E01000033D284DB740F8B442408560FBEF3F7F65E85D27C150FBEC33BD07D0E"
                     "C1E2045B8D840A1E010000C2040033C05BC20400";
-                const auto reply = Ashita::Memory::FindPattern(base, size, replyPattern, 0, 0);
+                const auto reply = FindUniquePattern(base, size, replyPattern);
                 uintptr_t manager{}; int32_t relative{};
                 std::memcpy(&manager, reinterpret_cast<const void*>(match + 2), 4);
                 std::memcpy(&relative, reinterpret_cast<const void*>(match + 16), 4);
-                if (reply != 0 && match + 20 + relative == reply && manager >= base && manager - base < size &&
-                    Ashita::Memory::FindPattern(base, size, replyPattern, 0, 1) == 0)
+                if (reply != 0 && match + 20 + relative == reply && manager >= base && manager - base < size)
                 { this->reply_teller_ = reply; this->reply_manager_ = manager; }
             }
         }
@@ -122,22 +122,21 @@ namespace xiui
         this->state_offset_ = static_cast<uint32_t>(state);
         if (base == 0 || size == 0) return;
         constexpr char closePattern[] = "8B81????????83E80474164875058B01FF50348B0D????????C6810D01000000C38B11C781????????03000000FF5230A1????????C6800D01000000C3";
-        const auto close = Ashita::Memory::FindPattern(base, size, closePattern, 0, 0);
-        if (close == 0 || Ashita::Memory::FindPattern(base, size, closePattern, 0, 1) != 0 ||
+        const auto close = FindUniquePattern(base, size, closePattern);
+        if (close == 0 ||
             !MatchesOffset(close + 2, this->state_offset_) || !MatchesOffset(close + 37, this->state_offset_)) return;
         constexpr char resetPattern[] =
             "568BF18B06FF505C8B168BCEFF52588B066A008BCEFF50608B168BCEFF5270"
             "8B066A0A6A006A006A006A786A056A006A038BCEFF50288B168BCEFF5234B8010000005EC3";
-        const auto reset = Ashita::Memory::FindPattern(base, size, resetPattern, 0, 0);
-        if (reset != 0 && Ashita::Memory::FindPattern(base, size, resetPattern, 0, 1) == 0) this->reset_chat_ = reset;
+        const auto reset = FindUniquePattern(base, size, resetPattern);
+        if (reset != 0) this->reset_chat_ = reset;
         constexpr char menuPattern[] =
             "8B44240483EC20568BF18D4C240450518BCEE8????????8D5424048BCE52E8????????"
             "85C0740A6A01508BCEE8????????5E83C420C20400";
         constexpr char cleanupPattern[] = "8B01FF503468????????B9????????E8????????C3";
-        const auto menu = Ashita::Memory::FindPattern(base, size, menuPattern, 0, 0);
-        const auto cleanup = Ashita::Memory::FindPattern(base, size, cleanupPattern, 0, 0);
-        if (menu == 0 || cleanup == 0 || Ashita::Memory::FindPattern(base, size, menuPattern, 0, 1) != 0 ||
-            Ashita::Memory::FindPattern(base, size, cleanupPattern, 0, 1) != 0) return;
+        const auto menu = FindUniquePattern(base, size, menuPattern);
+        const auto cleanup = FindUniquePattern(base, size, cleanupPattern);
+        if (menu == 0 || cleanup == 0) return;
         uintptr_t label{}, manager{}; int32_t relative{};
         std::memcpy(&label, reinterpret_cast<const void*>(cleanup + 6), 4);
         std::memcpy(&manager, reinterpret_cast<const void*>(cleanup + 11), 4);

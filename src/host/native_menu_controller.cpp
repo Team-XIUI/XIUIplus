@@ -2,6 +2,7 @@
 
 #include "Ashita.h"
 #include "Memory.h"
+#include "native_pattern.hpp"
 
 #include <algorithm>
 #include <cmath>
@@ -74,8 +75,7 @@ namespace xiui
     auto native_menu_controller::Find(const char* pattern) const -> uintptr_t
     {
         if (this->module_ == 0) return 0;
-        const auto match = Ashita::Memory::FindPattern(this->module_, this->module_size_, pattern, 0, 0);
-        return match != 0 && Ashita::Memory::FindPattern(this->module_, this->module_size_, pattern, 0, 1) == 0 ? match : 0;
+        return FindUniquePattern(this->module_, this->module_size_, pattern);
     }
 
     auto native_menu_controller::Initialize(const uintptr_t module, const size_t size) -> void

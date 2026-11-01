@@ -787,7 +787,9 @@ namespace xiui
 
     auto party_module::CastBounds(const ui::rect& bounds) const -> ui::rect
     {
-        return this->PositionBar(3, {bounds.x, bounds.y, this->BarWidth(3, bounds.width), bounds.height}, bounds);
+        auto result = this->PositionBar(3, {bounds.x, bounds.y, this->BarWidth(3, bounds.width), bounds.height}, bounds);
+        if (this->xiv1_theme_ && this->cast_placement_ == cast_name) result.y += 4;
+        return result;
     }
 
     auto party_module::LayoutResources(const ui::rect& bounds, const resource_slots& slots) const -> resource_layout
@@ -827,14 +829,12 @@ namespace xiui
             const float valueHeight = std::max(this->hp_display_ == 5 ? 0 : this->ResolvedLineHeight(hpText),
                 slots.mp && this->mp_display_ != 5 ? this->ResolvedLineHeight(mpText) : 0);
             layout.height = y - bounds.y + height + valueHeight * .5f + 2;
-            if (slots.tp)
+            if (slots.tp && this->tp_display_ != 1)
             {
-                const auto tpText = ui::Xiv1ResourceValue(this->text_[tp_text], this->text_[tp_text].offset_y, this->tp_display_ == 1);
+                const auto tpText = ui::Xiv1ResourceValue(this->text_[tp_text], this->text_[tp_text].offset_y);
                 const float tpY = bounds.y + layout.height + 5 + std::max(0.0f, this->bar_offsets_y_[2]);
-                const float numberHeight = std::max(this->ResolvedLineHeight(tpText), this->ResourceLabels() ? this->ResolvedLineHeight(ui::Xiv1ResourceLabel(this->text_[2])) : 0);
-                layout.bars[2] = {this->tp_display_ == 1 ? x : bounds.x + this->bar_offsets_x_[2], tpY, bounds.width,
-                    this->tp_display_ == 1 ? numberHeight : ui::xiv1_tp_height + 2};
-                layout.height = tpY - bounds.y + (this->tp_display_ == 1 ? numberHeight : ui::xiv1_tp_height + this->ResolvedLineHeight(tpText) * .5f + 2);
+                layout.bars[2] = {bounds.x + this->bar_offsets_x_[2], tpY, bounds.width, ui::xiv1_tp_height + 2};
+                layout.height = tpY - bounds.y + ui::xiv1_tp_height + this->ResolvedLineHeight(tpText) * .5f + 2;
             }
             this->LayoutTickerText(layout, slots, bounds.y);
             return layout;
@@ -1194,7 +1194,11 @@ namespace xiui
         const auto& design = context.Design();
         const auto text = [&](std::string value, const ui::rect& bounds, const size_t profile, const std::optional<D3DCOLOR> tint = std::nullopt) {
             auto style = tint ? TintTextProfile(this->text_[profile], *tint) : this->text_[profile];
-            if (this->xiv1_theme_ && profile == 0) style.style.font = ui::xiv1_italic_font;
+            if (this->xiv1_theme_ && profile == 0)
+            {
+                style.style.font = ui::xiv1_italic_font;
+                style.offset_x -= 4;
+            }
             value = xiui::ui::FitText(design, std::move(value), bounds.width, design.ResolveHudText(style.style));
             context.DrawText(value.c_str(), bounds, bounds, style);
         };
@@ -1213,21 +1217,33 @@ namespace xiui
         for (auto& ticker : entry.tickers) position(ticker);
         const float x = entry.header.x, width = entry.header.width, headerHeight = entry.header.height;
         const bool casting = slots.casting;
-        const float detailWidth = detail.empty() ? 0 : std::min(width * 0.44f, design.MeasureText(detail.c_str(), this->text_[4].style) + 2);
+        float headerRight = x + width;
+        if (this->xiv1_theme_ && slots.tp && this->tp_display_ == 1)
+        {
+            const auto tpStyle = ui::Xiv1ResourceValue(this->text_[tp_text], 0, true).style;
+            const auto tp = ui::LayoutXiv1TPNumber(entry.resources.bars[2], 0, design.MeasureText("3000", tpStyle), 0, design.TextHeight(tpStyle));
+            headerRight = std::min(headerRight, (this->casts_ && this->cast_placement_ == cast_tp ? entry.resources.bars[2].x : tp.value.x) - 8);
+        }
+        const float headerWidth = std::max(0.0f, headerRight - x);
+        const float detailWidth = detail.empty() ? 0 : std::min(headerWidth * 0.44f, design.MeasureText(detail.c_str(), this->text_[4].style) + 2);
         const auto nameTint = !member.in_zone ? std::optional<D3DCOLOR>{0xFFA8A8A8} : member.hp_percent < 25 ? std::optional{this->low_hp_} : std::nullopt;
         const bool leader = this->show_leader_ && (member.leader || member.alliance_leader);
         const float leaderSpace = leader ? 10.0f : 0;
-        const float nameWidth = width - detailWidth - 4;
+        const float nameWidth = std::max(0.0f, headerWidth - detailWidth - 4);
         const bool jobsByName = member.in_zone && this->jobs_ && this->job_anchor_ == job_anchor_name && this->job_placement_ == jobs_name;
         const auto jobs = member.in_zone && this->jobs_ ? this->JobLines(member) : std::array<std::string,2>{};
         const float jobWidth = !jobsByName || jobs[0].empty() ? 0 : std::min(nameWidth * 0.5f,
             std::max(design.MeasureText(jobs[0].c_str(), this->text_[1].style),design.MeasureText(jobs[1].c_str(), this->text_[1].style)) + 8);
         const ui::rect nameBounds{x + leaderSpace, entry.header.y, std::max(0.0f, nameWidth - jobWidth - leaderSpace), headerHeight};
         const bool nameCast = casting && this->cast_placement_ == cast_name;
-        const float nameRoom = std::max(0.0f, nameBounds.width - std::max(0.0f, this->text_[0].offset_x) -
-            (this->text_[0].placement != 0 ? 8.0f : 0));
         auto nameProfile = this->text_[0];
-        if (this->xiv1_theme_) nameProfile.style.font = ui::xiv1_italic_font;
+        if (this->xiv1_theme_)
+        {
+            nameProfile.style.font = ui::xiv1_italic_font;
+            nameProfile.offset_x -= 4;
+        }
+        const float nameRoom = std::max(0.0f, nameBounds.width - std::max(0.0f, nameProfile.offset_x) -
+            (nameProfile.placement != 0 ? 8.0f : 0));
         const auto fittedName = xiui::ui::FitText(design, member.name, nameRoom, design.ResolveHudText(nameProfile.style));
         const auto visibleName = context.TextBounds(fittedName.c_str(), nameBounds, nameBounds, nameProfile);
         const auto castArea = this->NameCastArea(nameBounds, visibleName.x);
@@ -1246,11 +1262,13 @@ namespace xiui
         };
         const auto drawIdentity = [&] {
             if (!nameCast) text(fittedName, nameBounds, 0, nameTint);
-            if (!this->xiv1_theme_ && this->job_icons_ && member.in_zone && member.main_job > 0 && member.main_job <= 24 && context.Icons() != nullptr && context.Icons()->JobAtlas() != nullptr)
+            const auto jobAtlas = this->job_icons_ && member.in_zone && member.main_job > 0 && member.main_job <= 24 && context.Icons() != nullptr ?
+                context.Icons()->JobAtlas(this->xiv1_theme_ ? ui::xiv1_job_icon_theme : -1) : nullptr;
+            if (jobAtlas != nullptr)
             {
                 const auto icon = member.main_job - 1;
                 const auto iconBounds = this->JobIconBounds(entry, visibleName, leaderSpace);
-                design.DrawTexture(context.Icons()->JobAtlas(), iconBounds, 0xFFFFFFFF,
+                design.DrawTexture(jobAtlas, iconBounds, 0xFFFFFFFF,
                     {(static_cast<float>(icon % 8) * 64 + 0.5f) / 512, (static_cast<float>(icon / 8) * 64 + 0.5f) / 256, 63.0f / 512, 63.0f / 256});
             }
             if (leader)
@@ -1259,7 +1277,7 @@ namespace xiui
                 design.DrawSlotDots(dot);
             }
             if (jobsByName) drawJobs(jobBounds);
-            text(detail, {x + width - detailWidth, entry.header.y, detailWidth, headerHeight}, 4,
+            text(detail, {headerRight - detailWidth, entry.header.y, detailWidth, headerHeight}, 4,
                 member.distance_known && this->distance_highlight_ > 0 && member.distance <= this->distance_highlight_ ? std::optional{this->range_color_} : std::nullopt);
         };
         if (!member.in_zone)
@@ -1299,7 +1317,7 @@ namespace xiui
             }
             const auto drawThemeText = [&](const ui::rect& track) {
                 const auto text = ui::LayoutXiv1ResourceText(track, design.TextHeight(caption.style), design.TextHeight(valueStyle.style));
-                if (this->ResourceLabels()) context.DrawText(index == 0 ? "HP" : index == 1 ? "MP" : "TP", text.label, text.label, caption);
+                if (index != 2 && this->ResourceLabels()) context.DrawText(index == 0 ? "HP" : "MP", text.label, text.label, caption);
                 const auto number = xiui::ui::FitText(design, value, text.value.width, valueStyle.style);
                 context.DrawText(number.c_str(), text.value, text.value, valueStyle);
             };
@@ -1307,18 +1325,11 @@ namespace xiui
             {
                 if (this->xiv1_theme_)
                 {
-                    caption.offset_x = caption.offset_y = valueStyle.offset_x = valueStyle.offset_y = 0;
-                    const float labelWidth = this->ResourceLabels() && caption.visible ? design.MeasureText("TP", caption.style) : 0;
-                    const auto text = ui::LayoutXiv1TPNumber(bounds, labelWidth, design.MeasureText("3000", valueStyle.style),
-                        design.TextHeight(caption.style), design.TextHeight(valueStyle.style));
-                    if (this->ResourceLabels()) context.DrawText("TP", text.label, text.label, caption);
+                    valueStyle.offset_x = valueStyle.offset_y = 0;
+                    const auto text = ui::LayoutXiv1TPNumber(bounds, 0, design.MeasureText("3000", valueStyle.style),
+                        0, design.TextHeight(valueStyle.style));
                     context.DrawText(value.c_str(), text.value, text.value, valueStyle);
                     return;
-                }
-                if (this->labels_)
-                {
-                    const auto layout = ui::LayoutMeterText(bounds, ResolvedLineHeight(this->text_[2]), ResolvedLineHeight(valueStyle), 32);
-                    context.DrawText("TP", layout.label, layout.placement, this->text_[2]);
                 }
                 const auto number = this->TPNumberBounds(bounds);
                 context.DrawText(value.c_str(), number, number, valueStyle);
@@ -1341,7 +1352,7 @@ namespace xiui
             if (this->xiv1_theme_) { meterStyle.height = ui::Xiv1ResourceHeight(index); meterStyle.bookends = true; }
             const float textWidth = context.MeterTextBounds(bounds, meterStyle).width;
             const auto fitted = xiui::ui::FitText(design, value, textWidth, valueStyle.style);
-            const auto label = xiui::ui::FitText(design, !this->labels_ ? "" : index == 0 ? "HP" : index == 1 ? "MP" : "TP", textWidth, this->text_[2].style);
+            const auto label = xiui::ui::FitText(design, !this->labels_ || index == 2 ? "" : index == 0 ? "HP" : "MP", textWidth, this->text_[2].style);
             std::array<ui::meter_strip, 2> strips{};
             size_t stripCount{};
             if (index == 0)

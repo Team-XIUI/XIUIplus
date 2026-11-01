@@ -49,7 +49,8 @@ namespace xiui
         auto OptionVisible(size_t index) const -> bool;
         auto OnOptionChanged(size_t index, const ui::rect& target) -> void;
         auto Rows(const mob_record* mob) const -> std::vector<mob_info_row>;
-        auto Draw(const mob_record* mob, const ui::rect& area, const module_render_context& context, size_t onlyGroup = mob_info_group_count) -> float;
+        auto Draw(const mob_record* mob, const ui::rect& area, const module_render_context& context, size_t onlyGroup = mob_info_group_count, bool headerIcons = false) -> float;
+        auto DrawHeaderIcons(const mob_record* mob, const ui::rect& area, const module_render_context& context) -> ui::rect;
     };
 
     class target_module;

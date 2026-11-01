@@ -194,6 +194,12 @@ int main(int argc, char** argv)
         std::puts("Global text controls, all-module updates, independent overrides, profile persistence and embedded Grammara font passed.");
         return 0;
     }
+    if (argc == 2 && std::strcmp(argv[1], "--target-recipient-theme-only") == 0)
+    {
+        if (!xiui::config_input_test::TargetOfTargetThemeDefaults()) return 1;
+        std::puts("Target of Target theme defaults, shared layout choices and persistence passed.");
+        return 0;
+    }
     if (argc == 2 && std::strcmp(argv[1], "--target-recipient-only") == 0)
     {
         if (!xiui::config_input_test::TargetOfTargetSettings()) return 1;

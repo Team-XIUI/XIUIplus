@@ -43,7 +43,7 @@ namespace xiui
         this->prefix = store.ReadBool(section, "prefix", recipient ? false : this->prefix);
         this->follow_meter = store.ReadBool(section, "follow_meter", recipient ? true : this->follow_meter);
         this->follow_fill = store.ReadBool(section, "follow_fill", recipient ? true : this->follow_fill);
-        this->follow_text = store.ReadBool(section, "follow_text", recipient ? false : this->follow_text);
+        this->follow_text = store.ReadBool(section, "follow_text", recipient ? true : this->follow_text);
         this->tint_name = store.ReadBool(section, "tint_name", recipient ? true : this->tint_name);
         this->arrow_size = read("arrow_size", 24, 8, 64);
         this->arrow_gap = read("arrow_gap", 8, 0, 64);
@@ -72,12 +72,41 @@ namespace xiui
                 this->follow_text = false;
             }
         }
+        if (recipient)
+        {
+            if (store.ReadInt(section, "shared_target_text_version", 0) < 1 && !this->follow_text &&
+                this->text[0].placement == 2 && this->text[0].offset_x == -82 && this->text[0].offset_y == 16)
+                this->follow_text = true;
+            const bool customized = this->placement != inline_right || !this->arrow || this->offset_x != 0 || this->offset_y != 0;
+            this->theme_layout_customized = store.ReadInt(section, "theme_layout_version", 0) >= 1 ?
+                store.ReadBool(section, "theme_layout_customized", customized) : customized;
+            this->ApplyThemeDefaults(store.ReadInt("appearance", "theme", 0) == ui::xiv1_appearance);
+        }
+    }
+
+    auto target_of_target_settings::ApplyThemeDefaults(const bool xiv1) -> void
+    {
+        this->theme_layout_xiv1 = xiv1;
+        if (this->theme_layout_customized) return;
+        this->placement = xiv1 ? below : inline_right;
+        this->arrow = !xiv1;
+        this->offset_x = xiv1 ? xiv1_offset_x : 0;
+        this->offset_y = xiv1 ? xiv1_offset_y : 0;
     }
 
     auto target_of_target_settings::Save(const settings_store& store, const char* section, const char* stylePrefix) const -> void
     {
         store.WriteInt(section, "layout_version", 1);
         store.WriteInt(section, "text_scale_version", 1);
+        if (std::string_view{section} == "target.target_of_target")
+        {
+            store.WriteInt(section, "theme_layout_version", 2);
+            store.WriteInt(section, "shared_target_text_version", 1);
+            store.WriteBool(section, "theme_layout_customized", this->theme_layout_customized ||
+                this->placement != (this->theme_layout_xiv1 ? below : inline_right) || this->arrow == this->theme_layout_xiv1 ||
+                this->offset_x != (this->theme_layout_xiv1 ? xiv1_offset_x : 0) ||
+                this->offset_y != (this->theme_layout_xiv1 ? xiv1_offset_y : 0));
+        }
         store.WriteBool(section, "mob_level", this->mob_level);
         for (const auto& [key, value] : {std::pair{"enabled", this->enabled}, {"health", this->health}, {"distance", this->distance},
             {"percent", this->percent}, {"label", this->label}, {"cast", this->cast}, {"statuses", this->statuses}, {"attack", this->attack},

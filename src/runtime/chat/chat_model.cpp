@@ -1,5 +1,6 @@
 #include "chat_model.hpp"
 #include "chat_encoding.hpp"
+#include "chat_emphasis.hpp"
 
 namespace
 {
@@ -132,6 +133,7 @@ namespace xiui
         if (expanded.empty()) return;
         auto spans = ParseChatText(expanded);
         RemoveAddonTimestamps(spans);
+        EmphasizeChatText(spans, event.mode);
         if (spans.empty()) return;
         if (event.indent) spans.insert(spans.begin(), chat_span{"  ", -1});
         this->lines_.push_back({event.sequence, event.timestamp, event.mode, event.color, event.windows, std::move(spans), prompt});

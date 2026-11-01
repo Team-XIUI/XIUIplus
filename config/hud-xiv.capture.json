@@ -3,11 +3,12 @@
   "source": "Previous captured XIV setup, separated from the reset baseline",
   "settings_path": "C:\\Users\\Cody\\Desktop\\workspaces\\ffxi\\plugins\\xiui-plugin\\out\\defaults-capture-20261020-194230-230\\defaults-before.ini",
   "snapshot_sha256": "D7505F98C7289B1AC269B7B452B1C646A09972F3C73D609897C042220D8C3935",
-  "amended_at": "2026-10-26T18:13:58.102443-07:00",
-  "amendment": "Action Bars: Replace native macros defaults off; other captured preferences retained.",
+  "amended_at": "2026-11-01T09:54:04.225495-08:00",
+  "amendment": "Action Bars: Replace native macros defaults off; other captured preferences retained. Player HP/MP default to current numbers; mob header icons use 2px spacing and the new right-hand anchor offsets. Other captured preferences retained. Target name uses a 6px HP-edge anchor with zero default X offset; other text settings retained. Target of Target explicitly uses theme defaults: below without arrow in XIV 1.0, inline with arrow in XI. Target of Target follows the main Target text profiles by default, retaining independent styles for opt-out. Player attack/recovery mini bars default to zero gap above TP/HP.",
   "authored_at": "2026-10-31T20:40:40.970791+00:00",
   "authored_amendment": "Named preset explicitly selects XI Theme (appearance.theme=0); all captured settings otherwise retained.",
   "authored_sha256": "06D8A29DE221A27AD9370821502BB066812BF8032A58C273F4D7EFE57C76760D",
   "compatibility_amended_at": "2026-10-31T20:46:01.799296+00:00",
-  "compatibility_amendment": "Make legacy direct-load semantics explicit when applying over newer settings: chat.native_windows_initialized=1 preserves the authored chat window count; minimap.zoom=4 and zoom_defaults_version=1 record the existing 3-to-4 default zoom migration."
+  "compatibility_amendment": "Make legacy direct-load semantics explicit when applying over newer settings: chat.native_windows_initialized=1 preserves the authored chat window count; minimap.zoom=4 and zoom_defaults_version=1 record the existing 3-to-4 default zoom migration.",
+  "defaults_sha256": "1C1C034A782854F77ABDD0C506E273648ED3498929021C43C1291ABA159134E7"
 }

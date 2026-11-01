@@ -2,6 +2,7 @@
 
 #include "Ashita.h"
 #include "Memory.h"
+#include "native_pattern.hpp"
 
 #include <cstdio>
 #include <cstring>
@@ -41,9 +42,9 @@ namespace xiui::ui
         {
             char pattern[256]{};
             std::snprintf(pattern, sizeof(pattern), "51A1????????5685C075??A1????????68%s8D4C24086A3D8B8008000400518B008BC8E8????????8B0085C0A3????????74??8B3085F674??D905????????D80D????????E8????????506A408BCEE8????????5E59C3", tags[index]);
-            const auto match = Ashita::Memory::FindPattern(base, size, pattern, 0, 0);
+            const auto match = FindUniquePattern(base, size, pattern);
             uintptr_t cache{}, resources{};
-            if (match == 0 || Ashita::Memory::FindPattern(base, size, pattern, 0, 1) != 0 ||
+            if (match == 0 ||
                 !Read(match + 2, cache) || !Read(match + 12, resources) ||
                 cache < base || cache - base > size - sizeof(uintptr_t) ||
                 resources < base || resources - base > size - sizeof(uintptr_t)) continue;

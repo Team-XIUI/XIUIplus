@@ -103,6 +103,7 @@ namespace xiui::ui
         glow_effect glow{};
         sheen_effect sheen{};
         bool theme_text{true};
+        font_weight weight{};
     };
 
     struct color_tokens

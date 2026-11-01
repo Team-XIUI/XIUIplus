@@ -1132,22 +1132,61 @@ namespace xiui::ui
 
     auto design_system::DrawRing(const rect& bounds, const D3DCOLOR color, const float thickness) const -> void
     {
-        if (!this->frame_active_ || this->device_ == nullptr || bounds.width <= 0 || bounds.height <= 0) return;
-        this->ConfigureShapePipeline(); this->TrackContentBounds(bounds);
-        std::array<shape_vertex, 96 * 6> vertices{};
+        if (!this->frame_active_ || this->device_ == nullptr || bounds.width <= 0 || bounds.height <= 0 ||
+            !std::isfinite(bounds.width) || !std::isfinite(bounds.height) || !std::isfinite(thickness) || thickness <= 0) return;
+        static const auto directions = [] {
+            std::array<point, 97> result{};
+            for (size_t i = 0; i < 96; ++i)
+            {
+                const float angle = i * 6.283185307f / 96;
+                result[i] = {std::cos(angle), std::sin(angle)};
+            }
+            result.back() = result.front();
+            return result;
+        }();
+        const float scaleX = this->transform_.x, scaleY = this->transform_.y;
+        if (scaleX <= 0 || scaleY <= 0) return;
+        this->ConfigureShapePipeline();
+        this->TrackContentBounds({bounds.x - .5f / scaleX, bounds.y - .5f / scaleY,
+            bounds.width + 1 / scaleX, bounds.height + 1 / scaleY});
+        std::array<shape_vertex, 96 * 18> vertices;
+        size_t count{};
         const float rx = bounds.width / 2, ry = bounds.height / 2, inset = std::clamp(thickness, 0.0f, std::min(rx, ry));
-        const auto vertex = [&](const float a, const bool inner) -> shape_vertex {
-            return {bounds.x + rx + std::cos(a) * (rx - (inner ? inset : 0)) - 0.5f,
-                bounds.y + ry + std::sin(a) * (ry - (inner ? inset : 0)) - 0.5f, 0, 1, color};
+        const float innerX = rx - inset, innerY = ry - inset;
+        const bool hole = innerX > 0 && innerY > 0;
+        const point center{bounds.x + rx - .5f, bounds.y + ry - .5f};
+        const auto edges = [&](const point direction) -> std::array<shape_vertex, 4> {
+            const point outer{center.x + direction.x * rx, center.y + direction.y * ry};
+            const point inner{center.x + direction.x * innerX, center.y + direction.y * innerY};
+            const float nx = direction.x / ((rx + innerX) * .5f * scaleX);
+            const float ny = direction.y / ((ry + innerY) * .5f * scaleY);
+            const float length = std::hypot(nx, ny);
+            // Center a one-screen-pixel coverage ramp on each silhouette edge.
+            const point feather{nx * .5f / (length * scaleX), ny * .5f / (length * scaleY)};
+            const auto inward = [&](const point from) -> point {
+                const float radius = ((from.x - center.x) * scaleX * nx + (from.y - center.y) * scaleY * ny) / length;
+                const float amount = std::min(1.0f, radius * 2);
+                return {from.x - feather.x * amount, from.y - feather.y * amount};
+            };
+            const float width = inset * (direction.x * scaleX * nx + direction.y * scaleY * ny) / length;
+            const auto solid = WithAlpha(color, hole ? std::min(1.0f, width) : 1.0f);
+            const auto vertex = [](const point at, const D3DCOLOR tint) -> shape_vertex { return {at.x, at.y, 0, 1, tint}; };
+            auto outerCore = inward(outer);
+            point innerCore{inner.x + feather.x, inner.y + feather.y};
+            if (hole && width < 1) std::swap(outerCore, innerCore);
+            return {vertex({outer.x + feather.x, outer.y + feather.y}, color & 0xFFFFFF), vertex(outerCore, solid),
+                vertex(hole ? innerCore : inner, solid), vertex(inward(inner), color & 0xFFFFFF)};
         };
-        for (int i = 0; i < 96; ++i)
+        auto first = edges(directions.front());
+        for (size_t i = 0; i < 96; ++i)
         {
-            const float a = i * 6.283185307f / 96, b = (i + 1) * 6.283185307f / 96;
-            const std::array<shape_vertex, 4> quad{vertex(a, false), vertex(b, false), vertex(a, true), vertex(b, true)};
-            size_t offset = i * 6;
-            for (const int index : {0, 1, 2, 1, 3, 2}) vertices[offset++] = quad[index];
+            const auto second = edges(directions[i + 1]);
+            for (size_t band = 0; band < (hole ? 3u : 2u); ++band)
+                for (const auto& vertex : {first[band], second[band], first[band + 1], second[band], second[band + 1], first[band + 1]})
+                    vertices[count++] = vertex;
+            first = second;
         }
-        this->Submit(D3DPT_TRIANGLELIST, 96 * 2, vertices.data(), sizeof(shape_vertex));
+        this->Submit(D3DPT_TRIANGLELIST, static_cast<UINT>(count / 3), vertices.data(), sizeof(shape_vertex));
     }
 
     auto design_system::GradientRect(const rect& bounds, const D3DCOLOR leftColor, const D3DCOLOR rightColor) const -> void
@@ -1674,7 +1713,7 @@ namespace xiui::ui
         if (this->device_ == nullptr || text == nullptr || maxWidth <= 0.0f) return;
         const int pixels = ScaledTextPixelSize(style.scale, this->transform_.y);
         const float rasterScale = 1 / this->transform_.y;
-        const auto font = this->glyphs_.Metrics(style.font, pixels);
+        const auto font = this->glyphs_.Metrics(style.font, pixels, style.weight);
         const float tracking = style.letter_spacing * TextPixelScale(style.scale);
         IDirect3DTexture8* texture{};
         std::vector<text_vertex> vertices;
@@ -1693,12 +1732,12 @@ namespace xiui::ui
         {
             auto codepoint = xiui::NextUtf8(content, position);
             if (codepoint < 32) codepoint = '?';
-            const auto metrics = TextGlyphMetrics(codepoint, this->glyphs_.Advance(style.font, pixels, codepoint) * rasterScale,
+            const auto metrics = TextGlyphMetrics(codepoint, this->glyphs_.Advance(style.font, pixels, codepoint, style.weight) * rasterScale,
                 font.digit_advance * rasterScale, style.tabular_numbers);
             if (advance + metrics.advance > maxWidth + 0.001) break;
             if (codepoint != ' ')
             {
-                const auto glyph = this->glyphs_.Get(this->device_, style.font, pixels, codepoint, flush);
+                const auto glyph = this->glyphs_.Get(this->device_, style.font, pixels, codepoint, flush, style.weight);
                 auto* nextTexture = glyph.textures[static_cast<size_t>(mask)];
                 if (texture != nextTexture) { flush(); texture = nextTexture; }
                 if (texture != nullptr)
@@ -1723,7 +1762,7 @@ namespace xiui::ui
     auto design_system::TextHeight(const text_style& source) const -> float
     {
         const auto style = this->ResolveHudText(source);
-        return this->glyphs_.Metrics(style.font, ScaledTextPixelSize(style.scale, this->transform_.y)).height / this->transform_.y;
+        return this->glyphs_.Metrics(style.font, ScaledTextPixelSize(style.scale, this->transform_.y), style.weight).height / this->transform_.y;
     }
 
     auto design_system::Submit(const D3DPRIMITIVETYPE type, const UINT primitives, const void* vertices, const UINT stride) const -> void
@@ -1747,14 +1786,14 @@ namespace xiui::ui
         const auto style = this->ResolveHudText(source);
         if (text == nullptr) return 0;
         const int pixels = ScaledTextPixelSize(style.scale, this->transform_.y);
-        const auto font = this->glyphs_.Metrics(style.font, pixels);
+        const auto font = this->glyphs_.Metrics(style.font, pixels, style.weight);
         double width{};
         const std::string_view content{text};
         for (size_t position = 0; position < content.size();)
         {
             auto codepoint = xiui::NextUtf8(content, position);
             if (codepoint < 32) codepoint = '?';
-            width += TextGlyphMetrics(codepoint, this->glyphs_.Advance(style.font, pixels, codepoint), font.digit_advance, style.tabular_numbers).advance / this->transform_.y;
+            width += TextGlyphMetrics(codepoint, this->glyphs_.Advance(style.font, pixels, codepoint, style.weight), font.digit_advance, style.tabular_numbers).advance / this->transform_.y;
             if (position < content.size()) width += style.letter_spacing * TextPixelScale(style.scale);
         }
         return static_cast<float>(width);

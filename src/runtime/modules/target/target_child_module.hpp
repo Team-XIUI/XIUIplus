@@ -22,6 +22,7 @@ namespace xiui
         auto Save(const settings_store& store) const -> void override;
         auto ContentOptionCount(void) const -> size_t override;
         auto ContentOption(size_t index) -> module_option override { return this->parent_.ChildOption(this->subtarget_, index); }
+        auto OnContentOptionChanged(size_t index) -> void override { if (!this->subtarget_) this->parent_.Settings().recipient.OnOptionChanged(index); }
         auto ConfigSections(void) const -> std::span<const module_config_section> override;
         auto ContentConfigSectionContains(size_t section, size_t index) -> bool override { return this->parent_.ChildContains(this->subtarget_, section, index); }
         auto ShouldRender(const hud_snapshot&) const -> bool override { return this->HasEditableBounds() && this->parent_.ChildVisible(this->subtarget_, false); }

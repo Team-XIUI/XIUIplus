@@ -38,7 +38,7 @@ namespace xiui
         { this->groups_[0] = static_cast<const notification_module&>(defaults).groups_[0]; }
         auto Load(const settings_store& store) -> void override;
         auto Save(const settings_store& store) const -> void override;
-        auto ContentOptionCount(void) const -> size_t override { return 48; }
+        auto ContentOptionCount(void) const -> size_t override { return 49; }
         auto ContentOption(size_t index) -> module_option override;
         auto OnContentOptionChanged(size_t index) -> void override;
         auto OnPositionChanged(void) -> void override { this->groups_[0].screen_anchor = false; }
@@ -50,6 +50,7 @@ namespace xiui
         auto Group(size_t index) const -> const notification_group& { return this->groups_[std::min(index, maximum_groups - 1)]; }
         auto ConfigScaleState(void) -> module_state& override { return this->Group(this->SelectedGroup()).state; }
         auto GroupCount(void) const -> size_t { return static_cast<size_t>(this->group_count_ + 2); }
+        auto GroupEnabled(size_t group) const -> bool { return group < this->GroupCount() && this->groups_[group].state.enabled; }
         auto SelectedGroup(void) const -> size_t { return static_cast<size_t>(std::clamp(this->selected_group_, 0, static_cast<int>(this->GroupCount()) - 1)); }
         auto SelectGroup(size_t group) -> void { this->selected_group_ = static_cast<int>(std::min(group, this->GroupCount() - 1)); }
         auto GroupFor(notification_kind kind) const -> int;
@@ -79,7 +80,7 @@ namespace xiui
         auto DisplayName(void) const -> const char* override { return notification_module::group_names[this->group_]; }
         auto State(void) -> module_state& override { return this->owner_.Group(this->group_).state; }
         auto State(void) const -> const module_state& override { return this->owner_.Group(this->group_).state; }
-        auto HasEditableBounds(void) const -> bool override { return this->group_ < this->owner_.GroupCount(); }
+        auto HasEditableBounds(void) const -> bool override { return this->owner_.GroupEnabled(this->group_); }
         auto PreviewVisible(void) const -> bool override { return this->HasEditableBounds() && this->owner_.State().enabled; }
         auto ResetDefaults(const ui::theme&) -> void override {}
         auto ResetSettingsFrom(const hud_module& defaults, const ui::theme&) -> void override

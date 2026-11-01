@@ -13,8 +13,8 @@ namespace xiui::ui
         int attack_layout{2}, mini_text{};
         int recovery_layout{2}, recovery_mini_text{};
         float goal{100}, height{6}, offset_x{}, offset_y{}, spacing{4}, ready_seconds{0.5f};
-        float mini_height{3}, mini_gap{2};
-        float recovery_mini_height{3}, recovery_mini_gap{2};
+        float mini_height{3}, mini_gap{};
+        float recovery_mini_height{3}, recovery_mini_gap{};
         D3DCOLOR attack_color{0xFF78C4EE}, rest_color{0xFFBFE07D}, ready_color{0xFFFFCA78};
         module_text_profile attack_text{theme::CreateDefault().caption_text}, rest_text{theme::CreateDefault().caption_text};
         auto Load(const settings_store& store) -> void;

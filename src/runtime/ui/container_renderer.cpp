@@ -182,7 +182,11 @@ namespace xiui::ui
     auto container_renderer::DrawXiv1TargetHeader(const design_system& design, const rect& bounds, const float opacity) const -> void
     {
         const auto alpha = static_cast<uint32_t>(255 * std::clamp(opacity, 0.0f, 1.0f));
-        design.DrawTexture(this->xiv1_atlas_, bounds, (alpha << 24) | 0xFFFFFF, {0, 144.0f / 256, 185.0f / 256, 16.0f / 256});
+        const auto color = (alpha << 24) | 0xFFFFFF;
+        const float curveWidth = bounds.height * 45.0f / 7;
+        const rect curve{bounds.x - curveWidth, bounds.y, curveWidth, bounds.height};
+        design.DrawTexture(this->xiv1_atlas_, curve, color, {0, 155.0f / 256, 45.0f / 256, -7.0f / 256});
+        design.DrawTexture(this->xiv1_atlas_, bounds, color, {45.0f / 256, 155.0f / 256, 140.0f / 256, -7.0f / 256});
     }
 
     auto container_renderer::DrawXiv1ActionMedallion(const design_system& design, const rect& bounds, const float opacity) const -> void

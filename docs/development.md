@@ -38,6 +38,8 @@ Publish-XiuiAtomic -Source "$PWD/dist/xiuinative.dll" -Destination 'C:/Games/Pho
 
 Require unload confirmation before replacement and a separate loaded/status response afterward. A queued load alone is not success. Older builds without `save sync` need `/xiui save` and an observed completed file write before unload. Do not copy a default INI/theme over existing user files during ordinary installation.
 
+`/xiui startup` reports measured initialization phases, device resources and the first HUD frame. The plugin total includes runtime creation; the runtime total and its phases are nested measurements. These timings start inside the plugin, after Windows loads the DLL. Settings use a single indexed file snapshot per load (`settings/settings_store.cpp`). Native signature discovery uses `src/shared/native_pattern.hpp`, retaining unique-match checks and all caller-specific address validation.
+
 `build_all.ps1` packages/installs standalone by default; `-SkipInstall` leaves its artifact uninstalled only when explicitly requested. It does not perform the AgentLink unload/reload steps itself.
 
 ## Optional isolated host/runtime development
@@ -68,6 +70,8 @@ For an explicitly selected saved snapshot:
 ```
 
 Use `-OutputPath` and `-ThemeOutputPath` to capture elsewhere. `-SkipBuild` reuses the existing utility. Capture does not package/install: check the changed baseline, then build the standalone DLL normally. Never restore older settings over current user changes as part of cleanup.
+
+The November 1, 2026 live XIV1.0 setup is captured in both reset defaults and the independent XIVClassic preset. Their companion metadata identifies the shared source snapshot. Classic and XIV remain separate XI Theme captures.
 
 ## GitHub releases
 

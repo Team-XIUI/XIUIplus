@@ -3,6 +3,7 @@
 #include "Ashita.h"
 #include "callback_gate.hpp"
 #include "runtime_host.hpp"
+#include "startup_profile.hpp"
 #include <wrl/client.h>
 #include "native_hud_controller.hpp"
 #include "native_chat_source.hpp"
@@ -63,6 +64,7 @@ namespace xiui
         bool mouse_callback_registered_{};
         bool runtime_fault_reported_{};
         runtime_host runtime_{};
+        startup_profile startup_profile_{};
         native_hud_controller native_hud_{};
         native_chat_source native_chat_{};
         controller_input controller_{};

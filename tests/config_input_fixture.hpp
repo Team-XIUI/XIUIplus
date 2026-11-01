@@ -153,6 +153,7 @@ namespace xiui
         static auto GlobalText(void) -> bool;
         static auto Attribution(void) -> bool;
         static auto TargetOfTargetSettings(void) -> bool;
+        static auto TargetOfTargetThemeDefaults(void) -> bool;
         static auto TargetChildren(void) -> bool;
         static auto PartyModuleVisibility(void) -> bool;
         static auto EnabledModules(void) -> bool;

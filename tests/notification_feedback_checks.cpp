@@ -53,6 +53,26 @@ namespace xiui
         if (!check(restored.enabled && restored.delay == .45f && restored.damage_color == 0x80998877 && !restored.warning_colors,
             "health feedback preferences retain timing, alpha and the warning-color switch")) return false;
 
+        notification_module optional;
+        optional.Load(settings_store::FromIniText(""));
+        notification_group_module second{optional, 1};
+        if (!check(!*optional.Option(48).toggle && !second.PreviewVisible() && !second.HasEditableBounds() &&
+            optional.ConfigSectionContains(0, 48) && !optional.Option(28).visible,
+            "Group 2 starts disabled and leaves no preview, movement handle or unused group selector")) return false;
+        *optional.Option(48).toggle = true; optional.OnOptionChanged(48);
+        optional.SelectGroup(1); optional.Group(1).state.bounds.x = 333;
+        *optional.Option(32).choice = 1; *optional.Option(33).choice = 1;
+        if (!check(second.PreviewVisible() && second.HasEditableBounds() && optional.GroupFor(notification_kind::experience) == 1,
+            "the shared Group 2 toggle enables its preview, movement and routing")) return false;
+        *optional.Option(48).toggle = false; optional.OnOptionChanged(48);
+        if (!check(!second.PreviewVisible() && !second.HasEditableBounds() && optional.SelectedGroup() == 0 &&
+            optional.GroupFor(notification_kind::experience) == 0,
+            "disabling Group 2 removes its interaction surface and routes notices to Group 1")) return false;
+        *optional.Option(48).toggle = true; optional.Save(saved);
+        notification_module reenabled; reenabled.Load(saved);
+        if (!check(reenabled.GroupEnabled(1) && reenabled.Group(1).state.bounds.x == 333 &&
+            reenabled.GroupFor(notification_kind::experience) == 1, "Group 2 retains its position, routing and enable choice across reload")) return false;
+
         notification_module legacy;
         legacy.Load(settings_store::FromIniText("[notifications]\nitems=0\nrow_spacing=13\nduration=4.5\n[layout.notifications]\nx=42\ny=65\nwidth=456\nheight=110\n[text.notifications]\nfont=2\nstroke_enabled=1\n"));
         if (!check(legacy.State().bounds.x == 42 && legacy.State().bounds.width == 456 && !*legacy.Option(2).toggle &&

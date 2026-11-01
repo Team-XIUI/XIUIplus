@@ -25,6 +25,7 @@ namespace xiui
     {
         std::string text;
         int color_index{-1};
+        bool emphasis{};
     };
 
     struct chat_line

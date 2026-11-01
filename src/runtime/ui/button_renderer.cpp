@@ -1,5 +1,6 @@
 #include "button_renderer.hpp"
 #include "native_ui_assets.hpp"
+#include "control_chrome.hpp"
 
 namespace xiui::ui
 {
@@ -53,24 +54,24 @@ namespace xiui::ui
         {
             if (bounds.width <= 0 || bounds.height <= 0) return;
             const float radius = std::min(bounds.width, bounds.height) * .5f;
-            const float step = std::min(1.0f, radius / 5);
+            const float step = std::min(.75f, radius / 5);
             const auto layer = [&](const float inset, const D3DCOLOR color, const float yOffset = 0) {
                 this->design_.FillRoundedRect({bounds.x + inset, bounds.y + inset + yOffset,
                     std::max(0.0f, bounds.width - inset * 2), std::max(0.0f, bounds.height - inset * 2)},
                     color, std::max(0.0f, radius - inset));
             };
-            layer(0, 0xA005060D, 1);
-            layer(0, 0xFF645D4D);
-            layer(step, highlighted ? 0xFFE7DFC1 : 0xFFC3BEA5);
-            layer(step * 2, 0xFF45433A);
-            layer(step * 3, highlighted ? 0xFFB6BCA6 : 0xFFAAA284);
+            layer(0, 0x7005060D, 1);
+            layer(0, 0xFF3C4450);
+            layer(step, ControlBorderColor(this->design_, highlighted));
+            layer(step * 2, 0xFF303844);
+            layer(step * 3, highlighted ? 0xFF7F8B9B : 0xFF566272);
             const auto fill = tone == button_tone::danger ? (highlighted ? 0xFF542E45 : 0xFF301C32) :
-                tone == button_tone::positive ? (highlighted ? 0xFF294746 : 0xFF142A31) : highlighted ? 0xFF273F71 : 0xFF10132D;
+                tone == button_tone::positive ? (highlighted ? 0xFF294746 : 0xFF142A31) : highlighted ? 0xFF293A54 : 0xFF10132D;
             layer(step * 4, fill);
             if (highlighted)
             {
                 const auto clip = this->design_.Clip({bounds.x, bounds.y + bounds.height * .5f, bounds.width, bounds.height * .5f});
-                layer(step * 4, tone == button_tone::normal ? 0xFF1B2850 : fill);
+                layer(step * 4, tone == button_tone::normal ? 0xFF1C293F : fill);
             }
             return;
         }

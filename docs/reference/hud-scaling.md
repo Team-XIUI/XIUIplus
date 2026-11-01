@@ -14,7 +14,7 @@ Classic, XIV and XIVClassic use the normal confirmation dialog, with Cancel sele
 
 - **XIV:** Cody's complete XIV setup captured on October 20, 2026 in [hud-xiv.ini](../../config/hud-xiv.ini).
 - **Classic:** The same complete setup with only the Party list changed to the XI/Classic Party preset, captured in [hud-classic.ini](../../config/hud-classic.ini). Both Alliance lists and every other module match XIV.
-- **XIVClassic:** An authored derivative of Classic in [hud-xivclassic.ini](../../config/hud-xivclassic.ini), selecting XIV1.0 Theme, setting Chat's source to All and disabling the second chat window. Every other saved preference, including Party's native label preference, matches Classic. XIV1.0 Theme supplies its own resource-label presentation.
+- **XIVClassic:** Cody's complete XIV1.0 setup captured on November 1, 2026 in [hud-xivclassic.ini](../../config/hud-xivclassic.ini), including the current target/ToT layout, compact Party with XIV job icons, chat styling, shared Enemy List container and rounded Equipment grid. It selects XIV1.0 Theme and the single All chat window. This is an independent capture rather than a derivative of Classic.
 
 Classic and XIV explicitly select XI Theme; XIVClassic selects XIV1.0 Theme. All retain the captured text effects and the game's current native Window Type. The preset buttons do not report a persistent selected state after custom edits. Captured layout viewport metadata lets the normal layout loader fit the saved positions to another game viewport.
 

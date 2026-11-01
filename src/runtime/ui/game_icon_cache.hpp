@@ -35,7 +35,7 @@ namespace xiui::ui
         auto MobDetectionIcon(mob_detection_icon icon) const -> game_icon_view;
         auto PetPortrait(std::string_view name, int kind, bool jobFallback = true) const -> game_icon_view;
         auto SetThemes(int statuses, int jobs) -> void { this->status_theme_ = StatusIconTheme(statuses); this->job_theme_ = JobIconTheme(jobs); }
-        auto JobAtlas(void) const -> IDirect3DTexture8*;
+        auto JobAtlas(int theme = -1) const -> IDirect3DTexture8*;
         auto BlueMagicBanner(void) const -> IDirect3DTexture8* { return this->Atlas(600, 900, 450); }
         auto NotificationAtlas(void) const -> IDirect3DTexture8* { return this->Atlas(203, 256, 64); }
         auto RecastAtlas(void) const -> IDirect3DTexture8*;

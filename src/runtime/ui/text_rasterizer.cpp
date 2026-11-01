@@ -64,12 +64,12 @@ namespace
 
 namespace xiui::ui
 {
-    auto NativeFontMetrics(const int font, const int pixels) -> raster_font_metrics
+    auto NativeFontMetrics(const int font, const int pixels, const font_weight weight) -> raster_font_metrics
     {
-        static std::array<std::optional<raster_font_metrics>, font_count * 91> cache{};
+        static std::array<std::optional<raster_font_metrics>, font_count * 91 * 3> cache{};
         const int family = FontIndex(font), size = std::clamp(pixels, 6, 96);
-        auto& metrics = cache[family * 91 + size - 6];
-        if (!metrics) { text_rasterizer rasterizer; metrics = rasterizer.Metrics(family, size); }
+        auto& metrics = cache[(family * 3 + static_cast<int>(weight)) * 91 + size - 6];
+        if (!metrics) { text_rasterizer rasterizer; metrics = rasterizer.Metrics(family, size, weight); }
         return *metrics;
     }
 
@@ -86,17 +86,18 @@ namespace xiui::ui
         this->grammara_.Clear();
     }
 
-    auto text_rasterizer::Face(const int font, const int pixels) -> face*
+    auto text_rasterizer::Face(const int font, const int pixels, const font_weight weight) -> face*
     {
         const int family = std::clamp(font, 0, font_count), size = std::clamp(pixels, 1, text_max_raster_pixels);
-        const auto key = static_cast<uint32_t>(family * 1024 + size);
+        const auto key = static_cast<uint32_t>((family * 3 + static_cast<int>(weight)) * 1024 + size);
         if (auto found = this->faces_.find(key); found != this->faces_.end()) { found->second.touched = ++this->touched_; return &found->second; }
         if (this->dc_ == nullptr) this->dc_ = ::CreateCompatibleDC(nullptr);
         if (this->dc_ == nullptr || (family == 3 && !this->grammara_.Load())) return nullptr;
         const auto name = family == font_count ? "Yu Gothic UI" : font_faces[family].family;
-        const int weight = family == font_count ? FW_BOLD : font_faces[family].weight;
+        const int faceWeight = weight == font_weight::regular ? FW_NORMAL : weight == font_weight::bold ? FW_BOLD :
+            family == font_count ? FW_BOLD : font_faces[family].weight;
         const bool italic = family < font_count && font_faces[family].italic;
-        auto handle = ::CreateFontA(-size * samples, 0, 0, 0, weight, italic ? TRUE : FALSE, FALSE, FALSE,
+        auto handle = ::CreateFontA(-size * samples, 0, 0, 0, faceWeight, italic ? TRUE : FALSE, FALSE, FALSE,
             family == font_count ? DEFAULT_CHARSET : ANSI_CHARSET, OUT_TT_PRECIS, CLIP_DEFAULT_PRECIS,
             NONANTIALIASED_QUALITY, DEFAULT_PITCH, name);
         if (handle == nullptr) return nullptr;
@@ -136,18 +137,18 @@ namespace xiui::ui
         return true;
     }
 
-    auto text_rasterizer::Metrics(const int font, const int pixels) -> raster_font_metrics
+    auto text_rasterizer::Metrics(const int font, const int pixels, const font_weight weight) -> raster_font_metrics
     {
-        const auto* face = this->Face(font, pixels);
+        const auto* face = this->Face(font, pixels, weight);
         if (face == nullptr && font != 0)
-        { auto fallback = this->Metrics(0, pixels); fallback.available = false; return fallback; }
+        { auto fallback = this->Metrics(0, pixels, weight); fallback.available = false; return fallback; }
         return face != nullptr ? face->metrics : raster_font_metrics{pixels * 1.2f, static_cast<float>(pixels), pixels * 0.6f, false};
     }
 
-    auto text_rasterizer::Advance(const int font, const int pixels, const uint32_t codepoint) -> float
+    auto text_rasterizer::Advance(const int font, const int pixels, const uint32_t codepoint, const font_weight weight) -> float
     {
-        auto* face = this->GlyphFace(font, pixels, codepoint);
-        if (face == nullptr && font != 0) return this->Advance(0, pixels, codepoint);
+        auto* face = this->GlyphFace(font, pixels, codepoint, weight);
+        if (face == nullptr && font != 0) return this->Advance(0, pixels, codepoint, weight);
         if (face == nullptr) return pixels * 0.6f;
         const auto previous = ::SelectObject(this->dc_, face->handle);
         std::array<wchar_t, 2> text{}; const auto length = Text(codepoint, text);
@@ -156,13 +157,13 @@ namespace xiui::ui
         return extent.cx / static_cast<float>(samples);
     }
 
-    auto text_rasterizer::Rasterize(const int font, const int pixels, const uint32_t codepoint) -> std::optional<raster_glyph>
+    auto text_rasterizer::Rasterize(const int font, const int pixels, const uint32_t codepoint, const font_weight weight) -> std::optional<raster_glyph>
     {
-        auto* face = this->GlyphFace(font, pixels, codepoint);
-        if (face == nullptr && font != 0) return this->Rasterize(0, pixels, codepoint);
+        auto* face = this->GlyphFace(font, pixels, codepoint, weight);
+        if (face == nullptr && font != 0) return this->Rasterize(0, pixels, codepoint, weight);
         if (face == nullptr) return std::nullopt;
         raster_glyph result;
-        result.advance = this->Advance(font, pixels, codepoint);
+        result.advance = this->Advance(font, pixels, codepoint, weight);
         result.ascent = face->metrics.ascent;
         result.padding = static_cast<int>(std::ceil(pixels / 15.0f * 5)) + 2;
         result.width = static_cast<int>(std::ceil(result.advance)) + result.padding * 2 + 1;
@@ -189,9 +190,9 @@ namespace xiui::ui
         return result;
     }
 
-    auto text_rasterizer::GlyphFace(const int font, const int pixels, const uint32_t codepoint) -> face*
+    auto text_rasterizer::GlyphFace(const int font, const int pixels, const uint32_t codepoint, const font_weight weight) -> face*
     {
-        auto* selected = this->Face(font, pixels);
+        auto* selected = this->Face(font, pixels, weight);
         if (selected == nullptr || codepoint <= 255) return selected;
         std::array<wchar_t, 2> text{};
         const auto length = Text(codepoint, text);
@@ -200,7 +201,7 @@ namespace xiui::ui
         const auto found = ::GetGlyphIndicesW(this->dc_, text.data(), length, glyphs.data(), GGI_MARK_NONEXISTING_GLYPHS);
         ::SelectObject(this->dc_, previous);
         if (found != GDI_ERROR && std::all_of(glyphs.begin(), glyphs.begin() + length, [](WORD glyph) { return glyph != 0xFFFF; })) return selected;
-        if (auto* fallback = this->Face(font_count, pixels)) return fallback;
+        if (auto* fallback = this->Face(font_count, pixels, weight)) return fallback;
         return selected;
     }
 }

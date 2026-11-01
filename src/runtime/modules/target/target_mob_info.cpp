@@ -29,7 +29,7 @@ namespace xiui
         {
             auto& group = this->groups[i];
             group.state.enabled = i <= 2 || i == 7;
-            if (i <= 2) group.placement = mob_info_group_settings::inline_row;
+            if (i <= 2) { group.placement = mob_info_group_settings::inline_row; group.cell_spacing = 2; }
         }
     }
 
@@ -61,6 +61,9 @@ namespace xiui
         this->spacing = finite("mobinfo", "spacing", 2, 0, 32);
         this->spacing = finite("target.mobinfo", "spacing", this->spacing, 0, 32);
         this->text = LoadTextProfile(store, "text.target.mobinfo", LoadTextProfile(store, "text.mobinfo.details", this->text));
+        const bool legacyHeader = store.ReadInt("target.mobinfo", "header_layout_version", 0) < 1;
+        if (legacyHeader && this->text.offset_x == 15 && this->text.offset_y == -56)
+            this->text.offset_x = this->text.offset_y = 0;
         for (size_t i = 0; i < this->groups.size(); ++i)
         {
             auto& group = this->groups[i]; const auto section = GroupSection(i);
@@ -71,7 +74,9 @@ namespace xiui
             group.positioned = store.ReadBool(section.c_str(), "positioned", group.placement == 2);
             group.width = finite(section.c_str(), "width", 0, 0, 2000);
             group.icon_size = finite(section.c_str(), "icon_size", 0, 0, 64);
-            group.cell_spacing = finite(section.c_str(), "cell_spacing", 12, 0, 64);
+            group.cell_spacing = finite(section.c_str(), "cell_spacing", i <= 2 ? 2 : 12, 0, 64);
+            if (legacyHeader && i <= 2 && group.placement == mob_info_group_settings::inline_row && group.cell_spacing == 12)
+                group.cell_spacing = 2;
             group.row_spacing = finite(section.c_str(), "row_spacing", 2, 0, 32);
             auto fallback = this->text; fallback.offset_x = fallback.offset_y = 0;
             group.text = LoadTextProfile(store, ("text." + section).c_str(), fallback);
@@ -85,6 +90,7 @@ namespace xiui
     auto target_mob_info::Save(const settings_store& store) const -> void
     {
         store.WriteBool("target.mobinfo", "enabled", this->enabled);
+        store.WriteInt("target.mobinfo", "header_layout_version", 1);
         store.WriteFloat("target.mobinfo", "spacing", this->spacing);
         SaveTextProfile(store, "text.target.mobinfo", this->text);
         for (size_t i = 0; i < this->groups.size(); ++i)
@@ -248,7 +254,69 @@ namespace xiui
         return rows;
     }
 
-    auto target_mob_info::Draw(const mob_record* mob, const ui::rect& area, const module_render_context& context, const size_t onlyGroup) -> float
+    auto target_mob_info::DrawHeaderIcons(const mob_record* mob, const ui::rect& area, const module_render_context& context) -> ui::rect
+    {
+        struct header_cell
+        {
+            size_t group{};
+            ui::game_icon_view art{};
+            std::string value{};
+            module_text_profile text{};
+            float x{}, width{}, height{}, icon_size{}, icon_width{}, gap{};
+        };
+        std::vector<header_cell> cells;
+        float width{}, height{};
+        for (size_t i = 0; i <= 2; ++i)
+            if (this->groups[i].placement == mob_info_group_settings::inline_row) this->groups[i].attached_bounds = {};
+        for (const auto& row : this->Rows(mob))
+        {
+            const auto index = static_cast<size_t>(row.group);
+            const auto& group = this->groups[index];
+            if (index > 2 || group.placement != mob_info_group_settings::inline_row) continue;
+            auto text = group.text;
+            if (group.follow_text) text.style = this->text.style;
+            text.offset_x += this->text.offset_x; text.offset_y += this->text.offset_y;
+            text.placement = 0; text.style.alignment = ui::text_alignment::left;
+            const float iconSize = group.icon_size > 0 ? group.icon_size : std::clamp(context.Design().TextHeight(text.style), 16.0f, 32.0f);
+            const float cellHeight = std::max(iconSize, context.Design().TextHeight(text.style));
+            for (const auto& cell : row.values)
+            {
+                const auto art = cell.icon == mob_info_icon::detection && context.Icons() != nullptr ?
+                    context.Icons()->MobDetectionIcon(static_cast<ui::mob_detection_icon>(cell.id)) : ui::game_icon_view{};
+                const auto value = art.texture != nullptr ? cell.value : cell.label + (cell.value.empty() ? "" : " " + cell.value);
+                const float iconWidth = art.texture != nullptr ? iconSize + (value.empty() ? 0 : 4) : 0;
+                const float cellWidth = iconWidth + context.Design().MeasureText(value.c_str(), text.style);
+                if (!cells.empty()) width += cells.back().gap;
+                cells.push_back({index, art, value, text, width, cellWidth, cellHeight, iconSize, iconWidth, group.cell_spacing});
+                width += cellWidth; height = std::max(height, cellHeight);
+            }
+        }
+        if (cells.empty()) return {};
+        const ui::rect strip{area.x + area.width - width, area.y - height, width, height};
+        for (const auto& cell : cells)
+        {
+            const float left = strip.x + cell.x + cell.text.offset_x;
+            const float top = strip.y + (height - cell.height) * .5f + cell.text.offset_y;
+            if (cell.art.texture != nullptr)
+                context.Design().DrawTexture(cell.art.texture, {left, top + (cell.height - cell.icon_size) * .5f, cell.icon_size, cell.icon_size}, 0xFFFFFFFF, cell.art.uv);
+            auto text = cell.text; text.offset_x = text.offset_y = 0;
+            const ui::rect at{left + cell.icon_width, top, cell.width - cell.icon_width, cell.height};
+            if (!cell.value.empty()) context.DrawText(cell.value.c_str(), at, at, text);
+            auto& attached = this->groups[cell.group].attached_bounds;
+            const ui::rect bounds{left, top, cell.width, cell.height};
+            if (attached.width == 0) attached = bounds;
+            else
+            {
+                const float right = std::max(attached.x + attached.width, bounds.x + bounds.width);
+                const float bottom = std::max(attached.y + attached.height, bounds.y + bounds.height);
+                attached.x = std::min(attached.x, bounds.x); attached.y = std::min(attached.y, bounds.y);
+                attached.width = right - attached.x; attached.height = bottom - attached.y;
+            }
+        }
+        return strip;
+    }
+
+    auto target_mob_info::Draw(const mob_record* mob, const ui::rect& area, const module_render_context& context, const size_t onlyGroup, const bool headerIcons) -> float
     {
         float x{}, y{}, lineHeight{}, lineSpacing{this->spacing};
         const bool detached = onlyGroup < this->groups.size();
@@ -261,6 +329,7 @@ namespace xiui
             const auto index = static_cast<size_t>(row.group);
             auto& group = this->groups[index];
             if (detached ? index != onlyGroup : group.placement == mob_info_group_settings::independent) continue;
+            if (!detached && headerIcons && index <= 2 && group.placement == mob_info_group_settings::inline_row) continue;
             if (x > 0 && group.placement != mob_info_group_settings::inline_row) nextLine();
             const float available = std::max(1.0f, detached || group.width == 0 ? area.width : std::min(area.width, group.width));
             auto text = group.text;

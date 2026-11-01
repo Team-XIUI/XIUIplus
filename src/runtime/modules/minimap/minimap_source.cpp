@@ -1,6 +1,7 @@
 #include "minimap_source.hpp"
 
 #include "Memory.h"
+#include "native_pattern.hpp"
 #include "entities/entity_name_colors.hpp"
 
 #include <algorithm>
@@ -58,8 +59,7 @@ namespace xiui
         const auto size = nt.OptionalHeader.SizeOfImage;
         const auto inside = [base, size](const uintptr_t address, const size_t length) { return address >= base && length <= size && address - base <= size - length; };
         const auto find = [base, size](const char* pattern) {
-            const auto result = Ashita::Memory::FindPattern(base, size, pattern, 0, 0);
-            return result != 0 && Ashita::Memory::FindPattern(base, size, pattern, 0, 1) == 0 ? result : 0;
+            return FindUniquePattern(base, size, pattern);
         };
         const auto maps = find("8A0D????????5333C05684C95774??8A5424188B7424148B7C2410B9");
         uintptr_t table{};

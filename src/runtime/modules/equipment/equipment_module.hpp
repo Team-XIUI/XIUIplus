@@ -44,7 +44,7 @@ namespace xiui
         std::array<module_text_profile, 4> text_{};
         auto HeadingHeight(void) const -> float;
         auto LabelHeight(void) const -> float;
-        auto CellSize(void) const -> float { return this->icon_size_ + this->inset_ * 2 + 10; }
+        auto CellSize(void) const -> float { return this->icon_size_ + this->inset_ * 2 + 2; }
         auto OuterInset(void) const -> float { return this->background_ ? this->container_.edge_size + this->container_.padding : 0; }
         auto Columns(void) const -> size_t { constexpr size_t columns[]{4, 8, 2}; return columns[this->layout_]; }
     };

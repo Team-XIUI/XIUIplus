@@ -45,6 +45,7 @@ namespace xiui::ui
         auto BackgroundColor(void) const -> D3DCOLOR { return this->appearance_theme_ == 1 ? 0xFF0B102B : this->windows_[this->selected_].average; }
         auto MeterBackground(void) const -> meter_texture;
         auto AppearanceMeterSkin(void) const -> std::optional<meter_skin> { return this->appearance_theme_ == 1 ? this->xiv1_meter_ : std::nullopt; }
+        // Bounds start at the straight rail; the curved cap extends to the left.
         auto DrawXiv1TargetHeader(const design_system& design, const rect& bounds, float opacity = 1) const -> void;
         auto DrawXiv1ActionMedallion(const design_system& design, const rect& bounds, float opacity = 1) const -> void;
         auto DrawXiv1TitleSeparator(const design_system& design, const rect& bounds, float opacity = 1) const -> void;

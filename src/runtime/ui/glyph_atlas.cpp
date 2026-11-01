@@ -20,9 +20,9 @@ namespace xiui::ui
         this->touched_ = 0;
     }
 
-    auto glyph_atlas::Entry(const int font, const int pixels, const uint32_t codepoint) -> entry&
+    auto glyph_atlas::Entry(const int font, const int pixels, const uint32_t codepoint, const font_weight weight) -> entry&
     {
-        const uint64_t key = (static_cast<uint64_t>(FontIndex(font)) << 48) | (static_cast<uint64_t>(pixels) << 32) | codepoint;
+        const uint64_t key = (static_cast<uint64_t>(weight) << 56) | (static_cast<uint64_t>(FontIndex(font)) << 48) | (static_cast<uint64_t>(pixels) << 32) | codepoint;
         if (auto found = this->glyphs_.find(key); found != this->glyphs_.end())
         { found->second.touched = ++this->touched_; return found->second; }
         if (this->glyphs_.size() >= glyph_limit)
@@ -31,13 +31,13 @@ namespace xiui::ui
             this->glyphs_.erase(oldest);
         }
         entry value{};
-        value.advance = this->rasterizer_.Advance(FontIndex(font), pixels, codepoint);
+        value.advance = this->rasterizer_.Advance(FontIndex(font), pixels, codepoint, weight);
         value.touched = ++this->touched_;
         return this->glyphs_.emplace(key, value).first->second;
     }
 
-    auto glyph_atlas::Advance(const int font, const int pixels, const uint32_t codepoint) -> float
-    { return this->Entry(font, pixels, codepoint).advance; }
+    auto glyph_atlas::Advance(const int font, const int pixels, const uint32_t codepoint, const font_weight weight) -> float
+    { return this->Entry(font, pixels, codepoint, weight).advance; }
 
     auto glyph_atlas::NewPage(IDirect3DDevice8* device, const int size) -> std::optional<size_t>
     {
@@ -76,16 +76,16 @@ namespace xiui::ui
         return index;
     }
 
-    auto glyph_atlas::Get(IDirect3DDevice8* device, const int font, const int pixels, const uint32_t codepoint, const std::function<void()>& beforeUpload) -> atlas_glyph
+    auto glyph_atlas::Get(IDirect3DDevice8* device, const int font, const int pixels, const uint32_t codepoint, const std::function<void()>& beforeUpload, const font_weight weight) -> atlas_glyph
     {
-        auto& entry = this->Entry(font, pixels, codepoint);
+        auto& entry = this->Entry(font, pixels, codepoint, weight);
         if (entry.generation != 0 && entry.generation == this->pages_[entry.page_index].generation)
         {
             this->pages_[entry.page_index].touched = ++this->touched_;
             return entry.glyph;
         }
         if (device == nullptr) return {};
-        const auto raster = this->rasterizer_.Rasterize(FontIndex(font), pixels, codepoint);
+        const auto raster = this->rasterizer_.Rasterize(FontIndex(font), pixels, codepoint, weight);
         if (!raster || raster->width + 1 > 2048 || raster->height + 1 > 2048) return {};
 
         // Finish batches before writing or reusing a texture they may reference.

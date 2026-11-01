@@ -1,6 +1,7 @@
 #include "native_hud_controller.hpp"
 
 #include "Memory.h"
+#include "native_pattern.hpp"
 #include <MinHook.h>
 
 #include <bit>
@@ -99,8 +100,7 @@ namespace xiui
 
     auto native_hud_controller::Find(const char* pattern) const -> uintptr_t
     {
-        const auto first = Ashita::Memory::FindPattern(this->module_, this->module_size_, pattern, 0, 0);
-        return first != 0 && Ashita::Memory::FindPattern(this->module_, this->module_size_, pattern, 0, 1) == 0 ? first : 0;
+        return FindUniquePattern(this->module_, this->module_size_, pattern);
     }
 
     auto native_hud_controller::FindMenu(const char* name) const -> uintptr_t
@@ -150,8 +150,8 @@ namespace xiui
         if (entry != 0 && this->InModule(entry, 0x1000))
         {
             constexpr char ending[] = "8A859B00000084C0740F8A44241284C074078BCDE8????????5F5E5D5B83C424C3";
-            const auto exit = Ashita::Memory::FindPattern(entry, 0x1000, ending, 0, 0);
-            if (exit > entry + 20 && Ashita::Memory::FindPattern(entry, 0x1000, ending, 0, 1) == 0)
+            const auto exit = FindUniquePattern(entry, 0x1000, ending);
+            if (exit > entry + 20)
             {
                 this->hook_site_ = entry + 14;
                 this->hook_exit_ = exit + 25;

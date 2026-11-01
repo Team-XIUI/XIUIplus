@@ -46,12 +46,14 @@ namespace xiui
 
         std::string path_{};
         bool cache_sections_{};
+        mutable bool cache_file_loaded_{};
         bool atomic_file_{};
         mutable std::map<std::string, std::map<std::string, std::string, key_less>, key_less> reads_{};
         mutable std::map<std::string, std::map<std::string, std::string, key_less>, key_less> writes_{};
 
         auto PendingValue(const char* section, const char* key) const -> const std::string*;
         auto CachedValue(const char* section, const char* key) const -> const std::string*;
+        auto CacheFile(void) -> bool;
         auto ReadText(const char* section, const char* key, const char* fallback, char* value, DWORD size) const -> void;
         auto WriteText(const char* section, const char* key, const char* value) const -> void;
     };

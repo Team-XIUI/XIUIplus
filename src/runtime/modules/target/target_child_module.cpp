@@ -78,6 +78,7 @@ namespace xiui
             options.label = this->settings_.show_label;
             options.cast = options.statuses = options.attack = options.prefix = true;
             options.follow_meter = options.follow_fill = false;
+            options.follow_text = false;
             options.arrow = false; options.placement = target_of_target_settings::below; options.gap = 6;
             this->subtarget_placement_ = 0;
             this->subtarget_statuses_ = this->settings_.statuses;

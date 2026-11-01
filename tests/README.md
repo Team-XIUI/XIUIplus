@@ -30,6 +30,7 @@ The wrapper builds only the selected target, then runs its catalogued arguments.
 - Minimap: `minimap`, including named IDs, pinned edge toggles and burnt contour geometry.
 - Fishing: `fishing` (module, Extras, controller settings and persistence), `native-fishing` (validated stamina reads with party suppression active).
 - Other feature boundaries: `all-ui-visibility`, `target-rings`, `notification-feedback`, `heal-prediction`, `experience-model`. See `-List` and the dispatcher for the rest.
+- Target of Target theme defaults: `target-recipient-theme` (XIV 1.0 stacking, XI inline layout, explicit configuration choices and persistence).
 - World ring cameras: `target-ring-camera` exercises the host on an isolated Direct3D device with fixed-function and terrain-shader cameras, scene-end/copy boundaries, early-label rejection, frame lifetime and opt-in shader report saving/grouping/automatic completion.
 
 The dispatcher is [config_input_smoke.cpp](config_input_smoke.cpp). Fixture declarations live in [config_input_fixture.hpp](config_input_fixture.hpp), helpers in [config_check_support.cpp](config_check_support.cpp), and feature methods in `config_control_checks.cpp`, `config_navigation_checks.cpp`, `config_module_checks.cpp`, `config_profile_checks.cpp`, `config_render_checks.cpp` and `config_text_checks.cpp`. Existing specialized `*_checks.cpp` files remain separate. Keep new implementations with their feature rather than expanding the dispatcher.
@@ -37,6 +38,8 @@ The dispatcher is [config_input_smoke.cpp](config_input_smoke.cpp). Fixture decl
 ## Fixtures and dedicated targets
 
 Some flags accept optional installed DATs or captured fixtures. Without them they test deterministic local behavior, not native artwork or live data. Read the dispatcher branch and helper signature before supplying paths. `party-presets` accepts optional default/theme paths; `settings-presentation` requires an output Markdown path and is invoked by `scripts/update-docs.ps1`.
+
+Startup discovery: `xiui_native_pattern_smoke` compares unique matches with the SDK, checks guarded memory boundaries and reports a module-sized search comparison. `settings` covers snapshot parsing against Windows INI behavior and reports loading 2,700 sections versus repeated Windows section reads.
 
 Dedicated targets outside the catalog remain in [cmake/tests.cmake](../cmake/tests.cmake). Examples include `xiui_chat_smoke`, `xiui_actionbars_ui_smoke`, `xiui_crossbar_input_smoke`, `xiui_satchel_ui_smoke`, `xiui_satchel_actions_smoke` and `xiui_satchel_data_smoke`. Inspect each executable's `main` for arguments before running it. To build a selected target:
 

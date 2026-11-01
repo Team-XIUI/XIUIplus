@@ -6,6 +6,8 @@ Provides static monster metadata to Target’s configurable information groups. 
 
 **Keep intact:** Keep generated data/provenance separate from native observations. Do not present catalog estimates as current server state. Target owns group placement and visibility; unavailable groups should not occupy layout.
 
+XIV 1.0 attaches Together-mode Behavior, Links and Detection cells above the right-hand Target caption through `DrawHeaderIcons`. It measures the visible cells before right alignment and defaults to two-pixel spacing. Own-row and independent groups keep the regular renderer and placement.
+
 **Focused check:** `./scripts/check.ps1 -Name mob-info`.
 
 [Shared foundations](../foundations.md) · [Check commands](../../tests/README.md)

@@ -2,6 +2,7 @@
 
 #include "Ashita.h"
 #include "Memory.h"
+#include "native_pattern.hpp"
 
 #include <cstring>
 
@@ -29,9 +30,9 @@ namespace xiui
         this->module_ = module; this->size_ = size;
         if (module == 0 || size == 0) return;
         const auto table = [this](const char* pattern, const size_t offset) {
-            const auto match = Ashita::Memory::FindPattern(this->module_, this->size_, pattern, 0, 0);
+            const auto match = FindUniquePattern(this->module_, this->size_, pattern);
             uintptr_t address{};
-            return match != 0 && Ashita::Memory::FindPattern(this->module_, this->size_, pattern, 0, 1) == 0 &&
+            return match != 0 &&
                 this->Contains(match + offset, sizeof(address)) && ::Read(match + offset, address) && this->Contains(address, 4) ? address : 0;
         };
         this->modes_ = table("A1????????33C96685C07418668B542404663BC27411668B048D????????416685C075ED33C0C3", 1);

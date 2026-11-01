@@ -1,6 +1,7 @@
 #include "config/module_visibility.hpp"
 #include "hud_runtime.hpp"
 #include "Memory.h"
+#include "native_pattern.hpp"
 
 #include <algorithm>
 #include <array>
@@ -187,9 +188,9 @@ namespace xiui
         const auto size = Ashita::Memory::GetModuleSize("FFXiMain.dll");
         if (base == 0 || size == 0) return;
         const auto operand = [&](const char* pattern, const uintptr_t offset) {
-            const auto match = Ashita::Memory::FindPattern(base, size, pattern, 0, 0);
+            const auto match = FindUniquePattern(base, size, pattern);
             uintptr_t address{};
-            if (match == 0 || Ashita::Memory::FindPattern(base, size, pattern, 0, 1) != 0 ||
+            if (match == 0 ||
                 !::Read(match + offset, address) || address < base || size < sizeof(uintptr_t) || address - base > size - sizeof(uintptr_t)) return uintptr_t{};
             return address;
         };

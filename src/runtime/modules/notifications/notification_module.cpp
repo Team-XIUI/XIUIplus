@@ -24,6 +24,7 @@ namespace xiui
 {
     notification_module::notification_module(void)
     {
+        this->groups_[1].state.enabled = false;
         for (size_t i = 1; i < maximum_groups; ++i)
         {
             this->groups_[i].state.bounds.y += static_cast<float>(i * 96);
@@ -48,7 +49,7 @@ namespace xiui
             const float value = store.ReadFloat(section.c_str(), key, fallback);
             return std::isfinite(value) ? std::clamp(value, low, high) : fallback;
         };
-        group.state.enabled = store.ReadBool(section.c_str(), "enabled", true);
+        group.state.enabled = store.ReadBool(section.c_str(), "enabled", index != 1);
         group.state.bounds = store.ReadRect(layout.c_str(), group.state.bounds);
         group.screen_anchor = store.ReadBool(section.c_str(), "screen_anchor", store.ReadBool(section.c_str(), "follow_player", true));
         group.offset_x = number("offset_x", group.offset_x, -1000.0f, 1000.0f);
@@ -171,13 +172,14 @@ namespace xiui
         case 25: return module_option::Color("Treasure color", "New treasure-pool item text.", &group.style.treasure_color, module_option_group::colors).VisibleWhen(events.treasure);
         case 26: return module_option::Dropdown("Font", "Font face for notification text.", &group.text.style.font, ui::font_names, ui::font_count).Ordered(100, true);
         case 27: return module_option::Dropdown("Group count", "Independent notification stacks. Existing event assignments are retained when a group is temporarily disabled.", &this->group_count_, counts, std::size(counts));
-        case 28: return module_option::Element("Group", "Choose the stack to customize or move.", &this->selected_group_, group_names, this->GroupCount()).Ordered(-100);
+        case 28: return module_option::Element("Group", "Choose the stack to customize or move.", &this->selected_group_, group_names, this->GroupCount()).Ordered(-100).VisibleWhen(this->GroupCount() > 2 || this->groups_[1].state.enabled);
         case 29: return module_option::Dropdown("Stack direction", "Grow above or below the anchor.", &group.direction, directions, 2).Ordered(201);
         case 30: return module_option::Toggle("Pin invitations", "Minify party and trade notices after a delay. Party expires after 90 seconds; trade resolves from native responses or a 30-second fallback.", &group.style.pin_invites).VisibleWhen(events.party_invites || events.trade_invites);
         case 31: return module_option::Slider("Minify after", "Seconds before invitations become compact pinned notices. Hover or focus Notifications to read the sender.", &group.style.minify_after, .5f, 30, .5f).VisibleWhen(group.style.pin_invites && (events.party_invites || events.trade_invites));
         case 32: return module_option::Dropdown("Notification type", "Choose the event kind to route. XP, skills and messages can be assigned too.", &this->selected_kind_, kinds, std::size(kinds));
         case 33: return module_option::Dropdown("Assigned group", "Each event appears in exactly one group. Assignments to inactive groups use Group 1 until re-enabled.", &this->routing_[static_cast<size_t>(this->selected_kind_)], group_names, maximum_groups);
         case 34: return module_option::Action("Clear invitation notices", "Dismisses this group's visual notices only. It does not accept or decline a party or trade request.", "Clear");
+        case 48: return module_option::Toggle("Enable Group 2", "Show a second notification stack and its edit preview. Disabled assignments use Group 1 until re-enabled.", &this->groups_[1].state.enabled).Ordered(-40);
         default: return {};
         }
     }
@@ -196,13 +198,18 @@ namespace xiui
         this->group_count_ = std::clamp(store.ReadInt("notifications", "group_count", 2), 2, 6) - 2;
         for (size_t kind = 0; kind < this->routing_.size(); ++kind)
             this->routing_[kind] = std::clamp(store.ReadInt("notifications.routing", std::to_string(kind).c_str(), 1), 1, 6) - 1;
+        if (store.ReadInt("notifications", "group2_enabled_version", 0) < 1 &&
+            std::none_of(this->routing_.begin(), this->routing_.end(), [](const int group) { return group == 1; }))
+            this->groups_[1].state.enabled = false;
         this->SelectGroup(this->SelectedGroup());
+        if (this->selected_group_ == 1 && !this->GroupEnabled(1)) this->selected_group_ = 0;
     }
 
     auto notification_module::Save(const settings_store& store) const -> void
     {
         for (size_t i = 0; i < maximum_groups; ++i) this->SaveGroup(store, i);
         store.WriteInt("notifications", "group_count", static_cast<int>(this->GroupCount()));
+        store.WriteInt("notifications", "group2_enabled_version", 1);
         for (size_t kind = 0; kind < this->routing_.size(); ++kind)
             store.WriteInt("notifications.routing", std::to_string(kind).c_str(), this->routing_[kind] + 1);
     }
@@ -211,7 +218,7 @@ namespace xiui
     {
         const auto index = static_cast<size_t>(kind);
         const auto group = index < this->routing_.size() ? this->routing_[index] : 0;
-        return group >= 0 && static_cast<size_t>(group) < this->GroupCount() ? group : 0;
+        return group >= 0 && this->GroupEnabled(static_cast<size_t>(group)) ? group : 0;
     }
 
     auto notification_module::Style(const size_t index) const -> notification_style
@@ -240,6 +247,7 @@ namespace xiui
     auto notification_module::OnContentOptionChanged(const size_t index) -> void
     {
         this->SelectGroup(this->SelectedGroup());
+        if (this->selected_group_ == 1 && !this->GroupEnabled(1)) this->selected_group_ = 0;
         if (index == 34)
             for (const auto kind : {notification_kind::party_invite, notification_kind::trade_invite})
                 if (this->GroupFor(kind) == static_cast<int>(this->SelectedGroup())) this->center_.Dismiss(kind);
@@ -261,7 +269,7 @@ namespace xiui
     {
         if (section >= this->ConfigSections().size() || index >= this->OptionCount()) return false;
         if (index == 28) return section >= 2;
-        if (index == 0 || index == 27) return section == 0;
+        if (index == 0 || index == 27 || index == 48) return section == 0;
         if ((index >= 2 && index <= 4) || (index >= 16 && index <= 20) || index == 32 || index == 33) return section == 1;
         if (index == 1 || index == 5 || index == 7 || index == 10 || index == 15 || index == 29) return section == 2;
         if (index == 6 || index == 8 || (index >= 30 && index <= 31) || index == 34) return section == 4;
@@ -271,7 +279,7 @@ namespace xiui
 
     auto notification_module::GroupVisible(const size_t index) const -> bool
     {
-        if (!this->State().enabled || index >= this->GroupCount()) return false;
+        if (!this->State().enabled || !this->GroupEnabled(index)) return false;
         const auto style = this->Style(index);
         return std::any_of(this->center_.Entries().begin(), this->center_.Entries().end(), [&](const auto& entry) {
             return this->GroupFor(entry.event.kind) == static_cast<int>(index) && notification_renderer::KindEnabled(entry.event.kind, style);
@@ -284,6 +292,7 @@ namespace xiui
     {
         auto& group = this->groups_[index];
         group.drawn = {};
+        if (!this->State().enabled || !this->GroupEnabled(index)) return;
         const auto now = ::GetTickCount64();
         auto area = group.state.bounds;
         auto style = this->Style(index);

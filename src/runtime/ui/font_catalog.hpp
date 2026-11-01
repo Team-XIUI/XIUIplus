@@ -7,6 +7,7 @@
 
 namespace xiui::ui
 {
+    enum class font_weight : uint8_t { face_default, regular, bold };
     struct font_face { const char* family; int weight; bool italic{}; };
     inline constexpr int xiv1_font = 4, xiv1_italic_font = 5, xiv1_number_font = 6;
     inline constexpr const char* font_names[]{"XIUI (Bahnschrift)", "Segoe UI", "Tahoma", "Grammara", "XIV 1.0 (Georgia)", "XIV 1.0 (Georgia Italic)", "XIV 1.0 (Lining Numerals)"};

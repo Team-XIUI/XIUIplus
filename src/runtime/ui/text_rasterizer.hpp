@@ -9,7 +9,7 @@
 namespace xiui::ui
 {
     struct raster_font_metrics { float height{18}, ascent{15}, digit_advance{8}; bool available{}; };
-    auto NativeFontMetrics(int font, int pixels) -> raster_font_metrics;
+    auto NativeFontMetrics(int font, int pixels, font_weight weight = font_weight::face_default) -> raster_font_metrics;
     struct raster_glyph
     {
         int width{}, height{}, padding{};
@@ -22,9 +22,9 @@ namespace xiui::ui
     public:
         ~text_rasterizer(void) { this->Clear(); }
         auto Clear(void) -> void;
-        auto Metrics(int font, int pixels) -> raster_font_metrics;
-        auto Advance(int font, int pixels, uint32_t codepoint) -> float;
-        auto Rasterize(int font, int pixels, uint32_t codepoint) -> std::optional<raster_glyph>;
+        auto Metrics(int font, int pixels, font_weight weight = font_weight::face_default) -> raster_font_metrics;
+        auto Advance(int font, int pixels, uint32_t codepoint, font_weight weight = font_weight::face_default) -> float;
+        auto Rasterize(int font, int pixels, uint32_t codepoint, font_weight weight = font_weight::face_default) -> std::optional<raster_glyph>;
 
     private:
         struct face { HFONT handle{}; raster_font_metrics metrics{}; uint64_t touched{}; };
@@ -36,8 +36,8 @@ namespace xiui::ui
         int width_{}, height_{};
         uint64_t touched_{};
         embedded_font grammara_{};
-        auto Face(int font, int pixels) -> face*;
-        auto GlyphFace(int font, int pixels, uint32_t codepoint) -> face*;
+        auto Face(int font, int pixels, font_weight weight) -> face*;
+        auto GlyphFace(int font, int pixels, uint32_t codepoint, font_weight weight) -> face*;
         auto Surface(int width, int height) -> bool;
     };
 }

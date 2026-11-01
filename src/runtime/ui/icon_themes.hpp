@@ -8,6 +8,7 @@ namespace xiui::ui
     inline constexpr const char* status_icon_themes[]{"Native", "HD", "Tetsouou", "XIView"};
     inline constexpr const char* status_icon_overrides[]{"Follow global", "Native", "HD", "Tetsouou", "XIView"};
     inline constexpr const char* job_icon_themes[]{"XIVParty", "Classic", "FFXI", "FFXIV-1"};
+    inline constexpr int xiv1_job_icon_theme = 3;
 
     inline auto StatusIconTheme(const int theme) -> int
     { return theme >= 0 && theme < static_cast<int>(std::size(status_icon_themes)) ? theme : 0; }

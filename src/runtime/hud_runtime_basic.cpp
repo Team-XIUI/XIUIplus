@@ -27,7 +27,7 @@ namespace xiui
         this->SaveSettings();
         if (!this->DrainSettings()) { this->profile_error_ = "Could not save the current profile. Try applying the preset again."; return false; }
         auto snapshot = this->CaptureSettings();
-        snapshot.OverlayPreferences(settings_store::FromIniText(text));
+        OverlayProfilePreferences(snapshot, settings_store::FromIniText(text));
         this->LoadSettings(snapshot); this->SaveSettings();
         return true;
     }
@@ -150,10 +150,9 @@ namespace xiui
         detail.top_color = detail.bottom_color = theme.colors.muted;
         if (this->design_system_.IsXiv1Theme())
         {
-            header.alignment = ui::text_alignment::center;
             const auto band = layout.HeaderBackground();
             const auto panel = this->ConfigVisibleBounds();
-            this->container_renderer_.DrawXiv1TitleSeparator(this->design_system_, {panel.x + 7, band.y + band.height - 3, panel.width - 14, 4});
+            this->container_renderer_.DrawXiv1TitleSeparator(this->design_system_, {panel.x + 7, band.y + band.height - 3, panel.width - 14, 4}, .65f);
         }
         this->config_controls_.Text("Basic settings", layout.HeaderTitle(), header);
         this->config_controls_.IconButton(layout.CloseButton(), ui::icon_glyph::close, hovered(layout.CloseButton()));

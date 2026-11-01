@@ -40,7 +40,7 @@ namespace xiui::ui
     inline auto LayoutXiv1TPNumber(const rect& row, const float labelWidth, const float valueWidth,
         const float labelHeight, const float valueHeight) -> xiv1_resource_text_layout
     {
-        const float right = row.x + std::max(0.0f, row.width - 6);
+        const float right = row.x + std::max(0.0f, row.width - 14);
         const float numberWidth = std::min(valueWidth, std::max(0.0f, right - row.x));
         const float gap = labelWidth > 0 ? 6.0f : 0;
         const float captionWidth = std::min(labelWidth, std::max(0.0f, right - row.x - numberWidth - gap));
@@ -52,8 +52,8 @@ namespace xiui::ui
     inline auto LayoutXiv1ResourceText(const rect& track, const float labelHeight, const float valueHeight) -> xiv1_resource_text_layout
     {
         const float lowerRim = track.y + track.height - 1;
-        const float labelInset = std::min(6.0f, track.width * .15f), valueInset = std::min(4.0f, track.width * .1f);
-        const float valueRightInset = std::min(6.0f, std::max(0.0f, track.width - valueInset));
+        const float labelInset = std::min(10.0f, track.width * .15f), valueInset = std::min(4.0f, track.width * .1f);
+        const float valueRightInset = std::min(14.0f, std::max(0.0f, track.width - valueInset));
         return {{track.x + labelInset, lowerRim - labelHeight * .5f, std::max(0.0f, track.width - labelInset * 2), labelHeight},
             {track.x + valueInset, lowerRim + 2 - valueHeight * .5f, std::max(0.0f, track.width - valueInset - valueRightInset), valueHeight}};
     }

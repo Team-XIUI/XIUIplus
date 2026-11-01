@@ -2,6 +2,7 @@
 
 #include "Ashita.h"
 #include "Memory.h"
+#include "native_pattern.hpp"
 
 #include <array>
 #include <cstring>
@@ -33,9 +34,9 @@ namespace xiui
         const auto size = Ashita::Memory::GetModuleSize("FFXiMain.dll");
         if (base == 0 || size == 0) return;
         constexpr char pattern[] = "8B0D????????85C974108B4424088B5424045052E8????????C383C8FFC3";
-        const auto match = Ashita::Memory::FindPattern(base, size, pattern, 0, 0);
+        const auto match = FindUniquePattern(base, size, pattern);
         uintptr_t slot{};
-        if (match == 0 || Ashita::Memory::FindPattern(base, size, pattern, 0, 1) != 0 ||
+        if (match == 0 ||
             !Read(match + 2, slot) || slot < base || size < sizeof(uintptr_t) || slot - base > size - sizeof(uintptr_t)) return;
         this->config_slot_ = slot;
         this->setter_ = match;

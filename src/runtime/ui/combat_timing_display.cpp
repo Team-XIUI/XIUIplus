@@ -31,11 +31,16 @@ namespace xiui::ui
         this->attack_layout = std::clamp(store.ReadInt(section, "attack_layout", 2), 0, 2);
         this->mini_text = std::clamp(store.ReadInt(section, "mini_text", 0), 0, 2);
         this->mini_height = std::clamp(FiniteFloat(store, section, "mini_height", 3), 1.0f, 12.0f);
-        this->mini_gap = std::clamp(FiniteFloat(store, section, "mini_gap", 2), 0.0f, 24.0f);
+        this->mini_gap = std::clamp(FiniteFloat(store, section, "mini_gap", 0), 0.0f, 24.0f);
         this->recovery_layout = std::clamp(store.ReadInt(section, "recovery_layout", 2), 0, 2);
         this->recovery_mini_text = std::clamp(store.ReadInt(section, "recovery_mini_text", 0), 0, 2);
         this->recovery_mini_height = std::clamp(FiniteFloat(store, section, "recovery_mini_height", 3), 1.0f, 12.0f);
-        this->recovery_mini_gap = std::clamp(FiniteFloat(store, section, "recovery_mini_gap", 2), 0.0f, 24.0f);
+        this->recovery_mini_gap = std::clamp(FiniteFloat(store, section, "recovery_mini_gap", 0), 0.0f, 24.0f);
+        if (store.ReadInt(section, "mini_anchor_version", 0) < 1)
+        {
+            if (this->mini_gap == 2) this->mini_gap = 0;
+            if (this->recovery_mini_gap == 2) this->recovery_mini_gap = 0;
+        }
         this->goal = std::clamp(FiniteFloat(store, section, "goal", 100), 1.0f, 100.0f);
         this->height = std::clamp(FiniteFloat(store, section, "height", 6), 2.0f, 24.0f);
         this->offset_x = std::clamp(FiniteFloat(store, section, "offset_x", 0), -1000.0f, 1000.0f);
@@ -51,6 +56,7 @@ namespace xiui::ui
     auto player_timing_settings::Save(const settings_store& store) const -> void
     {
         constexpr auto section = "timing.player";
+        store.WriteInt(section, "mini_anchor_version", 1);
         store.WriteBool(section, "attack", this->attack); store.WriteBool(section, "resting", this->resting);
         store.WriteBool(section, "rounds", this->rounds); store.WriteBool(section, "hits", this->hits);
         store.WriteBool(section, "tp_time", this->tp_time); store.WriteBool(section, "gains", this->gains);
@@ -79,9 +85,9 @@ namespace xiui::ui
         const bool recoveryBar = this->resting && (this->recovery_layout == 2 || this->display == 0);
         const bool fullReadout = (this->attack && this->attack_layout != 2) || (this->resting && this->recovery_layout != 2);
         static constexpr const char* goals[]{"1000", "2000", "3000"}, *displays[]{"Bar + text", "Text only"}, *directions[]{"Fill", "Drain"};
-        static constexpr const char* layouts[]{"Below Player Bar", "Above Player Bar", "Mini below TP"};
+        static constexpr const char* layouts[]{"Below Player Bar", "Above Player Bar", "Mini above TP"};
         static constexpr const char* miniText[]{"None", "Countdown", "Countdown + TP"};
-        static constexpr const char* recoveryLayouts[]{"Below Player Bar", "Above Player Bar", "Mini below HP"};
+        static constexpr const char* recoveryLayouts[]{"Below Player Bar", "Above Player Bar", "Mini above HP"};
         static constexpr const char* recoveryMiniText[]{"None", "Countdown", "Countdown + Recovery"};
         switch (index)
         {
@@ -113,13 +119,13 @@ namespace xiui::ui
         case 21: return module_option::Color("Recovery timer color", "Recovery fill and tick highlight.", &this->rest_color).VisibleWhen(recoveryBar);
         case 22: return module_option::Color("Almost ready color", "Final attack countdown and tick highlight.", &this->ready_color).VisibleWhen(this->attack || (recoveryBar && this->flash));
         case 23: return module_option::Choice("Attack placement", "Full readout below or above Player Bar, or a slim bar attached beneath TP.", &this->attack_layout, layouts, 3).Ordered(200).VisibleWhen(this->attack);
-        case 24: return module_option::Slider("Mini bar height", "Track thickness when Attack placement is Mini below TP.", &this->mini_height, 1, 12, 1).Ordered(112).VisibleWhen(this->attack && this->attack_layout == 2);
-        case 25: return module_option::Slider("Mini bar gap", "Space between the TP track and its mini attack bar.", &this->mini_gap, 0, 24, 1).Ordered(302).VisibleWhen(this->attack && this->attack_layout == 2);
-        case 26: return module_option::Choice("Mini bar text", "Optional styled text beneath the mini bar. None keeps only the thin track.", &this->mini_text, miniText, 3).VisibleWhen(this->attack && this->attack_layout == 2);
+        case 24: return module_option::Slider("Mini bar height", "Track thickness when Attack placement is Mini above TP.", &this->mini_height, 1, 12, 1).Ordered(112).VisibleWhen(this->attack && this->attack_layout == 2);
+        case 25: return module_option::Slider("Mini bar gap", "Gap above the TP track; zero makes the mini attack bar touch its top edge.", &this->mini_gap, 0, 24, 1).Ordered(302).VisibleWhen(this->attack && this->attack_layout == 2);
+        case 26: return module_option::Choice("Mini bar text", "Optional styled text above the mini bar. None keeps only the thin track.", &this->mini_text, miniText, 3).VisibleWhen(this->attack && this->attack_layout == 2);
         case 27: return module_option::Choice("Resting placement", "Full readout below or above Player Bar, or a slim bar attached beneath HP.", &this->recovery_layout, recoveryLayouts, 3).Ordered(200).VisibleWhen(this->resting);
-        case 28: return module_option::Slider("Mini bar height", "Track thickness when Resting placement is Mini below HP.", &this->recovery_mini_height, 1, 12, 1).Ordered(112).VisibleWhen(this->resting && this->recovery_layout == 2);
-        case 29: return module_option::Slider("Mini bar gap", "Space between the HP track and its mini resting bar.", &this->recovery_mini_gap, 0, 24, 1).Ordered(302).VisibleWhen(this->resting && this->recovery_layout == 2);
-        case 30: return module_option::Choice("Mini bar text", "Optional styled text beneath the resting mini bar. None keeps only the thin track.", &this->recovery_mini_text, recoveryMiniText, 3).VisibleWhen(this->resting && this->recovery_layout == 2);
+        case 28: return module_option::Slider("Mini bar height", "Track thickness when Resting placement is Mini above HP.", &this->recovery_mini_height, 1, 12, 1).Ordered(112).VisibleWhen(this->resting && this->recovery_layout == 2);
+        case 29: return module_option::Slider("Mini bar gap", "Gap above the HP track; zero makes the mini resting bar touch its top edge.", &this->recovery_mini_gap, 0, 24, 1).Ordered(302).VisibleWhen(this->resting && this->recovery_layout == 2);
+        case 30: return module_option::Choice("Mini bar text", "Optional styled text above the resting mini bar. None keeps only the thin track.", &this->recovery_mini_text, recoveryMiniText, 3).VisibleWhen(this->resting && this->recovery_layout == 2);
         default: return {};
         }
     }
@@ -208,12 +214,14 @@ namespace xiui::ui
         if (!timer.active) return 0;
         auto style = meter; style.height = bounds.height;
         context.DrawBar(bounds, drain ? 1 - timer.ratio : timer.ratio, MeterGradientTop(color), color, 0, style);
-        float y = bounds.y + bounds.height;
+        float y = bounds.y;
         if (textMode > 0)
         {
             auto text = profile;
             text.style.alignment = text_alignment::left;
             const float lineHeight = std::max(18.0f, text.style.scale * 20);
+            const bool showDetails = textMode == 2 && details != nullptr && details[0] != '\0';
+            y -= 2 + lineHeight * (showDetails ? 2 : 1);
             const auto draw = [&](std::string value, const rect& line) {
                 const auto full = value;
                 while (!value.empty() && context.Design().MeasureText(value.c_str(), text.style) > line.width) value.pop_back();
@@ -228,12 +236,11 @@ namespace xiui::ui
             if (!timer.state.empty()) std::snprintf(label, sizeof(label), "%.*s", static_cast<int>(timer.state.size()), timer.state.data());
             else if (timer.known) std::snprintf(label, sizeof(label), "~%.1fs", timer.seconds);
             else std::snprintf(label, sizeof(label), "Waiting for observation");
-            y += 2;
             draw(label, {bounds.x, y, bounds.width, lineHeight}); y += lineHeight;
-            if (textMode == 2 && details != nullptr && details[0] != '\0')
+            if (showDetails)
             { draw(details, {bounds.x, y, bounds.width, lineHeight}); y += lineHeight; }
         }
-        return y - bounds.y;
+        return bounds.height;
     }
 
     auto TPDetails(const tp_prediction& prediction, const uint32_t goal, const player_timing_settings& settings, const bool compact) -> std::string
