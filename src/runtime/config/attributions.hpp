@@ -9,6 +9,7 @@ namespace xiui::ui
     inline constexpr std::array attributions{
         attribution{"Cadence", "Kipling - attack and resting timer features.", "https://github.com/KiplingFFXI/cadence"},
         attribution{"Momentum", "Kipling - EXP tracking features.", "https://github.com/KiplingFFXI/momentum"},
+        attribution{"Chains", "Sippius, Ivaar and NerfOnline - skillchain display and pet availability data (GPL-3.0-or-later).", "https://github.com/NerfOnline/Chains"},
         attribution{"ChatMon", "Windower - chat notification sounds.", "https://github.com/Windower/Lua/tree/live/addons/chatmon"},
         attribution{"Cursor Pack", "Kenney - cursor artwork (CC0).", "https://kenney.nl/assets/cursor-pack"},
         attribution{"Find", "MalRD, zombie343, sippius - storage-slip catalog (MIT).", "https://github.com/Sippius/Ashita-v4-addons/tree/main/find"},

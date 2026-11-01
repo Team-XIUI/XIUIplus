@@ -42,6 +42,9 @@ namespace xiui::ui
         auto SelectedSkin(void) const -> uint8_t { return this->selected_; }
         auto SetAppearanceTheme(int value) -> void { this->appearance_theme_ = value == 1 ? 1 : 0; }
         auto AppearanceTheme(void) const -> int { return this->appearance_theme_; }
+        auto SetXiv1BackgroundOpacity(float opacity) -> void { this->xiv1_background_opacity_ = std::clamp(opacity, 0.0f, 1.0f); }
+        auto BackgroundOpacity(const container_style& style) const -> float
+        { return std::clamp(style.opacity, 0.0f, 1.0f) * (this->appearance_theme_ == 1 ? this->xiv1_background_opacity_ : 1); }
         auto BackgroundColor(void) const -> D3DCOLOR { return this->appearance_theme_ == 1 ? 0xFF0B102B : this->windows_[this->selected_].average; }
         auto MeterBackground(void) const -> meter_texture;
         auto AppearanceMeterSkin(void) const -> std::optional<meter_skin> { return this->appearance_theme_ == 1 ? this->xiv1_meter_ : std::nullopt; }
@@ -71,6 +74,7 @@ namespace xiui::ui
         std::array<window_skin, 8> windows_{};
         uint8_t selected_{};
         int appearance_theme_{};
+        float xiv1_background_opacity_{.4f};
         IDirect3DTexture8* xiv1_atlas_{};
         IDirect3DTexture8* xiv1_fabric_{};
         nine_slice_skin xiv1_window_{};

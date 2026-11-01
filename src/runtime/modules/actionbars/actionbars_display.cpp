@@ -213,10 +213,10 @@ namespace xiui
         const bool assigning = !bar.locked || context.IsEditing() || this->library_drag_.has_value() || this->placing_;
         if (slot.Empty() && !bar.empty && !assigning) return;
         const auto& design = context.Design();
-        const bool hovered = !outgoing && this->dialog_ == dialog::none && Contains(context.Design().Transform().Map(cell), this->hover_x_, this->hover_y_) && (!this->pointer_down_ || this->library_drag_ || this->placing_ || this->dragging_);
+        const bool hovered = !outgoing && this->BarPointerAvailable(this->hover_x_, this->hover_y_) && Contains(context.Design().Transform().Map(cell), this->hover_x_, this->hover_y_) && (!this->pointer_down_ || this->library_drag_ || this->placing_ || this->dragging_);
         const auto key = static_cast<uint32_t>((value.surface == action_surface::crossbar ? 256 : 0) + value.bar * 16 + value.slot);
         const bool held = !outgoing && value.surface == action_surface::crossbar && this->held_slots_[value.bar][value.slot];
-        const bool mousePressed = this->pointer_down_ && this->dialog_ == dialog::none && this->down_header_ == 0 && this->pressed_ == value && !this->dragging_;
+        const bool mousePressed = this->bar_pointer_down_ && this->down_header_ == 0 && this->pressed_ == value && !this->dragging_;
         const bool pressed = !outgoing && style.press_highlight && (held || mousePressed);
         const auto flash = this->flashes_.find(key); const bool flashing = !outgoing && style.activation_flash && flash != this->flashes_.end() && flash->second > this->now_;
         const bool otherBank = inactive >= 0 ? inactive != 0 : value.surface == action_surface::crossbar && this->active_bank_ != crossbar_bank::none && !active;
@@ -537,6 +537,15 @@ namespace xiui
                 }
             if (active) design.FillRect({groupX + 4, std::min(bounds.y + bounds.height - 1, bounds.y + pad + bank_header + DiamondHeight(bar) + 2), GroupWidth(bar) - 8, 1}, Alpha(colors.control_selected, 0.5f));
         }
+    }
+
+    auto actionbars_module::DrawSlotDrag(const module_render_context& context) -> void
+    {
+        if (!this->dragging_) return;
+        const auto& bar = this->Presentation(this->pressed_);
+        this->DrawSlot(this->pressed_, {this->hover_x_ - bar.size / 2, this->hover_y_ - bar.size / 2, bar.size, bar.size}, true, context);
+        const auto hit = this->BarPointerAvailable(this->hover_x_, this->hover_y_) ? this->HitTest(this->hover_x_, this->hover_y_) : std::nullopt;
+        if (hit && hit->header == 0 && !this->Presentation(hit->slot).locked) context.Design().DrawFocusFrame(hit->bounds, this->focus_style_);
     }
 
     auto actionbars_module::DrawTooltip(const address& value, const ui::rect& anchor, const module_render_context& context) -> void

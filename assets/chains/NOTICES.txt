@@ -1,0 +1,9 @@
+Chains is adapted as a native XIUI module from NerfOnline/Chains:
+https://github.com/NerfOnline/Chains/tree/e72898a5afe9029e428116525a33e16d470faa4a
+Authors: Sippius, Ivaar and NerfOnline. Original Skillchains by Ivaar;
+Ashita v4 adaptation by Sippius, further changes by NerfOnline.
+Chains is distributed under GPL-3.0-or-later; see LICENSE-GPL-3.0.txt.
+The pinned pets.lua supplies jug move names and automaton frame/skill requirements.
+scripts/build-chains-data.py produces src/runtime/resources/chains_data.hpp.
+Native Chains uses XIUI's existing Retail/Horizon/Phoenix skillchain data and
+shared observation/prediction tracker; see assets/skillchains/NOTICES.txt.

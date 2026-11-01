@@ -1,6 +1,7 @@
 #include "plugin.hpp"
 #include "world_projection.hpp"
 #include "xiui_version.hpp"
+#include "entities/entity_name_colors.hpp"
 
 #include <cmath>
 
@@ -964,7 +965,7 @@ namespace xiui
             snapshot.target_server_id = entity->GetServerId(targetIndex);
             const auto spawnFlags = entity->GetSpawnFlags(targetIndex), renderFlags = entity->GetRenderFlags0(targetIndex);
             if (this->scene_camera_valid_ && !player->GetIsZoning() && snapshot.target_server_id != 0 &&
-                (spawnFlags & 0x02) == 0 && (spawnFlags & 0x11) != 0 && (renderFlags & 0x200) != 0 && (renderFlags & 0x4000) == 0)
+                EntityHasHealth(spawnFlags) && (renderFlags & 0x200) != 0 && (renderFlags & 0x4000) == 0)
             {
                 const std::array<float, 3> ground{entity->GetLocalPositionX(targetIndex), entity->GetLocalPositionZ(targetIndex), entity->GetLocalPositionY(targetIndex)};
                 snapshot.target_screen_valid = ProjectWorldPoint(ground, this->scene_view_, this->scene_projection_, hudViewport,

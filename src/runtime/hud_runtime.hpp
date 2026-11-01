@@ -24,6 +24,7 @@
 #include "modules/phantomroll/phantom_roll_module.hpp"
 #include "combat/combat_settings.hpp"
 #include "modules/magicburst/magic_burst_module.hpp"
+#include "modules/chains/chains_module.hpp"
 #include "modules/enemylist/enemy_list_module.hpp"
 #include "modules/party/party_module.hpp"
 #include "modules/inventory/inventory_module.hpp"
@@ -265,6 +266,8 @@ namespace xiui
         phantom_roll_module phantom_roll_{};
         skillchain_source skillchain_source_{};
         magic_burst_module magic_burst_{};
+        chains_source chains_source_{};
+        chains_module chains_{};
         treasure_source treasure_source_{};
         treasure_module treasure_{};
         std::array<bool, 256> treasure_key_release_{};
@@ -281,7 +284,7 @@ namespace xiui
         world_info_module world_info_{};
         std::array<world_info_part_module, 4> world_parts_{{{this->world_info_, 0}, {this->world_info_, 1}, {this->world_info_, 2}, {this->world_info_, 3}}};
         command_menu_module commands_{};
-        std::array<hud_module*, 9> extras_pages_{};
+        std::array<hud_module*, 10> extras_pages_{};
         native_ui_state native_ui_{};
         module_visibility_source visibility_source_{};
         module_visibility_context visibility_context_{};

@@ -102,6 +102,7 @@ namespace xiui
         auto WindowResizing(void) const -> bool { return this->window_gesture_ == window_gesture::resize; }
         auto PointerDown(void) const -> bool { return this->pointer_down_; }
         auto PointerOwns(float, float) const -> bool;
+        auto WindowPointerOwns(float, float) const -> bool;
         auto PointerCursor(float, float) const -> cursor_renderer::shape;
         auto SetHover(float x, float y) -> void { this->hover_x_ = x; this->hover_y_ = y; }
         auto TakeSettingsChanged(void) -> bool;
@@ -178,6 +179,14 @@ namespace xiui
             size_t bar{}, slot{};
             auto operator==(const address&) const -> bool = default;
         };
+        struct library_context
+        {
+            address selected{};
+            action_slot draft{};
+            size_t view{};
+            int bank{}, control{};
+            bool pet{}, library_draft{}, library_edit{};
+        };
         struct control
         {
             int id{};
@@ -249,6 +258,7 @@ namespace xiui
         bool window_focused_{};
         dialog dialog_{};
         dialog name_return_{};
+        std::optional<library_context> library_popup_{};
         address selected_{}, pressed_{};
         action_slot draft_{};
         std::string palette_id_{}, name_value_{}, import_path_{}, message_{}, query_{};
@@ -273,7 +283,7 @@ namespace xiui
         size_t view_{}, result_scroll_{}, palette_scroll_{}, line_scroll_{}, focused_result_{};
         int selected_bank_{}, selected_text_{}, selected_bar_{}, storage_scope_{}, category_{}, target_{}, editor_kind_{}, editor_equipment_{}, prompt_theme_{}, shape_{};
         int focused_control_{}, editing_field_{}, name_action_{}, setup_step_{}, setup_backend_{}, setup_preset_{}, pressed_control_{}, down_header_{};
-        bool storage_pet_{}, browsing_{}, navigation_focus_{}, pointer_down_{}, dragging_{}, discard_pointer_release_{};
+        bool storage_pet_{}, browsing_{}, navigation_focus_{}, pointer_down_{}, bar_pointer_down_{}, dragging_{}, discard_pointer_release_{};
         bool shared_expanded_{}, engaged_{};
         int crossbar_visibility_{};
         float crossbar_delay_{5}, crossbar_fade_{0.15f}, crossbar_alpha_{1};
@@ -316,6 +326,10 @@ namespace xiui
         { const auto& bar = this->Presentation(value); return bar.custom_text ? bar.text : this->text_; }
         auto CrossbarGroups(void) const -> std::vector<size_t>;
         auto HitTest(float, float) const -> std::optional<hit>;
+        auto BarPointerAvailable(float, float) const -> bool;
+        auto RememberLibrary(void) -> void;
+        auto SwapLibraryContext(library_context&) -> void;
+        auto DrawSlotDrag(const module_render_context&) -> void;
         auto Activate(const address&) -> bool;
         auto Inspect(const address&) -> const action_availability&;
         auto DrawSlot(const address&, const ui::rect&, bool active, const module_render_context&, float opacity = 1, float yOffset = 0, bool outgoing = false, int inactive = -1, slot_pass pass = slot_pass::all) -> void;

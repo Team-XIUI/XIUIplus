@@ -314,6 +314,7 @@ namespace xiui::ui
             return false;
 
         this->frame_active_ = true;
+        this->button_marquees_.BeginFrame();
         // HUD draws share these states until EndFrame restores the captured game state.
         this->ConfigureCommonPipeline();
         this->ConfigureShapePipeline();

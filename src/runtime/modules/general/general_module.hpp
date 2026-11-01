@@ -39,6 +39,7 @@ namespace xiui
         static constexpr size_t input_section = 4;
         static constexpr size_t visibility_section = 5;
         static constexpr size_t game_hud_section = 6;
+        static constexpr size_t extra_settings_section = 7;
         static constexpr size_t grid_option_count = 6;
         static constexpr size_t input_option_count = 7;
         inline static constexpr const char* input_modes[]{"Auto", "Keyboard & Mouse", "Controller"};
@@ -105,7 +106,10 @@ namespace xiui
         auto Grid(void) const -> const ui::layout_grid_settings& { return this->grid_; }
         auto SetClipboardOwner(HWND owner) -> void { this->clipboard_owner_ = owner; }
         auto HudScaleStart(void) const -> size_t { return this->GameHudStart() + (this->game_hud_module_ != nullptr ? this->game_hud_module_->OptionCount() : 0); }
-        auto ContentOptionCount(void) const -> size_t override { return this->HudScaleStart() + 6; }
+        auto ExtraSettingsStart(void) const -> size_t { return this->HudScaleStart() + 6; }
+        auto Xiv1BackgroundOpacityOption(void) const -> size_t { return this->ExtraSettingsStart() + 1; }
+        auto ContentOptionCount(void) const -> size_t override { return this->ExtraSettingsStart() + 2; }
+        auto FollowMovedModuleSettings(void) const -> bool { return this->follow_moved_module_settings_; }
         auto HudPresetOption(size_t preset) const -> size_t
         {
             constexpr std::array<size_t, 3> offsets{2, 3, 5};
@@ -129,6 +133,7 @@ namespace xiui
         auto RequestWindowType(int type) -> bool;
         auto TakeWindowTypeRequest(void) -> std::optional<uint8_t>;
         auto DarkBackingOpacity(void) const -> float { return this->dark_backing_opacity_; }
+        auto Xiv1BackgroundOpacity(void) const -> float { return this->xiv1_background_opacity_; }
         auto AppearanceThemeOption(void) const -> size_t { return this->HudScaleStart() + 4; }
         auto AppearanceTheme(void) const -> int { return this->appearance_theme_; }
         auto SetAppearanceTheme(int theme) -> void { this->appearance_theme_ = ui::AppearanceTheme(theme); }
@@ -161,8 +166,10 @@ namespace xiui
         int window_type_{}, requested_window_type_{-1};
         bool window_type_available_{};
         float dark_backing_opacity_{1.0f};
+        float xiv1_background_opacity_{.4f};
         int appearance_theme_{};
         float hud_scale_{1};
+        bool follow_moved_module_settings_{true};
         std::optional<size_t> preset_request_{};
         ui::layout_grid_settings grid_{};
         int input_mode_{};

@@ -267,7 +267,7 @@ namespace xiui::ui
         {
             const float scale = Xiv1FrameScale(bounds, style);
             const float inset = std::min({8 * scale, bounds.width * .5f, bounds.height * .5f});
-            const auto opacity = std::clamp(style.opacity, 0.0f, 1.0f);
+            const auto opacity = this->BackgroundOpacity(style);
             const auto alpha = static_cast<uint32_t>(255 * opacity);
             const auto backing = static_cast<uint32_t>(255 * opacity * design.DarkBackingOpacity());
             if (fade != nullptr)

@@ -21,6 +21,7 @@ namespace xiui
     { return value == dialog::picker || value == dialog::editor || value == dialog::palettes || value == dialog::import || value == dialog::setup || value == dialog::keybinds || value == dialog::icons; }
     auto actionbars_module::WindowDialog(void) const -> dialog
     {
+        if (this->library_popup_) return dialog::picker;
         if (this->dialog_ == dialog::name || this->dialog_ == dialog::delete_palette) return dialog::palettes;
         if (this->dialog_ == dialog::delete_macro) return dialog::editor;
         return IsWindowDialog(this->dialog_) ? this->dialog_ : dialog::none;
@@ -109,6 +110,27 @@ namespace xiui
         }
         this->window_focused_ = focused;
     }
+    auto actionbars_module::WindowPointerOwns(const float x, const float y) const -> bool
+    {
+        return this->FloatingWindowOpen() && (Contains(this->WindowBounds(), x, y) || this->WindowResizeEdgesAt(x, y) != 0);
+    }
+    auto actionbars_module::BarPointerAvailable(const float x, const float y) const -> bool
+    {
+        return this->dialog_ == dialog::none || this->dialog_ == dialog::picker && !this->WindowPointerOwns(x, y);
+    }
+    auto actionbars_module::RememberLibrary(void) -> void
+    {
+        if (this->dialog_ != dialog::picker || this->library_popup_) return;
+        this->CommitField();
+        this->library_popup_ = library_context{this->selected_, this->draft_, this->view_, this->selected_bank_, this->focused_control_,
+            this->draft_pet_, this->library_draft_, this->library_edit_};
+    }
+    auto actionbars_module::SwapLibraryContext(library_context& context) -> void
+    {
+        std::swap(this->selected_, context.selected); std::swap(this->draft_, context.draft); std::swap(this->view_, context.view);
+        std::swap(this->selected_bank_, context.bank); std::swap(this->focused_control_, context.control);
+        std::swap(this->draft_pet_, context.pet); std::swap(this->library_draft_, context.library_draft); std::swap(this->library_edit_, context.library_edit);
+    }
     auto actionbars_module::PointerCursor(const float x, const float y) const -> cursor_renderer::shape
     {
         using shape = cursor_renderer::shape;
@@ -122,6 +144,7 @@ namespace xiui
         }
         if (this->setup_slider_drag_ != 0) return shape::resize_horizontal;
         if (this->scrolling_) return shape::hand;
+        if (this->BarPointerAvailable(x, y) && this->HitTest(x, y)) return shape::hand;
         if (this->IsWindowDialog(this->dialog_))
         {
             const auto edges = this->WindowResizeEdgesAt(x, y);
@@ -196,7 +219,7 @@ namespace xiui
     {
         if (this->pointer_down_) this->discard_pointer_release_ = true;
         this->FinishWindowGesture(false);
-        this->pointer_down_ = this->dragging_ = this->scrolling_ = false;
+        this->pointer_down_ = this->bar_pointer_down_ = this->dragging_ = this->scrolling_ = false;
         this->CancelSetupControls();
         this->library_drag_.reset(); this->library_pressed_.reset(); this->pressed_control_ = 0;
     }

@@ -234,6 +234,12 @@ auto RunTargetRingChecks(const char* client_root) -> bool
     target_ring_renderer::Build(slope,{0,0,0},1,settings,vertices);
     if (!check(vertices.size()>half,"native HP percentage controls the filled arc")) return false;
     const auto full=vertices.size();
+    for (const uint32_t flags : {0x100u, 0x104u, 0x108u, 0x110u})
+    {
+        const float petHp = EntityHasHealth(flags) ? 0.25f : 1.0f;
+        target_ring_renderer::Build(slope,{0,0,0},petHp,settings,vertices);
+        if (!check(vertices.size() < full, "damaged allied pets use their HP arc rather than a full decorative ring")) return false;
+    }
     for (float yaw : {0.0f,1.570796327f,3.141592654f,-1.570796327f})
     {
         target_ring_renderer::Build(slope,{0,0,0},1,settings,vertices,yaw);

@@ -2,6 +2,8 @@
 #include "native_ui_assets.hpp"
 #include "control_chrome.hpp"
 
+#include <bit>
+
 namespace xiui::ui
 {
     auto button_renderer::FaceColor(const theme& theme, const bool highlighted, const button_tone tone) -> D3DCOLOR
@@ -29,12 +31,26 @@ namespace xiui::ui
         return result;
     }
 
-    auto button_renderer::DrawLabel(const design_system& design, const char* text, const rect& bounds, const text_style& style) -> void
+    auto button_renderer::DrawLabel(const design_system& design, const char* text, const rect& bounds, const text_style& style, const bool marquee) -> void
     {
         if (text == nullptr || bounds.width <= 4) return;
-        std::string label{text};
         const float width = bounds.width - 4;
-        if (design.MeasureText(text, style) > width)
+        const float measured = design.MeasureText(text, style);
+        uint64_t key = 14695981039346656037ull;
+        const auto hash = [&](uint32_t value) { key = (key ^ value) * 1099511628211ull; };
+        for (const auto* character = reinterpret_cast<const unsigned char*>(text); *character != 0; ++character) hash(*character);
+        const auto screen = design.Transform().Map(bounds);
+        for (const float value : {screen.x, screen.y, screen.width, screen.height}) hash(std::bit_cast<uint32_t>(value));
+        const float offset = design.ButtonMarqueeOffset(key, measured - width, marquee);
+        if (marquee && measured > width)
+        {
+            auto moving = style; moving.alignment = text_alignment::left;
+            const auto clip = design.Clip({bounds.x + 2, bounds.y, width, bounds.height});
+            design.DrawText(text, {bounds.x + 2 - offset, bounds.y, measured, bounds.height}, moving);
+            return;
+        }
+        std::string label{text};
+        if (measured > width)
         {
             const float suffix = design.MeasureText("...", style);
             while (!label.empty() && design.MeasureText(label.c_str(), style) + suffix > width)
@@ -80,14 +96,14 @@ namespace xiui::ui
         else this->design_.FillRoundedRect(bounds, color, 3);
     }
 
-    auto button_renderer::Text(const char* label, const rect& bounds, const text_style& style, const bool highlighted, const button_tone tone) const -> void
+    auto button_renderer::Text(const char* label, const rect& bounds, const text_style& style, const bool highlighted, const button_tone tone, const std::optional<bool> marquee) const -> void
     {
-        DrawLabel(this->design_, label, bounds, TextStyle(this->design_.GetTheme(), style, highlighted, tone));
+        DrawLabel(this->design_, label, bounds, TextStyle(this->design_.GetTheme(), style, highlighted, tone), marquee.value_or(highlighted) || this->design_.ButtonFocused(bounds));
     }
 
-    auto button_renderer::Draw(const rect& bounds, const char* label, const text_style& style, const bool highlighted, const button_tone tone) const -> void
+    auto button_renderer::Draw(const rect& bounds, const char* label, const text_style& style, const bool highlighted, const button_tone tone, const std::optional<bool> marquee) const -> void
     {
         this->Face(bounds, highlighted, tone);
-        this->Text(label, bounds, style, highlighted, tone);
+        this->Text(label, bounds, style, highlighted, tone, marquee);
     }
 }

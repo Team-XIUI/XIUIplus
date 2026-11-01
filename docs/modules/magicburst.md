@@ -1,6 +1,7 @@
 # Magic Burst and skillchains
 
 Displays observed skillchain/burst windows; Action Bars can consume the same tracker for predictions.
+The separate [Chains module](chains.md) lists follow-up actions from that tracker, including planning hints during the continuation delay.
 
 **Start in:** [skillchain_source.cpp](../../src/runtime/combat/skillchain_source.cpp), [magic_burst_module.cpp](../../src/runtime/modules/magicburst/magic_burst_module.cpp), [combat_settings.hpp](../../src/runtime/combat/combat_settings.hpp).
 

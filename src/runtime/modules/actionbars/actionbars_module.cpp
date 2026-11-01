@@ -663,7 +663,8 @@ namespace xiui
     {
         this->FinishWindowGesture(false); this->window_focused_ = false;
         if (this->pointer_down_) this->discard_pointer_release_ = true;
-        this->pointer_down_ = this->dragging_ = this->browsing_ = this->navigation_focus_ = this->binding_capture_ = this->scrolling_ = false;
+        this->pointer_down_ = this->bar_pointer_down_ = this->dragging_ = this->browsing_ = this->navigation_focus_ = this->binding_capture_ = this->scrolling_ = false;
+        this->library_popup_.reset();
         this->input_.Cancel(); this->editing_field_ = 0; this->dialog_ = dialog::none;
         this->CancelSetupControls();
         this->SuspendCrossbarInput();
@@ -681,7 +682,7 @@ namespace xiui
     {
         if (this->pointer_down_) return true;
         if (this->setup_choice_input_.Opened() && Contains(this->setup_choice_input_.Bounds(this->SetupViewport()), x, y)) return true;
-        if (this->IsWindowDialog(this->dialog_)) return Contains(this->WindowBounds(), x, y) || this->WindowResizeEdgesAt(x, y) != 0;
+        if (this->IsWindowDialog(this->dialog_)) return this->WindowPointerOwns(x, y) || (this->BarPointerAvailable(x, y) && this->HitTest(x, y).has_value());
         return this->dialog_ != dialog::none || this->HitTest(x, y).has_value();
     }
     auto actionbars_module::Notice(std::string value) -> void
@@ -703,6 +704,7 @@ namespace xiui
 {
     auto actionbars_module::OpenEditor(const bool crossbar, const size_t bar, const size_t slot) -> void
     {
+        this->library_popup_.reset();
         this->editor_options_ = this->editor_recast_ = this->editor_new_ = false;
         this->library_edit_ = false;
         this->CommitField(); this->binding_capture_ = false;
@@ -725,6 +727,7 @@ namespace xiui
     }
     auto actionbars_module::OpenPalettes(const bool crossbar, const size_t bar) -> void
     {
+        this->library_popup_.reset();
         this->CommitField(); this->binding_capture_ = false;
         this->selected_ = {crossbar ? action_surface::crossbar : action_surface::hotbar, std::min(bar, crossbar ? action_crossbar_banks - 1 : action_bar_count - 1), 0};
         this->view_ = crossbar ? action_bar_count : this->selected_.bar;
@@ -737,6 +740,7 @@ namespace xiui
     }
     auto actionbars_module::OpenSetup(void) -> void
     {
+        this->library_popup_.reset();
         this->CommitField(); this->binding_capture_ = false; this->dialog_ = dialog::setup; this->setup_step_ = 0;
         this->SetWindowFocused(true);
         this->setup_backend_ = this->controller_status_.backend == controller_backend::direct_input ? 1 : 0;
@@ -744,6 +748,7 @@ namespace xiui
     }
     auto actionbars_module::OpenImport(void) -> void
     {
+        this->library_popup_.reset();
         this->CommitField(); this->binding_capture_ = false;
         this->selected_ = {this->Surface(), this->ConfigBar(), 0};
         this->dialog_ = dialog::import; this->focused_control_ = field_path; this->import_preview_ = {}; this->message_.clear();
@@ -751,6 +756,7 @@ namespace xiui
     }
     auto actionbars_module::OpenPicker(void) -> void
     {
+        this->library_popup_.reset();
         this->CommitField(); this->dialog_ = dialog::picker; this->query_.clear(); this->category_ = 0;
         this->SetWindowFocused(true);
         this->result_scroll_ = this->focused_result_ = 0; this->focused_control_ = field_query;
@@ -842,8 +848,13 @@ namespace xiui
         this->CancelSetupControls();
         this->dialog_ = dialog::none; this->library_edit_ = false; this->navigation_focus_ = this->browsing_;
         if (this->pointer_down_) this->discard_pointer_release_ = true;
-        this->pointer_down_ = this->dragging_ = this->scrolling_ = false; this->pressed_control_ = 0;
+        this->pointer_down_ = this->bar_pointer_down_ = this->dragging_ = this->scrolling_ = false; this->pressed_control_ = 0;
         this->library_drag_.reset(); this->library_pressed_.reset(); this->placing_ = false;
+        if (this->library_popup_)
+        {
+            this->SwapLibraryContext(*this->library_popup_); this->library_popup_.reset();
+            this->dialog_ = dialog::picker; this->window_focused_ = true;
+        }
     }
     auto actionbars_module::FieldValue(const int id) const -> std::string
     {
@@ -1664,16 +1675,17 @@ namespace xiui
         }
         if (message == WM_RBUTTONDOWN)
         {
+            const bool bar = this->BarPointerAvailable(x, y) && this->HitTest(x, y).has_value();
             if (this->dialog_ == dialog::picker)
                 for (const auto& item : this->Controls())
                     if (item.id >= result_first && Contains(item.bounds, x, y) && this->EditLibraryEntry(static_cast<size_t>(item.id - result_first))) return true;
-            if (this->IsWindowDialog(this->dialog_))
+            if (this->IsWindowDialog(this->dialog_) && !bar)
             {
                 if (!Contains(this->WindowBounds(), x, y)) { this->SetWindowFocused(false); return false; }
                 this->browsing_ = this->navigation_focus_ = false;
                 this->SetWindowFocused(true); return true;
             }
-            if (this->dialog_ != dialog::none) { this->browsing_ = this->navigation_focus_ = false; this->CloseDialog(); return true; }
+            if (this->dialog_ != dialog::none && !bar) { this->browsing_ = this->navigation_focus_ = false; this->CloseDialog(); return true; }
             const auto hit = this->HitTest(x, y);
             if (hit)
             {
@@ -1689,7 +1701,7 @@ namespace xiui
         {
             this->browsing_ = this->navigation_focus_ = false;
             if (this->placing_) { this->placing_ = false; }
-            if (this->dialog_ != dialog::none)
+            if (this->dialog_ != dialog::none && !(this->BarPointerAvailable(x, y) && this->HitTest(x, y)))
             {
                 if (this->IsWindowDialog(this->dialog_))
                 {
@@ -1719,7 +1731,8 @@ namespace xiui
                 return true;
             }
             const auto hit = this->HitTest(x, y); if (!hit) return false;
-            this->pointer_down_ = true; this->dragging_ = false; this->pressed_ = this->selected_ = hit->slot; this->down_header_ = hit->header;
+            this->pointer_down_ = this->bar_pointer_down_ = true; this->dragging_ = false; this->pressed_ = hit->slot; this->down_header_ = hit->header;
+            if (this->dialog_ == dialog::none) this->selected_ = hit->slot;
             this->down_x_ = x; this->down_y_ = y; this->pressed_control_ = 0;
             return true;
         }
@@ -1727,13 +1740,14 @@ namespace xiui
         {
             if (this->library_pressed_ && *this->library_pressed_ < this->results_.size() && std::hypot(x - this->down_x_, y - this->down_y_) >= 6)
                 this->library_drag_ = this->results_[*this->library_pressed_];
-            if (this->dialog_ == dialog::none && this->down_header_ == 0 && !this->Presentation(this->pressed_).locked && std::hypot(x - this->down_x_, y - this->down_y_) >= 6)
+            if (this->bar_pointer_down_ && this->down_header_ == 0 && !this->Presentation(this->pressed_).locked && std::hypot(x - this->down_x_, y - this->down_y_) >= 6)
                 this->dragging_ = true;
             return true;
         }
         if (message == WM_LBUTTONUP && this->pointer_down_)
         {
             this->pointer_down_ = false;
+            const bool bar = std::exchange(this->bar_pointer_down_, false);
             this->library_pressed_.reset();
             if (this->library_drag_)
             {
@@ -1742,14 +1756,14 @@ namespace xiui
                 this->library_drag_.reset(); this->pressed_control_ = 0;
                 return true;
             }
-            if (this->dialog_ != dialog::none)
+            if (this->dialog_ != dialog::none && !bar)
             {
                 const auto controls = this->Controls();
                 const auto found = std::find_if(controls.begin(), controls.end(), [&](const auto& control) { return control.enabled && control.id == this->pressed_control_ && Contains(control.bounds, x, y); });
                 if (found != controls.end()) this->ActivateControl(found->id);
                 this->pressed_control_ = 0; return true;
             }
-            const auto hit = this->HitTest(x, y);
+            const auto hit = this->BarPointerAvailable(x, y) ? this->HitTest(x, y) : std::nullopt;
             if (this->dragging_)
             {
                 this->dragging_ = false;
@@ -1760,6 +1774,7 @@ namespace xiui
             if (!hit || hit->slot != this->pressed_ || hit->header != this->down_header_) return true;
             if (hit->header == 1)
             {
+                this->RememberLibrary();
                 this->selected_ = hit->slot; this->view_ = hit->slot.surface == action_surface::crossbar ? action_bar_count : hit->slot.bar;
                 this->dialog_ = dialog::palette_dropdown; this->palette_scroll_ = 0; this->focused_control_ = palette_first;
             }
@@ -1767,7 +1782,8 @@ namespace xiui
             else if (hit->header == 4) { this->Presentation(hit->slot).locked = !this->Presentation(hit->slot).locked; this->settings_changed_ = true; }
             else if (hit->header == 0)
             {
-                if (this->store_ && !this->store_->Resolve(hit->slot.surface, hit->slot.bar, hit->slot.slot).Empty()) this->Activate(hit->slot);
+                if (this->dialog_ == dialog::picker) { this->selected_ = hit->slot; this->view_ = hit->slot.surface == action_surface::crossbar ? action_bar_count : hit->slot.bar; }
+                else if (this->store_ && !this->store_->Resolve(hit->slot.surface, hit->slot.bar, hit->slot.slot).Empty()) this->Activate(hit->slot);
                 else this->OpenLibrary(hit->slot.surface == action_surface::crossbar, hit->slot.bar, hit->slot.slot);
             }
             return true;
@@ -1829,13 +1845,7 @@ namespace xiui
                     context.DrawText(help.c_str(), {tooltip.x + 12, tooltip.y + 30, width - 24, 22}, tooltip, this->text_[4]);
                 }
             }
-            if (this->dragging_)
-            {
-                const auto& bar = this->Presentation(this->pressed_);
-                this->DrawSlot(this->pressed_, {this->hover_x_ - bar.size / 2, this->hover_y_ - bar.size / 2, bar.size, bar.size}, true, context);
-                const auto hit = this->HitTest(this->hover_x_, this->hover_y_);
-                if (hit && hit->header == 0 && !this->Presentation(hit->slot).locked) design.DrawFocusFrame(hit->bounds, this->focus_style_);
-            }
+            this->DrawSlotDrag(context);
             if (!this->message_.empty())
             {
                 const auto anchor = this->ScreenSlotBounds(this->selected_); const auto viewport = context.Viewport();
@@ -1848,9 +1858,11 @@ namespace xiui
         if (!floating && this->FloatingWindowOpen())
         {
             const auto modal = this->dialog_; const auto focused = this->window_focused_, navigation = this->navigation_focus_;
+            if (this->library_popup_) this->SwapLibraryContext(*this->library_popup_);
             this->dialog_ = this->WindowDialog(); this->window_focused_ = this->navigation_focus_ = false;
             this->RenderOverlay(context);
             this->dialog_ = modal; this->window_focused_ = focused; this->navigation_focus_ = navigation;
+            if (this->library_popup_) this->SwapLibraryContext(*this->library_popup_);
             design.FillRect(this->WindowBounds(), 0x50000000);
         }
         const auto bounds = this->DialogBounds();
@@ -2035,6 +2047,7 @@ namespace xiui
             controls.Text(help, {bounds.x + 16, bounds.y + bounds.height - 24, bounds.width - 48, 20}, captionText);
         }
         else if (!this->message_.empty()) controls.Text(this->message_.c_str(), {bounds.x + 16, bounds.y + bounds.height - (this->dialog_ == dialog::editor ? 68 : 24), bounds.width - 32, 20}, captionText);
+        this->DrawSlotDrag(context);
         if (this->library_drag_)
         {
             this->DrawLibraryIcon(*this->library_drag_, {this->hover_x_ - 18, this->hover_y_ - 18, 36, 36}, context);

@@ -44,6 +44,7 @@ namespace xiui
 
     auto actionbars_module::OpenSlotMenu(const address& value) -> void
     {
+        this->RememberLibrary();
         this->CommitField(); this->binding_capture_ = false; this->selected_ = value;
         this->view_ = value.surface == action_surface::crossbar ? action_bar_count : value.bar;
         if (value.surface == action_surface::crossbar) this->selected_bank_ = static_cast<int>(value.bar);
@@ -53,6 +54,7 @@ namespace xiui
 
     auto actionbars_module::OpenBarMenu(const address& value) -> void
     {
+        this->RememberLibrary();
         this->CommitField(); this->binding_capture_ = false; this->selected_ = value;
         this->view_ = value.surface == action_surface::crossbar ? action_bar_count : value.bar;
         if (value.surface == action_surface::crossbar) this->selected_bank_ = static_cast<int>(value.bar);

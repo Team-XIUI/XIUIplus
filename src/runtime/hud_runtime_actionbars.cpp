@@ -303,7 +303,7 @@ namespace xiui
         if (floating && !this->actionbars_.PointerDown())
         {
             const bool inside = this->ActionBarsPointerOwns(x, y);
-            if (press) this->actionbars_.SetWindowFocused(inside);
+            if (press) this->actionbars_.SetWindowFocused(inside && this->actionbars_.WindowPointerOwns(x, y));
             if (!inside) { this->actionbars_.SetHover(-1, -1); return false; }
             if (press) this->FinishConfigInput(true, false);
         }

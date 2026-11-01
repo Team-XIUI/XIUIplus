@@ -67,6 +67,8 @@ To use a shared file, choose **Import profile → Choose file**, select the `.xi
 - `/xiui chat` — configure the Chat module; `chat show|hide|clear|status` controls it
 - `/xiui compass` — configure and move the compass
 - `/xiui extras` — configure Compass, World Info and Commands
+- `/xiui chains` — configure the separate skillchain timing and follow-up display
+- `/xiui chains status` — report Chains tracking and available actions
 - `/xiui exp` — configure EXP, session rates, readouts, chains, goals, status and alerts
 - `/xiui exp pause|resume|reset|status|history` — control local EXP sessions and inspect saved records
 - `/xiui exp mode auto|exp|lp|cp|ep` — select displayed progression without changing the game's earning mode
@@ -143,6 +145,16 @@ hotbar/crossbar hints predict compatible closers and matching offensive spells.
 HUD visibility and action predictions have independent switches, with Retail/Horizon/Phoenix
 rules and separate Countdown/Chain name/Elements text profiles. Countdown times
 are estimates; edit mode provides a separate movable sample.
+
+**Extras → Chains** (`/xiui chains`) is an independent companion to Magic Burst.
+It shows the selected enemy's resonating properties, chain step and Wait/Go
+countdown, followed by compatible weapon skills, equipped Blue Magic, Scholar
+spells and pet skills. Results are grouped and sorted by skillchain level.
+Spell hints without Chain Affinity/Azure Lore/Immanence appear dimmed; **Require
+spell ability** hides them instead. Current-avatar, jug-pet and automaton-frame
+filters default on. Top-down and bottom-up layouts, property colors, per-group
+limits and six text profiles are independent settings. These are planning hints;
+TP, MP, recasts and server timing still determine whether an action can succeed.
 
 **Phoenix (75 cap)** shares its pinned ToAU combat profile with Phantom Roll and
 debuff estimates. Select it in Skillchains or use `/xiui rules phoenix`;

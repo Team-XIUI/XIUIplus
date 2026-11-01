@@ -7,6 +7,7 @@
 #include "ui/font_catalog.hpp"
 #include "ui/hud_transform.hpp"
 #include "ui/appearance_theme.hpp"
+#include "ui/text_marquee.hpp"
 
 #include <array>
 #include <cstddef>
@@ -284,6 +285,29 @@ namespace xiui::ui
         auto FadeTop(float top, float height, float minimum = .25f) const -> fade_scope { return {*this, top, height, minimum}; }
         auto MeasureText(const char* text, const text_style& style) const -> float;
         auto TextHeight(const text_style& style) const -> float;
+        auto ButtonMarqueeOffset(uint64_t key, float distance, bool active) const -> float
+        { return this->button_marquees_.Offset(key, distance, active, ::GetTickCount64()); }
+        auto ButtonFocused(const rect& bounds) const -> bool
+        {
+            const auto screen = this->transform_.Map(bounds);
+            const auto x = screen.x + screen.width * .5f, y = screen.y + screen.height * .5f;
+            return this->button_focus_.width > 0 && this->button_focus_.height > 0 &&
+                x >= this->button_focus_.x && x < this->button_focus_.x + this->button_focus_.width &&
+                y >= this->button_focus_.y && y < this->button_focus_.y + this->button_focus_.height;
+        }
+        class button_focus_scope
+        {
+        public:
+            button_focus_scope(const design_system& design, const rect& bounds) : design_(design), previous_(design.button_focus_)
+            { this->design_.button_focus_ = bounds; }
+            ~button_focus_scope(void) { this->design_.button_focus_ = this->previous_; }
+            button_focus_scope(const button_focus_scope&) = delete;
+            auto operator=(const button_focus_scope&) -> button_focus_scope& = delete;
+        private:
+            const design_system& design_;
+            rect previous_;
+        };
+        auto FocusButtons(const rect& bounds) const -> button_focus_scope { return {*this, bounds}; }
         class transform_scope
         {
         public:
@@ -324,6 +348,8 @@ namespace xiui::ui
         DWORD pixel_shader_{};
         DWORD state_block_{};
         bool frame_active_{};
+        mutable text_marquee button_marquees_{};
+        mutable rect button_focus_{};
         mutable bool tracking_content_bounds_{};
         mutable rect content_bounds_{};
         mutable std::optional<rect> clip_bounds_{};

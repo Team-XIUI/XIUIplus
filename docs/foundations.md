@@ -18,6 +18,8 @@ Use `module_text_profile` with shared title, meter and caption roles. Render thr
 
 Configuration text is separate: `config/config_text` owns its plain presentation and effects. Global typography in `config/global_text` changes only the selected property across HUD profiles; later module edits remain authoritative. Keep new profiles compatible with inherited global settings.
 
+Shared buttons reveal overflowing labels with a clipped bounce marquee on hover or deliberate controller focus, pausing at each end. Idle labels retain UTF-8-safe ellipses; fitting labels stay still. Keep selection tint separate from marquee activation.
+
 `ui/font_catalog`, `text_rasterizer` and `glyph_atlas` own bundled faces, native-size metrics, Unicode fallback and bounded glyph caches. Flush batches before texture upload/page reuse; release GDI/device resources on shutdown. Do not add per-frame rasterization or duplicate measurement rules.
 
 ## Containers
@@ -27,6 +29,8 @@ Use `ui::container_renderer` through the render context. It reads the installed 
 The game's Window Type remains authoritative for XI Theme. Global's Native Window Type control uses the validated native setter. The separate Theme control selects XI Theme or XIV 1.0 Theme without changing that client preference. XIV 1.0 uses embedded screenshot-derived frames and gauges; selecting XI Theme restores the existing artwork and saved module styles. Do not reset the client preference when resetting XIUI.
 
 Keep opacity, padding and dark backing independent of module position/size. Tooltips use `DrawTooltip`. To put artwork under a native frame, draw the container without its border, clip the artwork, then use `DrawContainerFrame`. Preserve supported DAT-specific corrections rather than inventing replacement pixels.
+
+XIV 1.0 window backgrounds default to 40% through Global → Appearance → Window. This adjustable theme opacity combines with each module's existing opacity and leaves frame/text settings intact. XI Theme keeps its original opacity behavior.
 
 ## Bars
 

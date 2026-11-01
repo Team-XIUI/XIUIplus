@@ -141,6 +141,8 @@ namespace xiui
         this->modules_.Add(this->phantom_roll_);
         this->magic_burst_.SetSource(&this->skillchain_source_);
         this->modules_.Add(this->magic_burst_);
+        this->chains_.SetSources(&this->skillchain_source_, &this->chains_source_);
+        this->modules_.Add(this->chains_);
         this->treasure_.SetSource(&this->treasure_source_);
         this->treasure_.SetSounds(&this->ui_sounds_);
         this->modules_.Add(this->treasure_);
@@ -160,7 +162,7 @@ namespace xiui
         this->modules_.Add(this->world_info_);
         for (auto& part : this->world_parts_) this->modules_.Add(part);
         this->modules_.Add(this->commands_);
-        this->extras_pages_ = {&this->compass_, &this->world_info_, &this->commands_, &this->blue_magic_, &this->phantom_roll_, &this->ready_check_, &this->magic_burst_, &this->fishing_, &this->game_hud_};
+        this->extras_pages_ = {&this->compass_, &this->world_info_, &this->commands_, &this->blue_magic_, &this->phantom_roll_, &this->ready_check_, &this->magic_burst_, &this->fishing_, &this->game_hud_, &this->chains_};
         this->ready_check_.SetSource(&this->party_source_);
         this->ready_check_.SetSounds(&this->ui_sounds_);
         this->modules_.Add(this->ready_check_);
@@ -282,6 +284,8 @@ namespace xiui
         this->phantom_roll_.ResetDefaults(this->design_system_.GetTheme());
         this->skillchain_source_.Clear();
         this->magic_burst_.ResetDefaults(this->design_system_.GetTheme());
+        this->chains_source_.Clear();
+        this->chains_.ResetDefaults(this->design_system_.GetTheme());
         this->treasure_source_.Clear(); this->treasure_.ResetDefaults(this->design_system_.GetTheme());
         this->general_.ResetDefaults(this->design_system_.GetTheme());
         this->game_hud_.ResetDefaults(this->design_system_.GetTheme());
@@ -377,6 +381,7 @@ namespace xiui
         this->cursor_renderer_.Shutdown();
         this->minimap_maps_.Shutdown();
         this->skillchain_source_.Clear();
+        this->chains_source_.Clear();
         this->treasure_source_.Clear(); this->treasure_.EndInput();
         this->game_icons_.Shutdown();
         this->config_.color_picker.Shutdown();
@@ -585,7 +590,7 @@ namespace xiui
             {
                 if (message == WM_LBUTTONDOWN || message == WM_LBUTTONDBLCLK)
                 {
-                    if (this->editing_) this->FocusModuleConfig(*chat);
+                    if (this->editing_ && this->general_.FollowMovedModuleSettings()) this->FocusModuleConfig(*chat);
                     this->chat_pointer_ = chat;
                     if (::GetCapture() != gameWindow)
                     { ::SetCapture(gameWindow); if (::GetCapture() == gameWindow) this->mouse_capture_window_ = gameWindow; }
@@ -1146,8 +1151,13 @@ namespace xiui
             this->combat_source_.HandlePacket(this->core_, id, {data, size}, now, &actionPacket);
             this->pet_source_.HandlePacket(this->core_, id, {data, size}, now, &actionPacket);
             this->skillchain_source_.SetRules(this->combat_settings_.Rules());
-            if (this->magic_burst_.State().enabled || this->actionbars_.SkillchainPredictionsEnabled()) this->skillchain_source_.HandlePacket(this->core_, id, {data, size}, now, &actionPacket);
+            if (this->magic_burst_.State().enabled || this->chains_.State().enabled || this->actionbars_.SkillchainPredictionsEnabled()) this->skillchain_source_.HandlePacket(this->core_, id, {data, size}, now, &actionPacket);
             else this->skillchain_source_.Clear();
+            if (this->chains_.State().enabled)
+            {
+                if (id == 0x44) this->chains_source_.Update(this->core_, this->skillchain_source_, now);
+                this->chains_source_.HandlePacket(id, {data, size});
+            }
             if (this->timing_ready_) this->timing_source_.HandlePacket(this->core_, this->combat_source_, id, {data, size}, now, &actionPacket);
             if (this->timing_ready_ && id == 0x0028)
             {
@@ -1380,11 +1390,26 @@ namespace xiui
                 ::_stricmp(command, "rules horizon") == 0 ? server_rules::horizon : server_rules::retail;
             this->combat_settings_.SetRules(rules);
             this->skillchain_source_.Clear();
+            this->chains_source_.Clear();
             this->combat_source_.Clear();
             this->SaveSettings();
             if (this->core_ != nullptr && this->core_->GetChatManager() != nullptr)
                 this->core_->GetChatManager()->Writef(1, false, "[XIUI] Combat rules: %s.", ServerRulesName(this->combat_settings_.Rules()));
             return true;
+        }
+        else if (::_stricmp(command, "chains status") == 0)
+        {
+            const auto* window = this->skillchain_source_.Current(::GetTickCount64());
+            if (this->core_ != nullptr && this->core_->GetChatManager() != nullptr)
+                this->core_->GetChatManager()->Writef(1, false, "[XIUI] Chains: %s; %s rules; %zu available actions; selected %u; window %s.",
+                    this->chains_.State().enabled ? "enabled" : "disabled", ServerRulesName(this->combat_settings_.Rules()),
+                    this->chains_source_.Actions().size(), this->skillchain_source_.Target(), window != nullptr ? "active" : "none");
+            return true;
+        }
+        else if (::_stricmp(command, "chains") == 0)
+        {
+            this->SelectConfigModule(&this->chains_);
+            this->SetVisible(true); this->SetEditing(true); return true;
         }
         else if (::_stricmp(command, "skillchain status") == 0 || ::_stricmp(command, "magicburst status") == 0)
         {
@@ -1401,7 +1426,9 @@ namespace xiui
             if (::_stricmp(command, "skillchain") == 0)
             {
                 this->SelectConfigModule(&this->actionbars_);
-                this->config_.section = this->actionbars_.ConfigSections().size() - 1;
+                const auto sections = this->actionbars_.ConfigSections();
+                const auto found = std::find_if(sections.begin(), sections.end(), [](const auto& section) { return section.Id() == "skillchains"; });
+                if (found != sections.end()) this->config_.section = static_cast<size_t>(found - sections.begin());
             }
             else this->SelectConfigModule(&this->magic_burst_);
             this->SetVisible(true); this->SetEditing(true); return true;
@@ -1873,6 +1900,7 @@ namespace xiui
     auto hud_runtime::LoadSettings(void) -> void
     {
         this->skillchain_source_.Clear();
+        this->chains_source_.Clear();
         if (this->settings_path_.empty())
             return;
 
@@ -1902,6 +1930,7 @@ namespace xiui
         this->game_hud_.SetDefaults(defaults);
         this->layout_viewport_ = ReadLayoutViewport(store);
         this->skillchain_source_.Clear();
+        this->chains_source_.Clear();
         this->combat_settings_.Load(store);
         this->SuspendActionBarsInput();
         this->action_executor_.Cancel();
@@ -2047,6 +2076,9 @@ namespace xiui
             auto& magicBurst = this->magic_burst_.State().bounds;
             if (magicBurst.x < 0) magicBurst.x = std::max(0.0f, (viewport.Width - magicBurst.width) * 0.5f + 160);
             if (magicBurst.y < 0) magicBurst.y = std::max(0.0f, viewport.Height * 0.45f);
+            auto& chains = this->chains_.State().bounds;
+            if (chains.x < 0) chains.x = std::max(0.0f, magicBurst.x - chains.width - 24);
+            if (chains.y < 0) chains.y = std::max(0.0f, viewport.Height * 0.35f);
             if (phantomRoll.x < 0) phantomRoll.x = std::max(0.0f, (viewport.Width - phantomRoll.width) * 0.5f);
             if (phantomRoll.y < 0) phantomRoll.y = std::max(0.0f, (viewport.Height - phantomRoll.height) * 0.65f);
             auto& castBar = this->cast_bar_.State().bounds;
@@ -2364,7 +2396,7 @@ namespace xiui
             {
                 if (module != nullptr)
                 {
-                    this->FocusModuleConfig(*module);
+                    if (this->general_.FollowMovedModuleSettings()) this->FocusModuleConfig(*module);
                     this->ui_sounds_.Select(::GetTickCount64());
                 }
                 this->interaction_module_ = module;
@@ -2515,8 +2547,10 @@ namespace xiui
         this->combat_source_.Update(this->core_, now);
         this->UpdateTreasure(now);
         this->skillchain_source_.SetRules(this->combat_settings_.Rules());
-        if (this->magic_burst_.State().enabled || this->actionbars_.SkillchainPredictionsEnabled()) this->skillchain_source_.Update(this->core_, now);
+        if (this->magic_burst_.State().enabled || this->chains_.State().enabled || this->actionbars_.SkillchainPredictionsEnabled()) this->skillchain_source_.Update(this->core_, now);
         else this->skillchain_source_.Clear();
+        if (this->chains_.State().enabled) this->chains_source_.Update(this->core_, this->skillchain_source_, now);
+        else this->chains_source_.Clear();
         this->actionbars_.SetSkillchains(&this->skillchain_source_);
         this->timing_source_.Update(this->core_, this->combat_source_, now);
         this->player_.SetTiming(&this->timing_source_); this->player_.SetSounds(&this->ui_sounds_);
@@ -2613,6 +2647,7 @@ namespace xiui
         this->chat_.SetHistoryViewport({static_cast<float>(viewport.X), static_cast<float>(viewport.Y), static_cast<float>(viewport.Width), static_cast<float>(viewport.Height)});
         this->chat_second_.SetHistoryViewport({static_cast<float>(viewport.X), static_cast<float>(viewport.Y), static_cast<float>(viewport.Width), static_cast<float>(viewport.Height)});
         this->design_system_.SetDarkBackingOpacity(this->general_.DarkBackingOpacity());
+        this->container_renderer_.SetXiv1BackgroundOpacity(this->general_.Xiv1BackgroundOpacity());
 
         if (!this->design_system_.BeginFrame())
         {

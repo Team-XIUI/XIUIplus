@@ -209,6 +209,8 @@ namespace xiui
         this->selection_style_.padding_x = std::clamp(store.ReadFloat(section, "selection_padding_x", 6), 0.0f, 16.0f);
         this->selection_style_.padding_y = std::clamp(store.ReadFloat(section, "selection_padding_y", 4), 0.0f, 12.0f);
         this->selection_style_.arrow = store.ReadBool(section, "selection_arrow", true);
+        this->selection_width_extension_ = std::clamp(store.ReadFloat(section, "selection_width_extension", 0), -128.0f, 256.0f);
+        this->selection_height_extension_ = std::clamp(store.ReadFloat(section, "selection_height_extension", 0), -64.0f, 128.0f);
         this->status_placement_ = std::clamp(store.ReadInt(section, "status_placement", status_left), status_left, status_inline);
         this->status_frame_ = store.ReadBool(section, "status_container", false);
         this->status_columns_ = std::clamp(store.ReadFloat(section, "status_columns", 8), 1.0f, 16.0f);
@@ -315,6 +317,8 @@ namespace xiui
         store.WriteFloat(section, "selection_padding_x", this->selection_style_.padding_x);
         store.WriteFloat(section, "selection_padding_y", this->selection_style_.padding_y);
         store.WriteBool(section, "selection_arrow", this->selection_style_.arrow);
+        store.WriteFloat(section, "selection_width_extension", this->selection_width_extension_);
+        store.WriteFloat(section, "selection_height_extension", this->selection_height_extension_);
         store.WriteInt(section, "status_placement", this->status_placement_);
         store.WriteBool(section, "status_container", this->status_frame_);
         store.WriteFloat(section, "status_columns", this->status_columns_);
@@ -341,6 +345,15 @@ namespace xiui
 
     auto party_module::ContentOption(const size_t index) -> module_option
     {
+        if (index >= selection_size_options_start && index < selection_size_options_start + 2)
+        {
+            const bool width = index == selection_size_options_start;
+            return module_option::Slider(width ? "Width adjustment" : "Height adjustment",
+                width ? "Add pixels to the selection box's total width, centered on the entry. Extend it to the window edges without changing content width." :
+                    "Add pixels to the selection box's total height, centered on the entry. Entry spacing stays the same.",
+                width ? &this->selection_width_extension_ : &this->selection_height_extension_, width ? -128.0f : -64.0f, width ? 256.0f : 128.0f, 1,
+                module_option_group::appearance).Ordered(width ? 410 : 411, width).VisibleWhen(this->selection_);
+        }
         if (index == leader_option)
             return module_option::Toggle("Show party leader", "Show a yellow dot beside the party or alliance leader's name.", &this->show_leader_).Ordered(10);
         if (index >= job_text_options_start && index < job_text_options_start + 2)
@@ -542,7 +555,7 @@ namespace xiui
             {"Colors", "Resource fills, state colors and bar tints.", "colors"},
             {"Status Effects", "Choose combined effects or split rows, then edit the settings for that mode.", "status-effects"},
             {"Text", "Choose an element to edit its display, layout, font, offsets, colors and effects together.", "text"},
-            {"Selection", "Target and subtarget colors, background tint, padding and arrow.", "selection"},
+            {"Selection", "Target and subtarget colors, background tint, padding, independent box sizing and arrow.", "selection"},
             {"Tickers", "Swing and resting timing for you and observable party members. Other members' timing is estimated.", "tickers"},
             {"Window", "Overall list width, entry spacing, reserved rows, padding and opacity.", "window"}}};
         return sections;
@@ -551,6 +564,7 @@ namespace xiui
     auto party_module::ContentConfigSectionContains(const size_t section, const size_t index) -> bool
     {
         if (section >= this->ConfigSections().size() || index >= this->OptionCount() || index == 2) return false;
+        if (index >= selection_size_options_start && index < selection_size_options_start + 2) return section == selection_section;
         if (index == leader_option) return section == general_section;
         if (index >= job_text_options_start || (index >= 7 && index <= 11) || index == 49)
             return section == text_section && this->selected_text_ == 1;
@@ -766,6 +780,14 @@ namespace xiui
     auto party_module::SelectionPadding(void) const -> ui::point
     {
         return this->selection_ ? ui::point{this->selection_style_.padding_x, this->selection_style_.padding_y} : ui::point{};
+    }
+
+    auto party_module::SelectionBounds(const ui::rect& row) const -> ui::rect
+    {
+        const auto padding = this->SelectionPadding();
+        const float width = std::max(1.0f, row.width + 2 * padding.x + this->selection_width_extension_);
+        const float height = std::max(1.0f, row.height + 2 * padding.y + this->selection_height_extension_);
+        return {row.x + (row.width - width) * 0.5f, row.y + (row.height - height) * 0.5f, width, height};
     }
 
     auto party_module::BarWidth(const size_t bar, const float available) const -> float
@@ -1212,8 +1234,7 @@ namespace xiui
         };
         if (this->selection_ && member.selected && !(this->ControllerFocused() && this->controller_member_id_ == member.id))
         {
-            const auto padding = this->SelectionPadding();
-            context.DrawSelection({row.x - padding.x, row.y - padding.y, row.width + 2 * padding.x, row.height + 2 * padding.y}, member.subtarget, this->selection_style_);
+            context.DrawSelection(this->SelectionBounds(row), member.subtarget, this->selection_style_);
         }
         const auto& slots = prepared.slots;
         const auto& detail = prepared.detail;

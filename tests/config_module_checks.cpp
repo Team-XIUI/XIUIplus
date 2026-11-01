@@ -550,9 +550,33 @@ namespace xiui
         if (!check(player.selected && player.subtarget && source.members_[7].selected && !source.members_[7].subtarget,
             "entity subtarget highlighting distinguishes the cursor from the held target")) return false;
         source.members_[7].in_zone = source.members_[7].entity_valid = false;
-        source.UpdateSelection(101, 0, false, 7);
+        std::array<uint8_t, 0x58> nativeParty{};
+        uintptr_t nativeOwner = reinterpret_cast<uintptr_t>(nativeParty.data());
+        uintptr_t nativeSlot = reinterpret_cast<uintptr_t>(&nativeOwner);
+        const auto nativeRoot = reinterpret_cast<uintptr_t>(&nativeSlot);
+        const uintptr_t selectionCallback = 0x12345678;
+        int32_t nativeMember{7};
+        std::memcpy(nativeParty.data() + 0x54, &selectionCallback, sizeof(selectionCallback));
+        std::memcpy(nativeParty.data() + 0x50, &nativeMember, sizeof(nativeMember));
+        if (!check(ReadNativePartyCursor(nativeRoot) == 7, "native party selection accepts a callback address rather than requiring boolean one")) return false;
+        source.UpdateSelection(101, 0, false, ReadNativePartyCursor(nativeRoot));
         if (!check(source.members_[7].selected && source.members_[7].subtarget && player.selected && !player.subtarget,
             "party cursor selection can highlight out-of-zone members without replacing the held target")) return false;
+        nativeMember = 0;
+        std::memcpy(nativeParty.data() + 0x50, &nativeMember, sizeof(nativeMember));
+        source.UpdateSelection(0, 0, false, ReadNativePartyCursor(nativeRoot));
+        if (!check(player.selected && player.subtarget && !source.members_[7].selected,
+            "native rearrangement cursor movement changes only the highlighted party row")) return false;
+        for (const int32_t invalid : {-1, 18, 256})
+        {
+            std::memcpy(nativeParty.data() + 0x50, &invalid, sizeof(invalid));
+            if (!check(ReadNativePartyCursor(nativeRoot) == -1, "invalid native party slots cannot alias a visible member")) return false;
+        }
+        std::fill(nativeParty.begin() + 0x54, nativeParty.end(), uint8_t{});
+        nativeMember = 0; std::memcpy(nativeParty.data() + 0x50, &nativeMember, sizeof(nativeMember));
+        source.UpdateSelection(0, 0, false, ReadNativePartyCursor(nativeRoot));
+        if (!check(ReadNativePartyCursor(nativeRoot) == -1 && ReadNativePartyCursor(0) == -1 && !player.selected && !source.members_[7].selected,
+            "closing native party selection clears the cursor without stale highlights")) return false;
         source.cutscene_ = true;
         if (!check(!party.ShouldRender(snapshot) && !alliance.ShouldRender(snapshot), "event hiding applies to each list")) return false;
         source.cutscene_ = false;
@@ -811,6 +835,21 @@ namespace xiui
         alliance.cast_placement_ = party_module::cast_tp;
         alliance.fit_width_ = false;
         party.selection_style_ = {0xFF55AAFF, 0xFFFF9955, 0.23f, 8, 5, false};
+        const ui::rect selectionRow{100, 200, 300, 40};
+        const auto originalFrame = party.SelectionBounds(selectionRow);
+        const auto contentWidth = party.BarWidthLimit(), entryHeight = party.MemberHeight(player);
+        auto frameWidth = party.Option(party_module::selection_size_options_start);
+        auto frameHeight = party.Option(party_module::selection_size_options_start + 1);
+        if (!check(frameWidth.visible && frameHeight.visible && frameWidth.slider && frameHeight.slider &&
+            party.ConfigSectionContains(party_module::selection_section, party_module::selection_size_options_start) &&
+            party.ConfigSectionContains(party_module::selection_section, party_module::selection_size_options_start + 1),
+            "selection sizing uses shared controls in the Selection section")) return false;
+        *frameWidth.slider = 32; *frameHeight.slider = 12;
+        const auto extendedFrame = party.SelectionBounds(selectionRow);
+        if (!check(extendedFrame.width == originalFrame.width + 32 && extendedFrame.height == originalFrame.height + 12 &&
+            extendedFrame.x == originalFrame.x - 16 && extendedFrame.y == originalFrame.y - 6 &&
+            party.BarWidthLimit() == contentWidth && party.MemberHeight(player) == entryHeight,
+            "selection sizing extends both edges without moving party content or changing row spacing")) return false;
         party.Save(store); alliance.Save(store); third.Save(store); store.Flush();
         store.WriteFloat("party", "frame_size", 12); store.WriteBool("party", "scan_lines", false);
         store.WriteFloat("party", "status_frame_size", 1); store.WriteBool("party", "status_scan_lines", false);
@@ -818,8 +857,10 @@ namespace xiui
         const ui::container_style nativeStyle;
         if (!check(loaded.selection_style_.target_color == 0xFF55AAFF && loaded.selection_style_.subtarget_color == 0xFFFF9955 &&
             loaded.selection_style_.background_opacity == 0.23f && loaded.SelectionPadding().x == 8 && loaded.SelectionPadding().y == 5 &&
-            !loaded.selection_style_.arrow && second.selection_style_.arrow && second.selection_style_.background_opacity == 0.12f,
-            "selection tint, padding, colors and arrow persist independently for each party list")) return false;
+            !loaded.selection_style_.arrow && second.selection_style_.arrow && second.selection_style_.background_opacity == 0.12f &&
+            loaded.selection_width_extension_ == 32 && loaded.selection_height_extension_ == 12 &&
+            second.selection_width_extension_ == 0 && second.selection_height_extension_ == 0,
+            "selection styling and independent box sizing persist separately for each party list")) return false;
         if (!check(loaded.text_[0].offset_y == 12 && loaded.text_[party_module::heading_text].offset_y == -2 &&
             loaded.selected_text_ == party_module::heading_text && second.text_[party_module::heading_text].offset_y == 0,
             "member names and party/alliance headings retain independent text settings")) return false;

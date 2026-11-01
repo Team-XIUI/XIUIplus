@@ -1562,6 +1562,69 @@ namespace xiui
             Check(!runtime->ActionBarsPointerOwns(static_cast<float>(runtime->mouse_x_), static_cast<float>(runtime->mouse_y_)),
                 "closing popouts releases their cursor ownership");
         }
+        static auto LibraryBarManagement(void) -> void
+        {
+            for (const bool editing : {false, true})
+            {
+                class mouse final : public IMouse
+                {
+                    bool blocked_{};
+                public:
+                    void AddCallback(const char*, mousecallback_f) override {}
+                    void RemoveCallback(const char*) override {}
+                    bool GetBlockInput(void) const override { return this->blocked_; }
+                    void SetBlockInput(bool value) override { this->blocked_ = value; }
+                } input;
+                auto runtime = std::make_unique<hud_runtime>(); auto& module = runtime->actionbars_;
+                runtime->mouse_ = &input; runtime->editing_ = editing; runtime->config_.bounds = {900, 20, 350, 600};
+                runtime->action_store_.SetContext({1, 0, {}});
+                module.Initialize(nullptr, &runtime->action_store_, &runtime->action_executor_);
+                module.ApplyTextDefaults(ui::theme::CreateDefault()); module.viewport_ = {0, 0, 1280, 900};
+                module.bars_[0].state.bounds = {80, 780, 600, 80}; module.bars_[0].heading = true; module.bars_[0].locked = false; module.Layout(0);
+                runtime->action_store_.Assign(action_surface::hotbar, 0, 0, Command("First"));
+                runtime->action_store_.Assign(action_surface::hotbar, 0, 1, Command("Second"));
+                module.OpenLibrary(); module.query_ = "kept query"; module.category_ = 7; module.result_scroll_ = 2;
+                module.draft_ = Command("Library draft");
+                const auto send = [&](uint32_t message, const ui::rect& at, WPARAM buttons = 0) {
+                    return runtime->HandleActionBarsMouse(message, buttons, at.x + 8, at.y + 8, input.GetBlockInput());
+                };
+                const auto first = module.SlotBounds({action_surface::hotbar, 0, 0}), second = module.SlotBounds({action_surface::hotbar, 0, 1});
+                Check(runtime->ActionBarsPointerOwns(first.x + 8, first.y + 8), "an open library leaves exposed hotbars reachable");
+                Check(send(WM_LBUTTONDOWN, first) && module.bar_pointer_down_, "slot press belongs to the bar while the library stays open");
+                Check(send(WM_MOUSEMOVE, second, MK_LBUTTON) && module.dragging_, "slot dragging starts through the existing assignment gesture");
+                Check(send(WM_LBUTTONUP, second) && runtime->action_store_.Resolve(action_surface::hotbar, 0, 0).name == "Second" &&
+                    runtime->action_store_.Resolve(action_surface::hotbar, 0, 1).name == "First" && module.dialog_ == actionbars_module::dialog::picker && !module.PointerDown(),
+                    "exposed slots swap without closing the library or retaining a held release");
+                for (const bool locked : {true, false})
+                {
+                    const auto lock = module.LockBounds(0);
+                    Check(send(WM_LBUTTONDOWN, lock) && send(WM_LBUTTONUP, lock) && module.bars_[0].locked == locked && module.FloatingWindowOpen(),
+                        "lock controls remain usable beside the library");
+                }
+                Check(send(WM_RBUTTONDOWN, first) && send(WM_RBUTTONUP, first) && module.dialog_ == actionbars_module::dialog::slot_menu &&
+                    module.WindowDialog() == actionbars_module::dialog::picker, "slot menus retain their parent library");
+                module.HandleControllerAction(controller_action::cancel, false);
+                Check(module.dialog_ == actionbars_module::dialog::picker && module.query_ == "kept query" && module.category_ == 7 && module.result_scroll_ == 2 &&
+                    module.draft_.name == "Library draft", "controller Cancel restores the library's search, scroll and draft");
+                const auto menu = module.MenuBounds(0);
+                Check(send(WM_LBUTTONDOWN, menu) && send(WM_LBUTTONUP, menu) && module.dialog_ == actionbars_module::dialog::bar_menu,
+                    "bar options open while the library remains present");
+                module.ActivateControl(Control(module, "Lock slot positions"));
+                Check(module.bars_[0].locked && module.dialog_ == actionbars_module::dialog::picker && module.query_ == "kept query",
+                    "bar menu actions restore the existing library context");
+                Check(send(WM_RBUTTONDOWN, first) && send(WM_RBUTTONUP, first), "slot menu reopens after a bar action");
+                module.ActivateControl(actionbars_module::command_clear);
+                Check(runtime->action_store_.Resolve(action_surface::hotbar, 0, 0).Empty() && module.dialog_ == actionbars_module::dialog::picker &&
+                    module.draft_.name == "Library draft", "clearing a slot preserves the library draft");
+                module.workspace_bounds_[0] = {40, 410, 640, 480};
+                Check(module.WindowPointerOwns(second.x + 8, second.y + 8), "the workspace covers the test slot");
+                Check(send(WM_LBUTTONDOWN, second) && !module.bar_pointer_down_, "the library takes precedence over covered hotbar slots");
+                send(WM_LBUTTONUP, second);
+                Check(runtime->action_store_.Resolve(action_surface::hotbar, 0, 1).name == "First" && !module.PointerDown(),
+                    "covered-slot clicks do not change assignments or retain capture");
+                module.SuspendInput(); runtime->SetChatMouseCapture(false); runtime->mouse_ = nullptr;
+            }
+        }
         static auto FloatingWorkspaces(void) -> void
         {
             auto runtime = std::make_unique<hud_runtime>(); auto& module = runtime->actionbars_;
@@ -1837,6 +1900,11 @@ auto main(const int argc, char** argv) -> int
     {
         try { xiui::actionbars_ui_test::GlobalSettings(); std::puts("Global hotbar inheritance, independent settings and persistence passed."); return 0; }
         catch (const std::exception& error) { std::fprintf(stderr, "%s\n", error.what()); return 1; }
+    }
+    if (argc == 2 && std::strcmp(argv[1], "--library-bars-only") == 0)
+    {
+        try { xiui::actionbars_ui_test::LibraryBarManagement(); xiui::actionbars_ui_test::FloatingWorkspaces(); std::puts("Library and exposed hotbar management checks passed."); return 0; }
+        catch (const std::exception& error) { std::fprintf(stderr, "Library/bar check failed: %s\n", error.what()); return 1; }
     }
     if (argc == 2 && std::strcmp(argv[1], "--input-ownership-only") == 0)
     {

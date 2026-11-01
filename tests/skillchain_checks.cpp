@@ -1,6 +1,8 @@
 #include "combat/skillchain_source.hpp"
 #include "modules/actionbars/actionbars_module.hpp"
 #include "modules/magicburst/magic_burst_module.hpp"
+#include "modules/chains/chains_module.hpp"
+#include "resources/chains_data.hpp"
 #include "modules/phantomroll/phantom_roll_module.hpp"
 
 #include <cstdio>
@@ -112,6 +114,55 @@ namespace
         Check(settings.Rules() == server_rules::retail && *settings.RulesChoice() == 0,
             "the settings adapter normalizes an invalid choice before exposing it again");
     }
+    auto CheckChains(void) -> void
+    {
+        using namespace xiui;
+        skillchain_source source;
+        source.SetRules(server_rules::phoenix); source.Observe(Action(2), 1000);
+        const auto* window = source.Find(100, 1001);
+        const std::array<chains_action, 2> actions{{{chains_group::weapon, 3, 1, "Combo"}, {chains_group::weapon, 3, 999, "Unknown"}}};
+        const auto rows = ChainsRows(source, *window, actions, {});
+        Check(!source.Predict(100, 3, 1, {}, 1001).Active() && rows.size() == 1 && rows[0].result == skillchain_property::impaction,
+            "Chains plans during Phoenix Wait while Action Bars still respects the ready deadline");
+        chains_filters filters; filters.weapon = false;
+        Check(ChainsRows(source, *window, actions, filters).empty(), "Chains weapon filtering leaves tracker predictions intact");
+
+        source.SetRules(server_rules::retail); source.Observe(Action(2), 2000);
+        window = source.Find(100, 2001);
+        const std::array<chains_action, 1> spells{{{chains_group::spell, 4, 529, "Bludgeon"}}};
+        filters = {};
+        const auto hints = ChainsRows(source, *window, spells, filters);
+        Check(hints.size() == 1 && !hints[0].ready, "inactive Chain Affinity retains a dimmed spell planning hint");
+        filters.require_buff = true;
+        Check(ChainsRows(source, *window, spells, filters).empty(), "requiring spell buffs removes unavailable spell hints");
+        source.SetLocalBuffs(1, 2);
+        Check(ChainsRows(source, *window, spells, filters).size() == 1, "active Chain Affinity restores spell suggestions");
+
+        const std::array<chains_action, 1> pets{{{chains_group::pet, 21, 1941, "String Clipper", false, chains_pet::frame}}};
+        Check(ChainsRows(source, *window, pets, {}).empty(), "current-frame filtering hides unavailable automaton moves");
+        filters = {}; filters.frame = false;
+        const auto petHints = ChainsRows(source, *window, pets, filters);
+        Check(petHints.size() == 1 && !petHints[0].ready, "all-frame planning keeps unavailable pet moves dimmed");
+        auto terminal = *window; terminal.depth = 5;
+        Check(ChainsRows(source, terminal, actions, {}).empty(), "terminal depth never invents follow-up chains");
+        source.SetRules(server_rules::phoenix); source.Observe(Action(3857, 200, 11, 110), 3000);
+        Check(source.Find(200, 3001) && (source.Find(200, 3001)->properties & (1u << static_cast<unsigned>(skillchain_property::impaction))),
+            "Phoenix jug packets use the pinned pet move's mob-skill wire ID");
+        Check(std::any_of(resources::chains_jug_moves.begin(), resources::chains_jug_moves.end(), [](const auto& move) {
+            return move.pet == "SheepFamiliar" && move.move == "Lamb Chop";
+        }), "the pinned first jug retains its identity in generated availability data");
+
+        auto saved = settings_store::FromIniText("[chains]\nenabled=0\nspell=0\ndirection=1\n[layout.chains]\nx=456\ny=234\nwidth=500\n[text.chains.result]\noffset_x=7\n");
+        const auto theme = ui::theme::CreateDefault(); chains_module module;
+        module.ApplyTextDefaults(theme); module.Load(saved); module.Save(saved);
+        Check(!module.State().enabled && module.State().bounds.x == 456 && module.State().bounds.width == 500 &&
+            !saved.ReadBool("chains", "spell", true) && saved.ReadInt("chains", "direction", 0) == 1 &&
+            saved.ReadFloat("text.chains.result", "offset_x", 0) == 7, "Chains layout, filters and text survive profile persistence");
+        size_t profiles{}; module.VisitTextSettings([&](ui::text_style&) { ++profiles; });
+        Check(profiles == 6, "global typography reaches every Chains text role");
+        module.ResetDefaults(theme);
+        Check(module.State().enabled && module.State().bounds.x == 456, "Chains reset retains the movement anchor");
+    }
 }
 
 auto RunSkillchainChecks(void) -> bool
@@ -121,6 +172,7 @@ auto RunSkillchainChecks(void) -> bool
     {
         CheckSharedPacket();
         CheckCombatSettings();
+        CheckChains();
         skillchain_source source;
         source.Observe(Action(2), 1000);
         Check(source.Find(100, 1000) != nullptr && !source.Find(100, 1000)->Burst(1000) &&
@@ -197,8 +249,10 @@ auto RunSkillchainChecks(void) -> bool
         for (size_t view = 0; view <= action_bar_count; ++view)
         {
             bars.SelectConfigView(view);
-            const auto section = bars.ConfigSections().size() - 1;
-            Check(std::strcmp(bars.ConfigSections()[section].name, "Skillchains") == 0 &&
+            const auto sections = bars.ConfigSections();
+            const auto found = std::find_if(sections.begin(), sections.end(), [](const auto& section) { return section.Id() == "skillchains"; });
+            const auto section = static_cast<size_t>(found - sections.begin());
+            Check(found != sections.end() &&
                 bars.ConfigSectionContains(section, predictionIndex) && bars.ConfigSectionContains(section, rulesIndex) &&
                 bars.ConfigSectionContains(section, hudIndex) && bars.Option(predictionIndex).toggle == predictions && bars.Option(rulesIndex).choice == rules,
                 "every hotbar and Crossbar route to the same shared Skillchains controls");

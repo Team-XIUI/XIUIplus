@@ -36,7 +36,8 @@ namespace xiui
 
     inline auto EntityHasHealth(uint32_t spawnFlags) -> bool
     {
-        return (spawnFlags & 0x02) == 0 && (spawnFlags & 0x11) != 0;
+        // Pets can carry Ally without either the Player or Monster flag.
+        return (spawnFlags & 0x02) == 0 && (spawnFlags & 0x111) != 0;
     }
 
     template<typename Group>

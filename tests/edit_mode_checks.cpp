@@ -75,6 +75,24 @@ namespace xiui
         hud.SetEditing(true, false);
         if (!check(!hud.config_.edit_mode && !hud.config_.preview_selected,
             "reopening settings starts with previews off without changing enabled modules")) return false;
+        hud.hud_viewport_ = viewport;
+        auto follow = hud.general_.Option(hud.general_.ExtraSettingsStart());
+        if (!check(hud.general_.FollowMovedModuleSettings() && follow.toggle &&
+            hud.general_.ConfigSectionContains(general_module::extra_settings_section, hud.general_.ExtraSettingsStart()),
+            "module settings follow stays enabled by default under Extra Settings")) return false;
+        hud.config_.module = &hud.enemy_list_;
+        *follow.toggle = false;
+        hud.BeginScale(hud.player_);
+        if (!check(hud.scale_gesture_.module == &hud.player_ && hud.config_.module == &hud.enemy_list_,
+            "disabling settings follow keeps the current page during a module scale gesture")) return false;
+        hud.FinishScale(false);
+        const auto preferences = settings_store::FromIniText(""); hud.general_.Save(preferences);
+        general_module restored; restored.Load(preferences);
+        if (!check(!restored.FollowMovedModuleSettings(), "settings follow opt-out persists through normal preferences")) return false;
+        *follow.toggle = true;
+        hud.BeginScale(hud.player_);
+        if (!check(hud.config_.module == &hud.player_, "the enabled preference retains automatic module settings selection")) return false;
+        hud.FinishScale(false);
         hud.SetEditing(false, false);
         hud.mouse_ = nullptr;
         return true;

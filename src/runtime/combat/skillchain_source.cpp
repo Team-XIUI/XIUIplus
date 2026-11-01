@@ -78,10 +78,14 @@ namespace xiui
         this->names_.clear();
         this->rules_ = rules;
     }
+    auto skillchain_source::Skills(void) const -> std::span<const resources::skillchain_skill>
+    {
+        return this->rules_ == server_rules::phoenix ? std::span<const resources::skillchain_skill>{resources::skillchain_phoenix} :
+            this->rules_ == server_rules::horizon ? std::span<const resources::skillchain_skill>{resources::skillchain_horizon} : std::span<const resources::skillchain_skill>{resources::skillchain_retail};
+    }
     auto skillchain_source::Skill(const uint8_t category, const uint32_t id, const std::string_view name) const -> const resources::skillchain_skill*
     {
-        const std::span<const resources::skillchain_skill> table = this->rules_ == server_rules::phoenix ? std::span<const resources::skillchain_skill>{resources::skillchain_phoenix} :
-            this->rules_ == server_rules::horizon ? std::span<const resources::skillchain_skill>{resources::skillchain_horizon} : std::span<const resources::skillchain_skill>{resources::skillchain_retail};
+        const auto table = this->Skills();
         const auto key = std::pair{category, id};
         const auto found = std::lower_bound(table.begin(), table.end(), key, [](const auto& row, const auto& value) {
             return std::pair{row.category, uint32_t{row.id}} < value;
@@ -208,24 +212,31 @@ namespace xiui
         skillchain_prediction prediction{};
         if (category == 4 && element < 8 && window->Burst(now) && (SkillchainElements(window->chain) & (1u << element)))
         { prediction.burst = true; prediction.elements = SkillchainElements(window->chain); }
-        if (now < window->opens || window->depth >= 5) return prediction;
+        if (now < window->opens) return prediction;
+        prediction.chain = this->Continuation(*window, category, id, name);
+        return prediction;
+    }
+    auto skillchain_source::Continuation(const skillchain_window& window, const uint8_t category, const uint32_t id,
+        const std::string_view name, const bool requireBuff, const bool requirePet) const -> skillchain_property
+    {
+        if (window.depth >= 5) return skillchain_property::none;
         const auto* skill = this->Skill(category, id, name);
         if (skill == nullptr && category == 11) skill = this->Skill(21, id, name);
         if (skill == nullptr && category == 13) { skill = this->Skill(11, id, name); if (skill == nullptr) skill = this->Skill(21, id, name); }
         uint32_t properties = skill != nullptr ? skill->properties : 0;
-        if (category == 4)
+        if (category == 4 && requireBuff)
         {
             const bool blue = id >= 512 && id < 768;
             if ((this->local_buffs_ & (blue ? 3 : 4)) == 0) properties = 0;
         }
-        if (skill != nullptr && !skill->avatar.empty() && Normalize(skill->avatar) != Normalize(this->pet_)) properties = 0;
+        if (requirePet && skill != nullptr && !skill->avatar.empty() && Normalize(skill->avatar) != Normalize(this->pet_)) properties = 0;
         if (properties != 0)
-            for (auto opening = window->order; opening != 0; opening >>= 5)
+            for (auto opening = window.order; opening != 0; opening >>= 5)
                 for (auto closing = skill->order; closing != 0; closing >>= 5)
                     for (const auto& combination : combinations)
                         if ((opening & 31) == combination.opening && (closing & 31) == combination.closing)
-                        { prediction.chain = static_cast<skillchain_property>(combination.result); return prediction; }
-        return prediction;
+                        return static_cast<skillchain_property>(combination.result);
+        return skillchain_property::none;
     }
     auto skillchain_source::PredictSlot(const action_slot& slot, IResourceManager* resources, const uint64_t now) const -> skillchain_prediction
     {

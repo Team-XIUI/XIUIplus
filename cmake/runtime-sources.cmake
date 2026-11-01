@@ -28,6 +28,10 @@ set(XIUI_HUD_SOURCES
     src/runtime/combat/skillchain_source.hpp
     src/runtime/modules/magicburst/magic_burst_module.cpp
     src/runtime/modules/magicburst/magic_burst_module.hpp
+    src/runtime/modules/chains/chains_module.cpp
+    src/runtime/modules/chains/chains_module.hpp
+    src/runtime/modules/chains/chains_source.cpp
+    src/runtime/modules/chains/chains_source.hpp
     ${XIUI_WEBP_DECODER_SOURCES}
     third_party/miniz/miniz_tinfl.c
     src/runtime/resources/embedded_resource.cpp

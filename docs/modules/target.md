@@ -8,6 +8,8 @@ Main Target owns mob information, cast presentation, the world HP bar and target
 
 Rings default to model-relative sizing through Ashita's model hitbox radius. Keep the band, glow and facing marker proportional, and rebuild when the footprint changes. Fixed yalm sizing remains available in Target → Target Rings → Layout.
 
+Pets with the native Ally flag have health even without Player/Monster flags. Keep HP detection separate from NPC name colors and ring visibility preferences: these pets use their native HP percentage in target displays and ring fill, while ordinary NPCs retain decorative rings. The host uses the same health check for world-bar projection.
+
 World rendering accepts the native fixed-function camera as well as the recognized terrain shader. The latter takes priority when present. Submit only at the matching scene end or scene-copy boundary; `target-ring-camera` covers both paths and frame lifetime.
 
 Opt-in shader diagnostics live in [ring_shader_capture.cpp](../../src/host/ring_shader_capture.cpp). `/xiui rings capture` records rejected and accepted layouts for up to three seconds, then saves a bounded JSON report under the active install's `logs/xiui/` directory. Keep its GPU inspection inactive otherwise, and drain its background writer before unload.

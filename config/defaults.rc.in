@@ -15,3 +15,5 @@
 315 RCDATA "@CMAKE_SOURCE_DIR@/config/hud-classic.ini"
 316 RCDATA "@CMAKE_SOURCE_DIR@/config/hud-xiv.ini"
 317 RCDATA "@CMAKE_SOURCE_DIR@/config/hud-xivclassic.ini"
+318 RCDATA "@CMAKE_SOURCE_DIR@/assets/chains/NOTICES.txt"
+319 RCDATA "@CMAKE_SOURCE_DIR@/assets/chains/LICENSE-GPL-3.0.txt"

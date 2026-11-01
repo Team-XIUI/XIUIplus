@@ -27,6 +27,23 @@ namespace xiui
         runtime.general_.Save(settings);
         general_module restored;
         restored.Load(settings);
+        if (!check(restored.Xiv1BackgroundOpacity() == .4f, "XIV container backgrounds default to forty percent")) return false;
+        auto background = restored.Option(restored.Xiv1BackgroundOpacityOption());
+        *background.slider = .8f;
+        restored.OnOptionChanged(restored.Xiv1BackgroundOpacityOption());
+        restored.Save(settings);
+        general_module customBackground;
+        customBackground.Load(settings);
+        if (!check(customBackground.Xiv1BackgroundOpacity() == .8f, "custom XIV background opacity survives save and load")) return false;
+        ui::container_renderer containers;
+        const ui::container_style container{.opacity = .5f};
+        containers.SetAppearanceTheme(ui::xiv1_appearance);
+        if (!check(containers.BackgroundOpacity(container) == .2f, "XIV background default combines with module opacity")) return false;
+        containers.SetXiv1BackgroundOpacity(customBackground.Xiv1BackgroundOpacity());
+        if (!check(containers.BackgroundOpacity(container) == .4f && container.opacity == .5f,
+            "custom backgrounds preserve frame and module opacity")) return false;
+        containers.SetAppearanceTheme(ui::native_appearance);
+        if (!check(containers.BackgroundOpacity(container) == .5f, "XI theme retains its existing opacity")) return false;
         if (!check(restored.AppearanceTheme() == ui::xiv1_appearance && !runtime.general_.TakeWindowTypeRequest() &&
             settings.ReadInt("player", "x", 0) == 123 && settings.ReadString("custom", "untouched") == "yes",
             "theme saves independently of native Window Type, positions and unknown preferences")) return false;
@@ -397,6 +414,34 @@ namespace xiui
     auto config_input_test::Presentation(const char* dat) -> bool
     {
         if (!WindowTheme()) return false;
+        ui::text_marquee marquee;
+        uint64_t now = 1000;
+        const auto advance = [&](const uint64_t target) {
+            float offset{};
+            while (now < target)
+            {
+                now = std::min(now + 100, target);
+                marquee.BeginFrame(); offset = marquee.Offset(1, 60, true, now);
+            }
+            return offset;
+        };
+        marquee.BeginFrame();
+        if (!check(marquee.Offset(1, 60, true, now) == 0 && advance(1900) == 0 && advance(2900) == 30 &&
+            advance(3900) == 60 && advance(4800) == 60 && advance(5800) == 30 && advance(6800) == 0,
+            "overflowing buttons pause at both ends and bounce at a stable speed")) return false;
+        marquee.Offset(1, 60, false, now);
+        if (!check(marquee.Offset(1, 60, true, now) == 0 && advance(7900) > 0 && marquee.Offset(1, 30, true, now) == 0,
+            "leaving a button or changing its available width restarts the marquee")) return false;
+        marquee.BeginFrame(); marquee.BeginFrame();
+        if (!check(marquee.Offset(1, 30, true, now) == 0 && marquee.Offset(1, 0, true, now) == 0 &&
+            marquee.Offset(1, 60, true, now + 1000) == 0, "hidden, fitting and suspended buttons stay still or restart")) return false;
+        ui::design_system focusDesign;
+        {
+            const auto focus = focusDesign.FocusButtons({10, 20, 100, 30});
+            if (!check(focusDesign.ButtonFocused({12, 22, 80, 26}) && !focusDesign.ButtonFocused({120, 20, 100, 30}),
+                "controller focus activates only labels inside the focused control")) return false;
+        }
+        if (!check(!focusDesign.ButtonFocused({12, 22, 80, 26}), "button focus ends with its owning surface")) return false;
         hud_runtime runtime;
         std::array<bool, static_cast<size_t>(ui::icon_glyph::unknown)> icons{};
         const auto pages = runtime.ConfigPages();

@@ -69,7 +69,7 @@ namespace xiui
         if (!module.SupportsScale() || !module.HasEditableBounds() || !this->ModuleDisplayed(module) || module.EditGrip() == edit_grip_kind::none) return;
         this->FinishScale(false);
         this->FinishConfigInput(true, false);
-        this->FocusModuleConfig(module);
+        if (this->general_.FollowMovedModuleSettings()) this->FocusModuleConfig(module);
         this->ResolveHudTransforms(this->hud_viewport_);
         this->scale_gesture_ = {&module, module.State().scale, module.State().bounds, this->MovementBounds(module), this->LayoutBounds(module),
             {static_cast<float>(this->mouse_x_), static_cast<float>(this->mouse_y_)}, keyboard, false, module.EditGrip() == edit_grip_kind::resize};

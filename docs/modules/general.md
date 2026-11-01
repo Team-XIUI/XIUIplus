@@ -10,6 +10,8 @@ Basic settings compose the existing native panel, buttons, slider, percentage ed
 
 Settings start with Edit Mode OFF. `ConfigPreview` and `ModuleDisplayed` in `hud_runtime_visibility.cpp` separate explicit previews from live visibility across rendering, pointer controls and controller movement. The shared footer has an ON/OFF dot toggle; selecting Advanced settings previews the selected element. Hover editing remains available on visible modules. Preview state is transient. Focused check: `edit-mode`.
 
+Global → Extra Settings → Follow moved module settings starts enabled. Turning it off keeps the current Advanced settings page while dragging or scaling HUD modules, including chat. Explicit sidebar and controller selections still navigate normally. The preference uses `general.follow_moved_module_settings` and participates in normal resets and profiles.
+
 Basic and Advanced share footer geometry and rendering through `config_layout` and `DrawSettingsFooter`: profiles on the left, a settings-mode icon followed by Edit Mode at the far right. Advanced navigation and content reserve that space, including its minimum height. Classic and XIV restore their complete captures with XI Theme. XIVClassic restores Classic with XIV1.0 Theme and one combined All chat window. Reset defaults have their own capture, independent of these named presets.
 
 Preset samples use isolated `party_module` instances configured once on entering Basic. `ConfigurePresetSample` loads Party from the same full captures; `RenderSample` draws one entry through the normal party renderer using the preset's own theme. These samples do not alter live Party settings. `config/hud_presets.hpp` owns names, commands, resource IDs and sample themes; `HudPresetOption` preserves existing action IDs around the Theme control. The `hud-presets` check covers all saved preferences and the independent reset baseline.
@@ -21,6 +23,8 @@ Configuration dragging follows the search control's visible width, including its
 Global uses the shared second navigation column for Appearance, Global Text, Config Text, Enabled Modules, Grid, Input and Visibility. Appearance opens window styling without another submenu. Controller Focus, HP Feedback and Native Menus live under Extras. Native Menus retains the `gamehud` module ID and saved visibility preferences. Attribution opens only from the top-right button and keeps its credit-page tabs. Preserve original topic IDs, appearance-tab selection, pointer/controller actions and preview space. Pages reserve top space only for visible tabs, category controls or previews.
 
 Owns shared appearance, global/config typography, visibility preferences, input presentation and common focus styling.
+
+XIV 1.0 background opacity defaults to 40% and is adjustable under Appearance → Window. It affects shared container backgrounds while retaining each module's opacity, frame and text preferences.
 
 **Start in:** [general_module.cpp](../../src/runtime/modules/general/general_module.cpp), [global_text.cpp](../../src/runtime/config/global_text.cpp), [module_visibility.hpp](../../src/runtime/config/module_visibility.hpp), [hud_runtime_visibility.cpp](../../src/runtime/hud_runtime_visibility.cpp).
 

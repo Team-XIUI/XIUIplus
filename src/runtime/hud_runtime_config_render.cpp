@@ -15,6 +15,15 @@ namespace xiui
 {
     auto hud_runtime::DrawConfig(const D3DVIEWPORT8& viewport) -> void
     {
+        rect buttonFocus{};
+        if (this->config_.focus.active && !this->config_.focus.moving && !this->config_.focus.resizing &&
+            !this->profile_name_.Focused() && !this->config_.choice_input.Opened() &&
+            this->config_.active_color == nullptr && !this->config_.search_open && !this->profile_dropdown_ && !this->profile_actions_)
+        {
+            const auto items = this->ControllerConfigItems(this->config_.focus.region);
+            if (this->config_.focus.item < items.size()) buttonFocus = items[this->config_.focus.item].bounds;
+        }
+        const auto focusButtons = this->design_system_.FocusButtons(buttonFocus);
         this->config_.tooltip.clear();
         this->config_.tooltip_anchor = {};
         if (this->config_.basic) { this->DrawBasicSettings(viewport); return; }
@@ -111,7 +120,7 @@ namespace xiui
                 auto style = active ? theme.accent_text : theme.caption_text;
                 style.scale = 0.72f;
                 style.alignment = ui::text_alignment::center;
-                this->config_controls_.Button(bounds, categoryNames[static_cast<size_t>(group)], style, active || hovered);
+                this->config_controls_.Button(bounds, categoryNames[static_cast<size_t>(group)], style, active || hovered, ui::button_tone::normal, hovered);
             }
         }
 

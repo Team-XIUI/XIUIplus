@@ -12,8 +12,10 @@ namespace xiui
     {
         this->requested_window_type_ = -1;
         this->dark_backing_opacity_ = 1.0f;
+        this->xiv1_background_opacity_ = .4f;
         this->appearance_theme_ = ui::native_appearance;
         this->hud_scale_ = 1;
+        this->follow_moved_module_settings_ = true;
         this->inventory_enabled_ = true;
         this->party_enabled_ = true;
         this->grid_ = {};
@@ -31,10 +33,12 @@ namespace xiui
     auto general_module::Load(const settings_store& store) -> void
     {
         this->dark_backing_opacity_ = std::clamp(store.ReadFloat("appearance", "dark_backing_opacity", 1.0f), 0.0f, 1.0f);
+        this->xiv1_background_opacity_ = std::clamp(store.ReadFloat("appearance", "xiv1_background_opacity", .4f), 0.0f, 1.0f);
         this->appearance_theme_ = ui::AppearanceTheme(store.ReadInt("appearance", "theme", ui::native_appearance));
         this->inventory_enabled_ = store.ReadBool("modules", "inventory", true);
         this->party_enabled_ = store.ReadBool("modules", "party", true);
         this->hud_scale_ = std::clamp(store.ReadFloat("appearance.hud", "scale", 1), .5f, 2.0f);
+        this->follow_moved_module_settings_ = store.ReadBool("general", "follow_moved_module_settings", true);
         this->global_text_.Load(store);
         this->config_text_.Load(store);
         this->controller_focus_.Load(store);
@@ -61,8 +65,10 @@ namespace xiui
     auto general_module::Save(const settings_store& store) const -> void
     {
         store.WriteFloat("appearance", "dark_backing_opacity", this->dark_backing_opacity_);
+        store.WriteFloat("appearance", "xiv1_background_opacity", this->xiv1_background_opacity_);
         store.WriteInt("appearance", "theme", this->appearance_theme_);
         store.WriteFloat("appearance.hud", "scale", this->hud_scale_);
+        store.WriteBool("general", "follow_moved_module_settings", this->follow_moved_module_settings_);
         this->global_text_.Save(store);
         this->config_text_.Save(store);
         this->controller_focus_.Save(store);
@@ -84,6 +90,11 @@ namespace xiui
 
     auto general_module::ContentOption(const size_t index) -> module_option
     {
+        if (index == this->Xiv1BackgroundOpacityOption())
+            return module_option::Slider("XIV 1.0 background opacity", "Opacity of all XIV 1.0 window backgrounds. Combines with each module's opacity; frames and text retain their own settings.",
+                &this->xiv1_background_opacity_, 0, 1, .05f, module_option_group::appearance).Ordered(449).VisibleWhen(this->appearance_theme_ == ui::xiv1_appearance);
+        if (index == this->ExtraSettingsStart())
+            return module_option::Toggle("Follow moved module settings", "Automatically select a module's settings when clicking or resizing it in edit mode. Turn off to keep the current settings page while arranging the HUD.", &this->follow_moved_module_settings_);
         if (index == this->AppearanceThemeOption())
             return module_option::Choice("Theme", "Global XIUI artwork and HUD presentation. XIV1.0 Theme uses navy windows, aged metal frames, copper gauges and serif text. Saved positions and styling are preserved.", &this->appearance_theme_, ui::appearance_themes, std::size(ui::appearance_themes), module_option_group::appearance).Ordered(-50);
         if (index >= this->HudScaleStart())
@@ -265,13 +276,16 @@ namespace xiui
             {"Grid", "Edit-mode grid and shared edge/center snapping for every movable HUD element. Existing positions stay in place until dragged.", "grid"},
             {"Input", "Controller presentation, input readiness and navigation help. Device and gamepad configuration remain unchanged.", "input"},
             {"Visibility", "Shared and per-module event/menu hiding. Temporary hiding preserves enabled modules and saved layouts; edit mode shows their previews.", "visibility"},
-            {"Game HUD", "Choose which native game windows are visible.", "game-hud"}};
-        return std::span{sections}.first(this->game_hud_module_ != nullptr ? std::size(sections) : game_hud_section);
+            {"Game HUD", "Choose which native game windows are visible.", "game-hud"},
+            {"Extra Settings", "Optional configuration and editing behavior.", "extra-settings"}};
+        return sections;
     }
 
     auto general_module::ContentConfigSectionContains(const size_t section, const size_t index) -> bool
     {
         if (index >= this->OptionCount()) return false;
+        if (index == this->ExtraSettingsStart()) return section == extra_settings_section;
+        if (index == this->Xiv1BackgroundOpacityOption()) return section == appearance_section;
         if (index >= this->HudScaleStart()) return section == appearance_section;
         if (index >= this->GameHudStart()) return section == game_hud_section;
         if (section == visibility_section) return (index >= this->VisibilityStart() && index < this->IconThemesStart()) || index == this->HideAllUiOption() || index == this->NameplatesOption();

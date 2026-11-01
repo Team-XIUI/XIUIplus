@@ -41,7 +41,7 @@ namespace xiui
         auto PreviewVisible(void) const -> bool override { return this->ModuleEnabled() && this->state_.enabled && (this->group_ == 0 || !this->hide_preview_); }
         auto Load(const settings_store& settings) -> void override;
         auto Save(const settings_store& settings) const -> void override;
-        auto ContentOptionCount(void) const -> size_t override { return leader_option + 1; }
+        auto ContentOptionCount(void) const -> size_t override { return selection_size_options_start + 2; }
         auto ContentOption(size_t index) -> module_option override;
         auto ConfigSections(void) const -> std::span<const module_config_section> override;
         auto ContentConfigSectionContains(size_t section, size_t index) -> bool override;
@@ -94,6 +94,7 @@ namespace xiui
         static constexpr size_t preset_options_start = heal_options_start + heal_preview_settings::option_count;
         static constexpr size_t job_text_options_start = preset_options_start + 2;
         static constexpr size_t leader_option = job_text_options_start + 2;
+        static constexpr size_t selection_size_options_start = leader_option + 1;
         std::array<party_module*, 2> preset_alliances_{};
         static constexpr size_t heading_text = 6;
         static constexpr size_t tp_text = 9;
@@ -145,6 +146,7 @@ namespace xiui
         bool jobs_{}, main_level_{true}, sub_job_{true}, sub_level_{true}, master_level_{true};
         bool tp_{true}, flash_tp_{true}, always_mp_{false}, buffs_{true}, casts_{true}, selection_{true};
         ui::selection_style selection_style_{};
+        float selection_width_extension_{}, selection_height_extension_{};
         bool labels_{};
         auto ResourceLabels(void) const -> bool { return this->xiv1_theme_ || this->labels_; }
         bool fit_width_{true};
@@ -221,6 +223,7 @@ namespace xiui
         auto ResourceBarHeight(bool hasMP = true, bool hasTP = true, bool casting = false) const -> float;
         auto BarWidthLimit(void) const -> float;
         auto SelectionPadding(void) const -> ui::point;
+        auto SelectionBounds(const ui::rect& row) const -> ui::rect;
         auto BarWidth(size_t bar, float available) const -> float;
         auto PositionBar(size_t bar, const ui::rect& bounds, const ui::rect& area) const -> ui::rect;
         auto CastBounds(const ui::rect& bounds) const -> ui::rect;

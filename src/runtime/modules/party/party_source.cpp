@@ -19,16 +19,22 @@ namespace
     {
         auto* pointers = core != nullptr ? core->GetPointerManager() : nullptr;
         const auto root = pointers != nullptr ? pointers->Get("party") : 0;
-        uintptr_t slot{}, window{};
-        uint32_t active{}; uint8_t member{};
-        if (!Read(root, slot) || !Read(slot, window) || !Read(window + 0x54, active) || active != 1 ||
-            !Read(window + 0x50, member) || member >= 18) return -1;
-        return member;
+        return xiui::ReadNativePartyCursor(root);
     }
 }
 
 namespace xiui
 {
+    auto ReadNativePartyCursor(const uintptr_t root) -> int
+    {
+        uintptr_t slot{}, window{}, callback{};
+        int32_t member{-1};
+        // The active selection field is a callback pointer, not a boolean.
+        if (!Read(root, slot) || !Read(slot, window) || !Read(window + 0x54, callback) || callback == 0 ||
+            !Read(window + 0x50, member) || member < 0 || member >= 18) return -1;
+        return member;
+    }
+
     auto party_cast::Active(const uint64_t now) const -> bool
     {
         return !this->name.empty() && now >= this->started &&

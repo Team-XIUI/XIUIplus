@@ -55,6 +55,8 @@ namespace xiui
         auto Current(uint64_t now) const -> const skillchain_window* { return this->Find(this->target_, now); }
         auto Count(void) const -> size_t { return this->targets_.size(); }
         auto Target(void) const -> uint32_t { return this->target_; }
+        auto Skills(void) const -> std::span<const resources::skillchain_skill>;
+        auto Continuation(const skillchain_window& window, uint8_t category, uint32_t id, std::string_view name = {}, bool requireBuff = true, bool requirePet = true) const -> skillchain_property;
         auto Predict(uint32_t target, uint8_t category, uint32_t id, std::string_view name, uint64_t now, uint8_t element = 255) const -> skillchain_prediction;
         auto PredictSlot(const action_slot& slot, IResourceManager* resources, uint64_t now) const -> skillchain_prediction;
 

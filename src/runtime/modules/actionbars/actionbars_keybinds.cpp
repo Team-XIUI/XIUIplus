@@ -12,6 +12,7 @@ namespace xiui
 
     auto actionbars_module::OpenKeybinds(const bool crossbar, const size_t bar) -> void
     {
+        this->library_popup_.reset();
         this->CommitField();
         this->CancelSetupControls();
         this->binding_capture_ = false;

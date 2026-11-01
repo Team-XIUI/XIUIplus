@@ -20,6 +20,7 @@ Read the note for the module you are changing, then follow its source links. The
 - [Cast Cost and MP preview](castcost.md)
 - [Recast](recast.md)
 - [Magic Burst and skillchains](magicburst.md)
+- [Chains follow-up display](chains.md)
 - [Blue Magic learned alert](bluemagic.md)
 - [Phantom Roll](phantomroll.md)
 

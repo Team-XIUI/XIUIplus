@@ -1806,6 +1806,7 @@ Regenerate with `./scripts/update-docs.ps1`. Each bullet is one visual row; [emp
 
 - Selection | [empty]
 - Horizontal padding | Vertical padding
+- Width adjustment | Height adjustment
 - Background tint | Target color
 - Subtarget color | Selection arrow
 
@@ -1972,6 +1973,7 @@ Regenerate with `./scripts/update-docs.ps1`. Each bullet is one visual row; [emp
 
 - Selection | [empty]
 - Horizontal padding | Vertical padding
+- Width adjustment | Height adjustment
 - Background tint | Target color
 - Subtarget color | Selection arrow
 
@@ -2138,6 +2140,7 @@ Regenerate with `./scripts/update-docs.ps1`. Each bullet is one visual row; [emp
 
 - Selection | [empty]
 - Horizontal padding | Vertical padding
+- Width adjustment | Height adjustment
 - Background tint | Target color
 - Subtarget color | Selection arrow
 
@@ -3944,6 +3947,38 @@ Regenerate with `./scripts/update-docs.ps1`. Each bullet is one visual row; [emp
 - Chain name | Burst elements
 - Element text tint
 
+## Chains
+
+### General
+
+- Enabled | Weapon skills
+- Spells | Pet skills
+- Require spell ability | Current avatar
+- Current jug pet | Current automaton frame
+
+### Appearance / Size & Position
+
+- Scale (%) | Lock proportions
+- Reset scale | Width
+- Direction | Suggestions per group
+
+### Appearance / Window
+
+- Container | Container opacity
+- Container padding | Property colors
+- Burst elements
+
+### Text
+
+- Show text | [empty]
+- Font | Size (px)
+- Alignment | Letter spacing
+- X offset | Y offset
+- Top color | Bottom color
+- Shadow | Shadow color
+- Soft shadow | Stroke
+- Glow
+
 ## Treasure Pool
 
 ### General
@@ -3978,7 +4013,7 @@ Regenerate with `./scripts/update-docs.ps1`. Each bullet is one visual row; [emp
 - Global Scale (%) | Reset global scale
 - Theme | Native Window Type
 - Status icon theme | Job icon theme
-- Dark backing opacity | [empty]
+- Dark backing opacity | Follow moved module settings
 - Classic | XIV
 - XIVClassic
 
@@ -4038,14 +4073,15 @@ Regenerate with `./scripts/update-docs.ps1`. Each bullet is one visual row; [emp
 - Commands | Blue Magic Learned
 - Phantom Roll | Ready Check
 - Magic Burst | Fishing
-- Native Menus | Target of Target
-- Subtarget
+- Native Menus | Chains
+- Target of Target | Subtarget
 
 ### Attribution
 
 - Cadence | Momentum
-- ChatMon | Cursor Pack
-- Find | Phoenix
+- Chains | ChatMon
+- Cursor Pack | Find
+- Phoenix
 
 ### Grid
 
@@ -4066,6 +4102,10 @@ Regenerate with `./scripts/update-docs.ps1`. Each bullet is one visual row; [emp
 - Hide all UI | Hide overhead names
 - Apply to | Hide during events
 - Hide with menus | Hide Player in party
+
+### Extra Settings
+
+- Follow moved module settings
 
 ## Native Menus
 
@@ -4144,6 +4184,24 @@ Regenerate with `./scripts/update-docs.ps1`. Each bullet is one visual row; [emp
 
 ### Native Filters
 
+- Native filter group | Say
+- Shout | Yell
+- Tell | Party
+- Linkshell | Linkshell 2
+- Unity | Assist J
+- Assist E | Emotes
+- Messages | NPC conversations
+- HP/MP you recover | HP/MP you lose
+- Beneficial effects you receive | Detrimental effects you receive
+- Effects you resist | Effects you evade
+- HP/MP others recover | HP/MP others lose
+- Beneficial effects others receive | Detrimental effects others receive
+- Effects others resist | Effects others evade
+- Standard battle messages | Calls for help
+- Basic system messages
+
+### Native Filters / Chat Filters
+
 - Native filter group | Native filter unavailable
 - Native filter unavailable | Native filter unavailable
 - Native filter unavailable | Native filter unavailable
@@ -4172,24 +4230,6 @@ Regenerate with `./scripts/update-docs.ps1`. Each bullet is one visual row; [emp
 - Native filter unavailable | Native filter unavailable
 - Native filter unavailable | Native filter unavailable
 - Native filter unavailable | Native filter unavailable
-
-### Native Filters / Log: Window 1
-
-- Native filter group | Say
-- Shout | Yell
-- Tell | Party
-- Linkshell | Linkshell 2
-- Unity | Assist J
-- Assist E | Emotes
-- Messages | NPC conversations
-- HP/MP you recover | HP/MP you lose
-- Beneficial effects you receive | Detrimental effects you receive
-- Effects you resist | Effects you evade
-- HP/MP others recover | HP/MP others lose
-- Beneficial effects others receive | Detrimental effects others receive
-- Effects others resist | Effects others evade
-- Standard battle messages | Calls for help
-- Basic system messages
 
 ## Chat 2
 
@@ -4253,6 +4293,24 @@ Regenerate with `./scripts/update-docs.ps1`. Each bullet is one visual row; [emp
 
 ### Native Filters
 
+- Native filter group | Say
+- Shout | Yell
+- Tell | Party
+- Linkshell | Linkshell 2
+- Unity | Assist J
+- Assist E | Emotes
+- Messages | NPC conversations
+- HP/MP you recover | HP/MP you lose
+- Beneficial effects you receive | Detrimental effects you receive
+- Effects you resist | Effects you evade
+- HP/MP others recover | HP/MP others lose
+- Beneficial effects others receive | Detrimental effects others receive
+- Effects others resist | Effects others evade
+- Standard battle messages | Calls for help
+- Basic system messages
+
+### Native Filters / Chat Filters
+
 - Native filter group | Native filter unavailable
 - Native filter unavailable | Native filter unavailable
 - Native filter unavailable | Native filter unavailable
@@ -4281,24 +4339,6 @@ Regenerate with `./scripts/update-docs.ps1`. Each bullet is one visual row; [emp
 - Native filter unavailable | Native filter unavailable
 - Native filter unavailable | Native filter unavailable
 - Native filter unavailable | Native filter unavailable
-
-### Native Filters / Log: Window 1
-
-- Native filter group | Say
-- Shout | Yell
-- Tell | Party
-- Linkshell | Linkshell 2
-- Unity | Assist J
-- Assist E | Emotes
-- Messages | NPC conversations
-- HP/MP you recover | HP/MP you lose
-- Beneficial effects you receive | Detrimental effects you receive
-- Effects you resist | Effects you evade
-- HP/MP others recover | HP/MP others lose
-- Beneficial effects others receive | Detrimental effects others receive
-- Effects others resist | Effects others evade
-- Standard battle messages | Calls for help
-- Basic system messages
 
 ## Bubbles
 
@@ -4638,4 +4678,4 @@ Regenerate with `./scripts/update-docs.ps1`. Each bullet is one visual row; [emp
 
 ## Coverage
 
-73 registered modules, 588 distinct pages, 4741 controls across those pages, and 2033 selector/view combinations.
+74 registered modules, 593 distinct pages, 4784 controls across those pages, and 2044 selector/view combinations.

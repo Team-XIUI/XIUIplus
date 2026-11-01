@@ -26,9 +26,10 @@ namespace
     auto name_color_cases(void) -> bool
     {
         constexpr std::array<uint32_t, 3> group{0x00012CF0, 0x00022800, 0x00033000};
-        return check(!xiui::EntityHasHealth(0x02) && !xiui::EntityHasHealth(0) && !xiui::EntityHasHealth(0x12),
+        return check(!xiui::EntityHasHealth(0x02) && !xiui::EntityHasHealth(0) && !xiui::EntityHasHealth(0x12) && !xiui::EntityHasHealth(0x102),
                 "NPCs and scenery have no target health display") &&
-            check(xiui::EntityHasHealth(0x10) && xiui::EntityHasHealth(0x01) && xiui::EntityHasHealth(0x0D) && xiui::EntityHasHealth(0x110),
+            check(xiui::EntityHasHealth(0x10) && xiui::EntityHasHealth(0x01) && xiui::EntityHasHealth(0x0D) && xiui::EntityHasHealth(0x110) &&
+                xiui::EntityHasHealth(0x100) && xiui::EntityHasHealth(0x104) && xiui::EntityHasHealth(0x108),
                 "monsters, players, and friendly combatants retain target health") &&
             check(xiui::EntityNameColor(0x10, 0, false, false) == xiui::unclaimed_name_color, "unclaimed enemy names are yellow") &&
             check(xiui::IsGroupClaim(0x00012CF0, group) && xiui::IsGroupClaim(0x2800, group), "claims match group IDs despite the native high-word flag") &&

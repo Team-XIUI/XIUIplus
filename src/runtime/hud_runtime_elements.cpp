@@ -114,10 +114,10 @@ namespace xiui
             if (const auto status = selector.Status(i); status.has_value())
             {
                 this->config_controls_.Button(bounds, "", style, highlighted);
-                this->config_controls_.ButtonText(selector.labels[i], {bounds.x + 12, bounds.y, bounds.width - 12, bounds.height}, style, highlighted);
+                this->config_controls_.ButtonText(selector.labels[i], {bounds.x + 12, bounds.y, bounds.width - 12, bounds.height}, style, highlighted, selector.Enabled() && hovered);
                 dots[dotCount++] = {{bounds.x + 8, bounds.y + (bounds.height - 7) / 2, 7, 7}, *status ? 0xFF8FD16A : 0xFF161616};
             }
-            else this->config_controls_.Button(bounds, selector.labels[i], style, highlighted);
+            else this->config_controls_.Button(bounds, selector.labels[i], style, highlighted, ui::button_tone::normal, selector.Enabled() && hovered);
         }
         this->design_system_.DrawSlotDots(std::span{dots}.first(dotCount));
     }

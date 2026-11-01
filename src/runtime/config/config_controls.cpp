@@ -8,9 +8,9 @@
 
 namespace xiui::ui
 {
-    auto config_controls::Button(const rect& bounds, const char* label, const text_style& style, const bool highlighted, const button_tone tone) const -> void
+    auto config_controls::Button(const rect& bounds, const char* label, const text_style& style, const bool highlighted, const button_tone tone, const std::optional<bool> marquee) const -> void
     {
-        this->buttons_.Draw(bounds, label, this->Style(style, true), highlighted, tone);
+        this->buttons_.Draw(bounds, label, this->Style(style, true), highlighted, tone, marquee);
     }
 
     auto config_controls::Panel(const rect& bounds, const std::span<const container_fill> fills) const -> void
@@ -58,7 +58,7 @@ namespace xiui::ui
         auto style = selected ? theme.accent_text : theme.body_text;
         style.scale = 0.72f;
         style.alignment = text_alignment::left;
-        this->ButtonText(label, config_layout::NavigationLabel(bounds), style, selected || hovered);
+        this->ButtonText(label, config_layout::NavigationLabel(bounds), style, selected || hovered, hovered);
     }
 
     auto config_controls::NavigationItem(const rect& bounds, const char* label, const bool selected, const bool hovered, const bool enabled) const -> void
@@ -68,7 +68,7 @@ namespace xiui::ui
         style.scale = 0.72f;
         style.alignment = text_alignment::left;
         if (!enabled) style.top_color = style.bottom_color = (style.top_color & 0x00FFFFFF) | 0x80000000;
-        this->ButtonText(label, {bounds.x + 8, bounds.y, bounds.width - 16, bounds.height}, style, enabled && (selected || hovered));
+        this->ButtonText(label, {bounds.x + 8, bounds.y, bounds.width - 16, bounds.height}, style, enabled && (selected || hovered), enabled && hovered);
     }
 
     auto config_controls::NavigationHighlight(const rect& bounds, const bool selected, const bool hovered) const -> void
@@ -92,7 +92,7 @@ namespace xiui::ui
         {
             const auto button = Segment(bounds, index, labels.size());
             const bool hovered = mouseX >= button.x && mouseY >= button.y && mouseX < button.x + button.width && mouseY < button.y + button.height;
-            this->Button(button, labels[index], style, selected == index || hovered);
+            this->Button(button, labels[index], style, selected == index || hovered, button_tone::normal, hovered);
         }
     }
 
@@ -101,9 +101,9 @@ namespace xiui::ui
         this->NavigationHighlight(bounds, selected, hovered);
         auto style = this->design_.GetTheme().body_text;
         style.scale = 0.70f; style.alignment = text_alignment::left;
-        this->ButtonText(label, {bounds.x + 6, bounds.y, std::max(1.0f, bounds.width - 50), bounds.height}, style, selected || hovered);
+        this->ButtonText(label, {bounds.x + 6, bounds.y, std::max(1.0f, bounds.width - 50), bounds.height}, style, selected || hovered, hovered);
         style.scale = 0.64f; style.alignment = text_alignment::right;
-        this->ButtonText(accessory, {bounds.x + bounds.width - 42, bounds.y, 36, bounds.height}, style, selected || hovered);
+        this->ButtonText(accessory, {bounds.x + bounds.width - 42, bounds.y, 36, bounds.height}, style, selected || hovered, hovered);
     }
 
     auto config_controls::TextStyle(const text_style& style, const bool button) -> text_style
@@ -207,9 +207,9 @@ namespace xiui::ui
         this->Label(text, bounds, this->Style(style));
     }
 
-    auto config_controls::ButtonText(const char* text, const rect& bounds, const text_style& style, const bool highlighted) const -> void
+    auto config_controls::ButtonText(const char* text, const rect& bounds, const text_style& style, const bool highlighted, const std::optional<bool> marquee) const -> void
     {
-        this->buttons_.Text(text, bounds, this->Style(style, true), highlighted);
+        this->buttons_.Text(text, bounds, this->Style(style, true), highlighted, button_tone::normal, marquee);
     }
 
     auto config_controls::IconId(const char* id) -> icon_glyph
@@ -285,7 +285,8 @@ namespace xiui::ui
             {
                 const bool enabled = option.button_toggles[index];
                 const std::string label = std::string{option.choices[index]} + (enabled ? " ON" : " OFF");
-                this->Button(config_layout::ToggleButton(row, index, option.choice_count), label.c_str(), style, enabled || hoveredButton == static_cast<int>(index));
+                this->Button(config_layout::ToggleButton(row, index, option.choice_count), label.c_str(), style,
+                    enabled || hoveredButton == static_cast<int>(index), button_tone::normal, hoveredButton == static_cast<int>(index));
             }
         }
         else if (option.kind == module_option_kind::toggle && option.toggle != nullptr && option.submodules != nullptr)
@@ -389,6 +390,7 @@ namespace xiui::ui
     {
         if (!input.Opened()) return;
         this->Panel(input.Bounds(viewport));
+        const auto focus = this->design_.FocusButtons(input.Row(input.Highlighted(), viewport));
         const auto hovered = input.IndexAt(mouseX, mouseY, viewport);
         for (int index = input.First(); index < input.First() + input.VisibleCount(); ++index)
         {

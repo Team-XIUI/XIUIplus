@@ -24,7 +24,7 @@ namespace xiui::ui
         auto SetTextSettings(const config_text_settings& settings) -> void { this->text_settings_ = &settings; }
         auto Style(const text_style& style, bool button = false) const -> text_style;
 
-        auto Button(const rect& bounds, const char* label, const text_style& style, bool highlighted, button_tone tone = button_tone::normal) const -> void;
+        auto Button(const rect& bounds, const char* label, const text_style& style, bool highlighted, button_tone tone = button_tone::normal, std::optional<bool> marquee = std::nullopt) const -> void;
         auto IconButton(const rect& bounds, icon_glyph icon, bool highlighted) const -> void;
         auto NavigationButton(const rect& bounds, const char* id, const char* label, bool selected, bool hovered = false, bool iconsOnly = false) const -> void;
         auto NavigationItem(const rect& bounds, const char* label, bool selected, bool hovered = false, bool enabled = true) const -> void;
@@ -40,7 +40,7 @@ namespace xiui::ui
         auto Scrollbar(const config_scrollbar& scrollbar, bool hovered, bool dragging) const -> void;
 
         auto Text(const char* text, const rect& bounds, const text_style& style) const -> void;
-        auto ButtonText(const char* text, const rect& bounds, const text_style& style, bool highlighted = false) const -> void;
+        auto ButtonText(const char* text, const rect& bounds, const text_style& style, bool highlighted = false, std::optional<bool> marquee = std::nullopt) const -> void;
         static auto TextStyle(const text_style& style, bool button = false) -> text_style;
         static auto IconId(const char* id) -> icon_glyph;
         auto Icon(const rect& bounds, const char* id, D3DCOLOR color) const -> void;
