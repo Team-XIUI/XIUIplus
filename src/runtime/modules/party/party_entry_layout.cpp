@@ -32,9 +32,10 @@ namespace xiui
     {
         entry_layout result{};
         const float x = bounds.x, width = bounds.width;
+        const bool headerDetails = details || (this->treasure_ != nullptr && this->text_[4].visible);
         const bool reserveNameCast = inZone && this->casts_ && this->cast_placement_ == cast_name;
         const bool headerTP = inZone && this->xiv1_theme_ && slots.tp && this->tp_display_ == 1;
-        const float headerHeight = std::max(this->HeaderHeight(reserveNameCast, details, inZone),
+        const float headerHeight = std::max(this->HeaderHeight(reserveNameCast, headerDetails, inZone),
             headerTP ? ResolvedLineHeight(ui::Xiv1ResourceValue(this->text_[tp_text], 0, true)) : 0);
         result.header = {x, bounds.y, width, headerHeight};
         float top = std::numeric_limits<float>::max(), bottom = std::numeric_limits<float>::lowest();
@@ -69,7 +70,7 @@ namespace xiui
         text(result.header, this->text_[0]);
         if (reserveNameCast)
             cast(this->NameCastArea(result.header, result.header.x + this->text_[0].offset_x));
-        if (details) text(result.header, this->text_[4]);
+        if (headerDetails) text(result.header, this->text_[4]);
         if (inZone && this->jobs_ && this->job_anchor_ == job_anchor_name && this->job_placement_ == jobs_name)
         {
             auto jobs = result.header; jobs.y += this->text_[0].offset_y;

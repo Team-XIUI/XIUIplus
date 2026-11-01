@@ -6,6 +6,7 @@
 namespace xiui
 {
     auto ChatThemeColor(uint32_t mode, D3DCOLOR nativeColor, bool xiv1) -> D3DCOLOR;
+    auto ChatNameColor(D3DCOLOR color) -> D3DCOLOR;
 
     class chat_color_overrides
     {

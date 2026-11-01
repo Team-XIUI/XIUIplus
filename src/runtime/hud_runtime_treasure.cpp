@@ -14,6 +14,9 @@ namespace xiui
         this->treasure_source_.Update(this->core_, now);
         this->treasure_.SetFocusStyle(this->general_.FocusStyle());
         this->treasure_.Update(this->core_, this->TreasureInputAvailable(true));
+        const auto selected = !this->editing_ && this->ContextVisible(this->treasure_) ? this->treasure_.MemberSelection() : std::nullopt;
+        for (auto* party : {&this->party_, &this->alliance_first_, &this->alliance_second_})
+            party->SetTreasureSelection(selected ? &this->treasure_source_ : nullptr, selected ? selected->slot : 0, selected ? selected->generation : 0);
         if (this->treasure_.TakeSettingsChanged()) this->SaveSettings();
     }
 

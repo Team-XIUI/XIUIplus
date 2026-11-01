@@ -123,11 +123,11 @@ namespace xiui
         friend struct config_input_test;
 #endif
         struct tab_state { size_t scroll{}; uint32_t unread{}; };
-        struct rendered_span { std::string text; int color{-1}; float width{}; bool timestamp{}, dialogue_prompt{}, emphasis{}; };
+        struct rendered_span { std::string text; int color{-1}; float width{}; bool timestamp{}, dialogue_prompt{}, emphasis{}, name{}; };
         struct rendered_row { uint64_t sequence{}; uint32_t mode{}, color{}; std::vector<rendered_span> spans; };
         struct message_entrance { uint64_t sequence{}, started{}; };
         struct message_motion { float opacity{1}, x{}; };
-        struct layout { ui::rect content, log, input, scrollbar, completion, counter; size_t completion_rows{}; float completion_row_height{}; std::array<ui::rect, static_cast<size_t>(chat_tab::count)> tabs; std::array<ui::rect, 3> controller_actions; };
+        struct layout { ui::rect content, log, input, input_text, scrollbar, completion, counter; size_t completion_rows{}; float completion_row_height{}; std::array<ui::rect, static_cast<size_t>(chat_tab::count)> tabs; std::array<ui::rect, 3> controller_actions; };
         struct history_layout { ui::rect frame, log, scrollbar, footer; std::array<ui::rect, std::size(chat_history_tabs)> tabs; };
         struct window_settings
         {

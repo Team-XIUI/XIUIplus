@@ -6,29 +6,29 @@
 
 namespace
 {
-    struct field { size_t begin{}, end{}; };
+    struct field { size_t begin{}, end{}; bool name{}; };
 
     // Native English message fields; other languages retain native inline emphasis.
     constexpr std::string_view messages[]{
-        "{} hits {} for {n} points of damage.", "{} hits {} for {n} point of damage.",
-        "{} misses {}.", "{} scores a critical hit!",
-        "{} takes {n} points of damage.", "{} takes {n} point of damage.",
-        "{} starts casting {} on {}.", "{} starts casting {}.",
-        "{} begins casting {} on {}.", "{} begins casting {}.",
-        "{} casts {} on {}.", "{} casts {}.",
-        "{} uses {} on {}.", "{} uses {}.", "{} readies {}.",
-        "{} recovers {n} HP.", "{} recovers {n} MP.",
-        "{} defeats {}.", "{} is defeated by {}.",
-        "{}'s attack misses {}.", "{}'s casting is interrupted.",
-        "{} parries {}'s attack with his weapon.", "{} parries {}'s attack with her weapon.",
-        "{} blocks {}'s attack with his shield.", "{} blocks {}'s attack with her shield.",
-        "{} obtains: {}.", "{} obtains {}.", "Obtained key item: {}.", "Obtained: {}.",
-        "You find {} on {}.", "{} finds {} on {}.",
-        "{} caught a {}!", "{} caught an {}!", "{} caught {}!",
-        "{} learns the spell {}.", "{} learns \"{}\"!", "{} learns {}!",
-        "Skillchain: {}.", "{} gains {n} experience points.", "{} gains {n} limit points."};
+        "{name} hits {name} for {n} points of damage.", "{name} hits {name} for {n} point of damage.",
+        "{name} misses {name}.", "{name} scores a critical hit!",
+        "{name} takes {n} points of damage.", "{name} takes {n} point of damage.",
+        "{name} starts casting {} on {name}.", "{name} starts casting {}.",
+        "{name} begins casting {} on {name}.", "{name} begins casting {}.",
+        "{name} casts {} on {name}.", "{name} casts {}.",
+        "{name} uses {} on {name}.", "{name} uses {}.", "{name} readies {}.",
+        "{name} recovers {n} HP.", "{name} recovers {n} MP.",
+        "{name} defeats {name}.", "{name} is defeated by {name}.",
+        "{name}'s attack misses {name}.", "{name}'s casting is interrupted.",
+        "{name} parries {name}'s attack with his weapon.", "{name} parries {name}'s attack with her weapon.",
+        "{name} blocks {name}'s attack with his shield.", "{name} blocks {name}'s attack with her shield.",
+        "{name} obtains: {}.", "{name} obtains {}.", "Obtained key item: {}.", "Obtained: {}.",
+        "You find {} on {name}.", "{name} finds {} on {name}.",
+        "{name} caught a {}!", "{name} caught an {}!", "{name} caught {}!",
+        "{name} learns the spell {}.", "{name} learns \"{}\"!", "{name} learns {}!",
+        "Skillchain: {}.", "{name} gains {n} experience points.", "{name} gains {n} limit points."};
 
-    constexpr std::string_view emotes[]{"{} kneels respectfully before {}."};
+    constexpr std::string_view emotes[]{"{name} kneels respectfully before {name}."};
 
     auto Number(const std::string_view text) -> bool
     {
@@ -56,9 +56,10 @@ namespace
             const auto end = text.find(literal, at);
             if (end == std::string_view::npos || end <= at || end - at > 256 || count == fields.size()) return start;
             const auto value = text.substr(at, end - at);
+            const auto marker = pattern.substr(token + 1, close - token - 1);
             if (value.find_first_of("\r\n.!?") != std::string_view::npos ||
-                (pattern[token + 1] == 'n' && !Number(value))) return start;
-            fields[count++] = {at, end};
+                (marker == "n" && !Number(value))) return start;
+            fields[count++] = {at, end, marker == "name"};
             at = end; token = close + 1;
         }
         return at;
@@ -71,7 +72,7 @@ namespace
         std::fill(emphasis.begin() + begin, emphasis.begin() + end, true);
     }
 
-    auto MarkFields(std::vector<bool>& emphasis, const std::string_view text,
+    auto MarkFields(std::vector<bool>& emphasis, std::vector<bool>& names, const std::string_view text,
         const std::span<const std::string_view> patterns) -> void
     {
         for (size_t at = 0; at < text.size();)
@@ -83,7 +84,11 @@ namespace
                 std::array<field, 4> fields{}; size_t count{};
                 matched = Match(text, at, pattern, fields, count);
                 if (matched == at) continue;
-                for (size_t i = 0; i < count; ++i) Mark(emphasis, fields[i].begin, fields[i].end, text);
+                for (size_t i = 0; i < count; ++i)
+                {
+                    Mark(emphasis, fields[i].begin, fields[i].end, text);
+                    if (fields[i].name) Mark(names, fields[i].begin, fields[i].end, text);
+                }
                 break;
             }
             if (matched > at) { at = matched; continue; }
@@ -99,7 +104,7 @@ namespace xiui
     {
         std::string text;
         for (const auto& span : spans) text += span.text;
-        std::vector<bool> emphasis(text.size());
+        std::vector<bool> emphasis(text.size()), names(text.size());
         const auto category = ChatCategory(mode);
         const auto channel = mode & 255;
         const bool npc = channel == 150 || channel == 151 || channel == 190;
@@ -114,7 +119,7 @@ namespace xiui
         }
         if (messagesOnly)
         {
-            MarkFields(emphasis, text, messages);
+            MarkFields(emphasis, names, text, messages);
             for (size_t at = 0; at < text.size(); ++at)
             {
                 const auto c = static_cast<unsigned char>(text[at]);
@@ -129,7 +134,7 @@ namespace xiui
         }
         else if (channel == 7 || channel == 15)
         {
-            MarkFields(emphasis, text, emotes);
+            MarkFields(emphasis, names, text, emotes);
             const auto begin = text.find_first_not_of(" \t");
             if (begin != std::string::npos)
             {
@@ -137,7 +142,10 @@ namespace xiui
                 if (name.ends_with("'s")) name.remove_suffix(2);
                 if (!name.empty() && name.size() <= 64 && std::all_of(name.begin(), name.end(), [](const char c) {
                     return (c >= 'A' && c <= 'Z') || (c >= 'a' && c <= 'z'); }))
+                {
                     Mark(emphasis, begin, begin + name.size(), text);
+                    Mark(names, begin, begin + name.size(), text);
+                }
             }
         }
         else
@@ -160,6 +168,7 @@ namespace xiui
                 {
                     auto stop = text.find_first_of(")]<[", begin);
                     Mark(emphasis, begin, std::min(end, stop), text);
+                    Mark(names, begin, std::min(end, stop), text);
                 }
             }
         }
@@ -171,8 +180,9 @@ namespace xiui
             {
                 size_t end = begin + 1;
                 const bool bold = emphasis[offset + begin];
-                while (end < span.text.size() && emphasis[offset + end] == bold) ++end;
-                result.push_back({span.text.substr(begin, end - begin), span.color_index, bold});
+                const bool name = names[offset + begin];
+                while (end < span.text.size() && emphasis[offset + end] == bold && names[offset + end] == name) ++end;
+                result.push_back({span.text.substr(begin, end - begin), span.color_index, bold, name});
                 begin = end;
             }
             offset += span.text.size();

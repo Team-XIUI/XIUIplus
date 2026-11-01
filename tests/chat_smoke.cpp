@@ -122,6 +122,30 @@ namespace xiui
                 formatted(14, "[Linkshell] <Phro> Hello.") == "[Linkshell] <**Phro**> Hello.", "party and linkshell speaker brackets remain normal weight");
             Check(formatted(150, "Shantotto : Hello there.") == "**Shantotto** : Hello there.", "NPC dialogue emphasizes its speaker without parsing the prose as battle output");
             Check(formatted(20, "Unrecognized battle output.") == "Unrecognized battle output.", "unrecognized prose remains normal weight");
+            const auto named = [](const uint32_t mode, const char* text) {
+                chat_model model; model.Add(chat_event{1, 1, mode, 0xFFFFFFFF, 1}, text);
+                std::string result;
+                for (const auto& span : model.Lines().front().spans)
+                    if (span.name) { Check(span.emphasis, "named fields retain bold emphasis"); result += span.text + "|"; }
+                return result;
+            };
+            Check(named(20, "Shuu casts Cure IV on Phro.") == "Shuu|Phro|" &&
+                named(121, "Sloth caught a tiger cod!") == "Sloth|" &&
+                named(15, "Emilybydefault kneels respectfully before Shuu.") == "Emilybydefault|Shuu|" &&
+                named(12, ">>Shuu: Cure IV for 123.") == "Shuu|",
+                "only actor, recipient and speaker fields receive the name tint");
+            chat_module tinted;
+            chat_palette palette{}; palette.modes[12] = 0xCC8090B0;
+            chat_module::rendered_row tell{1, 12, 0xFFFFFFFF};
+            chat_module::rendered_span body{"hello"}, speaker{"Shuu", -1, 0, false, false, true, true};
+            const auto bodyColor = tinted.SpanColor(tell, body, palette);
+            const auto nameColor = tinted.SpanColor(tell, speaker, palette);
+            const auto channel = [](const D3DCOLOR color, const unsigned shift) { return (color >> shift) & 255; };
+            Check((nameColor & 0xFF000000) == (bodyColor & 0xFF000000) && channel(nameColor, 16) > channel(bodyColor, 16) &&
+                std::abs(static_cast<float>(channel(nameColor, 16)) / channel(bodyColor, 16) -
+                    static_cast<float>(channel(nameColor, 0)) / channel(bodyColor, 0)) < .01f &&
+                ChatNameColor(0xCCFFFFFF) == 0xCCFFFFFF,
+                "name brightness preserves message hue and alpha without clipping white");
             ui::design_system design; design.SetAppearanceTheme(ui::xiv1_appearance);
             auto regular = ChatThemeStyle(design, ui::theme::CreateDefault().body_text);
             regular.weight = ui::font_weight::regular;
@@ -133,6 +157,17 @@ namespace xiui
             const auto normalGlyph = rasterizer.Rasterize(ui::xiv1_font, 15, 'W', ui::font_weight::regular);
             const auto boldGlyph = rasterizer.Rasterize(ui::xiv1_font, 15, 'W', ui::font_weight::bold);
             Check(normalGlyph && boldGlyph && normalGlyph->masks[0] != boldGlyph->masks[0], "font weights rasterize distinct glyphs without simulated overdraw");
+            const auto mediumGlyph = rasterizer.Rasterize(ui::xiv1_font, 15, 'W', ChatRunWeight(design, false));
+            const auto ink = [](const ui::raster_glyph& glyph) {
+                uint32_t total{}; for (const auto value : glyph.masks[0]) total += value; return total;
+            };
+            const bool mediumDistinct = mediumGlyph && ink(*mediumGlyph) > ink(*normalGlyph) && ink(*mediumGlyph) < ink(*boldGlyph);
+            if (!mediumDistinct && mediumGlyph)
+                std::fprintf(stderr, "Glyph coverage: regular %u, medium %u, bold %u\n", ink(*normalGlyph), ink(*mediumGlyph), ink(*boldGlyph));
+            Check(mediumDistinct, "XIV chat body has a real coverage increase between regular and bold");
+            ui::design_system native;
+            Check(ChatRunWeight(native, false) == ui::font_weight::regular && ChatRunWeight(design, true) == ui::font_weight::bold,
+                "body weight adjustment retains native chat typography and bold semantic fields");
             chat_module module;
             module.model_.Add(chat_event{1, 1, 20, 0xFFFFFFFF, 1}, "Shuu casts Cure IV on the Forest Hare.");
             module.RebuildRows(design, 160);
@@ -143,13 +178,20 @@ namespace xiui
                 for (const auto& span : row.spans)
                 {
                     auto style = ChatThemeStyle(design, module.text_.style);
-                    style.weight = span.emphasis ? ui::font_weight::bold : ui::font_weight::regular;
+                    style.weight = ChatRunWeight(design, span.emphasis);
                     Check(std::abs(span.width - MeasureChatText(design, span.text, style) - ChatThemeTracking(style)) < .01f,
                         "wrapped spans measure the same weight and tracking used to draw them");
                     width += span.width;
                 }
                 Check(width <= 160.01f, "mixed-weight rows stay within the viewport");
             }
+            chat_module narrow;
+            narrow.model_.Add(chat_event{1, 1, 12, 0xFFFFFFFF, 1}, ">>Emilybydefault: hello.");
+            narrow.RebuildRows(design, 35);
+            std::string wrappedName;
+            for (const auto& row : narrow.rows_) for (const auto& span : row.spans)
+                if (span.name) wrappedName += span.text;
+            Check(wrappedName == "Emilybydefault", "name tint survives character wrapping in a narrow chat window");
         }
 
         static auto StatusCancellation(void) -> void
@@ -270,7 +312,8 @@ namespace xiui
             Check(bubbles.bubbles_.empty(), "disabling a channel removes its existing bubbles");
             settings_store saved{".bubbles-check.ini"}; bubbles.range_ = 42; bubbles.Save(saved);
             chat_bubbles_module restored; restored.Load(saved);
-            Check(restored.range_ == 42 && !restored.channels_[0] && !restored.HasEditableBounds(), "bubble preferences persist without creating a movable HUD or input focus target");
+            Check(restored.range_ == 42 && !restored.channels_[0] && !restored.CanMove() && !restored.PreviewVisible() &&
+                restored.EditGrip() == edit_grip_kind::none, "bubble preferences persist without creating a movable HUD or edit grip");
             const auto oldProfile = settings_store::FromIniText("[chat.bubbles]\nopacity=0.900\nwidth=320\noffset_y=20\n");
             const auto stampedProfile = settings_store::FromIniText("[chat.bubbles]\nopacity=0.900\nwidth=320\noffset_y=20\nappearance_version=1\n");
             for (const auto* profile : {&oldProfile, &stampedProfile})
@@ -570,6 +613,20 @@ namespace xiui
                     "sliding glyphs and icons clip to the fixed log with matching texture coordinates");
             clipped.clear(); ui::AppendClippedQuad(clipped, quad, ui::rect{50, 50, 10, 10});
             Check(clipped.empty(), "art outside the log contributes no triangles");
+            const std::array<ui::textured_vertex, 4> fading{{{-.5f, -.5f, 0, 1, 0xCC80A0C0, 0, 0}, {19.5f, -.5f, 0, 1, 0xCC80A0C0, 1, 0},
+                {-.5f, 29.5f, 0, 1, 0xCC80A0C0, 0, 1}, {19.5f, 29.5f, 0, 1, 0xCC80A0C0, 1, 1}}};
+            clipped.clear(); ui::AppendFadedQuad(clipped, fading, ui::rect{0, 0, 20, 30}, ui::vertical_fade{0, 12, .25f});
+            bool fullOpacity{};
+            for (const auto& vertex : clipped)
+            {
+                const float y = vertex.y + .5f;
+                const auto alpha = vertex.color >> 24;
+                Check((vertex.color & 0xFFFFFF) == 0x80A0C0 && std::abs(vertex.v - y / 30) < .001f &&
+                    std::abs(static_cast<float>(alpha) - 204 * (.25f + .75f * std::clamp(y / 12, 0.0f, 1.0f))) < 1.1f,
+                    "top fade changes only alpha and preserves glyph/icon UVs across its boundary");
+                if (y >= 12) fullOpacity = fullOpacity || alpha == 204;
+            }
+            Check(fullOpacity, "messages below the top fade retain their full opacity");
         }
 
         inline static std::array<std::array<uint32_t, 11>, 207> native_filter_records{};
@@ -800,8 +857,8 @@ namespace xiui
                 chat.State().bounds.x == initial.x && chat.State().bounds.y == initial.y && chat.State().bounds.width == initial.width && chat.State().bounds.height == initial.height,
                 "Escape returns expanded history to the focused compact XIUI chat without altering its draft or layout");
             Check(key(VK_ESCAPE, 0x40000000) && chat.HistoryFocused(), "holding Escape cannot also leave compact chat focus");
-            Check(key(VK_RETURN) && chat.HistoryExpanded() && key(VK_ESCAPE) && chat.HistoryFocused(),
-                "Enter after returning to compact chat reopens XIUI history without focusing native chat");
+            Check(key(VK_RETURN) && chat.HistoryExpanded() && chat.history_view_.tab == 0 && key(VK_ESCAPE) && chat.HistoryFocused(),
+                "Enter reopens XIUI history on its first tab without focusing native chat");
             Check(key(VK_ESCAPE) && !runtime.ChatFocused(), "a second fresh Escape leaves compact chat focus");
             runtime.native_ui_.menu_visible = true;
             Check(!runtime.HandleChatKey('F', 0, false, true, true, 0) && !chat.HistoryFocused(), "an unfocused F stays native during target selection");
@@ -909,6 +966,11 @@ namespace xiui
                 Check(cycle(controller_action::cycle_window) && chat.HistoryExpanded() && chat.history_view_.tab == tab,
                     "controller tab navigation reaches every channel including Shout and Emotes");
             Check(cycle(controller_action::cycle_window) && chat.history_view_.tab == 0, "controller cycling wraps from Emotes to Window 1");
+            chat.SelectHistoryTab(static_cast<size_t>(chat_history_tab::emotes));
+            Check(cycle(controller_action::confirm, true) && chat.HistoryExpanded() &&
+                chat.history_view_.tab == static_cast<size_t>(chat_history_tab::emotes), "held Confirm retains the current expanded tab");
+            Check(cycle(controller_action::confirm) && !chat.HistoryExpanded() && cycle(controller_action::confirm) &&
+                chat.HistoryExpanded() && chat.history_view_.tab == 0, "controller reopening also starts expanded history on its first tab");
             cycle(controller_action::cancel);
             runtime.native_ui_.menu_visible = true;
             Check(cycle(controller_action::cycle_window) && runtime.buffs_.ControllerFocused(), "controller cycle reaches Buffs directly after compact Chat");
@@ -2001,13 +2063,19 @@ namespace xiui
                 "resolved auto-translate commands share the exact submission budget");
             module.editor_.Set({}); module.Focus(true);
             ui::design_system design;
+            design.SetAppearanceTheme(ui::xiv1_appearance);
             const auto layout = module.Layout(design);
-            Check(module.input_counter_ && layout.counter.height > 0 && layout.counter.y + layout.counter.height <= layout.input.y &&
-                std::abs(layout.counter.x + layout.counter.width - layout.input.x - layout.input.width) < .01f,
-                "counter defaults on and sits above the input at its right edge");
+            Check(module.input_counter_ && layout.counter.height > 0 && layout.counter.y == layout.input_text.y &&
+                layout.counter.height == layout.input_text.height && layout.input_text.x + layout.input_text.width + 8 <= layout.counter.x &&
+                layout.counter.x + layout.counter.width <= layout.input.x + layout.input.width,
+                "counter shares the typing row with reserved space that prevents overlap");
+            Check(ChatInputStyle(design, module.text_.style).weight == ChatRunWeight(design, false),
+                "typing text uses the same weight as ordinary chat prose");
             *module.Option(module.AnimationOptionStart() + 2).toggle = false;
-            Check(module.ConfigSectionContains(0, module.AnimationOptionStart() + 2) && module.Layout(design).counter.height == 0,
-                "General exposes the counter toggle and hiding it removes the counter row");
+            const auto withoutCounter = module.Layout(design);
+            Check(module.ConfigSectionContains(0, module.AnimationOptionStart() + 2) && withoutCounter.counter.height == 0 &&
+                withoutCounter.input_text.width > layout.input_text.width && withoutCounter.log.height == layout.log.height,
+                "hiding the inline counter returns typing space without moving the log");
             module.editor_.Insert(std::string(30, 'x'));
             Check(module.editor_.Text().size() == 13, "hiding the counter does not disable the input limit");
             auto saved = settings_store::FromIniText(""); module.Save(saved); chat_module restored; restored.Load(saved);

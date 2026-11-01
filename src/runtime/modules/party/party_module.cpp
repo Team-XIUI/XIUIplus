@@ -5,6 +5,7 @@
 #include "modules/bar_config.hpp"
 #include "ui/xiv1_resource_layout.hpp"
 #include "ui/tp_meter.hpp"
+#include "modules/treasure/treasure_source.hpp"
 
 #include <algorithm>
 #include <cmath>
@@ -1189,6 +1190,13 @@ namespace xiui
             animation, false, nullptr, &profile);
     }
 
+    auto party_module::TreasureLot(const party_member& member) const -> std::optional<uint16_t>
+    {
+        if (this->treasure_ == nullptr || this->source_ == nullptr || member.preview || !member.active || !member.in_zone || !this->text_[4].visible ||
+            this->source_->Count(0) + this->source_->Count(1) + this->source_->Count(2) < 2) return {};
+        return this->treasure_->MemberLot(this->treasure_slot_, this->treasure_generation_, member.id);
+    }
+
     auto party_module::DrawRow(const party_member& member, const row_layout& prepared, const ui::rect& row, const ui::rect& party, const size_t rowIndex, const uint64_t now, const module_render_context& context) -> void
     {
         const auto& design = context.Design();
@@ -1223,6 +1231,19 @@ namespace xiui
             const auto tpStyle = ui::Xiv1ResourceValue(this->text_[tp_text], 0, true).style;
             const auto tp = ui::LayoutXiv1TPNumber(entry.resources.bars[2], 0, design.MeasureText("3000", tpStyle), 0, design.TextHeight(tpStyle));
             headerRight = std::min(headerRight, (this->casts_ && this->cast_placement_ == cast_tp ? entry.resources.bars[2].x : tp.value.x) - 8);
+        }
+        if (const auto lot = this->TreasureLot(member))
+        {
+            auto profile = this->text_[4];
+            profile.placement = 0; profile.offset_x = profile.offset_y = 0;
+            profile.style = this->TextStyle(profile); profile.style.alignment = ui::text_alignment::right;
+            const float badgeWidth = std::min(std::max(0.0f, headerRight - x),
+                std::max({design.MeasureText("[---]", profile.style), design.MeasureText("[Pass]", profile.style), design.MeasureText("[999]", profile.style)}) + 2);
+            const ui::rect badge{headerRight - badgeWidth, entry.header.y, badgeWidth, headerHeight};
+            const auto label = *lot == 65535 ? std::string{"[Pass]"} : *lot == 0 ? std::string{"[---]"} : "[" + std::to_string(*lot) + "]";
+            const D3DCOLOR tint = *lot == 65535 ? 0xFFA8A8A8 : *lot == 0 ? 0xFFE3D2A0 : 0xFFBFE07D;
+            context.DrawText(label.c_str(), badge, badge, TintTextProfile(profile, tint));
+            headerRight = std::max(x, badge.x - 6);
         }
         const float headerWidth = std::max(0.0f, headerRight - x);
         const float detailWidth = detail.empty() ? 0 : std::min(headerWidth * 0.44f, design.MeasureText(detail.c_str(), this->text_[4].style) + 2);

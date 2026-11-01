@@ -31,6 +31,16 @@ namespace xiui
     auto treasure_source::Count(void) const -> size_t
     { return static_cast<size_t>(std::count_if(this->entries_.begin(), this->entries_.end(), [](const auto& item) { return item.item != 0; })); }
 
+    auto treasure_source::MemberLot(const size_t slot, const uint64_t generation, const uint32_t member) const -> std::optional<uint16_t>
+    {
+        if (!this->ready_ || slot >= capacity || member == 0) return {};
+        const auto& entry = this->entries_[slot];
+        if (entry.item == 0 || entry.generation != generation) return {};
+        for (const auto& value : entry.members)
+            if (value.id == member && (value.lot <= 999 || value.lot == 65535)) return value.lot;
+        return {};
+    }
+
     auto treasure_source::Reconcile(const std::array<treasure_snapshot, capacity>& slots, const bool ready, const uint32_t player, const uint64_t now) -> void
     {
         if (player != 0 && this->player_ != 0 && player != this->player_) this->Clear();
@@ -66,6 +76,20 @@ namespace xiui
         { this->ready_ = false; return; }
         const auto status = inventory->GetTreasurePoolStatus();
         std::array<treasure_snapshot, capacity> samples{};
+        std::array<uint32_t, 18> members{};
+        const auto localId = party->GetMemberServerId(0);
+        const auto localZone = party->GetMemberZone(0);
+        const auto* entities = memory->GetEntity();
+        if (status == 1)
+            for (uint32_t member = 0; member < members.size(); ++member)
+            {
+                const auto id = party->GetMemberServerId(member);
+                if (!id || !party->GetMemberIsActive(member) || party->GetMemberZone(member) != localZone) continue;
+                const auto index = party->GetMemberTargetIndex(member);
+                if (member != 0 && (entities == nullptr || index == 0 || index >= entities->GetEntityMapSize() ||
+                    entities->GetServerId(index) != id || (entities->GetSpawnFlags(index) & 1) == 0)) continue;
+                members[member] = id;
+            }
         if (status == 1)
             for (size_t slot = 0; slot < capacity; ++slot)
                 if (const auto* item = inventory->GetTreasurePoolItem(static_cast<uint32_t>(slot)); item != nullptr && item->ItemId > 0 && item->ItemId < 65535)
@@ -74,8 +98,11 @@ namespace xiui
                     sample.lot = item->Lot; sample.winning_lot = item->WinningLot <= 999 ? item->WinningLot : 0;
                     const auto* name = reinterpret_cast<const char*>(item->WinningEntityName);
                     sample.winner = FromGameText({name, strnlen(name, 16)});
+                    for (uint32_t member = 0; member < members.size(); ++member)
+                        if (members[member] != 0)
+                            sample.members[member] = {members[member], member == 0 ? sample.lot : party->GetMemberTreasureLot(member, static_cast<uint32_t>(slot))};
                 }
-        this->Reconcile(samples, status == 1 || status == 2, party->GetMemberServerId(0), now);
+        this->Reconcile(samples, status == 1 || status == 2, localId, now);
     }
 
     auto treasure_source::HandlePacket(const uint16_t id, const std::span<const uint8_t> data, const uint64_t now) -> void
@@ -110,6 +137,8 @@ namespace xiui
         { this->resolved_[slot] = {entry.item, entry.drop}; entry = {}; return; }
         const auto actor = Field<uint32_t>(data, 8);
         const auto lot = Field<uint16_t>(data, 18), winning = Field<uint16_t>(data, 14);
+        for (auto& member : entry.members)
+            if (member.id != 0 && member.id == actor) { member.lot = lot; break; }
         if (actor == this->player_) { entry.lot = lot; entry.pending_until = 0; }
         entry.winning_lot = winning <= 999 ? winning : 0; entry.winner = Name(data, 22);
         const auto name = Name(data, 38);

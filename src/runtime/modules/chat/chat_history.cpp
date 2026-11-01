@@ -151,7 +151,7 @@ namespace xiui
                 {
                     this->history_view_.scroll = {};
                     this->history_view_.expanded = true;
-                    this->cache_revision_ = UINT64_MAX;
+                    this->SelectHistoryTab(static_cast<size_t>(chat_history_tab::window1));
                     if (this->sounds_ != nullptr) this->sounds_->MenuOpened(::GetTickCount64());
                 }
             }

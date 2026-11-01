@@ -1,6 +1,6 @@
 # Settings inventory
 
-Generated 2026-10-31. Source: runtime option metadata and shared layout.
+Generated 2026-11-01. Source: runtime option metadata and shared layout.
 Regenerate with `./scripts/update-docs.ps1`. Each bullet is one visual row; [empty] preserves paired controls.
 
 ## Player Bar
@@ -474,26 +474,8 @@ Regenerate with `./scripts/update-docs.ps1`. Each bullet is one visual row; [emp
 
 ### Text
 
-- Show text | Follow target text
-- Font | Size (px)
-- Name position | Alignment
-- Letter spacing | [empty]
-- X offset | Y offset
-- Shadow | Shadow color
-- Soft shadow | Stroke
-- Glow | Game name colors
-
-### Text / Distance
-
-- Show text | Follow target text
-- Font | Size (px)
-- Name position | Alignment
-- Letter spacing | [empty]
-- X offset | Y offset
-- Top color | Bottom color
-- Shadow | Shadow color
-- Soft shadow | Stroke
-- Glow | Game name colors
+- Follow target text | Name position
+- Game name colors
 
 ## Target / Subtarget
 
@@ -723,26 +705,8 @@ Regenerate with `./scripts/update-docs.ps1`. Each bullet is one visual row; [emp
 
 ### Text
 
-- Show text | Follow target text
-- Font | Size (px)
-- Name position | Alignment
-- Letter spacing | [empty]
-- X offset | Y offset
-- Shadow | Shadow color
-- Soft shadow | Stroke
-- Glow | Game name colors
-
-### Text / Distance
-
-- Show text | Follow target text
-- Font | Size (px)
-- Name position | Alignment
-- Letter spacing | [empty]
-- X offset | Y offset
-- Top color | Bottom color
-- Shadow | Shadow color
-- Soft shadow | Stroke
-- Glow | Game name colors
+- Follow target text | Name position
+- Game name colors
 
 ## Subtarget
 
@@ -3799,7 +3763,8 @@ Regenerate with `./scripts/update-docs.ps1`. Each bullet is one visual row; [emp
 
 ### General
 
-- Enabled | Group count
+- Enabled | Enable Group 2
+- Group count
 
 ### Appearance / Size & Position
 
@@ -3986,8 +3951,9 @@ Regenerate with `./scripts/update-docs.ps1`. Each bullet is one visual row; [emp
 - Scale (%) | Lock proportions
 - Reset scale | Enabled
 - Show title | Show details
-- Show timers | Open pool
-- Show automatically | Expanded rows
+- Show timers | Show member decisions
+- Open pool | Show automatically
+- Expanded rows
 
 ### Appearance
 
@@ -4131,7 +4097,8 @@ Regenerate with `./scripts/update-docs.ps1`. Each bullet is one visual row; [emp
 
 ### Appearance / Window
 
-- Opacity
+- Background | Opacity
+- Frame
 
 ### Appearance / Colors
 
@@ -4239,7 +4206,8 @@ Regenerate with `./scripts/update-docs.ps1`. Each bullet is one visual row; [emp
 
 ### Appearance / Window
 
-- Opacity
+- Background | Opacity
+- Frame
 
 ### Appearance / Colors
 
@@ -4670,4 +4638,4 @@ Regenerate with `./scripts/update-docs.ps1`. Each bullet is one visual row; [emp
 
 ## Coverage
 
-73 registered modules, 590 distinct pages, 4793 controls across those pages, and 2049 selector/view combinations.
+73 registered modules, 588 distinct pages, 4741 controls across those pages, and 2033 selector/view combinations.

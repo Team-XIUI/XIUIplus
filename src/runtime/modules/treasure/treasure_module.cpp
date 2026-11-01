@@ -33,6 +33,7 @@ namespace xiui
         this->EndInput(); this->forced_ = this->details_ = false;
         this->state_.enabled = store.ReadBool("treasure", "enabled", true);
         this->automatic_ = store.ReadBool("treasure", "automatic", true); this->expanded_ = store.ReadBool("treasure", "expanded", true);
+        this->member_status_ = store.ReadBool("treasure", "member_status", true);
         this->state_.bounds = store.ReadRect("layout.treasure", this->state_.bounds);
         this->state_.bounds.width = std::clamp(this->state_.bounds.width, 440.0f, 1000.0f);
         this->container_.opacity = std::clamp(store.ReadFloat("treasure", "opacity", 0.95f), 0.0f, 1.0f);
@@ -49,6 +50,7 @@ namespace xiui
     {
         store.WriteBool("treasure", "enabled", this->state_.enabled); store.WriteBool("treasure", "automatic", this->automatic_);
         store.WriteBool("treasure", "expanded", this->expanded_); store.WriteRect("layout.treasure", this->state_.bounds);
+        store.WriteBool("treasure", "member_status", this->member_status_);
         store.WriteFloat("treasure", "opacity", this->container_.opacity); store.WriteFloat("treasure", "padding", this->container_.padding);
         store.WriteInt("treasure", "selected_text", this->selected_text_);
         store.WriteInt("treasure", "presentation_version", 1);
@@ -74,7 +76,8 @@ namespace xiui
             {
             case 0: return module_option::Toggle("Show title", "Show the Treasure Pool heading and item count.", &this->text_[0].visible).Ordered(-40);
             case 1: return module_option::Toggle("Show details", "Show your decision, the leading lot and lot history.", &this->text_[2].visible).Ordered(-39);
-            default: return module_option::Toggle("Show timers", "Show estimated time remaining beneath each item.", &this->text_[4].visible).Ordered(-38);
+            case 2: return module_option::Toggle("Show timers", "Show estimated time remaining beneath each item.", &this->text_[4].visible).Ordered(-38);
+            default: return module_option::Toggle("Show member decisions", "Party/alliance names show the highlighted item's decision: --- waiting, Pass passed, or the lot number.", &this->member_status_).Ordered(-37);
             }
         }
         switch (index)
@@ -94,6 +97,16 @@ namespace xiui
     { if (index == open) this->Open(); if (!this->state_.enabled) this->EndInput(); }
     auto treasure_module::ShouldRender(const hud_snapshot&) const -> bool
     { return this->state_.enabled && (this->forced_ || (this->automatic_ && this->source_ != nullptr && this->source_->Ready() && this->source_->Count() != 0)); }
+    auto treasure_module::SelectedItem(void) const -> std::optional<treasure_selection>
+    {
+        if (this->source_ == nullptr || !this->source_->Ready() || !this->ShouldRender({})) return {};
+        const auto& entries = this->source_->Entries();
+        if (this->selected_ < entries.size() && entries[this->selected_].item != 0)
+            return treasure_selection{this->selected_, entries[this->selected_].generation};
+        for (size_t slot = 0; slot < entries.size(); ++slot)
+            if (entries[slot].item != 0) return treasure_selection{slot, entries[slot].generation};
+        return {};
+    }
     auto treasure_module::Update(IAshitaCore* core, bool available) -> void
     {
         this->core_ = core; this->available_ = available && this->state_.enabled;
@@ -175,7 +188,7 @@ namespace xiui
             this->changed_ = true;
             break;
         case action::details:
-            this->details_ = !this->details_;
+            if (this->text_[2].visible) this->details_ = !this->details_;
             break;
         case action::close:
             this->forced_ = false;
@@ -196,8 +209,16 @@ namespace xiui
     }
     auto treasure_module::LayoutHandleMouse(uint32_t message, float x, float y) -> bool
     {
+        const bool moved = x != this->mouse_x_ || y != this->mouse_y_;
         this->mouse_x_ = x;
         this->mouse_y_ = y;
+        if (this->available_ && this->source_ != nullptr && this->source_->Ready() &&
+            (moved || message == WM_LBUTTONDOWN || message == WM_LBUTTONDBLCLK))
+            for (const auto& control : this->controls_)
+                if ((control.kind == action::details || control.kind == action::lot || control.kind == action::pass) &&
+                    control.slot < treasure_source::capacity && Inside(control.bounds, x, y) &&
+                    this->source_->Entries()[control.slot].item != 0 && this->source_->Entries()[control.slot].generation == control.generation)
+                { this->selected_ = control.slot; break; }
         if (message == WM_LBUTTONDOWN || message == WM_LBUTTONDBLCLK)
         {
             if (!this->LayoutContains(x, y)) return false;
@@ -318,13 +339,19 @@ namespace xiui
         for (size_t slot = 0; slot < entries.size(); ++slot)
         {
             const auto& entry = entries[slot]; if (entry.item == 0) continue;
+            if (!preview && slot == this->selected_)
+            {
+                const auto color = design.GetTheme().colors.selected;
+                design.FillRect({content.x - 2, y - 1, content.width + 4, rowHeight - 3},
+                    (color & 0xFFFFFF) | (static_cast<uint32_t>((color >> 24) * .35f) << 24));
+            }
             std::string name = "Item " + std::to_string(entry.item);
             if (auto* resources = this->core_ != nullptr ? this->core_->GetResourceManager() : nullptr)
                 if (const auto* item = resources->GetItemById(entry.item); item != nullptr && item->Name[2] != nullptr) name = FromGameText(item->Name[2]);
             if (entry.count > 1) name += " x" + std::to_string(entry.count);
             const float actionsX = content.x + content.width - actionsWidth;
             const float textX = content.x + 34, textWidth = content.width - 34;
-            this->controls_.push_back({{textX, y, std::max(1.0f, actionsX - textX - 8), line}, action::details, slot, entry.generation, !preview && this->available_ && details});
+            this->controls_.push_back({{textX, y, std::max(1.0f, actionsX - textX - 8), line}, action::details, slot, entry.generation, !preview && this->available_ && (details || this->member_status_)});
             if (context.Icons() != nullptr)
                 if (auto* icon = context.Icons()->Item(entry.item)) design.DrawTexture(icon, {content.x, y + (line - 26) * 0.5f, 26, 26});
             draw(name, {textX, y, std::max(1.0f, actionsX - textX - 8), line}, 1);

@@ -27,7 +27,7 @@ namespace xiui::ui
         auto Rasterize(int font, int pixels, uint32_t codepoint, font_weight weight = font_weight::face_default) -> std::optional<raster_glyph>;
 
     private:
-        struct face { HFONT handle{}; raster_font_metrics metrics{}; uint64_t touched{}; };
+        struct face { HFONT handle{}; raster_font_metrics metrics{}; uint64_t touched{}; int embolden{}; };
         std::map<uint32_t, face> faces_{};
         HDC dc_{};
         HBITMAP bitmap_{};

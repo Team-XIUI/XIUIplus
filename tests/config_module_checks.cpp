@@ -38,6 +38,65 @@ namespace xiui
         if (!check(runtime.HandleTreasureKey(VK_ESCAPE, 0x40000000u, false), "held Cancel stays consumed after leaving treasure focus")) return false;
         if (!check(runtime.HandleTreasureKey(VK_ESCAPE, 0xC0000000u, false) && !runtime.treasure_key_release_[VK_ESCAPE], "the owned Cancel release drains once")) return false;
         if (!check(!runtime.HandleTreasureKey(VK_ESCAPE, 0, false), "a fresh unfocused Cancel returns to gameplay")) return false;
+        {
+            treasure_source rolls;
+            std::array<treasure_snapshot, treasure_source::capacity> items{};
+            items[0] = {100, 1, 1000}; items[1] = {101, 1, 2000, 65535};
+            items[0].members[0] = {100, 0}; items[0].members[1] = {200, 65535};
+            items[0].members[6] = {300, 777}; items[0].members[12] = {400, 888}; items[0].members[13] = {500, 1000};
+            items[1].members[0] = {100, 65535}; items[1].members[1] = {200, 0};
+            rolls.Reconcile(items, true, 100, 1000);
+            const auto generation = rolls.Entries()[0].generation;
+            if (!check(rolls.MemberLot(0, generation, 100) == 0 && rolls.MemberLot(0, generation, 200) == 65535 &&
+                rolls.MemberLot(0, generation, 300) == 777 && !rolls.MemberLot(0, generation, 500) && !rolls.MemberLot(0, generation, 999),
+                "native member snapshots distinguish waiting, pass and lot while leaving unknown members unavailable")) return false;
+            party_source roster;
+            for (const auto [slot, id] : {std::pair{0u, 100u}, {1u, 200u}, {6u, 300u}, {12u, 400u}})
+            { auto& member = roster.members_[slot]; member.id = id; member.slot = slot; member.active = member.in_zone = true; }
+            party_module party, alliance1{1}, alliance2{2};
+            for (auto* group : {&party, &alliance1, &alliance2})
+            { group->ApplyTextDefaults(ui::theme::CreateDefault()); group->SetSource(&roster); group->SetTreasureSelection(&rolls, 0, generation); }
+            if (!check(party.TreasureLot(roster.members_[0]) == 0 && party.TreasureLot(roster.members_[1]) == 65535 &&
+                alliance1.TreasureLot(roster.members_[6]) == 777 && alliance2.TreasureLot(roster.members_[12]) == 888,
+                "the party and both alliance groups resolve decisions by member identity")) return false;
+            roster.members_[1].in_zone = false;
+            if (!check(!party.TreasureLot(roster.members_[1]), "out-of-zone members are not presented as waiting")) return false;
+            roster.members_[1].in_zone = true;
+            const auto before = party.LayoutEntry({0, 0, 240, 0}, true, {true, true, true, true}, false);
+            std::swap(items[0].members[0], items[0].members[6]);
+            items[0].members[1].lot = 800;
+            rolls.Reconcile(items, true, 100, 1001);
+            const auto after = party.LayoutEntry({0, 0, 240, 0}, true, {true, true, true, true}, false);
+            if (!check(alliance1.TreasureLot(roster.members_[6]) == 777 && party.TreasureLot(roster.members_[1]) == 800 &&
+                before.height == after.height && before.header.height == after.header.height,
+                "roster order and changing decisions do not change member identity or party row height")) return false;
+            treasure_module pool;
+            pool.SetSource(&rolls); pool.ApplyTextDefaults(ui::theme::CreateDefault()); pool.State().bounds = {20, 20, 540, 200}; pool.Update(nullptr, true);
+            pool.text_[2].visible = false;
+            ui::design_system design;
+            module_render_context context{design};
+            pool.Render({}, context);
+            if (!check(pool.MemberSelection() && pool.MemberSelection()->slot == 0, "member decisions start on the first live pool item")) return false;
+            const auto second = std::find_if(pool.controls_.begin(), pool.controls_.end(), [](const auto& control) {
+                return control.slot == 1 && control.kind == treasure_module::action::details;
+            });
+            if (!check(second != pool.controls_.end() && second->available, "passed items remain selectable for inspection when details are hidden")) return false;
+            const auto point = second->bounds;
+            if (!check(!pool.LayoutHandleMouse(WM_MOUSEMOVE, point.x + 1, point.y + 1) && pool.MemberSelection()->slot == 1 &&
+                rolls.Entries()[0].pending_until == 0 && rolls.Entries()[1].pending_until == 0,
+                "hover changes only the inspected treasure item and does not queue a decision or capture movement")) return false;
+            if (!check(pool.BeginBrowse(), "controller can inspect treasure decisions")) return false;
+            pool.HandleControllerAction(controller_action::down, false);
+            if (!check(pool.MemberSelection()->slot == 1, "controller navigation selects the same member-decision context")) return false;
+            pool.member_status_ = false;
+            auto saved = settings_store::FromIniText(""); pool.Save(saved);
+            treasure_module restored; restored.SetSource(&rolls); restored.Load(saved);
+            if (!check(!pool.MemberSelection() && !restored.member_status_, "the shared member-decision toggle persists without changing item selection")) return false;
+            items[0].item = 102; items[0].drop = 3000; rolls.Reconcile(items, true, 100, 1002);
+            if (!check(!party.TreasureLot(roster.members_[0]), "a reused treasure slot cannot display the previous item's decisions")) return false;
+            rolls.BeginZone();
+            if (!check(!rolls.MemberLot(1, rolls.Entries()[1].generation, 100) && !pool.SelectedItem(), "loading and zoning hide unavailable member decisions")) return false;
+        }
         runtime.treasure_.State().enabled = false;
         return check(!runtime.TreasureInputAvailable(), "disabled treasure cannot capture input");
     }

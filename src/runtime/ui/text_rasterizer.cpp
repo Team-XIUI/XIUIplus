@@ -66,9 +66,9 @@ namespace xiui::ui
 {
     auto NativeFontMetrics(const int font, const int pixels, const font_weight weight) -> raster_font_metrics
     {
-        static std::array<std::optional<raster_font_metrics>, font_count * 91 * 3> cache{};
+        static std::array<std::optional<raster_font_metrics>, font_count * 91 * font_weight_count> cache{};
         const int family = FontIndex(font), size = std::clamp(pixels, 6, 96);
-        auto& metrics = cache[(family * 3 + static_cast<int>(weight)) * 91 + size - 6];
+        auto& metrics = cache[(family * font_weight_count + static_cast<int>(weight)) * 91 + size - 6];
         if (!metrics) { text_rasterizer rasterizer; metrics = rasterizer.Metrics(family, size, weight); }
         return *metrics;
     }
@@ -89,12 +89,12 @@ namespace xiui::ui
     auto text_rasterizer::Face(const int font, const int pixels, const font_weight weight) -> face*
     {
         const int family = std::clamp(font, 0, font_count), size = std::clamp(pixels, 1, text_max_raster_pixels);
-        const auto key = static_cast<uint32_t>((family * 3 + static_cast<int>(weight)) * 1024 + size);
+        const auto key = static_cast<uint32_t>((family * font_weight_count + static_cast<int>(weight)) * 1024 + size);
         if (auto found = this->faces_.find(key); found != this->faces_.end()) { found->second.touched = ++this->touched_; return &found->second; }
         if (this->dc_ == nullptr) this->dc_ = ::CreateCompatibleDC(nullptr);
         if (this->dc_ == nullptr || (family == 3 && !this->grammara_.Load())) return nullptr;
         const auto name = family == font_count ? "Yu Gothic UI" : font_faces[family].family;
-        const int faceWeight = weight == font_weight::regular ? FW_NORMAL : weight == font_weight::bold ? FW_BOLD :
+        const int faceWeight = weight == font_weight::medium ? FW_MEDIUM : weight == font_weight::regular ? FW_NORMAL : weight == font_weight::bold ? FW_BOLD :
             family == font_count ? FW_BOLD : font_faces[family].weight;
         const bool italic = family < font_count && font_faces[family].italic;
         auto handle = ::CreateFontA(-size * samples, 0, 0, 0, faceWeight, italic ? TRUE : FALSE, FALSE, FALSE,
@@ -104,6 +104,9 @@ namespace xiui::ui
         const auto previous = ::SelectObject(this->dc_, handle);
         char selected[LF_FACESIZE]{}; ::GetTextFaceA(this->dc_, LF_FACESIZE, selected);
         TEXTMETRICA metrics{}; ::GetTextMetricsA(this->dc_, &metrics);
+        // Static families may map Medium back to Regular; strengthen their supersampled coverage.
+        const int embolden = weight == font_weight::medium && metrics.tmWeight < FW_MEDIUM ?
+            std::max(1, static_cast<int>(std::lround(size / 15.0f))) : 0;
         raster_font_metrics result{metrics.tmHeight / static_cast<float>(samples), metrics.tmAscent / static_cast<float>(samples), 0,
             ::_stricmp(selected, name) == 0};
         for (wchar_t digit = L'0'; digit <= L'9'; ++digit)
@@ -112,13 +115,14 @@ namespace xiui::ui
             result.digit_advance = std::max(result.digit_advance, extent.cx / static_cast<float>(samples));
         }
         ::SelectObject(this->dc_, previous);
+        result.digit_advance += static_cast<float>(embolden) / samples;
         if (family == 3 && !result.available) { ::DeleteObject(handle); return nullptr; }
         if (this->faces_.size() >= 64)
         {
             const auto oldest = std::min_element(this->faces_.begin(), this->faces_.end(), [](const auto& a, const auto& b) { return a.second.touched < b.second.touched; });
             ::DeleteObject(oldest->second.handle); this->faces_.erase(oldest);
         }
-        return &this->faces_.emplace(key, face{handle, result, ++this->touched_}).first->second;
+        return &this->faces_.emplace(key, face{handle, result, ++this->touched_, embolden}).first->second;
     }
 
     auto text_rasterizer::Surface(const int width, const int height) -> bool
@@ -154,7 +158,7 @@ namespace xiui::ui
         std::array<wchar_t, 2> text{}; const auto length = Text(codepoint, text);
         SIZE extent{}; ::GetTextExtentPoint32W(this->dc_, text.data(), length, &extent);
         ::SelectObject(this->dc_, previous);
-        return extent.cx / static_cast<float>(samples);
+        return (extent.cx + static_cast<float>(face->embolden)) / samples;
     }
 
     auto text_rasterizer::Rasterize(const int font, const int pixels, const uint32_t codepoint, const font_weight weight) -> std::optional<raster_glyph>
@@ -176,12 +180,24 @@ namespace xiui::ui
         std::array<wchar_t, 2> text{}; const auto length = Text(codepoint, text);
         ::TextOutW(this->dc_, result.padding * samples, result.padding * samples, text.data(), length);
         ::GdiFlush(); ::SelectObject(this->dc_, previous);
+        std::vector<uint8_t> coverage;
+        const int sampleWidth = result.width * samples, sampleHeight = result.height * samples;
+        if (face->embolden > 0)
+        {
+            coverage.resize(static_cast<size_t>(sampleWidth) * sampleHeight);
+            for (int y = 0; y < sampleHeight; ++y) for (int x = 0; x < sampleWidth; ++x)
+                coverage[y * sampleWidth + x] = static_cast<uint8_t>(this->pixels_[y * this->width_ + x] & 255);
+            const auto expanded = Dilate(coverage, sampleWidth, sampleHeight, face->embolden);
+            for (size_t i = 0; i < coverage.size(); ++i)
+                coverage[i] = static_cast<uint8_t>((coverage[i] + expanded[i] + 1) / 2);
+        }
         auto& base = result.masks[0]; base.resize(static_cast<size_t>(result.width) * result.height);
         for (int y = 0; y < result.height; ++y) for (int x = 0; x < result.width; ++x)
         {
             unsigned sum{};
             for (int sy = 0; sy < samples; ++sy) for (int sx = 0; sx < samples; ++sx)
-                sum += this->pixels_[(y * samples + sy) * this->width_ + x * samples + sx] & 255;
+                sum += coverage.empty() ? this->pixels_[(y * samples + sy) * this->width_ + x * samples + sx] & 255 :
+                    coverage[(y * samples + sy) * sampleWidth + x * samples + sx];
             base[y * result.width + x] = static_cast<uint8_t>((sum + samples * samples / 2) / (samples * samples));
         }
         result.masks[1] = Dilate(base, result.width, result.height, std::max(1, static_cast<int>(std::lround(pixels / 15.0f))));

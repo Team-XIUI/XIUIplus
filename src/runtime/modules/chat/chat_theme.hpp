@@ -6,6 +6,9 @@
 
 namespace xiui
 {
+    inline auto ChatRunWeight(const ui::design_system& design, const bool emphasis) -> ui::font_weight
+    { return emphasis ? ui::font_weight::bold : design.IsXiv1Theme() ? ui::font_weight::medium : ui::font_weight::regular; }
+
     inline auto ChatThemeStyle(const ui::design_system& design, const ui::text_style& style, const bool tab = false) -> ui::text_style
     {
         auto result = design.ResolveHudText(style);
@@ -20,6 +23,13 @@ namespace xiui
 
     inline auto ChatThemeTracking(const ui::text_style& style) -> float
     { return style.letter_spacing * ui::TextPixelScale(style.scale); }
+
+    inline auto ChatInputStyle(const ui::design_system& design, const ui::text_style& style) -> ui::text_style
+    {
+        auto result = ChatThemeStyle(design, style);
+        result.weight = ChatRunWeight(design, false);
+        return result;
+    }
 
     inline auto ChatThemeProfile(const ui::design_system& design, module_text_profile profile) -> module_text_profile
     { profile.style = ChatThemeStyle(design, profile.style); return profile; }

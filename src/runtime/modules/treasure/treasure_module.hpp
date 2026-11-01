@@ -28,6 +28,9 @@ namespace xiui
         auto Open(void) -> void { this->forced_ = true; }
         auto EndInput(void) -> void { this->browse_ = false; this->pressed_.reset(); }
         auto InputFocused(void) const -> bool { return this->browse_; }
+        auto SelectedItem(void) const -> std::optional<treasure_selection>;
+        auto MemberSelection(void) const -> std::optional<treasure_selection>
+        { return this->member_status_ ? this->SelectedItem() : std::nullopt; }
         auto BeginBrowse(void) -> bool;
         auto HandleControllerAction(controller_action action, bool repeated) -> bool;
         auto LayoutHandleMouse(uint32_t message, float x, float y) -> bool;
@@ -44,7 +47,7 @@ namespace xiui
         auto ResetDefaults(const ui::theme& theme) -> void override;
         auto Load(const settings_store& store) -> void override;
         auto Save(const settings_store& store) const -> void override;
-        auto ContentOptionCount(void) const -> size_t override { return visibility_start + 3; }
+        auto ContentOptionCount(void) const -> size_t override { return visibility_start + 4; }
         auto ContentOption(size_t index) -> module_option override;
         auto OnContentOptionChanged(size_t index) -> void override;
         auto ConfigSections(void) const -> std::span<const module_config_section> override;
@@ -54,6 +57,9 @@ namespace xiui
         auto RenderOverlay(const module_render_context& context, const ui::config_text_settings& text, float mouseX, float mouseY) const -> void;
     private:
         friend struct phoenix_integration_test;
+#if defined(XIUI_ENABLE_INPUT_TESTS)
+        friend struct config_input_test;
+#endif
         enum option : size_t { enabled, open, automatic, expanded, width, opacity, padding, selected_text, base_options };
         static constexpr size_t visibility_start = base_options + text_profile_option_count;
         enum class action : uint8_t { lot, pass, lot_all, pass_all, expand, details, close };
@@ -65,6 +71,7 @@ namespace xiui
         ui::native_ui_sounds* sounds_{};
         ui::focus_frame_style focus_style_{};
         bool automatic_{true}, expanded_{true}, forced_{}, details_{}, browse_{}, available_{}, changed_{};
+        bool member_status_{true};
         size_t focus_{}, selected_{};
         int selected_text_{};
         ui::container_style container_{0.95f, 5, 10, false};

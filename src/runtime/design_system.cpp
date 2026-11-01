@@ -323,7 +323,7 @@ namespace xiui::ui
     auto design_system::EndFrame(void) -> void
     {
         this->tracking_content_bounds_ = false;
-        this->transform_ = {}; this->clip_bounds_.reset();
+        this->transform_ = {}; this->clip_bounds_.reset(); this->vertical_fade_.reset();
         if (!this->frame_active_ || this->device_ == nullptr)
             return;
 
@@ -989,10 +989,10 @@ namespace xiui::ui
             {points[2].x - 0.5f, points[2].y - 0.5f, 0.0f, 1.0f, style.colors[2], uv.x, uv.y + uv.height},
             {points[3].x - 0.5f, points[3].y - 0.5f, 0.0f, 1.0f, style.colors[3], uv.x + uv.width, uv.y + uv.height},
         }};
-        if (this->clip_bounds_)
+        if (this->clip_bounds_ || this->vertical_fade_)
         {
             std::vector<text_vertex> clipped;
-            AppendClippedQuad(clipped, vertices, this->clip_bounds_);
+            AppendFadedQuad(clipped, vertices, this->clip_bounds_, this->vertical_fade_);
             if (!clipped.empty()) this->Submit(D3DPT_TRIANGLELIST, static_cast<UINT>(clipped.size() / 3), clipped.data(), sizeof(text_vertex));
         }
         else this->Submit(D3DPT_TRIANGLESTRIP, 2, vertices.data(), sizeof(text_vertex));
@@ -1031,10 +1031,10 @@ namespace xiui::ui
             }
             this->TrackContentBounds({left, top, right - left, bottom - top});
             const auto& uv = quad.uv;
-            AppendClippedQuad(vertices, {{{quad.points[0].x - 0.5f, quad.points[0].y - 0.5f, 0, 1, paint.colors[0], uv.x, uv.y},
+            AppendFadedQuad(vertices, {{{quad.points[0].x - 0.5f, quad.points[0].y - 0.5f, 0, 1, paint.colors[0], uv.x, uv.y},
                 {quad.points[1].x - 0.5f, quad.points[1].y - 0.5f, 0, 1, paint.colors[1], uv.x + uv.width, uv.y},
                 {quad.points[2].x - 0.5f, quad.points[2].y - 0.5f, 0, 1, paint.colors[2], uv.x, uv.y + uv.height},
-                {quad.points[3].x - 0.5f, quad.points[3].y - 0.5f, 0, 1, paint.colors[3], uv.x + uv.width, uv.y + uv.height}}}, this->clip_bounds_);
+                {quad.points[3].x - 0.5f, quad.points[3].y - 0.5f, 0, 1, paint.colors[3], uv.x + uv.width, uv.y + uv.height}}}, this->clip_bounds_, this->vertical_fade_);
             if (vertices.size() >= vertexLimit) flush();
         }
         flush();
@@ -1750,8 +1750,8 @@ namespace xiui::ui
                     const D3DCOLOR topRight = sheen ? SheenColor(style.sheen.color, right, sheenCenter, style.sheen.width) : style.top_color;
                     const D3DCOLOR bottomLeft = sheen ? topLeft : style.bottom_color;
                     const D3DCOLOR bottomRight = sheen ? topRight : style.bottom_color;
-                    AppendClippedQuad(vertices, {{{left, top, 0, 1, topLeft, glyph.u0, glyph.v0}, {right, top, 0, 1, topRight, glyph.u1, glyph.v0},
-                        {left, bottom, 0, 1, bottomLeft, glyph.u0, glyph.v1}, {right, bottom, 0, 1, bottomRight, glyph.u1, glyph.v1}}}, this->clip_bounds_);
+                    AppendFadedQuad(vertices, {{{left, top, 0, 1, topLeft, glyph.u0, glyph.v0}, {right, top, 0, 1, topRight, glyph.u1, glyph.v0},
+                        {left, bottom, 0, 1, bottomLeft, glyph.u0, glyph.v1}, {right, bottom, 0, 1, bottomRight, glyph.u1, glyph.v1}}}, this->clip_bounds_, this->vertical_fade_);
                 }
             }
             advance += metrics.advance + static_cast<double>(tracking);

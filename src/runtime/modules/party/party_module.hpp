@@ -11,6 +11,7 @@
 
 namespace xiui
 {
+    class treasure_source;
     class party_module final : public hud_module
     {
     public:
@@ -20,6 +21,8 @@ namespace xiui
         auto State(void) -> module_state& override { return this->state_; }
         auto State(void) const -> const module_state& override { return this->state_; }
         auto SetSource(const party_source* source) -> void { this->source_ = source; }
+        auto SetTreasureSelection(const treasure_source* source, size_t slot, uint64_t generation) -> void
+        { this->treasure_ = source; this->treasure_slot_ = slot; this->treasure_generation_ = generation; }
         auto SetTiming(const party_timing_source* source) -> void { this->timing_ = source; }
         auto SetHealPrediction(heal_prediction_source* source) -> void { this->heal_prediction_ = source; }
         auto SetMPPreview(const cast_cost_source* source) -> void { this->mp_preview_source_ = source; }
@@ -106,6 +109,10 @@ namespace xiui
         static constexpr int position_layout = 0, position_left = 1, position_center = 2, position_right = 3;
         size_t group_{};
         const party_source* source_{};
+        const treasure_source* treasure_{};
+        size_t treasure_slot_{};
+        uint64_t treasure_generation_{};
+        auto TreasureLot(const party_member& member) const -> std::optional<uint16_t>;
         const party_timing_source* timing_{};
         const cast_cost_source* mp_preview_source_{};
         heal_prediction_source* heal_prediction_{};

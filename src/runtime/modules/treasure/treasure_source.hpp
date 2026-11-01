@@ -10,11 +10,14 @@
 
 namespace xiui
 {
+    struct treasure_member_lot { uint32_t id{}; uint16_t lot{}; };
+    struct treasure_selection { size_t slot{}; uint64_t generation{}; };
     struct treasure_snapshot
     {
         uint32_t item{}, count{}, drop{};
         uint16_t lot{}, winning_lot{};
         std::string winner{};
+        std::array<treasure_member_lot, 18> members{};
     };
     struct treasure_entry : treasure_snapshot
     {
@@ -41,6 +44,7 @@ namespace xiui
         auto Entries(void) const -> const std::array<treasure_entry, capacity>& { return this->entries_; }
         auto Count(void) const -> size_t;
         auto Ready(void) const -> bool { return this->ready_; }
+        auto MemberLot(size_t slot, uint64_t generation, uint32_t member) const -> std::optional<uint16_t>;
         auto Plan(size_t slot, uint64_t generation, bool pass, uint64_t now) const -> std::optional<treasure_action>;
         auto CaptureBatch(bool pass, uint64_t now) const -> std::vector<treasure_action>;
         auto Queue(const treasure_action& action, uint64_t now, const std::function<void(const treasure_action&)>& send) -> bool;

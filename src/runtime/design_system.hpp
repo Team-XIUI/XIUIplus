@@ -27,6 +27,13 @@ namespace xiui::ui
         float height{};
     };
 
+    struct vertical_fade
+    {
+        float top{}, bottom{}, minimum{};
+        auto At(const float y) const -> float
+        { return bottom <= top ? 1 : minimum + (1 - minimum) * std::clamp((y - top) / (bottom - top), 0.0f, 1.0f); }
+    };
+
     struct point { float x{}, y{}; };
     struct circle_fill { point center{}; float radius{}; D3DCOLOR color{}; };
     struct slot_dot { rect bounds{}; D3DCOLOR color{}; };
@@ -261,20 +268,35 @@ namespace xiui::ui
             std::optional<rect> previous_;
         };
         auto Clip(const rect& bounds) const -> clip_scope { return clip_scope{*this, bounds}; }
+        class fade_scope
+        {
+        public:
+            fade_scope(const design_system& design, const float top, const float height, const float minimum)
+                : design_(design), previous_(design.vertical_fade_)
+            { this->design_.vertical_fade_ = vertical_fade{top, top + std::max(0.0f, height), std::clamp(minimum, 0.0f, 1.0f)}; }
+            ~fade_scope(void) { this->design_.vertical_fade_ = this->previous_; }
+            fade_scope(const fade_scope&) = delete;
+            auto operator=(const fade_scope&) -> fade_scope& = delete;
+        private:
+            const design_system& design_;
+            std::optional<vertical_fade> previous_;
+        };
+        auto FadeTop(float top, float height, float minimum = .25f) const -> fade_scope { return {*this, top, height, minimum}; }
         auto MeasureText(const char* text, const text_style& style) const -> float;
         auto TextHeight(const text_style& style) const -> float;
         class transform_scope
         {
         public:
-            transform_scope(const design_system& design, const hud_transform& transform) : design_(design), previous_(design.transform_), clip_(design.clip_bounds_)
-            { this->design_.transform_ = transform; this->design_.clip_bounds_.reset(); }
-            ~transform_scope(void) { this->design_.transform_ = this->previous_; this->design_.clip_bounds_ = this->clip_; }
+            transform_scope(const design_system& design, const hud_transform& transform) : design_(design), previous_(design.transform_), clip_(design.clip_bounds_), fade_(design.vertical_fade_)
+            { this->design_.transform_ = transform; this->design_.clip_bounds_.reset(); this->design_.vertical_fade_.reset(); }
+            ~transform_scope(void) { this->design_.transform_ = this->previous_; this->design_.clip_bounds_ = this->clip_; this->design_.vertical_fade_ = this->fade_; }
             transform_scope(const transform_scope&) = delete;
             auto operator=(const transform_scope&) -> transform_scope& = delete;
         private:
             const design_system& design_;
             hud_transform previous_;
             std::optional<rect> clip_;
+            std::optional<vertical_fade> fade_;
         };
         auto Transform(const hud_transform& value) const -> transform_scope { return {*this, value}; }
         auto Transform(void) const -> const hud_transform& { return this->transform_; }
@@ -305,6 +327,7 @@ namespace xiui::ui
         mutable bool tracking_content_bounds_{};
         mutable rect content_bounds_{};
         mutable std::optional<rect> clip_bounds_{};
+        mutable std::optional<vertical_fade> vertical_fade_{};
         mutable hud_transform transform_{};
         mutable std::vector<uint8_t> transformed_vertices_{};
         auto Submit(D3DPRIMITIVETYPE type, UINT primitives, const void* vertices, UINT stride) const -> void;

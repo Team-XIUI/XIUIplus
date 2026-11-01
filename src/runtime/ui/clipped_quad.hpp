@@ -66,4 +66,38 @@ namespace xiui::ui
         for (size_t i = 1; i + 1 < count; ++i)
         { output.push_back(polygon[0]); output.push_back(polygon[i]); output.push_back(polygon[i + 1]); }
     }
+    inline auto AppendFadedQuad(std::vector<textured_vertex>& output, const std::array<textured_vertex, 4>& quad,
+        const std::optional<rect>& clip, const std::optional<vertical_fade>& fade) -> void
+    {
+        if (!fade) { AppendClippedQuad(output, quad, clip); return; }
+        float left = quad[0].x, right = left, top = quad[0].y, bottom = top;
+        for (const auto& vertex : quad)
+        {
+            left = std::min(left, vertex.x); right = std::max(right, vertex.x);
+            top = std::min(top, vertex.y); bottom = std::max(bottom, vertex.y);
+        }
+        top += .5f; bottom += .5f;
+        if (top >= fade->bottom) { AppendClippedQuad(output, quad, clip); return; }
+        const float edges[]{top, std::clamp(fade->top, top, bottom), std::clamp(fade->bottom, top, bottom), bottom};
+        for (size_t band = 0; band < 3; ++band)
+        {
+            rect region{left + .5f, edges[band], right - left, edges[band + 1] - edges[band]};
+            if (clip)
+            {
+                const float endX = std::min(region.x + region.width, clip->x + clip->width);
+                const float endY = std::min(region.y + region.height, clip->y + clip->height);
+                region.x = std::max(region.x, clip->x); region.y = std::max(region.y, clip->y);
+                region.width = endX - region.x; region.height = endY - region.y;
+            }
+            if (region.width <= 0 || region.height <= 0) continue;
+            const auto first = output.size();
+            AppendClippedQuad(output, quad, region);
+            for (size_t i = first; i < output.size(); ++i)
+            {
+                auto& vertex = output[i];
+                const auto alpha = static_cast<uint32_t>((vertex.color >> 24) * fade->At(vertex.y + .5f));
+                vertex.color = (vertex.color & 0xFFFFFF) | (alpha << 24);
+            }
+        }
+    }
 }

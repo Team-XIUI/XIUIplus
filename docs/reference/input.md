@@ -62,7 +62,7 @@ Within local Buffs/Debuffs, Confirm/A or Enter requests removal only for a clien
 
 Composition, compact focus and expanded history are distinct. Preserve channel, recipient, draft and caret when adopting native slash/tell/Full-keyboard input; opening chat does not send it. Alt+R/Ctrl+R use one reply cycle. Enter sends once and remains owned through release. Native CHAT activation keeps its own initiating Enter release before handoff.
 
-Alt+Tab retains composition and window selection while suspending input. Opening expanded history starts at the newest messages with zero scroll in each history tab; a suspended, already-open history view retains its current position until deliberately closed.
+Alt+Tab retains composition and window selection while suspending input. Each fresh opening of expanded history selects its first tab and starts at the newest messages with zero scroll in each history tab; a suspended, already-open history view retains its selected tab and position until deliberately closed.
 
 Native chat input (`0x11`) and other text editors (`0x21`) are different owners. Existing draft adoption does not establish arbitrary software-keyboard/IME transfer. See [Chat](../modules/chat.md) and [input details](chat-input.md).
 

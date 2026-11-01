@@ -485,7 +485,7 @@ namespace xiui
             return option.Ordered(310 + static_cast<int>(setting)).VisibleWhen(this->collapse_mode_ == 2);
         }
         if (index == this->AnimationOptionStart() + 2)
-            return module_option::Toggle("Character counter", "Show the current length and game limit above the right edge of chat input. The limit is always enforced.", &this->input_counter_);
+            return module_option::Toggle("Character counter", "Show the current length and game limit on the right of the typing row. The limit is always enforced.", &this->input_counter_);
         if (index == this->AnimationOptionStart() + 1)
         {
             auto option = module_option::Slider("Animation speed (%)", "Higher is faster. 100% keeps the original speed; 50% takes twice as long.",
@@ -906,21 +906,24 @@ namespace xiui
             result.tabs[tab] = {x, frame.y - 28, width, 24};
             x += width + 2;
         }
-        const float inputHeight = this->secondary_ || (!this->Focused() && this->input_reveal_ == 0) ? 0 : std::max(26.0f, design.TextHeight(ChatThemeStyle(design, this->text_.style)) + 6.0f);
+        const float counterHeight = this->input_counter_ ? design.TextHeight(ChatThemeStyle(design, this->chrome_.style)) + 4 : 0;
+        const float inputHeight = this->secondary_ || (!this->Focused() && this->input_reveal_ == 0) ? 0 :
+            std::max({26.0f, design.TextHeight(ChatInputStyle(design, this->text_.style)) + 6.0f, counterHeight});
         result.input = {result.content.x, result.content.y + result.content.height - inputHeight, result.content.width, inputHeight};
-        const float counterHeight = inputHeight > 0 && this->input_counter_ ? design.TextHeight(ChatThemeStyle(design, this->chrome_.style)) + 3 : 0;
-        if (counterHeight > 0)
+        result.input_text = {result.input.x + 5, result.input.y + 2, std::max(1.0f, result.input.width - 10), std::max(0.0f, inputHeight - 4)};
+        if (inputHeight > 0 && this->input_counter_)
         {
             const float width = std::min(result.content.width, design.MeasureText("000/000", ChatThemeStyle(design, this->chrome_.style)) + 8);
-            result.counter = {result.content.x + result.content.width - width, result.input.y - counterHeight - 2, width, counterHeight};
+            result.counter = {result.input.x + result.input.width - width - 5, result.input_text.y, width, result.input_text.height};
+            result.input_text.width = std::max(1.0f, result.counter.x - 8 - result.input_text.x);
         }
-        result.log = {result.content.x + 2.0f, result.content.y, result.content.width - 14.0f, std::max(1.0f, result.input.y - result.content.y - counterHeight - (inputHeight > 0 ? 5.0f : 0.0f))};
+        result.log = {result.content.x + 2.0f, result.content.y, result.content.width - 14.0f, std::max(1.0f, result.input.y - result.content.y - (inputHeight > 0 ? 5.0f : 0.0f))};
         if (this->ControllerComposing())
         {
             const float height = std::max(24.0f, design.TextHeight(ChatThemeStyle(design, this->chrome_.style)) + 6);
             const float width = std::max(1.0f, (result.content.width - 8) / 3);
             for (size_t index = 0; index < result.controller_actions.size(); ++index)
-                result.controller_actions[index] = {result.content.x + static_cast<float>(index) * (width + 4), result.input.y - counterHeight - height - 4, width, height};
+                result.controller_actions[index] = {result.content.x + static_cast<float>(index) * (width + 4), result.input.y - height - 4, width, height};
             result.log.height = std::max(1.0f, result.controller_actions[0].y - result.log.y - design.TextHeight(ChatThemeStyle(design, this->chrome_.style)) - 12);
         }
         result.scrollbar = {result.log.x + result.log.width + 4.0f, result.log.y, 6.0f, result.log.height};
@@ -929,7 +932,7 @@ namespace xiui
             result.completion_row_height = std::max(22.0f, design.TextHeight(ChatThemeStyle(design, this->chrome_.style)) + 6);
             result.completion_rows = std::min(this->editor_.Completions().size(), static_cast<size_t>(std::clamp(static_cast<int>((result.log.height - 44) / result.completion_row_height), 1, 8)));
             const float height = result.completion_rows * result.completion_row_height + 44;
-            const float bottom = this->ControllerComposing() ? result.log.y + result.log.height : result.input.y - counterHeight - 3;
+            const float bottom = this->ControllerComposing() ? result.log.y + result.log.height : result.input.y - 3;
             result.completion = {result.content.x, bottom - height, result.content.width, height};
         }
         return result;
@@ -1043,12 +1046,12 @@ namespace xiui
             const auto text = this->editor_.Text();
             this->input_start_ = std::min(this->input_start_, text.size());
             size_t caret = std::min(this->input_start_, text.size());
-            const float local = x - layout.input.x - 5.0f;
+            const float local = std::clamp(x - layout.input_text.x, 0.0f, layout.input_text.width);
             while (caret < text.size())
             {
                 size_t next = caret; NextDraft(text, next);
-                const float previousWidth = MeasureChatText(design, this->DisplayDraft(text.substr(this->input_start_, caret - this->input_start_)), ChatThemeStyle(design, this->text_.style));
-                const float nextWidth = MeasureChatText(design, this->DisplayDraft(text.substr(this->input_start_, next - this->input_start_)), ChatThemeStyle(design, this->text_.style));
+                const float previousWidth = MeasureChatText(design, this->DisplayDraft(text.substr(this->input_start_, caret - this->input_start_)), ChatInputStyle(design, this->text_.style));
+                const float nextWidth = MeasureChatText(design, this->DisplayDraft(text.substr(this->input_start_, next - this->input_start_)), ChatInputStyle(design, this->text_.style));
                 if (local < (previousWidth + nextWidth) * 0.5f) break;
                 caret = next;
             }
@@ -1549,8 +1552,8 @@ namespace xiui
             rendered_row row{line.sequence, line.mode, line.color};
             float used{};
             const auto finish = [&] { this->rows_.push_back(std::move(row)); row = {line.sequence, line.mode, line.color}; used = 0.0f; };
-            const auto append = [&](const std::string& token, const int color, const bool timestamp = false, const bool prompt = false, const bool emphasis = false) {
-                auto runStyle = style; runStyle.weight = emphasis ? ui::font_weight::bold : ui::font_weight::regular;
+            const auto append = [&](const std::string& token, const int color, const bool timestamp = false, const bool prompt = false, const bool emphasis = false, const bool name = false) {
+                auto runStyle = style; runStyle.weight = ChatRunWeight(design, emphasis);
                 const auto tokenWidth = MeasureChatText(design, token, runStyle) + ChatThemeTracking(runStyle) +
                     (prompt ? dialogue_prompt_padding : 0.0f);
                 if (used > 0.0f && used + tokenWidth > width)
@@ -1560,8 +1563,8 @@ namespace xiui
                 }
                 if (tokenWidth <= width)
                 {
-                    if (!row.spans.empty() && row.spans.back().color == color && row.spans.back().timestamp == timestamp && row.spans.back().dialogue_prompt == prompt && row.spans.back().emphasis == emphasis) { row.spans.back().text += token; row.spans.back().width += tokenWidth; }
-                    else row.spans.push_back({token, color, tokenWidth, timestamp, prompt, emphasis});
+                    if (!row.spans.empty() && row.spans.back().color == color && row.spans.back().timestamp == timestamp && row.spans.back().dialogue_prompt == prompt && row.spans.back().emphasis == emphasis && row.spans.back().name == name) { row.spans.back().text += token; row.spans.back().width += tokenWidth; }
+                    else row.spans.push_back({token, color, tokenWidth, timestamp, prompt, emphasis, name});
                     used += tokenWidth;
                     return;
                 }
@@ -1573,8 +1576,8 @@ namespace xiui
                     const auto glyphWidth = MeasureChatText(design, glyph, runStyle) + ChatThemeTracking(runStyle) +
                         (prompt ? dialogue_prompt_padding : 0.0f);
                     if (used > 0 && used + glyphWidth > width) finish();
-                    if (!row.spans.empty() && row.spans.back().color == color && row.spans.back().timestamp == timestamp && row.spans.back().dialogue_prompt == prompt && row.spans.back().emphasis == emphasis) { row.spans.back().text += glyph; row.spans.back().width += glyphWidth; }
-                    else row.spans.push_back({glyph, color, glyphWidth, timestamp, prompt, emphasis});
+                    if (!row.spans.empty() && row.spans.back().color == color && row.spans.back().timestamp == timestamp && row.spans.back().dialogue_prompt == prompt && row.spans.back().emphasis == emphasis && row.spans.back().name == name) { row.spans.back().text += glyph; row.spans.back().width += glyphWidth; }
+                    else row.spans.push_back({glyph, color, glyphWidth, timestamp, prompt, emphasis, name});
                     used += glyphWidth;
                 }
             };
@@ -1598,7 +1601,7 @@ namespace xiui
                     if (end == std::string::npos) end = span.text.size();
                     auto token = span.text.substr(position, end - position);
                     std::replace(token.begin(), token.end(), '\t', ' ');
-                    append(token, span.color_index, false, false, span.emphasis);
+                    append(token, span.color_index, false, false, span.emphasis, span.name);
                     position = end;
                 }
             if (line.dialogue_prompt) append("\xE2\x96\xBC", -1, false, true);
@@ -1655,7 +1658,8 @@ namespace xiui
         const auto configured = palette.modes[row.mode & 0xFF];
         const auto base = configured != 0 ? configured : row.color;
         const auto inlineColor = span.color >= 0 && static_cast<size_t>(span.color) < palette.colors.size() ? palette.colors[span.color] : 0;
-        return this->Colors().Resolve(row.mode, ChatThemeColor(row.mode, base, xiv1), inlineColor);
+        const auto color = this->Colors().Resolve(row.mode, ChatThemeColor(row.mode, base, xiv1), inlineColor);
+        return span.name ? ChatNameColor(color) : color;
     }
 
     auto chat_module::DrawLog(const hud_snapshot& snapshot, const module_render_context& context, const ui::rect& log, const ui::rect& scrollbar) -> void
@@ -1692,37 +1696,39 @@ namespace xiui
                 [](const uint64_t sequence, const rendered_row& row) { return sequence < row.sequence; });
             begin = std::max(begin, std::min(visibleBegin, static_cast<size_t>(first - this->rows_.begin())));
         }
-        float y = log.y + log.height - static_cast<float>(end - begin) * lineHeight + scrollOffset;
-        for (size_t index = begin; index < end; ++index, y += lineHeight)
         {
-            const auto& row = this->rows_[index];
-            auto motion = this->MessageMotion(row.sequence, now);
-            if (collapsed && index < this->collapse_fade_end_ && row.sequence == this->collapse_fade_sequence_) motion.opacity *= this->collapse_opacity_;
-            std::optional<ui::design_system::clip_scope> clip;
-            if (collapsed || scrollOffset > 0 || motion.opacity < 1) clip.emplace(context.Design(), logClip);
-            float rowWidth{}; for (const auto& span : row.spans) rowWidth += span.width;
-            float x = log.x + motion.x;
-            if (this->text_.placement == 2) x += std::max(0.0f, (log.width - rowWidth) * 0.5f);
-            if (this->text_.placement == 3) x += std::max(0.0f, log.width - rowWidth);
-            for (const auto& span : row.spans)
+            const auto clip = context.Design().Clip(logClip);
+            const auto fade = context.Design().FadeTop(log.y, std::min(12.0f, lineHeight * .6f));
+            float y = log.y + log.height - static_cast<float>(end - begin) * lineHeight + scrollOffset;
+            for (size_t index = begin; index < end; ++index, y += lineHeight)
             {
-                const auto color = this->SpanColor(row, span, snapshot.chat_colors, context.Design().IsXiv1Theme());
-                auto profile = FadeText(TintTextProfile(this->text_, color), motion.opacity);
-                profile.style.weight = span.emphasis ? ui::font_weight::bold : ui::font_weight::regular;
-                profile.placement = 0; profile.style.alignment = ui::text_alignment::left;
-                const float padding = span.dialogue_prompt ? dialogue_prompt_padding : 0.0f;
-                ui::rect bounds{x + padding, y, std::max(0.0f, log.x + log.width - x - padding), lineHeight};
-                if (span.dialogue_prompt && this->DialoguePromptActive(row.sequence))
+                const auto& row = this->rows_[index];
+                auto motion = this->MessageMotion(row.sequence, now);
+                if (collapsed && index < this->collapse_fade_end_ && row.sequence == this->collapse_fade_sequence_) motion.opacity *= this->collapse_opacity_;
+                float rowWidth{}; for (const auto& span : row.spans) rowWidth += span.width;
+                float x = log.x + motion.x;
+                if (this->text_.placement == 2) x += std::max(0.0f, (log.width - rowWidth) * 0.5f);
+                if (this->text_.placement == 3) x += std::max(0.0f, log.width - rowWidth);
+                for (const auto& span : row.spans)
                 {
-                    const float phase = static_cast<float>(now % 900) * (6.2831853f / 900);
-                    bounds.y -= (1 - std::cos(phase)) * 1.5f * profile.style.scale;
-                    profile = FadeText(profile, 0.75f + std::cos(phase) * 0.25f);
+                    const auto color = this->SpanColor(row, span, snapshot.chat_colors, context.Design().IsXiv1Theme());
+                    auto profile = FadeText(TintTextProfile(this->text_, color), motion.opacity);
+                    profile.style.weight = ChatRunWeight(context.Design(), span.emphasis);
+                    profile.placement = 0; profile.style.alignment = ui::text_alignment::left;
+                    const float padding = span.dialogue_prompt ? dialogue_prompt_padding : 0.0f;
+                    ui::rect bounds{x + padding, y, std::max(0.0f, log.x + log.width - x - padding), lineHeight};
+                    if (span.dialogue_prompt && this->DialoguePromptActive(row.sequence))
+                    {
+                        const float phase = static_cast<float>(now % 900) * (6.2831853f / 900);
+                        bounds.y -= (1 - std::cos(phase)) * 1.5f * profile.style.scale;
+                        profile = FadeText(profile, 0.75f + std::cos(phase) * 0.25f);
+                    }
+                    DrawThemedChatText(context, span.text, bounds, profile);
+                    x += span.width;
                 }
-                DrawThemedChatText(context, span.text, bounds, profile);
-                x += span.width;
             }
         }
-        if (this->rows_.empty() && !collapsed)
+        if (this->rows_.empty() && this->History().Lines().empty() && !collapsed && !this->HistoryExpanded())
         {
             const auto text = snapshot.chat_capture_available ? (this->secondary_ ? "This window follows your game filters." : "Chat follows your game filters. Press / to chat.") : "Native chat capture unavailable. Keep game chat enabled.";
             context.DrawText(text, log, log, ChatThemeProfile(context.Design(), this->chrome_));
@@ -1776,8 +1782,8 @@ namespace xiui
             const float reveal = this->input_reveal_ * this->input_reveal_ * (3 - 2 * this->input_reveal_);
             const float slide = 4 * (1 - reveal);
             if (!context.Design().IsXiv1Theme()) context.Design().FillRect(layout.input, FadeColor(0x60000000, reveal));
-            const ui::rect input{layout.input.x + 5.0f, layout.input.y + 2.0f + slide, layout.input.width - 10.0f, layout.input.height - 4.0f};
-            auto profile = FadeText(this->text_, reveal); profile.style = ChatThemeStyle(context.Design(), profile.style); profile.placement = 0; profile.offset_x = profile.offset_y = 0.0f; profile.style.alignment = ui::text_alignment::left;
+            auto input = layout.input_text; input.y += slide;
+            auto profile = FadeText(this->text_, reveal); profile.style = ChatInputStyle(context.Design(), profile.style); profile.placement = 0; profile.offset_x = profile.offset_y = 0.0f; profile.style.alignment = ui::text_alignment::left;
             const auto& text = this->editor_.Text();
             size_t start{};
             while (start < this->editor_.Caret() && MeasureChatText(context.Design(), this->DisplayDraft(text.substr(start, this->editor_.Caret() - start)), profile.style) > input.width - 5.0f) NextDraft(text, start);
@@ -1789,7 +1795,7 @@ namespace xiui
                 const auto right = MeasureChatText(context.Design(), this->DisplayDraft(text.substr(start, selectionEnd - start)), profile.style);
                 context.Design().FillRect({input.x + std::min(left, input.width), input.y, std::max(0.0f, std::min(right, input.width) - left), input.height}, FadeColor(theme.colors.selected, reveal));
             }
-            if (text.empty()) context.DrawText(this->channel_ == 7 ? "Player message" : "Message", input, input, FadeText(ChatThemeProfile(context.Design(), this->chrome_), reveal * 0.4f));
+            if (text.empty()) context.DrawText(this->channel_ == 7 ? "Player message" : "Message", input, input, FadeText(profile, 0.4f));
             else
             {
                 const auto commandEnd = text.find(' ');
@@ -1818,7 +1824,7 @@ namespace xiui
             if (!hint.empty())
             {
                 const float bottom = this->ControllerComposing() ? layout.controller_actions[0].y : layout.input.y;
-                const ui::rect hintBounds{layout.log.x, bottom - 23.0f, std::max(1.0f, layout.log.width - (!this->ControllerComposing() ? layout.counter.width : 0)), 21.0f};
+                const ui::rect hintBounds{layout.log.x, bottom - 23.0f, layout.log.width, 21.0f};
                 context.Design().FillRect(hintBounds, FadeColor(theme.colors.surface_raised, reveal));
                 context.DrawText(hint.c_str(), hintBounds, hintBounds, FadeText(ChatThemeProfile(context.Design(), this->chrome_), reveal));
             }
@@ -1829,7 +1835,9 @@ namespace xiui
             char count[32]{}; std::snprintf(count, sizeof(count), "%zu/%zu", used, maximum);
             auto profile = ChatThemeProfile(context.Design(), this->chrome_); profile.style.alignment = ui::text_alignment::right;
             if (used >= maximum) profile = TintTextProfile(profile, 0xFFFF8C8C);
-            context.DrawText(count, layout.counter, layout.counter, FadeText(profile, this->input_reveal_));
+            const float reveal = this->input_reveal_ * this->input_reveal_ * (3 - 2 * this->input_reveal_);
+            auto counter = layout.counter; counter.y += 4 * (1 - reveal);
+            context.DrawText(count, counter, counter, FadeText(profile, reveal));
         }
         if (this->ControllerComposing())
         {

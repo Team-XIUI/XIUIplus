@@ -4,6 +4,8 @@
 #include "chat/chat_text.hpp"
 #include "utf8.hpp"
 #include "world_projection.hpp"
+#include "world/entity_render_position.hpp"
+#include "Memory.h"
 
 #include <cmath>
 #include <cstring>
@@ -326,6 +328,8 @@ namespace xiui
         const float innerWidth = std::max(32.0f, std::min(this->width_, viewport.width - 16) - this->padding_ * 2);
         const float lineHeight = context.Design().TextHeight(this->text_.style) + 2;
         const auto now = ::GetTickCount64();
+        static const auto clientCode = Ashita::Memory::GetModuleBase("FFXiMain.dll");
+        static const auto clientSize = Ashita::Memory::GetModuleSize("FFXiMain.dll");
         for (auto* values : {&this->outgoing_, &this->bubbles_})
         for (auto& value : *values)
         {
@@ -334,11 +338,15 @@ namespace xiui
             this->RebuildRows(value, context.Design(), innerWidth);
             if (value.rows.empty()) continue;
             const auto index = value.index;
+            if (index == 0 || index >= entities->GetEntityMapSize() || entities->GetServerId(index) != value.id) continue;
+            std::array<float, 3> head{};
+            if (!ReadEntityRenderPosition(entities->GetActorPointer(index), reinterpret_cast<uintptr_t>(entities->GetRawEntity(index)),
+                clientCode, clientSize, head)) continue;
             const float modelScale = entities->GetModelSize(index);
             const float scale = std::isfinite(modelScale) && modelScale > 0 ? std::clamp(modelScale, 0.5f, 3.0f) : 1.0f;
             const auto race = entities->GetRace(index);
             const float height = (race == 5 || race == 6 ? 1.0f : race == 3 || race == 4 || race == 8 ? 2.1f : 1.7f) * scale;
-            const std::array<float, 3> head{entities->GetLocalPositionX(index), entities->GetLocalPositionZ(index) - height, entities->GetLocalPositionY(index)};
+            head[1] -= height;
             if (!ProjectWorldPoint(head, snapshot.scene_view, snapshot.scene_projection, projectionViewport, value.x, value.y)) continue;
             const auto transform = context.Design().Transform(ui::hud_transform::At(value.x, value.y, this->state_.transform.x, this->state_.transform.y));
             float contentWidth{}; for (const auto& row : value.rows) contentWidth = std::max(contentWidth, row.width);

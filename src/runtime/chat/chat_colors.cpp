@@ -2,13 +2,24 @@
 
 namespace xiui
 {
+    auto ChatNameColor(const D3DCOLOR color) -> D3DCOLOR
+    {
+        const auto red = (color >> 16) & 255, green = (color >> 8) & 255, blue = color & 255;
+        const uint32_t peak = std::max({red, green, blue});
+        if (peak == 0) return color;
+        const auto gain = std::min(1080u, 255000u / peak);
+        const auto lift = [gain](const uint32_t value) { return (value * gain + 500) / 1000; };
+        return (color & 0xFF000000) | (lift(red) << 16) | (lift(green) << 8) | lift(blue);
+    }
+
     auto ChatThemeColor(const uint32_t mode, const D3DCOLOR nativeColor, const bool xiv1) -> D3DCOLOR
     {
         if (!xiv1) return nativeColor;
         constexpr D3DCOLOR ivory = 0xFFEDE7D8, gold = 0xFFE0D17E, lavender = 0xFFBCA0D6, peach = 0xFFE3AF99;
+        constexpr D3DCOLOR pink = 0xFFE7A1DF, purple = 0xFFB99AE8;
         constexpr std::array<D3DCOLOR, std::size(chat_types)> palette{
-            lavender, lavender, ivory, 0xFFB4D4E1, 0xFFB5D0AF, 0xFFD8C6A0,
-            peach, peach, 0xFFD3D4AB, lavender, ivory, gold, gold};
+            pink, pink, ivory, 0xFFB4D4E1, 0xFFB5D0AF, 0xFFD8C6A0,
+            peach, peach, 0xFFD3D4AB, purple, ivory, gold, gold};
         auto color = (mode & 255) == 8 ? peach : palette[ChatTypeIndex(mode)];
         const auto red = (nativeColor >> 16) & 255, green = (nativeColor >> 8) & 255, blue = nativeColor & 255;
         if (ChatTypeIndex(mode) >= 11 && blue > green + 20 && red > green + 10) color = lavender;
