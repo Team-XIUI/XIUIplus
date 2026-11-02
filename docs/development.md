@@ -99,6 +99,8 @@ gh release create v0.1.1-alpha.1 dist/XIUIplus.dll dist/SHA256SUMS.txt --repo Te
 
 GitHub creates the public release tag on the public repository's own `main`; it shares the version name with the private source tag, not its Git history. Use a new tag for each release. Stable releases omit the channel suffix and prerelease flags and use `--latest`. Write public notes from the intended changes and known limitations; the public repository has no development PR history from which to generate them. Verify uploaded asset hashes and release status after publication.
 
+Keep only the newest public release, including when it is an alpha. After publishing and verifying its assets, delete older public releases and their public tags with `gh release delete <old-tag> --repo Team-XIUI/xiuiplus-releases --yes --cleanup-tag`. Retain private source tags. The public README links to the Releases page, without a version-specific download link.
+
 The public checkout is the sibling `../xiuiplus-releases/`, with its own `main` and `origin`. DLLs and checksums are release assets, not committed files. Existing private releases are historical copies; public downloads and future publications use `xiuiplus-releases`.
 
 ## Update documentation
