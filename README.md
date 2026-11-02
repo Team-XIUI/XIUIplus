@@ -2,7 +2,7 @@
 
 XIUI+ is an in-client Final Fantasy XI HUD for Ashita v4, rendered with Direct3D8.
 
-Download `XIUIplus.dll` from [GitHub Releases](https://github.com/Shuu-37/XIUIplus/releases) (repository access required). Copy it into Ashita's `plugins` folder and run `/load XIUIplus`. Existing settings are preserved. Local packaging produces [dist/XIUIplus.dll](dist/XIUIplus.dll). See [the changelog](CHANGELOG.md) and [the user guide](docs/user-guide.md) for features and commands.
+Download `XIUIplus.dll` from the [public releases repository](https://github.com/Shuu-37/xiuiplus-releases/releases). Copy it into Ashita's `plugins` folder and run `/load XIUIplus`. Existing settings are preserved. Local packaging produces [dist/XIUIplus.dll](dist/XIUIplus.dll). See [the changelog](CHANGELOG.md) and [the user guide](docs/user-guide.md) for features and commands.
 
 When upgrading from XIUI Native, unload `xiuinative`, replace its DLL with `XIUIplus.dll`, and update any startup `/load xiuinative` line to `/load XIUIplus`. The next plugin load moves existing data into `config/XIUIplus/`, preserving settings, profiles, inventories and sounds. Existing destination files take priority; conflicts are archived under `legacy/`. `/xiuiplus` is the main command; `/xiuip`, `/xiui+`, `/xiui` and earlier aliases still work. New profile exports use `.xiuiplus`; existing `.xiui` files and XIUI1/XIUI2 share keys remain importable.
 
