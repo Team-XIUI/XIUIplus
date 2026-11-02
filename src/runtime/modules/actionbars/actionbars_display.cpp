@@ -571,7 +571,7 @@ namespace xiui
         }
         if (slot.kind == action_kind::native_macro) lines.push_back("Book " + std::to_string(slot.native.book) + ", set " + std::to_string(slot.native.set) + ", " + (slot.native.alt ? "Alt " : "Ctrl ") + std::to_string(slot.native.slot));
         const auto binding = this->Binding(value); if (binding.key) lines.push_back(this->BindingLabel(binding));
-        lines.push_back(this->Presentation(value).locked ? "Click to activate  |  Shift-drag to rearrange" : "Drag to rearrange  |  Right-click for options");
+        lines.push_back(this->Presentation(value).locked ? "Click to activate  |  Shift-drag to rearrange" : "Click to activate  |  Drag to rearrange");
         float width = 220;
         for (const auto& line : lines) width = std::max(width, design.MeasureText(line.c_str(), profiles[4].style) + 24);
         const auto viewport = context.Viewport().width > 0 ? context.Viewport() : ui::rect{0, 0, 1280, 720};

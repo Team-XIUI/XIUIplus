@@ -16,7 +16,7 @@ Verified native Attack/command menus permit assigned action-bar shortcuts, click
 
 An active native macro palette can sit above a still-visible command menu. Identify ownership from the verified focused palette, not the presence of a background menu; holding Ctrl/Alt must not cancel delayed macro lines.
 
-`shared/native_target.hpp` distinguishes a verified engaged character's auto-attack flag with no pending action ID from actual target selection. Host/controller input, action execution and macro waits share this check so combat does not disable hotbars or strand a macro after its own selector closes. Explicit subtargets and pending action IDs retain their guards; a previous action type is not reliable evidence of an open selector.
+`shared/native_target.hpp` distinguishes a retained action flag with a cleared (`UINT32_MAX`) pending action ID from actual target selection, both idle and engaged. Host/controller input, action execution and macro waits share this check so clicking an action does not disable later hotbar input. Explicit subtargets and pending action IDs retain their guards; a previous action type is not reliable evidence of an open selector.
 
 `/xiuiplus actionbars status` reports current TP, pending macro line/wait and the last queued timed line. Input suspension records its cancellation reason instead of silently discarding the remaining sequence.
 
@@ -28,7 +28,7 @@ Closing Configuration hands focus to an open action workspace and retains its un
 
 Workspace close buttons activate on release and cancel outside the button. Popup dismissal retains mouse blocking and held movement capture through its owned release.
 
-Holding Shift when pressing a slot temporarily bypasses assignment locks for that drag, including locked destination bars and hidden empty slots. The gesture keeps that permission through release and preserves saved locks and slot keybinds.
+Locked bars require Shift when pressing to rearrange slots; unlocked bars allow ordinary click-drag. Shift reads both mouse modifier flags and keyboard state, including in Movement mode. The gesture temporarily bypasses destination locks, reveals hidden empty slots and retains that permission through release, preserving saved locks and slot keybinds. Library entries still drag directly onto a bar. Cancelled clicks drain their release in both the runtime and module; fresh presses replace any stale release marker. Native chat cleanup preserves ordinary hotbar hover capture so successive macro clicks need no Escape.
 
 Actions & Macros is nonmodal to exposed hotbars: slot drags, bar locks and slot/bar menus remain usable with the library open. The library keeps its search, category, scroll, assignment context and draft behind child menus; dismissing a menu restores it. Window bounds take precedence over covered bars, and an active drag retains its press/release ownership. Existing slot actions and controller Cancel are shared with the child menus. Focused check: `xiui_actionbars_ui_smoke --library-bars-only`.
 

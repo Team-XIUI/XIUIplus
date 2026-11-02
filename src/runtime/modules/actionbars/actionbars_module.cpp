@@ -493,7 +493,7 @@ namespace xiui
         case skillchain_rules: return module_option::Choice("Skillchain rules", "Shared combat profile for predictions, debuff estimates and Phantom Roll base values. Phoenix uses its 75-cap rules. Changing rules clears combat observations.", this->CombatSettings().RulesChoice(), server_rule_names, 3);
         case magic_burst_settings: return module_option::Action("Magic Burst HUD", "Open the separate burst display's visibility, appearance and text settings.", "Open HUD settings");
         case enabled: return module_option::Toggle("Enabled", "Show this bar; other bars keep their own enabled state.", &bar.state.enabled).Ordered(-100);
-        case locked: return module_option::Toggle("Lock slot positions", "Prevent dragging existing actions unless Shift is held when clicking. Click to activate; right-click for slot options.", &bar.locked).Ordered(-90);
+        case locked: return module_option::Toggle("Lock slot positions", "Locked bars require Shift-drag to move actions. Unlocked bars allow click-drag. Click to activate; right-click for slot options.", &bar.locked).Ordered(-90);
         case edit: { auto option = module_option::Action("Actions & macros", "Open Actions & Macros from the destination tabs.", "Open library").Ordered(-70); option.available = false; return option; }
         case palettes: { auto option = module_option::Action("Action sets", "Open Action Sets from the destination tabs.", "Manage sets").Ordered(-60); option.available = false; return option; }
         case import: { auto option = module_option::Action("Import Lua / tHotBar / tCrossBar", "Open Import from the destination tabs.", "Preview import"); option.available = false; return option; }
@@ -1645,6 +1645,7 @@ namespace xiui
 
     auto actionbars_module::HandleMouse(const uint32_t message, const WPARAM wParam, const float x, const float y, const bool blocked, const bool editing) -> bool
     {
+        const bool shift = (wParam & MK_SHIFT) != 0 || (::GetKeyState(VK_SHIFT) & 0x8000) != 0;
         this->hover_x_ = x; this->hover_y_ = y;
         if (message == WM_LBUTTONUP && this->discard_pointer_release_) { this->discard_pointer_release_ = false; return true; }
         if (blocked)
@@ -1665,7 +1666,7 @@ namespace xiui
         if (editing && this->dialog_ == dialog::none && !this->pointer_down_)
         {
             const auto hit = this->HitTest(x, y);
-            if (!hit || hit->header == 0 && message != WM_RBUTTONDOWN) return false;
+            if (!hit || hit->header == 0 && message != WM_RBUTTONDOWN && this->Presentation(hit->slot).locked && !shift) return false;
         }
         if (this->scrolling_ && this->pointer_down_ && (message == WM_MOUSEMOVE || message == WM_LBUTTONUP))
         {
@@ -1713,6 +1714,7 @@ namespace xiui
         }
         if (message == WM_LBUTTONDOWN || message == WM_LBUTTONDBLCLK)
         {
+            this->discard_pointer_release_ = false;
             this->browsing_ = this->navigation_focus_ = false;
             if (this->placing_) { this->placing_ = false; }
             if (this->dialog_ != dialog::none && !(this->BarPointerAvailable(x, y) && this->HitTest(x, y)))
@@ -1746,7 +1748,7 @@ namespace xiui
             }
             const auto hit = this->HitTest(x, y); if (!hit) return false;
             this->pointer_down_ = this->bar_pointer_down_ = true; this->dragging_ = false; this->pressed_ = hit->slot; this->down_header_ = hit->header;
-            this->shift_drag_ = hit->header == 0 && (wParam & MK_SHIFT) != 0;
+            this->shift_drag_ = hit->header == 0 && shift;
             if (this->dialog_ == dialog::none) this->selected_ = hit->slot;
             this->down_x_ = x; this->down_y_ = y; this->pressed_control_ = 0;
             return true;

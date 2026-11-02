@@ -58,7 +58,9 @@ namespace xiui
         if (this->actionbar_pointer_release_ != 0 || this->actionbars_.PointerDown()) return true;
         if (this->editing_ && (this->mouse_down_ || this->interaction_ != interaction::none || this->profile_name_.Focused() || this->profile_dropdown_ ||
             this->profile_actions_ || this->config_.choice_input.Opened() || this->config_.search_open || this->config_.input_mode_menu || this->config_.active_color != nullptr)) return false;
-        if (this->actionbars_.ModalDialogOpen() || !this->actionbars_.FloatingWindowOpen()) return this->actionbars_.InputFocused();
+        if (this->actionbars_.ModalDialogOpen()) return this->actionbars_.InputFocused();
+        if (!this->actionbars_.FloatingWindowOpen())
+            return this->actionbars_.InputFocused() || (!this->editing_ && this->actionbars_.PointerOwns(x, y));
         return this->actionbars_.PointerOwns(x, y) &&
             (!this->editing_ || this->actionbars_.WindowFocused() || !Contains(this->ConfigVisibleBounds(), x, y));
     }
@@ -207,12 +209,18 @@ namespace xiui
             {
                 const auto* memory = this->core_->GetMemoryManager();
                 const auto* party = memory != nullptr ? memory->GetParty() : nullptr;
+                const auto* target = memory != nullptr ? memory->GetTarget() : nullptr;
                 this->core_->GetChatManager()->Writef(1, false, "[XIUI+] Action Bars: %zu palettes, %zu shared actions, 7 stored crossbar banks; crossbar %s; native macro replacement %s. %s",
                     this->action_store_.AllPalettes().size(), this->action_store_.Macros().size(),
                     crossbarState, this->actionbars_.ReplaceNativeMacros() ? "on" : "off", this->action_executor_.Status().c_str());
                 this->core_->GetChatManager()->Writef(1, false, "[XIUI+] Action input: native window %.8s; native menu permission %s; target selection %s; runtime execution %s.",
                     reinterpret_cast<const char*>(&this->visibility_context_.window_focus_name), this->ActionBarsNativeMenuAllowed() ? "allowed" : "blocked",
                     NativeTargetSelectionActive(memory) ? "active" : "idle", this->ActionBarsExecutionAvailable() ? "ready" : "paused");
+                if (target != nullptr)
+                    this->core_->GetChatManager()->Writef(1, false, "[XIUI+] Native targeting: action %u; subtarget %u; type %u; id %u. Pointer held %s; drag %s.",
+                        static_cast<unsigned>(target->GetActionTargetActive()), static_cast<unsigned>(target->GetIsSubTargetActive()),
+                        static_cast<unsigned>(target->GetActionType()), target->GetActionId(), this->actionbars_.PointerDown() ? "yes" : "no",
+                        this->actionbars_.AssignmentDragging() ? "yes" : "no");
                 this->core_->GetChatManager()->Writef(1, false, "[XIUI+] Current TP: %u. %s", party != nullptr ? party->GetMemberTP(0) : 0,
                     this->action_executor_.Diagnostics(::GetTickCount64()).c_str());
             }
@@ -275,6 +283,11 @@ namespace xiui
         const auto release = message == WM_LBUTTONUP ? MK_LBUTTON : message == WM_RBUTTONUP ? MK_RBUTTON : 0;
         if (release != 0 && (this->actionbar_pointer_release_ & release) != 0 && (!this->ActionBarsInputAvailable(false, true) || !this->actionbars_.PointerDown()))
         {
+            if (release == MK_LBUTTON)
+            {
+                if (this->actionbars_.PointerDown()) this->actionbars_.CancelPointerGesture();
+                this->actionbars_.HandleMouse(message, buttons, x, y, false, this->editing_);
+            }
             this->actionbar_pointer_release_ &= ~release;
             this->ReleasePointerCapture(); this->SetChatMouseCapture(false); return true;
         }

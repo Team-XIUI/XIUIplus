@@ -243,15 +243,15 @@ return settings;)lua");
         Check(ActionGuardReason(denied, true, true).empty(), "descriptive presentation retains metadata while native targeting is active");
         denied = ready; denied.subtarget = true;
         Check(!ActionGuardReason(denied, false, true).empty(), "native subtarget ownership remains exclusive");
-        denied = ready; denied.action_target = NativeTargetSelectionActive(native_target_selection{true, false, true, UINT32_MAX});
+        denied = ready; denied.action_target = NativeTargetSelectionActive(native_target_selection{true, false, UINT32_MAX});
         Check(!denied.action_target && ActionGuardReason(denied, false, true).empty(),
-            "auto-attack's active flag with no selected action does not block combat macros");
-        for (const auto state : {native_target_selection{true, true, true, UINT32_MAX}, {true, false, false, UINT32_MAX},
-            {true, false, true, 0}, {true, false, true, 16}, {false, true, false, 0}})
+            "a retained action flag with no pending action does not block idle or engaged hotbars");
+        for (const auto state : {native_target_selection{true, true, UINT32_MAX}, {true, false, 0},
+            {true, false, 16}, {false, true, 0}})
         {
             denied = ready; denied.action_target = NativeTargetSelectionActive(state);
             Check(denied.action_target && !ActionGuardReason(denied, false, true).empty(),
-                "explicit subtargets, selected actions and unknown active states retain their guards");
+                "explicit subtargets and pending actions retain their guards");
         }
         denied = ready; denied.dead = true;
         Check(!ActionGuardReason(denied, false, true).empty() && !ActionGuardReason(denied, true, true).empty(), "execution and presentation remain unavailable while KO'd");

@@ -621,6 +621,8 @@ namespace xiui
         }
         static auto ShiftSlotDragging(void) -> void
         {
+            keyboard_restore restore; BYTE keys[256]{};
+            Check(SetKeyboardState(keys) != FALSE, "clear Shift for slot-drag checks");
             action_store store; action_executor executor; actionbars_module module;
             module.Initialize(nullptr, &store, &executor); module.ApplyTextDefaults(ui::theme::CreateDefault()); module.viewport_ = {0, 0, 1280, 900};
             module.bars_[0].state.bounds = {100, 80, 900, 100};
@@ -636,6 +638,13 @@ namespace xiui
             send(WM_LBUTTONDOWN, MK_LBUTTON, first); send(WM_MOUSEMOVE, MK_LBUTTON, second); send(WM_LBUTTONUP, 0, second);
             Check(store.Resolve(action_surface::hotbar, 0, 0).name == "First" && store.Resolve(action_surface::hotbar, 0, 1).name == "Second",
                 "locked slots reject ordinary drags");
+            module.bars_[0].locked = false;
+            send(WM_LBUTTONDOWN, MK_LBUTTON, first); send(WM_MOUSEMOVE, MK_LBUTTON, second);
+            Check(module.AssignmentDragging(), "unlocked slots start dragging without Shift");
+            send(WM_LBUTTONUP, 0, second);
+            Check(store.Resolve(action_surface::hotbar, 0, 0).name == "Second" && store.Resolve(action_surface::hotbar, 0, 1).name == "First" &&
+                !module.PointerDown() && !module.AssignmentDragging(), "ordinary click-drag drops successfully on an unlocked bar");
+            store.Swap(action_surface::hotbar, 0, 0, action_surface::hotbar, 0, 1); module.bars_[0].locked = true;
             send(WM_LBUTTONDOWN, MK_LBUTTON | MK_SHIFT, first);
             module.HandleMouse(WM_MOUSEMOVE, MK_LBUTTON | MK_SHIFT, first.x + 12, first.y + 12, false);
             Check(!module.AssignmentDragging(), "Shift preserves the drag distance threshold");
@@ -658,6 +667,21 @@ namespace xiui
             send(WM_LBUTTONDOWN, MK_LBUTTON, first); send(WM_MOUSEMOVE, MK_LBUTTON, other); send(WM_LBUTTONUP, 0, other);
             Check(store.Resolve(action_surface::hotbar, 0, 0).name == "Third" && store.Resolve(action_surface::hotbar, 1, 0).name == "Second" &&
                 !module.PointerDown() && !module.AssignmentDragging() && !module.shift_drag_, "suspension cancels the swap and clears its temporary lock override");
+            for (const bool editing : {false, true})
+            {
+                store.Assign(action_surface::hotbar, 0, 0, Command("First")); store.Assign(action_surface::hotbar, 0, 1, Command("Second"));
+                keys[VK_SHIFT] = keys[VK_LSHIFT] = 0x80;
+                Check(SetKeyboardState(keys) != FALSE, "hold Shift without mouse modifier flags");
+                Check(module.HandleMouse(WM_LBUTTONDOWN, MK_LBUTTON, first.x + 10, first.y + 10, false, editing),
+                    "Shift can take slot ownership on a locked bar, including Movement mode");
+                keys[VK_SHIFT] = keys[VK_LSHIFT] = 0;
+                Check(SetKeyboardState(keys) != FALSE, "release Shift before dropping");
+                module.HandleMouse(WM_MOUSEMOVE, MK_LBUTTON, second.x + 10, second.y + 10, false, editing);
+                module.HandleMouse(WM_LBUTTONUP, 0, second.x + 10, second.y + 10, false, editing);
+                Check(store.Resolve(action_surface::hotbar, 0, 0).name == "Second" && store.Resolve(action_surface::hotbar, 0, 1).name == "First" &&
+                    module.bars_[0].locked && !module.PointerDown() && !module.AssignmentDragging(),
+                    "keyboard Shift rearranges locked slots even when the mouse callback omits MK_SHIFT");
+            }
         }
         static auto Editing(void) -> void
         {
@@ -1447,6 +1471,30 @@ namespace xiui
             module.viewport_ = {0, 0, 1280, 900}; module.bars_[0].state.bounds.x = 80; module.bars_[0].state.bounds.y = 60;
             module.bars_[0].heading = true; module.Layout(0); const auto bounds = module.PaletteBounds(0);
             Check(runtime->ActionBarsInputAvailable() && !runtime->KeyboardFocused(), "idle action bars keep actual runtime movement ownership clear");
+            runtime->action_store_.Assign(action_surface::hotbar, 0, 0, Command("First macro"));
+            runtime->action_store_.Assign(action_surface::hotbar, 0, 1, Command("Second macro"));
+            const auto first = module.SlotBounds({action_surface::hotbar, 0, 0}), second = module.SlotBounds({action_surface::hotbar, 0, 1});
+            const auto slotMouse = [&](uint32_t message, const ui::rect& cell) {
+                return runtime->HandleActionBarsMouse(message, message == WM_LBUTTONDOWN ? MK_LBUTTON : 0, cell.x + 8, cell.y + 8, input.GetBlockInput());
+            };
+            slotMouse(WM_LBUTTONDOWN, first); runtime->SuspendActionBarsInput(false);
+            Check(slotMouse(WM_LBUTTONUP, first) && !module.discard_pointer_release_ && !module.PointerDown() && runtime->actionbar_pointer_release_ == 0,
+                "the runtime drains both release markers after a cancelled slot click");
+            for (const auto cell : {first, second, first})
+            {
+                Check(slotMouse(WM_LBUTTONDOWN, cell) && slotMouse(WM_LBUTTONUP, cell) && !module.PointerDown() && !module.InputFocused() &&
+                    !module.AssignmentDragging() && runtime->actionbar_pointer_release_ == 0, "successive macro clicks release their pointer without Escape");
+            }
+            slotMouse(WM_LBUTTONDOWN, first); runtime->SuspendActionBarsInput(false);
+            Check(slotMouse(WM_LBUTTONDOWN, second) && slotMouse(WM_LBUTTONUP, second) && !module.PointerDown() && !module.discard_pointer_release_,
+                "a fresh slot press replaces a cancelled gesture whose release never arrived");
+            runtime->mouse_x_ = static_cast<int>(second.x + 8); runtime->mouse_y_ = static_cast<int>(second.y + 8);
+            runtime->SetChatMouseCapture(true); runtime->ReleaseChatInput();
+            Check(input.blocked && runtime->ActionBarsPointerOwns(second.x + 8, second.y + 8) && slotMouse(WM_MOUSEMOVE, second) &&
+                module.hover_x_ == second.x + 8 && module.hover_y_ == second.y + 8,
+                "native chat cleanup preserves hotbar hover after clicking another macro");
+            runtime->mouse_x_ = 1200; runtime->mouse_y_ = 880; runtime->ReleaseChatInput();
+            Check(!input.blocked && !runtime->ActionBarsPointerOwns(1200, 880), "moving off the hotbar restores native pointer ownership");
             runtime->SetChatMouseCapture(true);
             Check(input.blocked, "locked hotbar hover blocks native input before clicking");
             Check(runtime->HandleActionBarsMouse(WM_LBUTTONDOWN, 0, bounds.x + bounds.width / 2, bounds.y + bounds.height / 2, input.GetBlockInput()) &&
@@ -1738,7 +1786,7 @@ namespace xiui
                 };
                 const auto first = module.SlotBounds({action_surface::hotbar, 0, 0}), second = module.SlotBounds({action_surface::hotbar, 0, 1});
                 Check(runtime->ActionBarsPointerOwns(first.x + 8, first.y + 8), "an open library leaves exposed hotbars reachable");
-                Check(send(WM_LBUTTONDOWN, first) && module.bar_pointer_down_, "slot press belongs to the bar while the library stays open");
+                Check(send(WM_LBUTTONDOWN, first) && module.bar_pointer_down_, "unlocked slot press belongs to the bar while the library stays open");
                 Check(send(WM_MOUSEMOVE, second, MK_LBUTTON) && module.dragging_, "slot dragging starts through the existing assignment gesture");
                 Check(send(WM_LBUTTONUP, second) && runtime->action_store_.Resolve(action_surface::hotbar, 0, 0).name == "Second" &&
                     runtime->action_store_.Resolve(action_surface::hotbar, 0, 1).name == "First" && module.dialog_ == actionbars_module::dialog::picker && !module.PointerDown(),

@@ -2,6 +2,12 @@
 
 ## Unreleased
 
+## 0.1.0-alpha.2 — 2026-11-02
+
+- Allow Shift-drag to rearrange locked hotbar or crossbar assignments, including in Movement mode, and ordinary click-drag on unlocked bars.
+- Preserve hotbar hover during native chat cleanup and clear cancelled mouse releases so subsequent macro clicks work without Escape.
+- Ignore retained native action flags after their pending action ID clears, so completed actions do not disable further hotbar interaction while idle.
+
 ## 0.1.0-alpha — 2026-11-02
 
 - Open saved macros for editing when clicked in Actions & Macros. Save and Cancel return to the same library view; dragging still assigns macros to hotbars.
