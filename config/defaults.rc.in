@@ -1,5 +1,5 @@
-301 RCDATA "@CMAKE_SOURCE_DIR@/config/xiuinative-defaults.ini"
-302 RCDATA "@CMAKE_SOURCE_DIR@/config/xiuinative-theme.ini"
+301 RCDATA "@CMAKE_SOURCE_DIR@/config/XIUIplus-defaults.ini"
+302 RCDATA "@CMAKE_SOURCE_DIR@/config/XIUIplus-theme.ini"
 303 RCDATA "@CMAKE_SOURCE_DIR@/assets/cursors/LICENSE.txt"
 304 RCDATA "@CMAKE_SOURCE_DIR@/third_party/minhook/LICENSE.txt"
 305 RCDATA "@CMAKE_SOURCE_DIR@/assets/profiles/share-v2.ini"

@@ -376,7 +376,7 @@ namespace
             auto filtered = overlap.input.Values(); filtered[left] = filtered[face] = 0;
             overlap.state(filtered); overlap.state(filtered);
             if (!require(overlap.presses(controller_action::crossbar_slot) == 1,
-                "overlapping native and XIUI trigger ownership activates a slot exactly once across event and state paths")) return false;
+                "overlapping native and XIUI+ trigger ownership activates a slot exactly once across event and state paths")) return false;
             overlap.raw(face, 0); overlap.raw(left, 0);
             const auto releases = std::count_if(overlap.events.begin(), overlap.events.end(), [](const auto& event) {
                 return event.action == controller_action::crossbar_slot && !event.pressed;
@@ -393,7 +393,7 @@ namespace
         const std::vector<int32_t> native{0, 9, 0, 12};
         fixture blocked{controller_backend::xinput, config, native};
         if (!require(!blocked.raw(16, 128, true) && !blocked.input.Suppress(16, 128, false) && blocked.events.empty(),
-            "another input owner's native trigger press cannot acquire new XIUI ownership")) return false;
+            "another input owner's native trigger press cannot acquire new XIUI+ ownership")) return false;
         if (!require(!blocked.input.State(16, 128, ++blocked.now, true, true,
             [&](const controller_event& event) { return blocked.dispatch(event); }),
             "canonical event/state deduplication still honors a prior blocked owner")) return false;
@@ -439,7 +439,7 @@ namespace
         if (!require(mailbox.Submit(slot) && !mailbox.Submit(slot), "mailbox delivers matching release once")) return false;
         if (!require(!mailbox.Submit(bank, true), "native menu wins even if cached runtime routing is stale")) return false;
         mailbox.Publish(static_cast<uint32_t>(controller_capture_mode::exclusive));
-        if (!require(!mailbox.Submit(bank), "existing XIUI modal owns input before crossbar")) return false;
+        if (!require(!mailbox.Submit(bank), "existing XIUI+ modal owns input before crossbar")) return false;
         mailbox.Publish(0);
         bank.bank = crossbar_bank::right_double; bank.triggers = 2;
         if (!require(mailbox.Submit(bank), "sixth bank is accepted without entry-bit shifts")) return false;

@@ -55,7 +55,7 @@ namespace xiui::config_checks
         cursor.ReleaseNativeCursorOnOwnerThread();
         const bool preserved = count() == nativeHidden && ::GetCursor() == hand;
         ::ShowCursor(TRUE);
-        return check(preserved, "releasing XIUI preserves a native hide request and a newer native cursor shape");
+        return check(preserved, "releasing XIUI+ preserves a native hide request and a newer native cursor shape");
     }
 
     auto text_rasterization_cases(void) -> bool
@@ -254,7 +254,7 @@ namespace xiui::config_checks
         if (!check(ui::LayoutMeterTrack({10, 20, 200, 18}, style).height == 16,
             "automatic bar height retains the existing layout fallback")) return false;
 
-        const auto path = std::filesystem::temp_directory_path() / ("xiuinative-bar-check-" + std::to_string(::GetCurrentProcessId()) + ".ini");
+        const auto path = std::filesystem::temp_directory_path() / ("XIUIplus-bar-check-" + std::to_string(::GetCurrentProcessId()) + ".ini");
         struct cleanup { std::filesystem::path path; ~cleanup() { std::error_code ignored; std::filesystem::remove(path, ignored); } } cleanupFile{path};
         const settings_store store{path.string()};
         style.corner_radius = 13; style.bookends = true; style.animation_speed = 17; style.sheen_speed = 0.4f;

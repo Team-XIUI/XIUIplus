@@ -51,7 +51,7 @@ int main(int argc, char** argv)
         if (!destination.parent_path().empty()) std::filesystem::create_directories(destination.parent_path());
         {
             std::ofstream file{staging, std::ios::binary | std::ios::trunc};
-            file << "; Captured XIUI defaults. Source: " << std::filesystem::path{argv[1]}.filename().string() << "\n"
+            file << "; Captured XIUI+ defaults. Source: " << std::filesystem::path{argv[1]}.filename().string() << "\n"
                  << "; Regenerate with scripts/capture-defaults.ps1; local device, profile, session and retired demo data excluded.\n\n"
                  << output.ToIniText();
             file.close();

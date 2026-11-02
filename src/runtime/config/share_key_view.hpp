@@ -47,7 +47,7 @@ namespace xiui::ui
             this->Scroll(0);
         }
 
-        auto Draw(const design_system& design, const config_controls& controls, const rect& bounds, std::string_view key, bool hovered, bool invalid = false, const char* emptyText = "Paste an XIUI share key") -> void
+        auto Draw(const design_system& design, const config_controls& controls, const rect& bounds, std::string_view key, bool hovered, bool invalid = false, const char* emptyText = "Paste an XIUI+ share key") -> void
         {
             const auto& theme = design.GetTheme();
             design.FillRoundedRect(bounds, (theme.colors.chrome & 0x00FFFFFF) | 0xE0000000, 4);

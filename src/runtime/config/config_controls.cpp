@@ -304,7 +304,7 @@ namespace xiui::ui
             const auto source = config_layout::OverrideSource(row), swatch = config_layout::OverrideSwatch(row);
             this->Row(row, option.label, option.description, source.x - row.x - 6, hovered, this->design_.GetTheme().body_text);
             auto style = this->design_.GetTheme().caption_text; style.scale = 0.65f; style.alignment = text_alignment::center;
-            this->Button(source, *option.toggle ? "XIUI" : "Game", style, *option.toggle || hovered);
+            this->Button(source, *option.toggle ? "XIUI+" : "Game", style, *option.toggle || hovered);
             this->design_.FillRect(swatch, *option.color);
             this->design_.BorderRect(swatch, *option.toggle || activeColor ? this->design_.GetTheme().colors.control_selected : this->design_.GetTheme().colors.border);
         }

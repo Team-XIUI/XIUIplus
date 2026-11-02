@@ -194,7 +194,7 @@ namespace xiui
                 add("profile", layout.ProfileSelector(), 0, "Select a profile");
                 add("add", layout.ProfileAdd(), 1, "Create a profile. Use a keyboard to type its name.");
             }
-            add("actions", layout.ProfileActionsButton(), 2, "Profile actions and Reset to defaults for the entire XIUI configuration");
+            add("actions", layout.ProfileActionsButton(), 2, "Profile actions and Reset to defaults for the entire XIUI+ configuration");
         }
         return items;
     }
@@ -655,8 +655,8 @@ namespace xiui
         const char* readiness = status.enumeration_disabled ? "Runtime ready. Ashita controller enumeration is disabled; check your launch configuration." :
             status.configuration_known && !status.gamepad_enabled ? "Runtime ready. The gamepad is disabled in FFXI Config." :
             status.connection_known && !status.connected ? "Runtime ready. Connect a controller to test navigation." :
-            !status.bindings_known ? "Runtime ready. Waiting for a verified controller mapping; use /xiui focus config to enter." :
-            "XIUI controller runtime ready. Enter with /xiui focus config.";
+            !status.bindings_known ? "Runtime ready. Waiting for a verified controller mapping; use /xiuiplus focus config to enter." :
+            "XIUI+ controller runtime ready. Enter with /xiuiplus focus config.";
         this->config_controls_.Text(readiness, {area.x + 4, y, area.width - 8, 20}, style);
         this->config_controls_.Text("Change region: Next / Previous tab. Navigate: D-pad. Activate: Confirm. Back: Cancel.", {area.x + 4, y + 22, area.width - 8, 20}, style);
         this->config_controls_.Text("Text and profile names accept keyboard input. Controller-only typing is still pending.", {area.x + 4, y + 44, area.width - 8, 20}, style);

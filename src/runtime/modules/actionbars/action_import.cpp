@@ -289,7 +289,7 @@ namespace xiui
                 if (file == "global" || file == "globals") preview.source_context = true;
             }
             if (preview.palettes.empty() && preview.macros.empty()) preview.error = "No supported action bindings were found.";
-            if (preview.conflicts != 0) preview.warnings.push_back("Duplicate source bindings use their final literal value; existing XIUI palettes are preserved.");
+            if (preview.conflicts != 0) preview.warnings.push_back("Duplicate source bindings use their final literal value; existing XIUI+ palettes are preserved.");
         }
         catch (const std::exception& error) { preview.error = error.what(); preview.palettes.clear(); preview.actions = 0; }
         return preview;

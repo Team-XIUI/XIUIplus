@@ -35,7 +35,7 @@ namespace xiui
         };
         for (const auto& icon : resources::action_icons)
         {
-            std::string label{icon.key}, category{"XIUI artwork"};
+            std::string label{icon.key}, category{"XIUI+ artwork"};
             const auto split = icon.key.find(':');
             uint32_t id{};
             if (gameResources != nullptr && split != std::string_view::npos)
@@ -46,10 +46,10 @@ namespace xiui
                 {
                     if (icon.key.starts_with("spell:"))
                     {
-                        if (const auto* spell = gameResources->GetSpellById(id)) { label = name(spell->Name); category = "XIUI spell"; }
+                        if (const auto* spell = gameResources->GetSpellById(id)) { label = name(spell->Name); category = "XIUI+ spell"; }
                     }
                     else if (const auto* ability = gameResources->GetAbilityById(id))
-                    { label = name(ability->Name); category = id < 256 ? "XIUI weapon skill" : "XIUI ability"; }
+                    { label = name(ability->Name); category = id < 256 ? "XIUI+ weapon skill" : "XIUI+ ability"; }
                 }
             }
             this->icon_catalog_.push_back({std::string{icon.key}, label.empty() ? std::string{icon.key} : label, category, 2});
@@ -130,7 +130,7 @@ namespace xiui
     {
         const auto layout = this->IconPickerLayout();
         std::vector<control> result{{field_icon_query, layout.search, this->icon_query_, {}, control_kind::field}};
-        constexpr const char* sources[]{"All", "Game", "XIUI", "Vincerno"};
+        constexpr const char* sources[]{"All", "Game", "XIUI+", "Vincerno"};
         const auto bounds = this->DialogBounds(); const float width = (bounds.width - 50) / 4;
         for (int source = 0; source < 4; ++source)
             result.push_back({icon_source_first + source, {bounds.x + 16 + source * (width + 6), bounds.y + 50, width, 26}, sources[source], {}, control_kind::button, true, source == this->icon_source_});

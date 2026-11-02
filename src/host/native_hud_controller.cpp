@@ -440,7 +440,7 @@ namespace xiui
     auto native_hud_controller::Status(void) const -> std::string
     {
         char text[256]{};
-        std::snprintf(text, sizeof(text), "[XIUI] Game HUD: %u/%u controls supported; %u hidden; draw guard %s; macro guard %s; %llu draws suppressed.",
+        std::snprintf(text, sizeof(text), "[XIUI+] Game HUD: %u/%u controls supported; %u hidden; draw guard %s; macro guard %s; %llu draws suppressed.",
             std::popcount(this->available_), static_cast<unsigned>(native_hud_options.size()), std::popcount(this->hidden_.load() & ~native_keyboard_macro_palette),
             this->hook_enabled_ ? "active" : "idle", this->macro_hook_enabled_ ? "active" : this->macro_entry_ != 0 ? "available" : "unavailable", static_cast<unsigned long long>(this->skipped_.load()));
         return text;

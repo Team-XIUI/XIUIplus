@@ -309,7 +309,7 @@ namespace xiui
                 "oversized multiline paste is rejected atomically");
             module.CommitField(); module.OpenIconPicker();
             Check(std::any_of(module.icon_catalog_.begin(), module.icon_catalog_.end(), [](const auto& icon) { return icon.source == 2 && icon.key == "spell:1"; }),
-                "the picker includes default XIUI spell artwork alongside custom icons");
+                "the picker includes default XIUI+ spell artwork alongside custom icons");
             module.ActivateControl(actionbars_module::icon_source_first + 2);
             Check(!module.icon_results_.empty() && std::all_of(module.icon_results_.begin(), module.icon_results_.end(), [&](const auto index) { return module.icon_catalog_[index].source == 2; }),
                 "source filtering uses the same icon catalog as rendering and selection");
@@ -377,7 +377,7 @@ namespace xiui
                 "Default artwork clears only the draft until Save");
             ui::game_icon_cache cache;
             const auto icon = cache.ActionIcon(savedMacro.icon);
-            const auto normalized = cache.ActionIcon("XIUI\\assets\\hotbar\\" + savedMacro.icon + ".PNG");
+            const auto normalized = cache.ActionIcon("XIUI+\\assets\\hotbar\\" + savedMacro.icon + ".PNG");
             Check(icon.uv.width == 32.0f / resources::custom_action_icon_width && normalized.uv.x == icon.uv.x && normalized.uv.y == icon.uv.y,
                 "custom icon lookup accepts portable keys and normalized addon-style PNG paths");
         }
@@ -1146,9 +1146,9 @@ namespace xiui
             const auto initial = module.Controls();
             Check(std::none_of(initial.begin(), initial.end(), [](const auto& value) { return value.text == "Next" || value.text == "Back"; }), "setup does not require a sequential Next or Back wizard");
             module.ActivateControl(600);
-            Check(module.controller_settings_.enabled && module.controller_settings_.replace_native && module.trigger_controls_ && module.bars_[action_bar_count].state.enabled, "one trigger toggle enables XIUI input, explicit replacement and the crossbar surface");
+            Check(module.controller_settings_.enabled && module.controller_settings_.replace_native && module.trigger_controls_ && module.bars_[action_bar_count].state.enabled, "one trigger toggle enables XIUI+ input, explicit replacement and the crossbar surface");
             module.ActivateControl(600);
-            Check(!module.controller_settings_.enabled && !module.controller_settings_.replace_native && !module.trigger_controls_, "the same trigger toggle releases both XIUI routing and native replacement");
+            Check(!module.controller_settings_.enabled && !module.controller_settings_.replace_native && !module.trigger_controls_, "the same trigger toggle releases both XIUI+ routing and native replacement");
             module.ActivateControl(651);
             Check(module.setup_step_ == 1, "Mappings tab opens directly");
             for (int id = 620; id < 631; ++id) Check(control(id).enabled, "all eleven trigger, shoulder and slot mapping controls are reachable");
@@ -1337,7 +1337,7 @@ namespace xiui
                             return runtime->HandleActionBarsMouse(message, MK_LBUTTON, close.x + 4, close.y + 4, input.GetBlockInput());
                         };
                         Check(press(WM_LBUTTONDOWN) && module.DialogOpen() && input.blocked, "workspace close waits for release and blocks the native mouse");
-                        Check(send(WM_MOUSEMOVE, MK_LBUTTON, 1900, 5) && module.DialogOpen(), "held workspace close stays with XIUI outside the window");
+                        Check(send(WM_MOUSEMOVE, MK_LBUTTON, 1900, 5) && module.DialogOpen(), "held workspace close stays with XIUI+ outside the window");
                         Check(send(WM_LBUTTONUP, 0, 1900, 5) && module.DialogOpen(), "releasing outside cancels workspace close");
                         Check(press(WM_LBUTTONDBLCLK) && module.DialogOpen() &&
                             send(WM_LBUTTONUP, 0, close.x + 4, close.y + 4) && !module.DialogOpen(),
@@ -1544,14 +1544,14 @@ namespace xiui
             module.allow_native_keys_ = false; module.OnOptionChanged(actionbars_module::native_keys);
             Check(!module.ReplaceNativeMacros() && !module.NativeMacroKeysOwned() && (runtime->NativeHudHiddenMask() & native_keyboard_macro_palette) == 0 &&
                 runtime->HandleActionBarsKey('7', static_cast<LPARAM>(0x80000000u), false) && !runtime->HandleActionBarsKey('7', static_cast<LPARAM>(0x80000000u), false),
-                "opting out restores native UI while draining the chord already owned by XIUI");
+                "opting out restores native UI while draining the chord already owned by XIUI+");
             Check(!module.ReplacesNativeMacroKey('7') && !runtime->HandleActionBarsKey('7', 0, false), "fresh native macro chords pass through after opt-out");
             keys[VK_MENU] = keys[VK_LMENU] = 0; Check(SetKeyboardState(keys) != FALSE, "clear native macro modifiers");
             module.allow_native_keys_ = true;
             Check(!module.ReplacesNativeMacroKey('2') && !module.HandleKey('2', 0) && !module.HandleKey('W', 0), "ordinary digits and typing remain available without macro modifiers");
             module.OpenLibrary();
             keys[VK_CONTROL] = keys[VK_LCONTROL] = 0x80; Check(SetKeyboardState(keys) != FALSE, "restore Ctrl for focused-window guard");
-            Check(!module.ReplacesNativeMacroKey('2'), "an explicitly focused XIUI workspace retains its keyboard controls");
+            Check(!module.ReplacesNativeMacroKey('2'), "an explicitly focused XIUI+ workspace retains its keyboard controls");
             module.SetWindowFocused(false); runtime->action_executor_.Clear();
             Check(module.ReplacesNativeMacroKey('2') && module.HandleKey('2', 0) && runtime->action_executor_.Status().empty() &&
                 module.HandleKey('2', static_cast<LPARAM>(0x80000000u)), "an unfocused open workspace still excludes native chords without activating an action");

@@ -2512,7 +2512,8 @@ Regenerate with `./scripts/update-docs.ps1`. Each bullet is one visual row; [emp
 ### Appearance / Size & Position
 
 - Scale (%) | Lock proportions
-- Reset scale | Display order
+- Reset scale | Lock position
+- Display order | [empty]
 - Columns | Rows
 - Icon size | Slot spacing
 
@@ -2520,6 +2521,7 @@ Regenerate with `./scripts/update-docs.ps1`. Each bullet is one visual row; [emp
 
 - Container | Container padding
 - Container opacity | Slot frames
+- Slot background opacity
 
 ### Text
 
@@ -3327,7 +3329,7 @@ Regenerate with `./scripts/update-docs.ps1`. Each bullet is one visual row; [emp
 
 ### Controller Setup
 
-- Controller Setup | Use XIUI trigger controls
+- Controller Setup | Use XIUI+ trigger controls
 - Ordered two-trigger banks | Double-tap banks
 - Shoulder + D-pad palette switching | Show inactive crossbar
 - Controller prompts | Button prompts
@@ -3411,7 +3413,7 @@ Regenerate with `./scripts/update-docs.ps1`. Each bullet is one visual row; [emp
 
 ### Controller Setup
 
-- Controller Setup | Use XIUI trigger controls
+- Controller Setup | Use XIUI+ trigger controls
 - Ordered two-trigger banks | Double-tap banks
 - Shoulder + D-pad palette switching | Show inactive crossbar
 - Controller prompts | Button prompts
@@ -3495,7 +3497,7 @@ Regenerate with `./scripts/update-docs.ps1`. Each bullet is one visual row; [emp
 
 ### Controller Setup
 
-- Controller Setup | Use XIUI trigger controls
+- Controller Setup | Use XIUI+ trigger controls
 - Ordered two-trigger banks | Double-tap banks
 - Shoulder + D-pad palette switching | Show inactive crossbar
 - Controller prompts | Button prompts
@@ -3579,7 +3581,7 @@ Regenerate with `./scripts/update-docs.ps1`. Each bullet is one visual row; [emp
 
 ### Controller Setup
 
-- Controller Setup | Use XIUI trigger controls
+- Controller Setup | Use XIUI+ trigger controls
 - Ordered two-trigger banks | Double-tap banks
 - Shoulder + D-pad palette switching | Show inactive crossbar
 - Controller prompts | Button prompts
@@ -4678,4 +4680,4 @@ Regenerate with `./scripts/update-docs.ps1`. Each bullet is one visual row; [emp
 
 ## Coverage
 
-74 registered modules, 593 distinct pages, 4784 controls across those pages, and 2044 selector/view combinations.
+74 registered modules, 593 distinct pages, 4786 controls across those pages, and 2044 selector/view combinations.

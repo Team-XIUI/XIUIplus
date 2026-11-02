@@ -1,6 +1,6 @@
 # Native Menus
 
-Selectively hides native HUD elements while XIUI replaces them. Command placement and native macro execution have separate owners.
+Selectively hides native HUD elements while XIUI+ replaces them. Command placement and native macro execution have separate owners.
 
 **Start in:** [game_hud_module.cpp](../../src/runtime/modules/game_hud/game_hud_module.cpp), [native_hud_controller.cpp](../../src/host/native_hud_controller.cpp), [plugin.cpp](../../src/host/plugin.cpp).
 

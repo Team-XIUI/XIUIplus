@@ -131,7 +131,7 @@ namespace xiui
         if (index == 0)
         {
             static constexpr const char* groups[]{"Chat Filters", "Log: Window 1", "Log: Window 2"};
-            return module_option::Dropdown("Native filter group", "Edits the game's settings directly. Each XIUI window remembers its own group. Selecting a group leaves every filter unchanged.", &this->groups_[secondary], groups, std::size(groups)).Ordered(-40);
+            return module_option::Dropdown("Native filter group", "Edits the game's settings directly. Each XIUI+ window remembers its own group. Selecting a group leaves every filter unchanged.", &this->groups_[secondary], groups, std::size(groups)).Ordered(-40);
         }
         module_option result{};
         if (index <= global_count)
@@ -156,8 +156,8 @@ namespace xiui
             const auto i = index - 1 - global_count;
             const size_t window = this->groups_[secondary] == 2 ? 1 : 0;
             result = module_option::Toggle(window_names[i], window == 1 ?
-                "Show new messages of this type in native Log Window 2. XIUI follows that window's routing." :
-                "Show new messages of this type in native Log Window 1. XIUI follows that window's routing.", &this->window_values_[window][i]);
+                "Show new messages of this type in native Log Window 2. XIUI+ follows that window's routing." :
+                "Show new messages of this type in native Log Window 1. XIUI+ follows that window's routing.", &this->window_values_[window][i]);
             result.available = this->window_available_[window];
         }
         return result;

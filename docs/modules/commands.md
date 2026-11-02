@@ -1,6 +1,6 @@
 # Command / Details
 
-Controls native command-menu placement and the XIUI editing placeholder. Native menu text and game actions remain client-owned.
+Controls native command-menu placement and the XIUI+ editing placeholder. Native menu text and game actions remain client-owned.
 
 Commands support moving and centering only. They have no scale setting or edit grip; global and saved element scales do not change their native-sized placement preview.
 

@@ -84,7 +84,7 @@ namespace xiui
     auto experience_module::Notify(IAshitaCore* core, const char* message) -> void
     {
         if (this->settings_.mute_paused && this->source_.tracker.Paused()) return;
-        if (core != nullptr && core->GetChatManager() != nullptr) core->GetChatManager()->Writef(1, false, "[XIUI EXP] %s", message);
+        if (core != nullptr && core->GetChatManager() != nullptr) core->GetChatManager()->Writef(1, false, "[XIUI+ EXP] %s", message);
         if (this->settings_.sound)
         {
             if (!this->sound_) this->sound_ = std::make_unique<ready_check_sound>();
@@ -123,23 +123,23 @@ namespace xiui
         if (command == "pause" || command == "resume")
         {
             this->settings_.paused = command == "pause"; this->OnOptionChanged(pause_option);
-            if (core && core->GetChatManager()) core->GetChatManager()->Writef(1, false, "[XIUI EXP] Session %s.", this->settings_.paused ? "paused" : "resumed");
+            if (core && core->GetChatManager()) core->GetChatManager()->Writef(1, false, "[XIUI+ EXP] Session %s.", this->settings_.paused ? "paused" : "resumed");
         }
         else if (command == "reset")
         {
             this->OnOptionChanged(reset_option);
-            if (core && core->GetChatManager()) core->GetChatManager()->Write(1, false, "[XIUI EXP] Session saved and reset; active timers retained.");
+            if (core && core->GetChatManager()) core->GetChatManager()->Write(1, false, "[XIUI+ EXP] Session saved and reset; active timers retained.");
         }
         else if (command == "history")
         {
             if (core && core->GetChatManager())
             {
                 const auto& records = this->source_.tracker.History();
-                if (records.empty()) core->GetChatManager()->Write(1, false, "[XIUI EXP] No completed sessions yet.");
+                if (records.empty()) core->GetChatManager()->Write(1, false, "[XIUI+ EXP] No completed sessions yet.");
                 for (size_t i = 0; i < records.size(); ++i)
                 {
                     const auto& r = records[i];
-                    core->GetChatManager()->Writef(1, false, "[XIUI EXP] %zu. Job %u; %llum; EXP %llu received, %lld retained, %llu lost, %llu recovered; LP %llu; merits %u; best chain %u.",
+                    core->GetChatManager()->Writef(1, false, "[XIUI+ EXP] %zu. Job %u; %llum; EXP %llu received, %lld retained, %llu lost, %llu recovered; LP %llu; merits %u; best chain %u.",
                         i + 1, r.job, r.elapsed / 60000, r.totals[0].received, r.totals[0].Net(), r.totals[0].lost, r.totals[0].recovered, r.totals[1].received, r.merits, r.best_chain);
                 }
             }
@@ -149,7 +149,7 @@ namespace xiui
             if (core && core->GetChatManager())
             {
                 const auto record = this->source_.tracker.Record(::GetTickCount64());
-                core->GetChatManager()->Writef(1, false, "[XIUI EXP] %s; %s %u/%u; %llum active; EXP %llu; LP %llu; merits earned %u; %zu saved sessions; server status %s.",
+                core->GetChatManager()->Writef(1, false, "[XIUI+ EXP] %s; %s %u/%u; %llum active; EXP %llu; LP %llu; merits earned %u; %zu saved sessions; server status %s.",
                     this->source_.tracker.Paused() ? "paused" : this->source_.ready ? "tracking" : "waiting", this->progression_.Label(), this->progression_.current, this->progression_.needed,
                     record.elapsed / 60000, record.totals[0].received, record.totals[1].received, record.merits, this->source_.tracker.History().size(), this->source_.sync_penalty ? "available" : "unavailable");
             }

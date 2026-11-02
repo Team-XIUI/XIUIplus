@@ -138,7 +138,7 @@ namespace xiui
 
     auto config_input_test::SliderValues(void) -> bool
     {
-        const auto path = std::filesystem::temp_directory_path() / ("xiuinative-slider-input-check-" + std::to_string(::GetCurrentProcessId()) + ".ini");
+        const auto path = std::filesystem::temp_directory_path() / ("XIUIplus-slider-input-check-" + std::to_string(::GetCurrentProcessId()) + ".ini");
         struct cleanup { std::filesystem::path path; ~cleanup() { std::error_code ignored; std::filesystem::remove(path, ignored); } } cleanupFile{path};
         hud_runtime runtime;
         runtime.settings_path_ = path.string();
@@ -263,7 +263,7 @@ namespace xiui
                 "the complete picker and controls remain inside small viewports")) return false;
         }
 
-        const auto path = std::filesystem::temp_directory_path() / ("xiuinative-wheel-check-" + std::to_string(::GetCurrentProcessId()) + ".ini");
+        const auto path = std::filesystem::temp_directory_path() / ("XIUIplus-wheel-check-" + std::to_string(::GetCurrentProcessId()) + ".ini");
         struct cleanup { std::filesystem::path path; ~cleanup() { std::error_code ignored; std::filesystem::remove(path, ignored); } } cleanupFile{path};
         hud_runtime runtime;
         runtime.settings_path_ = path.string(); runtime.editing_ = true;
@@ -355,7 +355,7 @@ namespace xiui
 
     auto config_input_test::DragPersistence(void) -> bool
     {
-        const auto path = std::filesystem::temp_directory_path() / ("xiuinative-drag-check-" + std::to_string(::GetCurrentProcessId()) + ".ini");
+        const auto path = std::filesystem::temp_directory_path() / ("XIUIplus-drag-check-" + std::to_string(::GetCurrentProcessId()) + ".ini");
         struct cleanup { std::filesystem::path path; ~cleanup() { std::error_code ignored; std::filesystem::remove(path, ignored); } } cleanupFile{path};
         const settings_store store{path.string()};
         store.WriteBool("player", "show_identity", false);
@@ -412,7 +412,7 @@ namespace xiui
 
     auto config_input_test::Run(void) -> bool
     {
-        const auto path = std::filesystem::temp_directory_path() / ("xiuinative-input-save-check-" + std::to_string(::GetCurrentProcessId()) + ".ini");
+        const auto path = std::filesystem::temp_directory_path() / ("XIUIplus-input-save-check-" + std::to_string(::GetCurrentProcessId()) + ".ini");
         struct cleanup { std::filesystem::path path; ~cleanup() { std::error_code ignored; std::filesystem::remove(path, ignored); } } cleanupFile{path};
         hud_runtime runtime;
         runtime.settings_path_ = path.string();

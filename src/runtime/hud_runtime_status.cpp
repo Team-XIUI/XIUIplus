@@ -50,7 +50,7 @@ namespace xiui
                 this->controller_hint_ = requested ? "Effect cancellation requested." : "This effect cannot be cancelled.";
                 if (requested) this->ui_sounds_.Select(::GetTickCount64());
                 else if (this->keyboard_window_focus_ && this->core_ != nullptr && this->core_->GetChatManager() != nullptr)
-                    this->core_->GetChatManager()->Write(1, false, "[XIUI] This effect cannot be cancelled.");
+                    this->core_->GetChatManager()->Write(1, false, "[XIUI+] This effect cannot be cancelled.");
             }
             else if (action == controller_action::up || action == controller_action::down)
                 module.MoveControllerBrowse(action == controller_action::up ? -1 : 1);

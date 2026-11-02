@@ -327,7 +327,7 @@ namespace xiui
         case 6: return module_option::Toggle("Job icon fallback", "Use the shared job artwork when pet portrait artwork is unavailable or hidden.", &type.icon).Ordered(-40);
         case 7: return module_option::Toggle("Ability recasts", "Use existing native ability timers and Ready charges.", &type.recasts);
         case 8: return module_option::Toggle("Recasts without pet", "Keep known cooldowns visible without an active pet.", &type.without_pet).VisibleWhen(type.recasts);
-        case 9: return module_option::Toggle("Observed elapsed time", "Time since XIUI observed this pet; this is not its remaining lifetime.", &type.elapsed);
+        case 9: return module_option::Toggle("Observed elapsed time", "Time since XIUI+ observed this pet; this is not its remaining lifetime.", &type.elapsed);
         case 10: return module_option::Toggle("Show background", "Show the Pet HUD's native frame and background independently of its portrait.", &type.background).Ordered(-45);
         case 11: return module_option::Slider("Opacity", "Native container opacity.", &type.container.opacity, 0, 1, .05f).VisibleWhen(type.background);
         case 12: return module_option::Slider("Padding", "Space inside the pet window.", &type.container.padding, 0, 24, 1);
@@ -337,7 +337,7 @@ namespace xiui
         case 16: return module_option::Color("Fill bottom", "Lower resource gradient.", &type.bottom[type.resource]).VisibleWhen(resourceVisible);
         case 17: return module_option::Element("Selected text", "Independent text profiles for this pet type.", &type.selected_text, text_names, 9);
         case 18: return module_option::Slider("Row spacing", "Space between resources and ability timers.", &type.spacing, 0, 24, 1);
-        case 19: return module_option::Toggle("Pet portrait", "Use XIUI's original pet artwork when available.", &type.portrait).Ordered(-50);
+        case 19: return module_option::Toggle("Pet portrait", "Use XIUI+'s original pet artwork when available.", &type.portrait).Ordered(-50);
         case 20: return module_option::Slider("Portrait size", "Base image size in pixels; each avatar's scale adjusts this independently.", &type.portrait_size, 16, 512, 1).Ordered(100, true).VisibleWhen(type.portrait);
         case 21: return module_option::Toggle("Lifetime information", "Show Lifetime unavailable for Jug/Charmed pets; native memory supplies no remaining deadline.", &type.lifetime).VisibleWhen(lifetimeType);
         case 22: return module_option::Dropdown("Portrait position", "Inline reserves space beside the name. Overlay positions the image from the Pet window's top-left without moving text or bars.", &type.portrait_position, portraitPositions, 2).Ordered(150).VisibleWhen(type.portrait || type.icon);

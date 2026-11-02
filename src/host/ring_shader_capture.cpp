@@ -122,12 +122,12 @@ namespace xiui
                     out << ",\"projection_sample\":"; Matrix(out,s.projection); out << '}';
                 }
                 out << "\n]\n}\n"; out.close(); std::filesystem::rename(temporary,path);
-                return "[XIUI] Ring shader capture saved: " + path.string();
+                return "[XIUI+] Ring shader capture saved: " + path.string();
             }
             catch (const std::exception& error)
             {
                 std::error_code ignored; std::filesystem::remove(temporary,ignored);
-                return std::string{"[XIUI] Ring shader capture could not save: "}+error.what();
+                return std::string{"[XIUI+] Ring shader capture could not save: "}+error.what();
             }
         }
     }
@@ -147,7 +147,7 @@ namespace xiui
     ring_shader_capture::~ring_shader_capture() { this->Shutdown(); }
     ring_shader_capture::draw_scope::~draw_scope() { if (capture) capture->Record(device,result); }
     auto ring_shader_capture::Initialize(const std::filesystem::path& install, const char* version, const char* build) -> void
-    { state_->directory=storage_paths{install/"config"/"xiuinative"}.Diagnostics(); state_->version=version; state_->build=build; }
+    { state_->directory=storage_paths{install/"config"/"XIUIplus"}.Diagnostics(); state_->version=version; state_->build=build; }
     auto ring_shader_capture::Request(const request value) noexcept -> void { state_->requests.fetch_or(static_cast<unsigned>(value),std::memory_order_release); }
     auto ring_shader_capture::Trace(IDirect3DDevice8* device) noexcept -> draw_scope { return {state_->active ? this : nullptr,device}; }
 
@@ -223,8 +223,8 @@ namespace xiui
         }
         const auto requests=state_->requests.exchange(0,std::memory_order_acq_rel);
         if (requests&static_cast<unsigned>(request::start)) {
-            if (state_->active || state_->writer.valid()) messages.emplace_back("[XIUI] Ring shader capture is already recording or saving.");
-            else if (state_->directory.empty()) messages.emplace_back("[XIUI] Ring shader capture has no install directory.");
+            if (state_->active || state_->writer.valid()) messages.emplace_back("[XIUI+] Ring shader capture is already recording or saving.");
+            else if (state_->directory.empty()) messages.emplace_back("[XIUI+] Ring shader capture has no install directory.");
             else {
                 state_->data={}; state_->data.version=state_->version; state_->data.build=state_->build;
                 SYSTEMTIME now{}; ::GetSystemTime(&now); char stamp[80]{};
@@ -241,16 +241,16 @@ namespace xiui
                     state_->data.vendor=adapter.VendorId; state_->data.device=adapter.DeviceId;
                 }
                 state_->start=::GetTickCount64(); state_->active=true;
-                messages.emplace_back("[XIUI] Recording ring shader layouts for up to 3 seconds. Keep a living target selected and move the camera normally.");
+                messages.emplace_back("[XIUI+] Recording ring shader layouts for up to 3 seconds. Keep a living target selected and move the camera normally.");
             }
         }
         if (requests&static_cast<unsigned>(request::stop)) {
-            if (state_->active) { this->Finish("manual stop"); messages.emplace_back("[XIUI] Saving ring shader capture."); }
-            else messages.emplace_back(state_->writer.valid() ? "[XIUI] Ring shader capture is saving." : "[XIUI] No ring shader capture is recording.");
+            if (state_->active) { this->Finish("manual stop"); messages.emplace_back("[XIUI+] Saving ring shader capture."); }
+            else messages.emplace_back(state_->writer.valid() ? "[XIUI+] Ring shader capture is saving." : "[XIUI+] No ring shader capture is recording.");
         }
         if (requests&static_cast<unsigned>(request::status)) {
-            messages.emplace_back(state_->active ? "[XIUI] Ring shader capture is recording." : state_->writer.valid() ?
-                "[XIUI] Ring shader capture is saving." : state_->last_result.empty() ? "[XIUI] Ring shader capture is idle." : state_->last_result);
+            messages.emplace_back(state_->active ? "[XIUI+] Ring shader capture is recording." : state_->writer.valid() ?
+                "[XIUI+] Ring shader capture is saving." : state_->last_result.empty() ? "[XIUI+] Ring shader capture is idle." : state_->last_result);
         }
         return messages;
     }

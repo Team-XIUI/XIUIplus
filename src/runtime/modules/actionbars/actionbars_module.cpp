@@ -521,7 +521,7 @@ namespace xiui
         case padding: return module_option::Slider("Padding", "Space inside action-bar containers.", &this->container_.padding, 0, 24, 1).Ordered(301);
         case bank: return controllerOnly(module_option::Element("Edited bank", "Choose which trigger bank the editor and storage controls modify.", &this->selected_bank_, bank_names, action_crossbar_banks));
         case setup: return controllerOnly(module_option::Action("Controller Setup", "Choose your device, trigger feel and explicit native macro replacement.", "Set up controller").Ordered(-100));
-        case crossbar_enabled: return controllerOnly(module_option::Toggle("Use XIUI trigger controls", "Route trigger actions to XIUI. Chat, native menus and target selection retain their controls. Device settings stay local.", &this->trigger_controls_));
+        case crossbar_enabled: return controllerOnly(module_option::Toggle("Use XIUI+ trigger controls", "Route trigger actions to XIUI+. Chat, native menus and target selection retain their controls. Device settings stay local.", &this->trigger_controls_));
         case native_replace: return module_option::Toggle("Native trigger replacement", "", &this->controller_settings_.replace_native).VisibleWhen(false);
         case expanded: return controllerOnly(module_option::Toggle("Ordered two-trigger banks", "Left then right and right then left open separate banks.", &this->controller_settings_.expanded));
         case double_tap: return controllerOnly(module_option::Toggle("Double-tap banks", "Tap and hold the same trigger to open its extra bank.", &this->controller_settings_.double_tap));
@@ -1944,7 +1944,7 @@ namespace xiui
                 for (const auto& warning : this->import_preview_.warnings)
                 { if (y > bounds.y + bounds.height - 106) break; controls.Text(warning.c_str(), {bounds.x + 16, y, bounds.width - 32, 24}, captionText); y += 24; }
             }
-            else controls.Text("Choose a Lua XIUI, tHotBar or tCrossBar data file.\nThe preview reads assignments without running Lua.\nImport always creates new palettes.", {bounds.x + 16, y, bounds.width - 32, 88}, managementText);
+            else controls.Text("Choose a Lua XIUI+, tHotBar or tCrossBar data file.\nThe preview reads assignments without running Lua.\nImport always creates new palettes.", {bounds.x + 16, y, bounds.width - 32, 88}, managementText);
         }
         const auto controlList = this->Controls();
         const auto library = this->dialog_ == dialog::picker ? this->LibraryLayout() : library_layout{};

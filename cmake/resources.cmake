@@ -41,7 +41,7 @@ set_property(SOURCE "${XIUI_MOB_RESOURCE}" PROPERTY OBJECT_DEPENDS
 configure_file("${CMAKE_SOURCE_DIR}/config/defaults.rc.in" "${CMAKE_BINARY_DIR}/generated/xiui-defaults.rc" @ONLY)
 set(XIUI_DEFAULTS_RESOURCE "${CMAKE_BINARY_DIR}/generated/xiui-defaults.rc")
 set_property(SOURCE "${XIUI_DEFAULTS_RESOURCE}" PROPERTY OBJECT_DEPENDS
-    "${CMAKE_SOURCE_DIR}/config/xiuinative-defaults.ini;${CMAKE_SOURCE_DIR}/config/xiuinative-theme.ini;${CMAKE_SOURCE_DIR}/assets/cursors/LICENSE.txt;${CMAKE_SOURCE_DIR}/third_party/minhook/LICENSE.txt;${CMAKE_SOURCE_DIR}/assets/profiles/share-v2.ini;${CMAKE_SOURCE_DIR}/config/party-classic.ini;${CMAKE_SOURCE_DIR}/config/party-xiv.ini;${CMAKE_SOURCE_DIR}/assets/status/NOTICE.txt;${CMAKE_SOURCE_DIR}/assets/status/LICENSE.txt")
+    "${CMAKE_SOURCE_DIR}/config/XIUIplus-defaults.ini;${CMAKE_SOURCE_DIR}/config/XIUIplus-theme.ini;${CMAKE_SOURCE_DIR}/assets/cursors/LICENSE.txt;${CMAKE_SOURCE_DIR}/third_party/minhook/LICENSE.txt;${CMAKE_SOURCE_DIR}/assets/profiles/share-v2.ini;${CMAKE_SOURCE_DIR}/config/party-classic.ini;${CMAKE_SOURCE_DIR}/config/party-xiv.ini;${CMAKE_SOURCE_DIR}/assets/status/NOTICE.txt;${CMAKE_SOURCE_DIR}/assets/status/LICENSE.txt")
 set_property(SOURCE "${XIUI_DEFAULTS_RESOURCE}" APPEND PROPERTY OBJECT_DEPENDS
     "${CMAKE_SOURCE_DIR}/assets/satchel/NOTICES.txt;${CMAKE_SOURCE_DIR}/assets/satchel/LICENSE.txt")
 set_property(SOURCE "${XIUI_DEFAULTS_RESOURCE}" APPEND PROPERTY OBJECT_DEPENDS

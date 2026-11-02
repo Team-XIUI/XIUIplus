@@ -29,8 +29,8 @@ add_executable(xiui_resource_smoke
     ${XIUI_WEBP_DECODER_SOURCES})
 configure_xiui_target(xiui_resource_smoke)
 set_target_properties(xiui_resource_smoke PROPERTIES RUNTIME_OUTPUT_DIRECTORY "${CMAKE_SOURCE_DIR}/bin/tests")
-add_dependencies(xiui_resource_smoke xiuinative_release)
-add_test(NAME xiui_resource_smoke COMMAND xiui_resource_smoke "$<TARGET_FILE:xiuinative_release>" "${CMAKE_SOURCE_DIR}")
+add_dependencies(xiui_resource_smoke XIUIplus_release)
+add_test(NAME xiui_resource_smoke COMMAND xiui_resource_smoke "$<TARGET_FILE:XIUIplus_release>" "${CMAKE_SOURCE_DIR}")
 
 add_executable(xiui_renderer_smoke
     tests/renderer_smoke.cpp
@@ -187,7 +187,7 @@ add_executable(xiui_hot_reload_smoke
 configure_xiui_target(xiui_hot_reload_smoke)
 add_dependencies(
     xiui_hot_reload_smoke
-    xiuinative_runtime
+    XIUIplus_runtime
     xiui_rejected_runtime
     xiui_stateful_runtime
     xiui_activation_failure_runtime
@@ -356,7 +356,7 @@ add_test(NAME xiui_theme_reload_smoke COMMAND xiui_theme_reload_smoke)
 add_test(
     NAME xiui_hot_reload_smoke
     COMMAND xiui_hot_reload_smoke
-        "$<TARGET_FILE:xiuinative_runtime>"
+        "$<TARGET_FILE:XIUIplus_runtime>"
         "$<TARGET_FILE:xiui_rejected_runtime>"
         "$<TARGET_FILE:xiui_stateful_runtime>"
         "$<TARGET_FILE:xiui_activation_failure_runtime>"

@@ -192,8 +192,8 @@ namespace xiui
         std::string name;
         if (mode == profile_dialog::reset_defaults)
         {
-            name = "Entire XIUI configuration";
-            this->confirmation_message_ = "This will reset all XIUI settings and layouts to defaults.";
+            name = "Entire XIUI+ configuration";
+            this->confirmation_message_ = "This will reset all XIUI+ settings and layouts to defaults.";
         }
         if (mode == profile_dialog::duplicate) name = this->profiles_.UniqueName(this->profiles_.Current().name + " Copy");
         if (mode == profile_dialog::delete_profile || mode == profile_dialog::rename) name = this->profiles_.Current().name;
@@ -323,7 +323,7 @@ namespace xiui
         if (!key)
         {
             this->profile_import_.reset(); this->profile_file_.clear(); this->profile_legacy_import_ = false;
-            this->profile_error_ = "Copy an XIUI share key, then paste it here.";
+            this->profile_error_ = "Copy an XIUI+ share key, then paste it here.";
             return false;
         }
         return this->LoadProfileKey(*key);

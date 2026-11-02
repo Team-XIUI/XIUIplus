@@ -15,13 +15,13 @@
     {
       "name": "edit-mode",
       "target": "xiui_config_input_smoke",
-      "arguments": ["--edit-mode-only", "{root}/config/xiuinative-defaults.ini"],
+      "arguments": ["--edit-mode-only", "{root}/config/XIUIplus-defaults.ini"],
       "requires_arguments": false
     },
     {
       "name": "setup-wizard",
       "target": "xiui_config_input_smoke",
-      "arguments": ["--setup-wizard-only", "{root}/config/xiuinative-defaults.ini"],
+      "arguments": ["--setup-wizard-only", "{root}/config/XIUIplus-defaults.ini"],
       "requires_arguments": false
     },
     {
@@ -33,7 +33,7 @@
     {
       "name": "hud-presets",
       "target": "xiui_config_input_smoke",
-      "arguments": ["--hud-presets-only", "{root}/config/xiuinative-defaults.ini"],
+      "arguments": ["--hud-presets-only", "{root}/config/XIUIplus-defaults.ini"],
       "requires_arguments": false
     },
     {
@@ -45,13 +45,13 @@
     {
       "name": "module-menu",
       "target": "xiui_config_input_smoke",
-      "arguments": ["--module-menu-only", "{root}/config/xiuinative-defaults.ini"],
+      "arguments": ["--module-menu-only", "{root}/config/XIUIplus-defaults.ini"],
       "requires_arguments": false
     },
     {
       "name": "hud-scaling",
       "target": "xiui_config_input_smoke",
-      "arguments": ["--hud-scaling-only", "{root}/config/xiuinative-defaults.ini"],
+      "arguments": ["--hud-scaling-only", "{root}/config/XIUIplus-defaults.ini"],
       "requires_arguments": false
     },
     {
@@ -551,7 +551,7 @@
       "target": "xiui_config_input_smoke",
       "arguments": [
         "--defaults-only",
-        "{root}/config/xiuinative-defaults.ini"
+        "{root}/config/XIUIplus-defaults.ini"
       ],
       "requires_arguments": false
     },

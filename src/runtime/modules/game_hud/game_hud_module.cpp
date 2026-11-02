@@ -46,7 +46,7 @@ namespace xiui
         if (index == hide_all_option || index == show_all_option)
         {
             auto result = index == hide_all_option ?
-                module_option::Action("Hide native UI", "Hide every supported native HUD element, including native chat. XIUI modules keep their own visibility settings.", "Hide all").Ordered(-90) :
+                module_option::Action("Hide native UI", "Hide every supported native HUD element, including native chat. XIUI+ modules keep their own visibility settings.", "Hide all").Ordered(-90) :
                 module_option::Action("Restore native UI", "Show every supported native HUD element again.", "Show all").Ordered(-89);
             result.available = this->available_ != 0;
             return result;

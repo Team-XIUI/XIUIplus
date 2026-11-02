@@ -21,7 +21,7 @@ Use the [generated settings inventory](settings-inventory.md) for current pages 
 
 ## Group changes
 
-**Extras → Native Menus** contains the native-window visibility switches and bulk actions formerly shown under Game HUD. It preserves the original settings and callbacks; `/xiui gamehud` and saved navigation open this destination. **Controller Focus** and **HP Feedback** are also direct Extras destinations, retaining their shared styling and previews.
+**Extras → Native Menus** contains the native-window visibility switches and bulk actions formerly shown under Game HUD. It preserves the original settings and callbacks; `/xiuiplus gamehud` and saved navigation open this destination. **Controller Focus** and **HP Feedback** are also direct Extras destinations, retaining their shared styling and previews.
 
 **Inventory → Treasure Pool** contains the pool's visibility, lot/pass controls and appearance settings. General contains the title, detail and timer visibility switches. Text offers independent item, detail, timer and button profiles, including each profile's shared Show text control. A shaded title bar matches Satchel and holds Lot all, Pass all, a Collapse/Expand chevron and a Details eye icon; controls wrap when needed. Icon help follows hover and controller focus. Hiding the title frees header width while retaining its actions; hiding both details and timers releases secondary rows. Equal-width Lot/Pass buttons use centered labels; smaller detail text fits the available width beside a separately aligned countdown. It uses the shared configuration navigation and retains its existing saved settings independently of the storage trackers.
 

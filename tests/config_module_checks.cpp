@@ -12,7 +12,7 @@ namespace xiui
         runtime.treasure_.Open();
         if (!check(runtime.TreasureInputAvailable(), "a visible forced pool can be closed even when empty")) return false;
         runtime.visible_ = false;
-        if (!check(!runtime.TreasureInputAvailable(), "hidden XIUI suspends treasure input")) return false;
+        if (!check(!runtime.TreasureInputAvailable(), "hidden XIUI+ suspends treasure input")) return false;
         runtime.visible_ = true;
         runtime.editing_ = true;
         if (!check(!runtime.TreasureInputAvailable(), "edit previews cannot take treasure actions")) return false;
@@ -192,7 +192,7 @@ namespace xiui
         party_module migrated; migrated.Load(legacy);
         if (!check(migrated.text_[0].offset_x == 4 && migrated.text_[0].offset_y == 8 &&
             migrated.bar_offsets_x_[3] == 0 && migrated.bar_offsets_y_[3] == 0,
-            "old XIUI preset offsets migrate once without applying the name offset twice")) return false;
+            "old XIUI+ preset offsets migrate once without applying the name offset twice")) return false;
         migrated.Save(legacy); legacy.WriteFloat("meter.party.cast", "offset_x", 9);
         party_module customized; customized.Load(legacy);
         if (!check(customized.bar_offsets_x_[3] == 9, "later custom cast offsets survive reload")) return false;
@@ -1217,7 +1217,7 @@ namespace xiui
         std::filesystem::create_directory(root);
         struct cleanup { std::filesystem::path root; ~cleanup() { std::error_code ignored; std::filesystem::remove_all(root, ignored); } } cleanupFiles{root};
         hud_runtime runtime;
-        runtime.settings_path_ = (root / "xiuinative.ini").string();
+        runtime.settings_path_ = (root / "XIUIplus.ini").string();
         runtime.config_.bounds = {40, 40, 1100, 600};
         runtime.editing_ = true;
         const D3DVIEWPORT8 viewport{0, 0, 1280, 720, 0, 1};
@@ -1548,7 +1548,7 @@ namespace xiui
         visibilitySource.player_entity_slot_ = reinterpret_cast<uintptr_t>(&playerEntity);
         auto eventContext = visibilitySource.Read(nullptr, false);
         if (!check(eventContext.event_available && !eventContext.event_active,
-            "an enabled native event system with no event owner must not hide XIUI")) return false;
+            "an enabled native event system with no event owner must not hide XIUI+")) return false;
         eventOwner = 1;
         eventContext = visibilitySource.Read(nullptr, false);
         if (!check(eventContext.event_available && eventContext.event_active,
@@ -1616,7 +1616,7 @@ namespace xiui
         runtime.ProcessPointerMessage(WM_LBUTTONDOWN, MK_LBUTTON, viewport);
         if (!check(!runtime.IsVisible() && !runtime.IsEditing() && runtime.NativeHudHiddenMask() == allNative &&
             !runtime.ContextVisible(runtime.player_) && runtime.ControllerCapture() == controller_capture_mode::none && !runtime.ApplyConfirmedAction(),
-            "explicit Hide all hides both HUDs exactly once and releases XIUI focus")) return false;
+            "explicit Hide all hides both HUDs exactly once and releases XIUI+ focus")) return false;
         if (!check(runtime.HandleMouseMessage(WM_LBUTTONUP, 0, 0, false) && !runtime.visibility_pointer_release_,
             "hiding from a pointer press consumes its release while the UI is hidden")) return false;
         runtime.SetVisible(true);

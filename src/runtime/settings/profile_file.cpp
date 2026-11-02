@@ -8,8 +8,9 @@
 
 namespace
 {
-    constexpr std::string_view signature = "; XIUI Native profile 1 ";
-    constexpr size_t header_size = signature.size() + 10;
+    constexpr std::string_view signature = "; XIUIplus profile 1 ";
+    constexpr std::string_view legacy_signature = "; XIUI Native profile 1 ";
+    constexpr size_t maximum_header_size = legacy_signature.size() + 10;
 }
 
 namespace xiui
@@ -30,13 +31,15 @@ namespace xiui
 
     auto ParseProfileFile(const std::string_view bytes, std::string& error) -> std::optional<shared_profile>
     {
-        error = "Invalid, damaged or unsupported XIUI profile file.";
-        if (bytes.size() <= header_size || bytes.size() > header_size + maximum_profile_payload || !bytes.starts_with(signature) ||
-            bytes.substr(signature.size() + 8, 2) != "\r\n") return std::nullopt;
+        error = "Invalid, damaged or unsupported XIUI+ profile file.";
+        const auto prefix = bytes.starts_with(signature) ? signature : legacy_signature;
+        const auto header = prefix.size() + 10;
+        if (bytes.size() <= header || bytes.size() > header + maximum_profile_payload || !bytes.starts_with(prefix) ||
+            bytes.substr(prefix.size() + 8, 2) != "\r\n") return std::nullopt;
         uint32_t checksum{};
-        const auto parsed = std::from_chars(bytes.data() + signature.size(), bytes.data() + signature.size() + 8, checksum, 16);
-        if (parsed.ec != std::errc{} || parsed.ptr != bytes.data() + signature.size() + 8) return std::nullopt;
-        const auto text = bytes.substr(header_size);
+        const auto parsed = std::from_chars(bytes.data() + prefix.size(), bytes.data() + prefix.size() + 8, checksum, 16);
+        if (parsed.ec != std::errc{} || parsed.ptr != bytes.data() + prefix.size() + 8) return std::nullopt;
+        const auto text = bytes.substr(header);
         if (profile_share_detail::Checksum(text) != checksum || text.find('\0') != std::string_view::npos) return std::nullopt;
         const auto store = settings_store::FromIniText(text);
         const auto name = store.ReadString("profile", "name");
@@ -74,7 +77,7 @@ namespace xiui
         std::ifstream file{path, std::ios::binary | std::ios::ate};
         if (!file) { error = "Could not open the profile file."; return std::nullopt; }
         const auto size = file.tellg();
-        if (size <= 0 || size > static_cast<std::streamoff>(header_size + maximum_profile_payload))
+        if (size <= 0 || size > static_cast<std::streamoff>(maximum_header_size + maximum_profile_payload))
         { error = "The profile file is empty or exceeds the 4 MB file limit."; return std::nullopt; }
         std::string bytes(static_cast<size_t>(size), '\0');
         file.seekg(0);

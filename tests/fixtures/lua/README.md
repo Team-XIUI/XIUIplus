@@ -1,8 +1,8 @@
-# XIUI Lua profile fixtures
+# XIUI+ Lua profile fixtures
 
 Generated from the original XIUI 1.8.4 and 1.8.5 release defaults and saved-settings writer, downloaded October 17, 2026. Each version contains expanded `defaults.json`, the writer's `defaults.lua`, and `populated.lua` with representative non-default settings, actions and library records. These are saved data, not executable addon code.
 
-Original project and contributors: [tirem/XIUI](https://github.com/tirem/XIUI), GPL-3.0. The existing [XIUI attribution](../../../assets/actionbars/NOTICES.txt) applies to derived data. The original license is distributed with the plugin's XIUI assets.
+Original project and contributors: [tirem/XIUI](https://github.com/tirem/XIUI), GPL-3.0. The existing [XIUI attribution](../../../assets/actionbars/NOTICES.txt) applies to derived data. The original license is distributed with the plugin's XIUI+ assets.
 
 Pinned release archives:
 

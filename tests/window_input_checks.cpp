@@ -86,7 +86,7 @@ namespace xiui
         hud.chat_capture_available_ = true;
         if (!check(hud.visibility_context_.window_focus == native_window_focus::commands && !hud.NativeWindowCycle() &&
             (hud.ControllerInputState() & controller_native_cycle) == 0 && hud.KeyboardInputState() == keyboard_capture_cycle,
-            "the combat command menu leaves XIUI's window cycle available")) return false;
+            "the combat command menu leaves XIUI+'s window cycle available")) return false;
         if (!check(hud.HandleChatKey('F', 0, false, true, false, 0) && hud.chat_.HistoryFocused() && !hud.chat_.Focused(),
             "F selects chat history over the combat command menu without opening composition")) return false;
         if (!check(hud.KeyboardInputState() == keyboard_capture_history && !hud.KeyboardFocused(),
@@ -134,7 +134,7 @@ namespace xiui
         focus("fulllog");
         if (!check(!hud.ChatFocused() && hud.KeyboardInputState() == 0 &&
             (hud.NativeHudHiddenMask() & NativeHudBit(native_hud_element::chatlog)) == 0 && hud.game_hud_.HiddenMask() == savedMask,
-            "an active native full log releases XIUI input and remains visible without changing saved HUD preferences")) return false;
+            "an active native full log releases XIUI+ input and remains visible without changing saved HUD preferences")) return false;
         focus("playermo");
         if (!check(hud.KeyboardInputState() == keyboard_capture_cycle && hud.NativeHudHiddenMask() == savedEffectiveMask,
             "closing the native log restores ordinary keyboard entry and the configured HUD mask")) return false;
@@ -152,7 +152,7 @@ namespace xiui
         hud.UpdateControllerStatus({});
         if (!check(hud.chat_.HistoryFocused() && hud.ControllerCapture() == controller_capture_mode::navigation &&
             !hud.HandleController({controller_action::cycle_window, controller_backend::xinput, 0, true, false, false, 1}),
-            "native focus on hidden chat mirrors XIUI browsing and leaves native cycling available")) return false;
+            "native focus on hidden chat mirrors XIUI+ browsing and leaves native cycling available")) return false;
         hud.HandleController({controller_action::confirm, controller_backend::xinput, 0, true, false, false, 2});
         if (!check(hud.chat_.HistoryExpanded(), "chat can expand while the native combat/menu UI remains open")) return false;
         hud.HandleController({controller_action::cancel, controller_backend::xinput, 0, true, false, false, 3});

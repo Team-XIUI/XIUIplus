@@ -186,7 +186,7 @@ namespace xiui
     auto satchel_module::ConfigSections(void) const -> std::span<const module_config_section>
     {
         static constexpr module_config_section sections[]{
-            {"General", "Open with /xiui satchel. Browse current bags, saved characters and Porter Moogle slips.", "general"},
+            {"General", "Open with /xiuiplus satchel. Browse current bags, saved characters and Porter Moogle slips.", "general"},
             {"Layout", "Grid dimensions and display order. Custom positions are saved locally for each character and view.", "layout"},
             {"Appearance", "Native item artwork and the shared game window.", "appearance"},
             {"Text", "Title, captions, quantities and item details retain their configured effects.", "text"}};
@@ -1345,7 +1345,7 @@ namespace xiui
             if (end == first)
             {
                 std::string empty = !snapshot || !snapshot->ready ? "Waiting for settled inventory..." : this->slip_ >= 0 ? "No stored items match this view." : "No items match this view.";
-                if (context.IsEditing()) empty = "Satchel inventory browser  |  /xiui satchel";
+                if (context.IsEditing()) empty = "Satchel inventory browser  |  /xiuiplus satchel";
                 const auto grid = this->GridBounds();
                 const ui::rect at{grid.x, grid.y + 8, grid.width, 28}; context.DrawText(empty.c_str(), at, at, this->text_[1]);
             }

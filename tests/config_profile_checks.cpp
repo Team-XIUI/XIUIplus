@@ -74,9 +74,14 @@ namespace xiui
         const auto fileDecoded = ParseProfileFile(largeFile, error);
         if (!check(fileDecoded && fileDecoded->name == "Large setup" && fileDecoded->preferences.ToIniText() == largeText,
             "self-contained profile files restore thousands of customizations without a preset dictionary")) return false;
+        constexpr std::string_view currentSignature = "; XIUIplus profile 1 ";
+        const auto legacyFile = std::string{"; XIUI Native profile 1 "} + largeFile.substr(currentSignature.size());
+        const auto legacyDecoded = ParseProfileFile(legacyFile, error);
+        if (!check(largeFile.starts_with(currentSignature) && legacyDecoded && legacyDecoded->preferences.ToIniText() == largeText,
+            "XIUIplus exports retain import compatibility with XIUI Native profile files")) return false;
         auto damagedFile = largeFile; damagedFile.back() ^= 1;
         if (!check(!ParseProfileFile(damagedFile, error) && !ParseProfileFile(largeFile.substr(0, largeFile.size() - 1), error) &&
-            !ParseProfileFile(largeText, error) && !ParseProfileFile("; XIUI Native profile 2 00000000\r\n", error),
+            !ParseProfileFile(largeText, error) && !ParseProfileFile("; XIUIplus profile 2 00000000\r\n", error),
             "damaged, truncated, unmarked and unsupported profile files are rejected")) return false;
         std::printf("Large profile: %zu bytes; share key: %zu characters.\n", largeText.size(), largeKey.size());
         auto source = settings_store::FromIniText("[player]\nenabled=0\n[layout.player]\nx=123\n[chat.sounds]\nparty=3\n[chat.color.party]\noverride=1\ncolor=FF5599BB\n[session.exp.42]\nreceived=123\n[session.gil]\nnet=456\n[profiles]\nactive=foreign\n");
@@ -158,13 +163,13 @@ namespace xiui
                 std::error_code ignored;
                 const auto directory = this->root / "profiles";
                 for (const auto& file : std::filesystem::directory_iterator{directory, ignored}) std::filesystem::remove(file.path(), ignored);
-                std::filesystem::remove(directory, ignored); std::filesystem::remove(this->root / "xiuinative.ini", ignored);
+                std::filesystem::remove(directory, ignored); std::filesystem::remove(this->root / "XIUIplus.ini", ignored);
                 std::filesystem::remove(this->root / L"Shared-\u65E5\u672C.xiui", ignored);
                 std::filesystem::remove(this->root / "damaged.xiui", ignored);
                 std::filesystem::remove(this->root, ignored);
             }
         } cleanupFiles{root};
-        hud_runtime runtime; runtime.editing_ = true; runtime.settings_path_ = (root / "xiuinative.ini").string();
+        hud_runtime runtime; runtime.editing_ = true; runtime.settings_path_ = (root / "XIUIplus.ini").string();
         runtime.config_.bounds = {30, 30, 1100, 600}; runtime.profiles_.Initialize(runtime.settings_path_);
         runtime.player_.State().bounds.x = 123; runtime.SaveSettings(); runtime.DrainSettings();
         const D3DVIEWPORT8 viewport{0, 0, 1600, 900, 0, 1};
@@ -278,11 +283,11 @@ namespace xiui
                 const auto profiles = this->root / "profiles";
                 for (const auto& file : std::filesystem::directory_iterator{profiles, error}) std::filesystem::remove(file.path(), error);
                 std::filesystem::remove(profiles, error);
-                std::filesystem::remove(this->root / "xiuinative.ini", error);
+                std::filesystem::remove(this->root / "XIUIplus.ini", error);
                 std::filesystem::remove(this->root, error);
             }
         } cleanupFiles{root};
-        hud_runtime runtime; runtime.editing_ = true; runtime.settings_path_ = (root / "xiuinative.ini").string();
+        hud_runtime runtime; runtime.editing_ = true; runtime.settings_path_ = (root / "XIUIplus.ini").string();
         runtime.config_.bounds = {30, 30, 1100, 600}; runtime.profiles_.Initialize(runtime.settings_path_);
         runtime.player_.State().bounds.x = 1200;
         runtime.SaveSettings();
@@ -369,13 +374,13 @@ namespace xiui
                 const auto profiles = this->root / "profiles";
                 for (const auto& file : std::filesystem::directory_iterator{profiles, error}) std::filesystem::remove(file.path(), error);
                 std::filesystem::remove(profiles, error);
-                std::filesystem::remove(this->root / "xiuinative.ini", error);
+                std::filesystem::remove(this->root / "XIUIplus.ini", error);
                 std::filesystem::remove(this->root, error);
             }
         } cleanupFiles{root};
         hud_runtime runtime;
         runtime.editing_ = true;
-        runtime.settings_path_ = (root / "xiuinative.ini").string();
+        runtime.settings_path_ = (root / "XIUIplus.ini").string();
         runtime.config_.bounds = {30, 30, 1100, 600};
         runtime.profiles_.Initialize(runtime.settings_path_);
         runtime.player_.State().bounds = {1210, 300, 400, 110};
@@ -498,13 +503,13 @@ namespace xiui
                 const auto profiles = this->root / "profiles";
                 for (const auto& file : std::filesystem::directory_iterator{profiles, error}) std::filesystem::remove(file.path(), error);
                 std::filesystem::remove(profiles, error);
-                std::filesystem::remove(this->root / "xiuinative.ini", error);
+                std::filesystem::remove(this->root / "XIUIplus.ini", error);
                 std::filesystem::remove(this->root, error);
             }
         } cleanupFiles{root};
         hud_runtime runtime;
         runtime.editing_ = true;
-        runtime.settings_path_ = (root / "xiuinative.ini").string();
+        runtime.settings_path_ = (root / "XIUIplus.ini").string();
         runtime.profiles_.Initialize(runtime.settings_path_);
         runtime.player_.State().bounds.x = 100;
         runtime.SaveSettings(); runtime.FlushSettings();

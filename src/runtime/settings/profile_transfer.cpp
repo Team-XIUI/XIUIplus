@@ -91,17 +91,17 @@ namespace xiui
         {
             auto name = FromUtf8(request.name);
             for (auto& c : name) if (c < 32 || std::wstring_view{L"<>:\"/\\|?*"}.find(c) != std::wstring_view::npos) c = L'_';
-            const auto suggested = L"XIUI - " + name + L".xiui";
+            const auto suggested = L"XIUIplus - " + name + L".xiuiplus";
             std::copy_n(suggested.begin(), std::min(suggested.size(), filename.size() - 1), filename.begin());
         }
         picker_context context{this, stop};
         OPENFILENAMEW dialog{}; dialog.lStructSize = sizeof(dialog);
         // No game owner: Windows must not disable the game while this worker shows a picker.
         const bool lua = request.kind == profile_transfer_kind::scan_lua;
-        dialog.lpstrFilter = lua ? L"XIUI saved profiles (*.lua)\0*.lua\0All files\0*.*\0" : L"XIUI profile (*.xiui)\0*.xiui\0All files\0*.*\0";
-        dialog.lpstrDefExt = lua ? L"lua" : L"xiui";
+        dialog.lpstrFilter = lua ? L"XIUI saved profiles (*.lua)\0*.lua\0All files\0*.*\0" : L"XIUI+ profile (*.xiuiplus; *.xiui)\0*.xiuiplus;*.xiui\0All files\0*.*\0";
+        dialog.lpstrDefExt = lua ? L"lua" : L"xiuiplus";
         dialog.lpstrFile = filename.data(); dialog.nMaxFile = static_cast<DWORD>(filename.size());
-        dialog.lpstrTitle = save ? L"Export XIUI profile" : lua ? L"Select an XIUI Lua profile or profilelist.lua" : L"Import XIUI profile";
+        dialog.lpstrTitle = save ? L"Export XIUI+ profile" : lua ? L"Select an XIUI Lua profile or profilelist.lua" : L"Import XIUI+ profile";
         dialog.lpfnHook = &profile_transfer::PickerHook;
         dialog.lCustData = reinterpret_cast<LPARAM>(&context);
         dialog.Flags = OFN_EXPLORER | OFN_ENABLEHOOK | OFN_NOCHANGEDIR | OFN_PATHMUSTEXIST |

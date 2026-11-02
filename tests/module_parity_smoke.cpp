@@ -80,7 +80,7 @@ namespace
         Check(source.Find(77)->target == 101 && source.Find(101)->statuses.size() == 3 && source.Find(102)->statuses.size() == 1 &&
             source.Find(77)->statuses[0].id == 10, "AoE and subsequent action results update the correct recipients, including reflected statuses");
         const auto& sleep = source.Find(102)->statuses[0];
-        Check(sleep.id == 2 && sleep.expires == 61000 && !sleep.uncertain && sleep.estimated, "confirmed mob effects use labeled XIUI durations");
+        Check(sleep.id == 2 && sleep.expires == 61000 && !sleep.uncertain && sleep.estimated, "confirmed mob effects use labeled XIUI+ durations");
         source.ApplyStatus(102, 2, 253, 2, 2000);
         Check(source.Find(102)->statuses[0].observed == 1000 && source.Find(102)->statuses[0].expires == 61000,
             "an ordinary damage message cannot refresh confirmed status evidence");
@@ -92,7 +92,7 @@ namespace
         source.ApplyStatus(102, 1000, 0, 236, 2000);
         source.Prune(62000);
         Check(source.Find(101)->statuses.size() == 2 && source.Find(102)->statuses.size() == 2,
-            "XIUI estimates expire independently while unavailable durations remain untimed");
+            "XIUI+ estimates expire independently while unavailable durations remain untimed");
         for (uint32_t id = 1000; id < 1200; ++id) source.ApplyStatus(id, 3, 0, 236, 63000);
         Check(source.Count() == xiui::combat_source::capacity, "combat tracking remains bounded in large encounters");
         xiui::combat_cast cast{"Cure", 1000, 0, 4};
@@ -480,7 +480,7 @@ int main(int argc, char** argv)
         } else if (argc > 1 && std::string_view{argv[1]} == "--status-timers-only") {
             Combat();
             xiui::RunXIUIStatusTimerChecks();
-            std::puts("XIUI duration lookup, estimates, real early removal, refresh, native timer distinction and expiry checks passed.");
+            std::puts("XIUI+ duration lookup, estimates, real early removal, refresh, native timer distinction and expiry checks passed.");
         } else if (argc > 1 && std::string_view{argv[1]} == "--party-text-only") {
             xiui::RunPartyTextChecks();
             std::puts("Party Sync label, independent TP text, legacy migration, geometry and preset checks passed.");

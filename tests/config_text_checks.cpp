@@ -164,7 +164,7 @@ namespace xiui
         const auto colorRow = runtime.ConfigLayout().OptionRow(0);
         if (!check(color.kind == module_option_kind::color_override && !*color.toggle, "chat colors start in Game mode")) return false;
         click(ui::config_layout::OverrideSource(colorRow));
-        if (!check(*color.toggle, "source control enables the XIUI color override")) return false;
+        if (!check(*color.toggle, "source control enables the XIUI+ color override")) return false;
         click(ui::config_layout::OverrideSwatch(colorRow));
         if (!check(runtime.config_.active_color == color.color, "override swatches open the shared color picker")) return false;
         runtime.config_.color_picker.Open(0xFF5599BB); runtime.ApplyPickedColor();
@@ -230,7 +230,7 @@ namespace xiui
         design.SetWindowPalette(0xFF605030);
         if (!check(native != blue && blue != design.GetTheme().colors.control && design.GetTheme().colors.control_selected == 0xFFFEC080,
             "shared button faces follow the window palette and retain the native orange hover")) return false;
-        const auto path = std::filesystem::temp_directory_path() / ("xiuinative-button-palette-check-" + std::to_string(::GetCurrentProcessId()) + ".ini");
+        const auto path = std::filesystem::temp_directory_path() / ("XIUIplus-button-palette-check-" + std::to_string(::GetCurrentProcessId()) + ".ini");
         struct cleanup { std::filesystem::path path; ~cleanup() { std::error_code ignored; std::filesystem::remove(path, ignored); } } cleanupFile{path};
         { std::ofstream theme{path}; theme << "[colors]\ncontrol=FF123456\ncontrol_selected=FFABCDEF\n"; }
         design.SetThemePath(path.string().c_str());

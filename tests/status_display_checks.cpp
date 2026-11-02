@@ -21,10 +21,10 @@ namespace xiui
         static auto Timers(void) -> void
         {
             Check(XIUIStatusSeconds(4, 58, 4, 236) == 120 && XIUIStatusSeconds(4, 254, 5, 236) == 180 &&
-                XIUIStatusSeconds(4, 249, 34, 230) == 180, "XIUI supplies Paralyze, Blind and Blaze Spikes durations");
+                XIUIStatusSeconds(4, 249, 34, 230) == 180, "XIUI+ supplies Paralyze, Blind and Blaze Spikes durations");
             Check(XIUIStatusSeconds(6, 682, 149, 127) == 30 && XIUIStatusSeconds(3, 170, 148, 242) == 120 &&
                 XIUIStatusSeconds(13, 523, 16, 236) == 15 && XIUIStatusSeconds(0, 0, 2, 160) == 25,
-                "ability and weapon IDs stay separate; per-effect pet overrides and additional effects retain XIUI values");
+                "ability and weapon IDs stay separate; per-effect pet overrides and additional effects retain XIUI+ values");
             combat_source source;
             ui::status_strip_settings settings;
             source.ApplyStatus(100, 4, 58, 236, 1000);
@@ -46,7 +46,7 @@ namespace xiui
             source.ApplyStatus(101, 1000, 0, 236, 50000);
             source.Prune(230000);
             Check(source.Find(101)->statuses.size() == 1 && source.Find(101)->statuses.front().id == 1000 &&
-                source.Find(101)->statuses.front().expires == 0, "estimated mob buffs expire while effects absent from XIUI remain untimed");
+                source.Find(101)->statuses.front().expires == 0, "estimated mob buffs expire while effects absent from XIUI+ remain untimed");
             Check(ui::StatusTimerText(source.Find(101)->statuses.front(), 230000, settings) == "?" &&
                 ui::StatusTimerText({4, 0, 0, 51000}, 50000, settings) == "1", "unknown markers and exact native countdowns stay distinct from estimates");
         }
@@ -121,7 +121,7 @@ namespace xiui
                 "Classic retains compact independent TP sizing and its established HP/MP/TP geometry");
             loaded.ApplyPreset(1);
             Check(loaded.text_[0].offset_x == 4 && loaded.text_[0].offset_y == 8 && loaded.cast_placement_ == party_module::cast_name &&
-                loaded.bar_offsets_x_[3] == 0 && loaded.bar_offsets_y_[3] == 0, "XIUI casting inherits the name anchor without duplicate offsets");
+                loaded.bar_offsets_x_[3] == 0 && loaded.bar_offsets_y_[3] == 0, "XIUI+ casting inherits the name anchor without duplicate offsets");
         }
 
         static auto Preview(void) -> void
@@ -280,7 +280,7 @@ namespace xiui
             combat.ApplyStatus(100, 2, 253, 236, 1000);
             combat.ApplyStatus(100, 3, 230, 2, 2000);
             Check(combat.Find(100)->statuses.size() == 1 && combat.Find(100)->statuses[0].expires == 61000 && combat.Find(100)->statuses[0].estimated,
-                "confirmed effects use XIUI estimates without inferring secondary statuses from damage");
+                "confirmed effects use XIUI+ estimates without inferring secondary statuses from damage");
             settings.timers = true;
             combat.ApplyStatus(101, 1000, 0, 236, 2000);
             Check(ui::StatusTimerText(combat.Find(100)->statuses[0], 3000, settings) == "58" &&

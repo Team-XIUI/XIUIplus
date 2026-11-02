@@ -70,7 +70,7 @@ namespace xiui
             for (const auto& bag : snapshot.bags) { items += bag.items.size(); bags += bag.ready && bag.capacity != 0; }
             if (this->core_ != nullptr && this->core_->GetChatManager() != nullptr)
                 this->core_->GetChatManager()->Writef(1, false,
-                    "[XIUI] Satchel: %s; %zu loaded bags, %zu items; %zu cached characters; identity %s; window %s. %s",
+                    "[XIUI+] Satchel: %s; %zu loaded bags, %zu items; %zu cached characters; identity %s; window %s. %s",
                     snapshot.ready ? "settled" : "loading", bags, items, this->satchel_cache_.Characters().size(),
                     snapshot.identity.empty() ? "unavailable" : snapshot.identity.c_str(), this->satchel_.Opened() ? "open" : "closed", this->satchel_actions_.Status().c_str());
         }
@@ -91,7 +91,7 @@ namespace xiui
             this->SaveSettings();
         }
         else if (this->core_ != nullptr && this->core_->GetChatManager() != nullptr)
-            this->core_->GetChatManager()->Write(1, false, "[XIUI] /xiui satchel [open|close|config|status]; /xiui focus satchel for controller browsing.");
+            this->core_->GetChatManager()->Write(1, false, "[XIUI+] /xiuiplus satchel [open|close|config|status]; /xiuiplus focus satchel for controller browsing.");
         return true;
     }
 

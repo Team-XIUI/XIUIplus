@@ -17,9 +17,9 @@ if (-not $Development) {
     & (Join-Path $PSScriptRoot 'package.ps1') -SdkPath $SdkPath
     if ($SkipInstall) { return }
     $PhoenixInstall = Resolve-XiuiInstallPath -PreferredPath $InstallPath
-    try { Publish-XiuiAtomic -Source (Join-Path $Root 'dist/xiuinative.dll') -Destination (Join-Path $PhoenixInstall 'plugins/xiuinative.dll') }
-    catch { throw "Could not install the standalone DLL. Unload XIUI with '/unload xiuinative', then retry. $($_.Exception.Message)" }
-    Write-Output "Installed standalone XIUI into $PhoenixInstall/plugins/xiuinative.dll"
+    try { Install-XiuiStandalone -Source (Join-Path $Root 'dist/XIUIplus.dll') -InstallPath $PhoenixInstall }
+    catch { throw "Could not install the standalone DLL. Unload XIUI+ with '/unload XIUIplus' (or '/unload xiuinative' before upgrading), then retry. $($_.Exception.Message)" }
+    Write-Output "Installed standalone XIUI+ into $PhoenixInstall/plugins/XIUIplus.dll"
     return
 }
 if (-not $SkipInstall -and [string]::IsNullOrWhiteSpace($InstallPath)) { throw '-Development requires an explicit -InstallPath for its isolated install.' }
@@ -46,7 +46,7 @@ function Get-Sha256 {
     }
 }
 
-$TargetArgument = if ($RuntimeOnly) { ' --target xiuinative_runtime' } else { '' }
+$TargetArgument = if ($RuntimeOnly) { ' --target XIUIplus_runtime' } else { '' }
 $cmd = @"
 cd /d "$Root" && call "$VcVars" x86 && set "ASHITA4_SDK_PATH=$Sdk" && "$CMake" --preset msvc-x86-release && "$CMake" --build --preset release$TargetArgument
 "@
@@ -55,8 +55,8 @@ if ($LASTEXITCODE -ne 0) {
     throw "Native build failed with exit code $LASTEXITCODE."
 }
 
-$BuiltHost = Join-Path $Root 'bin\xiuinative.dll'
-$BuiltRuntime = Join-Path $Root 'bin\xiuinative-runtime.dll'
+$BuiltHost = Join-Path $Root 'bin\XIUIplus.dll'
+$BuiltRuntime = Join-Path $Root 'bin\XIUIplus-runtime.dll'
 $RendererSmoke = Join-Path $Root 'bin\tests\xiui_renderer_smoke.exe'
 $FoundationsSmoke = Join-Path $Root 'bin\tests\xiui_foundations_smoke.exe'
 $CallbackGateSmoke = Join-Path $Root 'bin\tests\xiui_callback_gate_smoke.exe'
@@ -116,11 +116,11 @@ if ($SkipInstall) {
 
 $AshitaRoot = Resolve-XiuiInstallPath -PreferredPath $InstallPath
 $PluginDir = Join-Path $AshitaRoot 'plugins'
-$InstalledHost = Join-Path $PluginDir 'xiuinative.dll'
+$InstalledHost = Join-Path $PluginDir 'XIUIplus.dll'
 if ($RuntimeOnly -and ((-not (Test-Path -LiteralPath $InstalledHost)) -or (Get-Sha256 $InstalledHost) -ne $HostHash)) {
     throw 'The selected install does not contain the matching development host. Use the standalone build, or set up an explicit development install first.'
 }
-$PublishedRuntime = Join-Path $PluginDir 'xiuinative-runtime.dll'
+$PublishedRuntime = Join-Path $PluginDir 'XIUIplus-runtime.dll'
 if (-not $RuntimeOnly) {
     $InstalledHostHash = if (Test-Path $InstalledHost) { Get-Sha256 $InstalledHost } else { '' }
     if ($InstalledHostHash -ne $HostHash) {
@@ -128,7 +128,7 @@ if (-not $RuntimeOnly) {
             Copy-Item -Path $BuiltHost -Destination $InstalledHost -Force -ErrorAction Stop
         }
         catch {
-            throw "Stable host changed and is locked. No runtime was published. Run '/unload xiuinative' once, then rerun this build. $($_.Exception.Message)"
+            throw "Stable host changed and is locked. No runtime was published. Run '/unload XIUIplus' once, then rerun this build. $($_.Exception.Message)"
         }
     }
     $InstalledHostHash = Get-Sha256 $InstalledHost

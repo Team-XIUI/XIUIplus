@@ -1,4 +1,4 @@
-LIBRARY "xiuinative"
+LIBRARY "XIUIplus"
 EXPORTS
     expCreatePlugin             @1
     expDestroyPlugin            @2

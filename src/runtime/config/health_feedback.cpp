@@ -43,7 +43,7 @@ namespace xiui
     {
         switch (index)
         {
-        case 0: return module_option::Toggle("HP feedback", "Damage, healing and warning effects across XIUI health bars. Saved fill and text styles are retained.", &this->enabled).Ordered(-50);
+        case 0: return module_option::Toggle("HP feedback", "Damage, healing and warning effects across XIUI+ health bars. Saved fill and text styles are retained.", &this->enabled).Ordered(-50);
         case 1: return module_option::Toggle("Damage trail", "Keep the lost portion briefly before it recedes.", &this->damage).VisibleWhen(this->enabled);
         case 2: return module_option::Toggle("Healing segment", "Highlight restored health while the bar catches up.", &this->healing).VisibleWhen(this->enabled);
         case 3: return module_option::Toggle("Health flashes", "Briefly tint the fill after an observed HP loss or gain.", &this->flashes).VisibleWhen(this->enabled);

@@ -207,17 +207,17 @@ namespace xiui
             {
                 const auto* memory = this->core_->GetMemoryManager();
                 const auto* party = memory != nullptr ? memory->GetParty() : nullptr;
-                this->core_->GetChatManager()->Writef(1, false, "[XIUI] Action Bars: %zu palettes, %zu shared actions, 7 stored crossbar banks; crossbar %s; native macro replacement %s. %s",
+                this->core_->GetChatManager()->Writef(1, false, "[XIUI+] Action Bars: %zu palettes, %zu shared actions, 7 stored crossbar banks; crossbar %s; native macro replacement %s. %s",
                     this->action_store_.AllPalettes().size(), this->action_store_.Macros().size(),
                     crossbarState, this->actionbars_.ReplaceNativeMacros() ? "on" : "off", this->action_executor_.Status().c_str());
-                this->core_->GetChatManager()->Writef(1, false, "[XIUI] Action input: native window %.8s; native menu permission %s; target selection %s; runtime execution %s.",
+                this->core_->GetChatManager()->Writef(1, false, "[XIUI+] Action input: native window %.8s; native menu permission %s; target selection %s; runtime execution %s.",
                     reinterpret_cast<const char*>(&this->visibility_context_.window_focus_name), this->ActionBarsNativeMenuAllowed() ? "allowed" : "blocked",
                     NativeTargetSelectionActive(memory) ? "active" : "idle", this->ActionBarsExecutionAvailable() ? "ready" : "paused");
-                this->core_->GetChatManager()->Writef(1, false, "[XIUI] Current TP: %u. %s", party != nullptr ? party->GetMemberTP(0) : 0,
+                this->core_->GetChatManager()->Writef(1, false, "[XIUI+] Current TP: %u. %s", party != nullptr ? party->GetMemberTP(0) : 0,
                     this->action_executor_.Diagnostics(::GetTickCount64()).c_str());
             }
             if (const auto library = this->actionbars_.LibraryStatus(); !library.empty() && this->core_ != nullptr && this->core_->GetChatManager() != nullptr)
-                this->core_->GetChatManager()->Writef(1, false, "[XIUI] %s", library.c_str());
+                this->core_->GetChatManager()->Writef(1, false, "[XIUI+] %s", library.c_str());
             return true;
         }
         if (argument == "next" || argument == "previous")

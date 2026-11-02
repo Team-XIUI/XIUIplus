@@ -132,7 +132,7 @@ namespace xiui
         if (auto* module = this->SetupModule())
         {
             const bool replacement = this->setup_.step <= 5;
-            items.push_back({control::enable, {x, panel.y + 200, (width - 12) * .5f, 34}, replacement ? "Use XIUI" : "On", module->State().enabled});
+            items.push_back({control::enable, {x, panel.y + 200, (width - 12) * .5f, 34}, replacement ? "Use XIUI+" : "On", module->State().enabled});
             items.push_back({control::disable, {x + (width + 12) * .5f, panel.y + 200, (width - 12) * .5f, 34}, replacement ? "Use game HUD" : "Off", !module->State().enabled});
         }
         if (this->setup_.step == 3 && this->chat_.State().enabled)
@@ -344,7 +344,7 @@ namespace xiui
         auto body = theme.body_text; body.scale = .88f; body.alignment = ui::text_alignment::left;
         auto button = theme.body_text; button.scale = .82f; button.alignment = ui::text_alignment::center;
         const auto& page = ui::setup_pages[this->setup_.step];
-        const std::string progress = "XIUI Setup  " + std::to_string(this->setup_.step + 1) + " / " + std::to_string(ui::setup_pages.size());
+        const std::string progress = "XIUI+ Setup  " + std::to_string(this->setup_.step + 1) + " / " + std::to_string(ui::setup_pages.size());
         this->config_controls_.Text(progress.c_str(), {bounds.x + 20, bounds.y + 16, bounds.width - 144, 24}, caption);
         this->config_controls_.Text(page.title, {bounds.x + 20, bounds.y + 52, bounds.width - 40, 32}, title);
         const auto paragraph = [&](const char* text, float y, const ui::text_style& style) {

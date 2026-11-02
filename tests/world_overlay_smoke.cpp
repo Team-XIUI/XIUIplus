@@ -24,7 +24,7 @@ namespace xiui
             host.device_=device;
             const auto captureRoot=std::filesystem::temp_directory_path()/("xiui-ring-shaders-"+std::to_string(::GetCurrentProcessId()));
             host.ring_capture_.Initialize(captureRoot,"test-version","test-build");
-            Check(host.HandleCommand(0,"/xiui rings capture",false) && host.HandleCommand(0,"/xiui rings capture status",false),
+            Check(host.HandleCommand(0,"/xiuiplus rings capture",false) && host.HandleCommand(0,"/xiuiplus rings capture status",false),
                 "capture and status commands share the render-thread request queue");
             host.Direct3DPresent(nullptr,nullptr,nullptr,nullptr);
             ComPtr<IDirect3DSurface8> back,depth,scene;
@@ -105,9 +105,9 @@ namespace xiui
             DWORD currentShader{}; D3DMATRIX currentView{};
             device->GetVertexShader(&currentShader); device->GetTransform(D3DTS_VIEW,&currentView);
             Check(currentShader==alternateShader && currentView._41==view._41, "shader inspection preserves native device state");
-            Check(host.HandleCommand(0,"/xiui rings capture stop",false), "manual stop command"); present();
+            Check(host.HandleCommand(0,"/xiuiplus rings capture stop",false), "manual stop command"); present();
             host.ring_capture_.Shutdown();
-            const auto folder=captureRoot/"config"/"xiuinative"/"diagnostics";
+            const auto folder=captureRoot/"config"/"XIUIplus"/"diagnostics";
             std::vector<std::filesystem::path> reports;
             for (const auto& entry : std::filesystem::directory_iterator(folder)) if (entry.path().extension()==".json") reports.push_back(entry.path());
             Check(reports.size()==1, "one completed report is atomically saved");
@@ -120,7 +120,7 @@ namespace xiui
                 "unknown shader declaration words are retained");
             Check(report.find("\"function_fnv1a64\":\"0x0\"")==std::string::npos,
                 "programmable shader bytecode is fingerprinted");
-            host.HandleCommand(0,"/xiui rings capture start",false); present();
+            host.HandleCommand(0,"/xiuiplus rings capture start",false); present();
             host.CaptureSceneCamera();
             for (size_t i=0;i<600;++i) present();
             host.ring_capture_.Shutdown();
@@ -138,7 +138,7 @@ namespace xiui
 int main()
 {
     using Microsoft::WRL::ComPtr;
-    const auto window=::CreateWindowExW(0,L"STATIC",L"XIUI world camera check",WS_POPUP,0,0,64,64,nullptr,nullptr,::GetModuleHandleW(nullptr),nullptr);
+    const auto window=::CreateWindowExW(0,L"STATIC",L"XIUI+ world camera check",WS_POPUP,0,0,64,64,nullptr,nullptr,::GetModuleHandleW(nullptr),nullptr);
     struct close_window { HWND window; ~close_window() { if (window) ::DestroyWindow(window); } } cleanup{window};
     try
     {

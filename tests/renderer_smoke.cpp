@@ -30,7 +30,7 @@ int main(void)
     const HWND window = ::CreateWindowExA(
         WS_EX_TOOLWINDOW,
         windowClass.lpszClassName,
-        "XIUI renderer smoke",
+        "XIUI+ renderer smoke",
         WS_POPUP,
         0,
         0,
@@ -151,7 +151,7 @@ int main(void)
     char textProfilePath[MAX_PATH]{};
     if (::GetTempPathA(MAX_PATH, temporaryDirectory) == 0)
         return fail("module text profile temp path", 9);
-    std::snprintf(textProfilePath, sizeof(textProfilePath), "%sxiuinative-text-profile-smoke.ini", temporaryDirectory);
+    std::snprintf(textProfilePath, sizeof(textProfilePath), "%sXIUIplus-text-profile-smoke.ini", temporaryDirectory);
     ::DeleteFileA(textProfilePath);
     xiui::settings_store textStore{textProfilePath};
     resetPlayer.Settings().name_text.style.scale = 1.35f;

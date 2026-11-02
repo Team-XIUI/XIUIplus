@@ -6,7 +6,7 @@ The [XIUI parity audit](feature-parity.md) tracks missing Lua features. Its [imp
 
 ## Shipped defaults
 
-Use [the maintained capture workflow](../development.md#capture-current-defaults) when asked to replace the baseline. It confirms save completion, reuses the portable preference boundary, backs up the previous files and records [capture metadata](../../config/xiuinative-defaults.capture.json). Ordinary builds preserve the captured baseline and active user settings.
+Use [the maintained capture workflow](../development.md#capture-current-defaults) when asked to replace the baseline. It confirms save completion, reuses the portable preference boundary, backs up the previous files and records [capture metadata](../../config/XIUIplus-defaults.capture.json). Ordinary builds preserve the captured baseline and active user settings.
 
 The October 17, 2026 baseline was refreshed from Cody's live 23:58:29 save and captures the complete current UI configuration: 14,320 saved preferences across 1,867 sections, including enabled states, positions, text, colors, bars, status effects, minimap options, action bar settings and the current theme. Empty/retired demo settings, profile metadata and session data are excluded. New installations and explicit Reset to defaults use this baseline; existing installations retain their own saved preferences.
 

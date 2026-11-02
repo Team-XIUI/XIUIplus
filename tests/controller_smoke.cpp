@@ -170,6 +170,6 @@ int main(const int argc, char** argv)
         return 0;
     }
     if (!xiui::RunControllerModuleChecks() || !xiui::RunControllerConfigChecks() || !xiui::controller_runtime_test::Run() || !xiui::controller_runtime_test::PartyInput()) return 1;
-    std::puts("XIUI controller module, configuration and ownership checks passed.");
+    std::puts("XIUI+ controller module, configuration and ownership checks passed.");
     return 0;
 }

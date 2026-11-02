@@ -21,7 +21,7 @@ namespace xiui
             auto runtime = std::make_unique<hud_runtime>();
             const auto theme = ui::theme::CreateDefault();
             for (auto* module : runtime->modules_.All()) { module->ApplyTextDefaults(theme); module->ResetDefaults(theme); }
-            runtime->default_settings_text_ = read("config/xiuinative-defaults.ini");
+            runtime->default_settings_text_ = read("config/XIUIplus-defaults.ini");
             runtime->LoadSettings(settings_store::FromIniText(runtime->default_settings_text_));
             const auto defaults = runtime->CaptureSettings();
             const auto finishTransfer = [&] {
@@ -86,7 +86,7 @@ namespace xiui
                 std::filesystem::path path;
                 ~cleanup() { std::error_code ignored; if (this->path.parent_path() == std::filesystem::weakly_canonical(std::filesystem::temp_directory_path()) && this->path.filename().string().starts_with("xiui-lua-import-")) std::filesystem::remove_all(this->path, ignored); }
             } cleanupFiles{root};
-            runtime->settings_path_ = (root / "xiuinative.ini").string();
+            runtime->settings_path_ = (root / "XIUIplus.ini").string();
             runtime->profiles_.Initialize(runtime->settings_path_);
             runtime->editing_ = true; runtime->config_.bounds = {20, 20, 1100, 600};
             runtime->player_.State().bounds.x = 777;
@@ -124,7 +124,7 @@ namespace xiui
             if (!check(rejected, "only the inert common serializer header is accepted")) return false;
             std::vector<settings_profiles::import_entry> oldImport{{"Earlier conversion", discovered.profiles[0].source_id.substr(lua_import_revision.size() + 1), defaults.Preferences("")}};
             std::filesystem::create_directory(root / "previous");
-            settings_profiles previousConverter; previousConverter.Initialize((root / "previous/xiuinative.ini").string());
+            settings_profiles previousConverter; previousConverter.Initialize((root / "previous/XIUIplus.ini").string());
             std::vector<size_t> previousCreated; std::string previousReport, previousError;
             if (!check(previousConverter.Import(oldImport, {}, previousCreated, previousReport, previousError), "an earlier importer identity can be recorded")) return false;
             std::vector<settings_profiles::import_entry> updatedImport{{"Updated conversion", discovered.profiles[0].source_id, defaults.Preferences("")}};

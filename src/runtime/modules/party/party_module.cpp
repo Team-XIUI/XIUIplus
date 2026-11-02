@@ -1012,7 +1012,7 @@ namespace xiui
     {
         const auto container = this->LayoutContainer();
         char text[512]{};
-        std::snprintf(text, sizeof(text), "[XIUI] %s layout=%d; maximum=%.0f; container=%.0f; bars=%.0f; fit=%s; TP=%s; spacing=%.0f. ",
+        std::snprintf(text, sizeof(text), "[XIUI+] %s layout=%d; maximum=%.0f; container=%.0f; bars=%.0f; fit=%s; TP=%s; spacing=%.0f. ",
             this->DisplayName(), this->layout_, this->state_.bounds.width, container.width, container.canvas_width,
             this->fit_width_ ? "on" : "off", this->tp_ ? "shown" : "hidden", this->spacing_);
         std::string result{text};

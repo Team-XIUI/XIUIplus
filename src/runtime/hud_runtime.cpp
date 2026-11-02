@@ -376,7 +376,7 @@ namespace xiui
         catch (const std::exception& error)
         {
             if (core != nullptr && core->GetChatManager() != nullptr)
-                core->GetChatManager()->Writef(1, false, "[XIUI] Storage migration failed: %s", error.what());
+                core->GetChatManager()->Writef(1, false, "[XIUI+] Storage migration failed: %s", error.what());
             throw;
         }
         this->ready_check_.SetSoundDirectory(storage.Sounds().string());
@@ -421,7 +421,7 @@ namespace xiui
         this->settings_writer_.Stop();
         this->profile_writer_.Stop();
         if ((this->settings_writer_.HasFailed() || this->profile_writer_.HasFailed()) && this->core_ != nullptr && this->core_->GetChatManager() != nullptr)
-            this->core_->GetChatManager()->Write(1, false, "[XIUI] Settings could not be saved before shutdown; check config directory permissions.");
+            this->core_->GetChatManager()->Write(1, false, "[XIUI+] Settings could not be saved before shutdown; check config directory permissions.");
         this->cursor_renderer_.Shutdown();
         this->minimap_maps_.Shutdown();
         this->skillchain_source_.Clear();
@@ -1246,7 +1246,7 @@ namespace xiui
                 for (size_t index = 0; index < this->startup_profile_.count; ++index)
                 {
                     const auto& entry = this->startup_profile_.entries[index];
-                    this->core_->GetChatManager()->Writef(1, false, "[XIUI] Startup %s: %.2f ms.", entry.name, entry.milliseconds);
+                    this->core_->GetChatManager()->Writef(1, false, "[XIUI+] Startup %s: %.2f ms.", entry.name, entry.milliseconds);
                 }
             return true;
         }
@@ -1256,7 +1256,7 @@ namespace xiui
             {
                 if (!this->ApplyHudPreset(preset)) return false;
                 if (this->core_ != nullptr && this->core_->GetChatManager() != nullptr)
-                    this->core_->GetChatManager()->Writef(1, false, "[XIUI] %s full HUD preset applied.", ui::hud_presets[preset].name);
+                    this->core_->GetChatManager()->Writef(1, false, "[XIUI+] %s full HUD preset applied.", ui::hud_presets[preset].name);
                 return true;
             }
         if (::_stricmp(command, "party preset classic") == 0 || ::_stricmp(command, "party preset xiv") == 0)
@@ -1267,14 +1267,14 @@ namespace xiui
             this->party_.ApplyPreset(classic ? 0 : 2);
             this->ResolveHudTransforms(this->hud_viewport_); this->SaveSettings();
             if (this->core_ != nullptr && this->core_->GetChatManager() != nullptr)
-                this->core_->GetChatManager()->Writef(1, false, "[XIUI] %s Party preset applied; other modules kept.", classic ? "Classic" : "XIV");
+                this->core_->GetChatManager()->Writef(1, false, "[XIUI+] %s Party preset applied; other modules kept.", classic ? "Classic" : "XIV");
             return true;
         }
         const char* message{};
         if (::_stricmp(command,"rings status")==0)
         {
             if (this->core_ && this->core_->GetChatManager())
-                this->core_->GetChatManager()->Writef(1,false,"[XIUI] %s",this->target_rings_.Status().c_str());
+                this->core_->GetChatManager()->Writef(1,false,"[XIUI+] %s",this->target_rings_.Status().c_str());
             return true;
         }
         if (::_stricmp(command, "casting") == 0 || ::_stricmp(command, "castbar") == 0 || ::_stricmp(command, "castcost") == 0 || ::_stricmp(command, "recast") == 0)
@@ -1290,7 +1290,7 @@ namespace xiui
         else if (::_stricmp(command, "fonts status") == 0)
         {
             if (this->core_ != nullptr && this->core_->GetChatManager() != nullptr)
-                this->core_->GetChatManager()->Writef(1, false, "[XIUI] Fonts: Bahnschrift %s; Segoe UI %s; Tahoma %s; Grammara %s.",
+                this->core_->GetChatManager()->Writef(1, false, "[XIUI+] Fonts: Bahnschrift %s; Segoe UI %s; Tahoma %s; Grammara %s.",
                     this->design_system_.FontAvailable(0) ? "ready" : "unavailable", this->design_system_.FontAvailable(1) ? "ready" : "unavailable",
                     this->design_system_.FontAvailable(2) ? "ready" : "unavailable", this->design_system_.FontAvailable(3) ? "ready" : "unavailable");
             return true;
@@ -1298,7 +1298,7 @@ namespace xiui
         else if (::_stricmp(command, "recast status") == 0)
         {
             if (this->core_ != nullptr && this->core_->GetChatManager() != nullptr)
-                this->core_->GetChatManager()->Writef(1, false, "[XIUI] Recast: source %s; %zu tracked cooldowns; icons %s; module %s.",
+                this->core_->GetChatManager()->Writef(1, false, "[XIUI+] Recast: source %s; %zu tracked cooldowns; icons %s; module %s.",
                     this->recast_source_.Available() ? "native" : "unavailable", this->recast_source_.Entries().size(),
                     this->game_icons_.RecastAtlas() != nullptr ? "embedded" : "unavailable", this->recast_.State().enabled ? "enabled" : "disabled");
             return true;
@@ -1308,11 +1308,11 @@ namespace xiui
             if (this->core_ != nullptr && this->core_->GetChatManager() != nullptr)
             {
                 if (::_stricmp(command, "castbar status") == 0)
-                    this->core_->GetChatManager()->Writef(1, false, "[XIUI] Cast Bar: source %s; %s; progress %.0f%%; module %s.",
+                    this->core_->GetChatManager()->Writef(1, false, "[XIUI+] Cast Bar: source %s; %s; progress %.0f%%; module %s.",
                         this->player_cast_source_.Available() ? "native" : "unavailable", this->player_cast_source_.State().Active() ? this->player_cast_source_.State().name.c_str() : "idle",
                         this->player_cast_source_.State().progress * 100, this->cast_bar_.State().enabled ? "enabled" : "disabled");
                 else
-                    this->core_->GetChatManager()->Writef(1, false, "[XIUI] Cast Cost: native menu support 0x%X (spell=1, ability=2, mount=4); selected %s; module %s.",
+                    this->core_->GetChatManager()->Writef(1, false, "[XIUI+] Cast Cost: native menu support 0x%X (spell=1, ability=2, mount=4); selected %s; module %s.",
                         this->cast_cost_source_.AvailableMask(), this->cast_cost_source_.State().Valid() ? this->cast_cost_source_.State().name.c_str() : "none",
                         this->cast_cost_.State().enabled ? "enabled" : "disabled");
             }
@@ -1323,7 +1323,7 @@ namespace xiui
             const auto timer = this->timing_source_.Player(::GetTickCount64() / 1000.0);
             const auto recovery = this->timing_source_.Recovery().Predict(::GetTickCount64() / 1000.0);
             if (this->core_ != nullptr && this->core_->GetChatManager() != nullptr)
-                this->core_->GetChatManager()->Writef(1, false, "[XIUI] Timing: attack %s, ~%.2fs interval (%s); resting %s; enemy clocks %zu.",
+                this->core_->GetChatManager()->Writef(1, false, "[XIUI+] Timing: attack %s, ~%.2fs interval (%s); resting %s; enemy clocks %zu.",
                     timer.active ? "active" : "idle", timer.interval, timer.learned ? "observed" : "modeled", recovery.active ? "active" : "idle", this->timing_source_.Count());
             return true;
         }
@@ -1347,14 +1347,14 @@ namespace xiui
         else if (::_stricmp(command, "save sync") == 0)
         {
             this->FinishInteraction();
-            try { this->FlushSettings(); message = "[XIUI] Current settings saved."; }
-            catch (const std::exception&) { message = "[XIUI] Settings save failed; pending settings were retained."; }
+            try { this->FlushSettings(); message = "[XIUI+] Current settings saved."; }
+            catch (const std::exception&) { message = "[XIUI+] Settings save failed; pending settings were retained."; }
         }
         else if (::_stricmp(command, "save") == 0)
         {
             this->FinishInteraction();
             this->SaveSettings();
-            message = "[XIUI] Current settings queued for saving.";
+            message = "[XIUI+] Current settings queued for saving.";
         }
         else if (::_stricmp(command, "layout defaults") == 0)
         {
@@ -1364,7 +1364,7 @@ namespace xiui
             RestoreDefaultLayoutPositions(snapshot, settings_store::FromIniText(this->default_settings_text_));
             this->LoadSettings(snapshot);
             this->SaveSettings();
-            message = "[XIUI] Default positions fitted to the game window. Appearance and actions preserved.";
+            message = "[XIUI+] Default positions fitted to the game window. Appearance and actions preserved.";
         }
         else if (::_stricmp(command, "general") == 0 || ::_stricmp(command, "theme") == 0)
         {
@@ -1380,12 +1380,12 @@ namespace xiui
             const bool xiv1 = ::_stricmp(command, "theme xiv1") == 0;
             this->general_.SetAppearanceTheme(xiv1 ? ui::xiv1_appearance : ui::native_appearance);
             this->SaveSettings();
-            message = xiv1 ? "[XIUI] XIV 1.0 Theme enabled." : "[XIUI] XI Theme enabled.";
+            message = xiv1 ? "[XIUI+] XIV 1.0 Theme enabled." : "[XIUI+] XI Theme enabled.";
         }
         else if (::_strnicmp(command, "theme ", 6) == 0 && command[6] >= '1' && command[6] <= '8' && command[7] == '\0')
         {
             this->general_.UpdateWindowType(this->window_config_.Type());
-            if (!this->general_.RequestWindowType(command[6] - '1')) message = "[XIUI] Client Window Type control is unavailable.";
+            if (!this->general_.RequestWindowType(command[6] - '1')) message = "[XIUI+] Client Window Type control is unavailable.";
             else return true;
         }
         else if (::_stricmp(command, "party") == 0 || ::_stricmp(command, "alliance1") == 0 || ::_stricmp(command, "alliance2") == 0)
@@ -1412,7 +1412,7 @@ namespace xiui
         else if (::_stricmp(command, "party status") == 0)
         {
             if (this->core_ != nullptr && this->core_->GetChatManager() != nullptr)
-                this->core_->GetChatManager()->Writef(1, false, "[XIUI] Party: %zu/6; alliance: %zu/6, %zu/6; source %s; XIVParty icons %s; module %s.",
+                this->core_->GetChatManager()->Writef(1, false, "[XIUI+] Party: %zu/6; alliance: %zu/6, %zu/6; source %s; XIVParty icons %s; module %s.",
                     this->party_source_.Count(0), this->party_source_.Count(1), this->party_source_.Count(2), this->party_source_.Available() ? "live" : "unavailable",
                     this->game_icons_.JobAtlas() != nullptr ? "loaded" : "unavailable", this->party_.State().enabled ? "enabled" : "disabled");
             return true;
@@ -1424,7 +1424,7 @@ namespace xiui
         else if (::_stricmp(command, "treasure status") == 0)
         {
             if (this->core_ != nullptr && this->core_->GetChatManager() != nullptr)
-                this->core_->GetChatManager()->Writef(1, false, "[XIUI] Treasure Pool: %s; %zu items. Rewards use Notifications.", this->treasure_source_.Ready() ? "ready" : "loading", this->treasure_source_.Count());
+                this->core_->GetChatManager()->Writef(1, false, "[XIUI+] Treasure Pool: %s; %zu items. Rewards use Notifications.", this->treasure_source_.Ready() ? "ready" : "loading", this->treasure_source_.Count());
             return true;
         }
         else if (::_stricmp(command, "treasure lotall") == 0 || ::_stricmp(command, "treasure passall") == 0)
@@ -1443,14 +1443,14 @@ namespace xiui
             this->combat_source_.Clear();
             this->SaveSettings();
             if (this->core_ != nullptr && this->core_->GetChatManager() != nullptr)
-                this->core_->GetChatManager()->Writef(1, false, "[XIUI] Combat rules: %s.", ServerRulesName(this->combat_settings_.Rules()));
+                this->core_->GetChatManager()->Writef(1, false, "[XIUI+] Combat rules: %s.", ServerRulesName(this->combat_settings_.Rules()));
             return true;
         }
         else if (::_stricmp(command, "chains status") == 0)
         {
             const auto* window = this->skillchain_source_.Current(::GetTickCount64());
             if (this->core_ != nullptr && this->core_->GetChatManager() != nullptr)
-                this->core_->GetChatManager()->Writef(1, false, "[XIUI] Chains: %s; %s rules; %zu available actions; selected %u; window %s.",
+                this->core_->GetChatManager()->Writef(1, false, "[XIUI+] Chains: %s; %s rules; %zu available actions; selected %u; window %s.",
                     this->chains_.State().enabled ? "enabled" : "disabled", ServerRulesName(this->combat_settings_.Rules()),
                     this->chains_source_.Actions().size(), this->skillchain_source_.Target(), window != nullptr ? "active" : "none");
             return true;
@@ -1464,7 +1464,7 @@ namespace xiui
         {
             const auto* window = this->skillchain_source_.Current(::GetTickCount64());
             if (this->core_ != nullptr && this->core_->GetChatManager() != nullptr)
-                this->core_->GetChatManager()->Writef(1, false, "[XIUI] Skillchains: %s rules; %zu tracked targets; selected %u; chain %s; HUD %s; predictions %s.",
+                this->core_->GetChatManager()->Writef(1, false, "[XIUI+] Skillchains: %s rules; %zu tracked targets; selected %u; chain %s; HUD %s; predictions %s.",
                     ServerRulesName(this->combat_settings_.Rules()), this->skillchain_source_.Count(), this->skillchain_source_.Target(),
                     window != nullptr && window->chain != skillchain_property::none ? SkillchainName(window->chain) : "none",
                     this->magic_burst_.State().enabled ? "enabled" : "disabled", this->actionbars_.SkillchainPredictionsEnabled() ? "enabled" : "disabled");
@@ -1486,7 +1486,7 @@ namespace xiui
         {
             const auto& state = this->minimap_source_.State();
             if (this->core_ != nullptr && this->core_->GetChatManager() != nullptr)
-                this->core_->GetChatManager()->Writef(1, false, "[XIUI] Minimap: native table %s; zone %u, floor %d; alignment %s; UV %.4f, %.4f; %zu markers; %zu bundled map records.",
+                this->core_->GetChatManager()->Writef(1, false, "[XIUI+] Minimap: native table %s; zone %u, floor %d; alignment %s; UV %.4f, %.4f; %zu markers; %zu bundled map records.",
                     this->minimap_source_.Available() ? "available" : "unavailable", state.zone, state.floor, state.available ? "available" : "unavailable",
                     state.player.x, state.player.y, state.markers.size(), this->minimap_maps_.Count());
             return true;
@@ -1509,10 +1509,10 @@ namespace xiui
         else if (::_stricmp(command, "commands status") == 0 || ::_stricmp(command, "theme status") == 0)
         {
             if (this->core_ != nullptr && this->core_->GetChatManager() != nullptr)
-                this->core_->GetChatManager()->Writef(1, false, "[XIUI] Window / bar theme: %s.", ui::appearance_themes[this->general_.AppearanceTheme()]);
+                this->core_->GetChatManager()->Writef(1, false, "[XIUI+] Window / bar theme: %s.", ui::appearance_themes[this->general_.AppearanceTheme()]);
             const auto& state = this->native_ui_;
             if (this->core_ != nullptr && this->core_->GetChatManager() != nullptr)
-                this->core_->GetChatManager()->Writef(1, false, "[XIUI] Native UI: Window Type %u (%s); command module %s; %u active command panels; anchor %s; movement %s; themed bars %s.",
+                this->core_->GetChatManager()->Writef(1, false, "[XIUI+] Native UI: Window Type %u (%s); command module %s; %u active command panels; anchor %s; movement %s; themed bars %s.",
                     state.window_type + 1, state.window_type_available ? "following game" : "unavailable", this->commands_.State().enabled ? "enabled" : "disabled",
                     state.menu_count, this->commands_.AnchorsTop() ? "Top" : "Bottom", state.menu_available ? "available" : "unavailable",
                     this->native_assets_.MeterSkin() && this->container_renderer_.MeterBackground().texture != nullptr ? "available" : "unavailable");
@@ -1522,7 +1522,7 @@ namespace xiui
         {
             const auto& state = this->world_source_.State();
             if (this->core_ != nullptr && this->core_->GetChatManager() != nullptr)
-                this->core_->GetChatManager()->Writef(1, false, "[XIUI] Time %s %02u:%02u; weather %s; heading %s %.0f; %zu markers; native assets %s; compass camera %s.",
+                this->core_->GetChatManager()->Writef(1, false, "[XIUI+] Time %s %02u:%02u; weather %s; heading %s %.0f; %zu markers; native assets %s; compass camera %s.",
                     state.time_valid ? "available" : "unavailable", state.time.hour, state.time.minute,
                     state.weather_valid ? weather_names[state.weather] : "unavailable", state.heading_valid ? HeadingName(state.heading) : "unavailable", HeadingDegrees(state.heading),
                     state.markers.size(), this->native_assets_.CompassAvailable() ? "available" : "unavailable", state.compass_rotation_valid ? "available" : "unavailable");
@@ -1554,7 +1554,7 @@ namespace xiui
         {
             const auto window1 = this->window_config_.ChatFilterValue(185);
             if (this->core_ != nullptr && this->core_->GetChatManager() != nullptr)
-                this->core_->GetChatManager()->Writef(1, false, "[XIUI] Chat: %s; %s; capture %s; %zu messages; game palette %s; tabs %s; second window %s (%s); native filters %s; Window 1 emotes %s.",
+                this->core_->GetChatManager()->Writef(1, false, "[XIUI+] Chat: %s; %s; capture %s; %zu messages; game palette %s; tabs %s; second window %s (%s); native filters %s; Window 1 emotes %s.",
                     this->chat_.State().enabled ? "enabled" : "disabled", this->chat_.ViewName(), this->chat_capture_available_ ? "available" : "unavailable", this->chat_.Count(),
                     this->chat_palette_available_ ? "available" : "unavailable", this->chat_.TabsVisible() ? "shown" : "hidden",
                     this->chat_second_.State().enabled ? "enabled" : "disabled", this->chat_second_.ViewName(),
@@ -1595,14 +1595,14 @@ namespace xiui
         else if (::_stricmp(command, "sounds status") == 0)
         {
             if (this->core_ != nullptr && this->core_->GetChatManager() != nullptr)
-                this->core_->GetChatManager()->Writef(1, false, "[XIUI] Native UI sounds: %s.", this->ui_sounds_.Available() ? "ready" : "unavailable on this client");
+                this->core_->GetChatManager()->Writef(1, false, "[XIUI+] Native UI sounds: %s.", this->ui_sounds_.Available() ? "ready" : "unavailable on this client");
             return true;
         }
         else if (::_stricmp(command, "features status") == 0)
         {
             const auto& progress = this->experience_.Progression();
             if (this->core_ != nullptr && this->core_->GetChatManager() != nullptr)
-                this->core_->GetChatManager()->Writef(1, false, "[XIUI] Existing modules: progression %s %u/%u; combat records %zu; notifications %zu; party/enemy click targeting active outside edit mode.",
+                this->core_->GetChatManager()->Writef(1, false, "[XIUI+] Existing modules: progression %s %u/%u; combat records %zu; notifications %zu; party/enemy click targeting active outside edit mode.",
                     progress.Label(), progress.current, progress.needed, this->combat_source_.Count(), this->notifications_.Center().Entries().size());
             return true;
         }
@@ -1612,7 +1612,7 @@ namespace xiui
             this->alliance_second_.CopyPreferences(this->party_);
             this->SaveSettings();
             if (this->core_ != nullptr && this->core_->GetChatManager() != nullptr)
-                this->core_->GetChatManager()->Writef(1, false, "[XIUI] Copied current Party settings to Alliance 1 and Alliance 2; positions and visibility preserved.");
+                this->core_->GetChatManager()->Writef(1, false, "[XIUI+] Copied current Party settings to Alliance 1 and Alliance 2; positions and visibility preserved.");
             return true;
         }
         else if (::_stricmp(command, "gil reset") == 0 || ::_stricmp(command, "gil status") == 0)
@@ -1620,7 +1620,7 @@ namespace xiui
             if (::_stricmp(command, "gil reset") == 0) { this->gil_source_.ResetSession(::GetTickCount64()); this->SaveSettings(); }
             const auto& session = this->gil_source_.Session();
             if (this->core_ != nullptr && this->core_->GetChatManager() != nullptr)
-                this->core_->GetChatManager()->Writef(1, false, "[XIUI] Gil: %u; session %s; rate %s/hr; source %s; DAT icon %s.", session.balance,
+                this->core_->GetChatManager()->Writef(1, false, "[XIUI+] Gil: %u; session %s; rate %s/hr; source %s; DAT icon %s.", session.balance,
                     FormatGil(session.Net(), true).c_str(), FormatGil(session.PerHour(::GetTickCount64()), true).c_str(),
                     session.ready ? "ready" : "loading", this->game_icons_.Item(65535) != nullptr ? "ready" : "unavailable");
             return true;
@@ -1630,7 +1630,7 @@ namespace xiui
             size_t equipped{}, ready{};
             for (const auto& item : this->equipment_source_.Items()) { equipped += item.id != 0; ready += item.ready; }
             if (this->core_ != nullptr && this->core_->GetChatManager() != nullptr)
-                this->core_->GetChatManager()->Writef(1, false, "[XIUI] Equipment: %zu/16 equipped; %zu slots ready; source %s; module %s.",
+                this->core_->GetChatManager()->Writef(1, false, "[XIUI+] Equipment: %zu/16 equipped; %zu slots ready; source %s; module %s.",
                     equipped, ready, this->equipment_source_.Available() ? "live" : "unavailable", this->equipment_.State().enabled ? "enabled" : "disabled");
             return true;
         }
@@ -1650,7 +1650,7 @@ namespace xiui
         {
             if (this->core_ != nullptr && this->core_->GetChatManager() != nullptr)
                 for (const auto& inventory : this->inventory_)
-                    this->core_->GetChatManager()->Writef(1, false, "[XIUI] %s.", inventory.Describe().c_str());
+                    this->core_->GetChatManager()->Writef(1, false, "[XIUI+] %s.", inventory.Describe().c_str());
             return true;
         }
         else if (::_stricmp(command, "chat recover") == 0)
@@ -1658,7 +1658,7 @@ namespace xiui
             const bool recovered = this->chat_input_.Recover(this->core_ != nullptr ? this->core_->GetChatManager() : nullptr);
             if (recovered) this->ReleaseChatInput();
             if (this->core_ != nullptr && this->core_->GetChatManager() != nullptr)
-                this->core_->GetChatManager()->Write(1, false, recovered ? "[XIUI] Native input restored after the tell handoff." : "[XIUI] Native input does not need this recovery.");
+                this->core_->GetChatManager()->Write(1, false, recovered ? "[XIUI+] Native input restored after the tell handoff." : "[XIUI+] Native input does not need this recovery.");
             return true;
         }
         else if (::_stricmp(command, "chat input") == 0)
@@ -1672,11 +1672,11 @@ namespace xiui
                 const auto layout = this->window_config_.KeyboardLayout();
                 const char* layoutName = !layout ? "unavailable" : *layout == native_keyboard_layout::full ? "Full" :
                     *layout == native_keyboard_layout::compact1 ? "Compact 1" : "Compact 2";
-                this->core_->GetChatManager()->Writef(1, false, "[XIUI] Chat input: reply lookup %s; native chat handoff %s; native input status %u; editor %s; keyboard %s; layout %s; destination %s.",
+                this->core_->GetChatManager()->Writef(1, false, "[XIUI+] Chat input: reply lookup %s; native chat handoff %s; native input status %u; editor %s; keyboard %s; layout %s; destination %s.",
                     this->chat_input_.ReplyAvailable() ? "available" : "unavailable", this->chat_input_.HandoffAvailable() ? "available" : "unavailable",
                     this->core_->GetChatManager()->IsInputOpen(), this->ChatFocused() ? "focused" : "idle",
                     keyboard != nullptr && keyboard->GetBlockInput() ? "blocked" : "available", layoutName, this->chat_.SendChannelLabel().c_str());
-                this->core_->GetChatManager()->Writef(1, false, "[XIUI] Chat routing: replacement %s; native menu %s; subtarget %u; action target %u; target menu %u; action type %u; action ID %u.",
+                this->core_->GetChatManager()->Writef(1, false, "[XIUI+] Chat routing: replacement %s; native menu %s; subtarget %u; action target %u; target menu %u; action type %u; action ID %u.",
                     this->chat_capture_available_ && (this->game_hud_.HiddenMask() & NativeHudBit(native_hud_element::chat1)) != 0 ? "enabled" : "disabled",
                     this->native_ui_.menu_visible ? "visible" : "hidden", target != nullptr ? target->GetIsSubTargetActive() : 0,
                     target != nullptr ? target->GetActionTargetActive() : 0, target != nullptr ? target->GetIsMenuOpen() : 0,
@@ -1719,7 +1719,7 @@ namespace xiui
             if (this->core_ != nullptr && this->core_->GetChatManager() != nullptr)
             {
                 char text[128]{};
-                std::snprintf(text, sizeof(text), "[XIUI] Enemy list: %zu tracked; %s.", this->enemy_list_.Count(), this->enemy_list_.State().enabled ? "enabled" : "disabled");
+                std::snprintf(text, sizeof(text), "[XIUI+] Enemy list: %zu tracked; %s.", this->enemy_list_.Count(), this->enemy_list_.State().enabled ? "enabled" : "disabled");
                 this->core_->GetChatManager()->Write(1, false, text);
             }
             return true;
@@ -1741,28 +1741,28 @@ namespace xiui
             else if (action == "hide" && key == "all")
                 this->game_hud_.HideAll();
             else if ((action != "show" && action != "hide") || !this->game_hud_.SetShown(key, action == "show"))
-                message = "[XIUI] Use /xiui gamehud or gamehud show|hide <element|all>.";
+                message = "[XIUI+] Use /xiuiplus gamehud or gamehud show|hide <element|all>.";
             if (message == nullptr)
             {
                 this->SaveSettings();
-                message = "[XIUI] Native menu visibility updated.";
+                message = "[XIUI+] Native menu visibility updated.";
             }
         }
         else if (::_stricmp(command, "notify test") == 0)
         {
             this->notifications_.Demo(::GetTickCount64());
-            message = "[XIUI] Notification samples queued (XP, item, skill).";
+            message = "[XIUI+] Notification samples queued (XP, item, skill).";
         }
         else if (::_stricmp(command, "notify clear") == 0)
         {
             this->notifications_.Center().Clear();
-            message = "[XIUI] Notifications cleared.";
+            message = "[XIUI+] Notifications cleared.";
         }
         else if (::_stricmp(command, "notify status") == 0)
-            message = this->notifications_.IsScreenAnchored() ? "[XIUI] Notifications use a stable screen-space anchor." : "[XIUI] Notifications use the saved manual position.";
+            message = this->notifications_.IsScreenAnchored() ? "[XIUI+] Notifications use a stable screen-space anchor." : "[XIUI+] Notifications use the saved manual position.";
         else if (::_stricmp(command, "container") == 0 || ::_stricmp(command, "container preview") == 0 || ::_stricmp(command, "container show") == 0 || ::_stricmp(command, "container hide") == 0)
         {
-            message = "[XIUI] The container demo has been removed. Modules follow the game's Window Type setting.";
+            message = "[XIUI+] The container demo has been removed. Modules follow the game's Window Type setting.";
         }
         else
             return false;
@@ -1806,7 +1806,7 @@ namespace xiui
         if (!this->DrainSettings())
         {
             if (this->core_ != nullptr && this->core_->GetChatManager() != nullptr)
-                this->core_->GetChatManager()->Write(1, false, "[XIUI] Pending settings could not be saved; reload cancelled.");
+                this->core_->GetChatManager()->Write(1, false, "[XIUI+] Pending settings could not be saved; reload cancelled.");
             return;
         }
         this->design_system_.ReloadTheme();
@@ -1874,7 +1874,7 @@ namespace xiui
     {
         this->SaveSettings();
         if (!this->DrainSettings())
-            throw std::runtime_error{"XIUI settings could not be saved"};
+            throw std::runtime_error{"XIUI+ settings could not be saved"};
     }
 
     auto hud_runtime::IsEditing(void) const -> bool
@@ -2568,7 +2568,7 @@ namespace xiui
         this->UpdateVisibilityContext();
         const bool settingsFailed = this->settings_writer_.HasFailed() || this->profile_writer_.HasFailed();
         if (settingsFailed && !this->settings_error_reported_ && this->core_ != nullptr && this->core_->GetChatManager() != nullptr)
-            this->core_->GetChatManager()->Write(1, false, "[XIUI] Settings save failed; changes will be retried on the next save.");
+            this->core_->GetChatManager()->Write(1, false, "[XIUI+] Settings save failed; changes will be retried on the next save.");
         this->settings_error_reported_ = settingsFailed;
         const uint64_t now = ::GetTickCount64();
         this->UpdateCharacterProfile(now);
@@ -2647,7 +2647,7 @@ namespace xiui
             this->core_->GetChatManager()->QueueCommand(-1, *hidden ? "/names off" : "/names on");
         if (const auto requested = this->general_.TakeWindowTypeRequest(); requested && !this->window_config_.SetType(*requested))
             if (this->core_ != nullptr && this->core_->GetChatManager() != nullptr)
-                this->core_->GetChatManager()->Write(1, false, "[XIUI] The client could not change Window Type.");
+                this->core_->GetChatManager()->Write(1, false, "[XIUI+] The client could not change Window Type.");
         const auto windowType = this->window_config_.Type();
         this->general_.UpdateWindowType(windowType);
         if (windowType) { this->native_ui_.window_type = *windowType; this->native_ui_.window_type_available = true; }

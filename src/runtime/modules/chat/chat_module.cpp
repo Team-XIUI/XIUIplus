@@ -113,7 +113,7 @@ namespace xiui
 {
     auto chat_module::DescribeColors(const chat_palette& palette) const -> std::string
     {
-        std::string report{"[XIUI] Captured chat colors:"};
+        std::string report{"[XIUI+] Captured chat colors:"};
         std::vector<std::string> entries;
         const auto& lines = this->History().Lines();
         for (auto line = lines.rbegin(); line != lines.rend() && entries.size() < 24; ++line)
@@ -441,8 +441,8 @@ namespace xiui
             {"Appearance", "Chat background, frame and opacity using the current window theme.", "appearance"},
             {"Text", "Message text size, colors, effects and offsets.", "text"},
             {"Sounds", "Choose a sound for each chat type and keyword alerts. Shared by both windows.", "sounds"},
-            {"Colors", "XIUI colors override your game settings colors. Choose Game to restore native colors.", "colors"},
-            {"Native Filters", "The game's Chat Filters and per-window Log routing. Changes apply to the native game and XIUI.", "native-filters"},
+            {"Colors", "XIUI+ colors override your game settings colors. Choose Game to restore native colors.", "colors"},
+            {"Native Filters", "The game's Chat Filters and per-window Log routing. Changes apply to the native game and XIUI+.", "native-filters"},
             {"Animation", "How newly arriving messages enter this chat window.", "animation"}};
         return sections;
     }
@@ -510,7 +510,7 @@ namespace xiui
             if (setting == 0)
             {
                 static constexpr const char* modes[]{"Follow game", "Off", "Custom"};
-                return module_option::Dropdown("Reactive window sizing", "Follow this native window's sizing, line limits and resize delay, keep a fixed height, or customize XIUI. History and typing keep the window open.",
+                return module_option::Dropdown("Reactive window sizing", "Follow this native window's sizing, line limits and resize delay, keep a fixed height, or customize XIUI+. History and typing keep the window open.",
                     &this->collapse_mode_, modes, std::size(modes)).Ordered(310, true);
             }
             auto option = setting == 1 ? module_option::Slider("Resize delay (seconds)", "After no new messages, fade out the oldest message at this interval. Wrapped lines stay together.", &this->collapse_delay_, 3, 30, 1) :
@@ -544,7 +544,7 @@ namespace xiui
         if (index >= this->ColorsOptionStart() && index < this->OptionCount())
         {
             const auto type = index - this->ColorsOptionStart();
-            return module_option::OverrideColor(chat_types[type].label, "XIUI overrides your game settings colors. Game restores native colors.",
+            return module_option::OverrideColor(chat_types[type].label, "XIUI+ overrides your game settings colors. Game restores native colors.",
                 &this->Colors().enabled[type], &this->Colors().colors[type]);
         }
         if (index >= this->SoundsOptionStart())
@@ -560,7 +560,7 @@ namespace xiui
         }
         switch (index)
         {
-        case 0: return module_option::Toggle("Enabled", "Show XIUI chat. Native Menus controls the native chat windows.", &this->state_.enabled).Ordered(-50);
+        case 0: return module_option::Toggle("Enabled", "Show XIUI+ chat. Native Menus controls the native chat windows.", &this->state_.enabled).Ordered(-50);
         case 1: return ModuleWidthOption(this->state_);
         case 2: return module_option::Slider("Height", "Resize the chat viewport without changing text size. The top-right corner resizes the window in edit mode and while the HUD is locked.", &this->state_.bounds.height, this->state_.minimum_height, 900.0f, 1.0f, module_option_group::appearance).Ordered(101);
         case 3: return module_option::Slider("Opacity", "Background and frame opacity. Message text keeps its own opacity.", &this->container_.opacity, 0.0f, 1.0f, 0.05f, module_option_group::appearance).Ordered(450).VisibleWhen(this->background_ || this->container_.border);
@@ -568,7 +568,7 @@ namespace xiui
         case 5:
         {
             static constexpr const char* modes[]{"Follow game", "Off", "HH:MM", "HH:MM:SS"};
-            return module_option::Dropdown("Timestamps", "Follow the game's Windows timestamp setting, or override it for this XIUI window. Addon timestamps are not duplicated.",
+            return module_option::Dropdown("Timestamps", "Follow the game's Windows timestamp setting, or override it for this XIUI+ window. Addon timestamps are not duplicated.",
                 &this->timestamp_display_, modes, std::size(modes));
         }
         case 6: return module_option::Slider("Line spacing", "Extra space between wrapped lines.", &this->line_spacing_, 0.0f, 10.0f, 1.0f, module_option_group::appearance).Ordered(300, true);
@@ -1124,7 +1124,7 @@ namespace xiui
             "/say", "/s", "/party", "/p", "/linkshell", "/l", "/linkshell2", "/l2", "/tell", "/t", "/reply", "/r",
             "/shout", "/sh", "/yell", "/y", "/unity", "/u", "/echo", "/emote", "/em", "/ma", "/magic", "/ja", "/jobability", "/ws", "/weaponskill",
             "/attack", "/assist", "/target", "/targetnpc", "/item", "/equip", "/equipset", "/follow", "/check", "/invite", "/leave", "/map", "/search", "/sea",
-            "/heal", "/sit", "/logout", "/shutdown", "/xiui", "/addon", "/load", "/unload", "/exec", "/wait", "/bind", "/unbind", "/alias", "/unalias",
+            "/heal", "/sit", "/logout", "/shutdown", "/xiuiplus", "/addon", "/load", "/unload", "/exec", "/wait", "/bind", "/unbind", "/alias", "/unalias",
             "<t>", "<me>", "<st>", "<stpc>", "<stnpc>", "<stpt>", "<stal>", "<bt>", "<pet>", "<p0>", "<p1>", "<p2>", "<p3>", "<p4>", "<p5>"};
         std::vector<chat_completion> values;
         for (const auto* text : builtin) values.push_back({text, text, text[0] == '/' ? chat_completion_kind::command : chat_completion_kind::text});
@@ -1219,7 +1219,7 @@ namespace xiui
                 FromGameText(expanded.data()) == match.label) ++verified;
             if (count++ < 16) { if (!names.empty()) names += ", "; names += match.label; }
         }
-        const auto report = "[XIUI] Auto-translate: " + std::to_string(this->auto_translate_labels_.size()) + " cached; " + std::to_string(count) + " matches (" +
+        const auto report = "[XIUI+] Auto-translate: " + std::to_string(this->auto_translate_labels_.size()) + " cached; " + std::to_string(count) + " matches (" +
             std::to_string(verified) + " native token round-trips): " + names;
         std::string encoded;
         return ToGameText(report, encoded) ? encoded : report;
@@ -1377,7 +1377,7 @@ namespace xiui
         }
         if (copied)
         {
-            const auto format = ::RegisterClipboardFormatA("XIUI.ChatDraft");
+            const auto format = ::RegisterClipboardFormatA("XIUI+.ChatDraft");
             const auto data = ::GlobalAlloc(GMEM_MOVEABLE, raw.size() + 1);
             if (data != nullptr)
             {
@@ -1394,7 +1394,7 @@ namespace xiui
     auto chat_module::Paste(const HWND window) -> void
     {
         if (!::OpenClipboard(window)) return;
-        const auto format = ::RegisterClipboardFormatA("XIUI.ChatDraft");
+        const auto format = ::RegisterClipboardFormatA("XIUI+.ChatDraft");
         if (const auto data = format != 0 ? ::GetClipboardData(format) : nullptr; data != nullptr)
         {
             if (const auto* raw = static_cast<const char*>(::GlobalLock(data)); raw != nullptr)

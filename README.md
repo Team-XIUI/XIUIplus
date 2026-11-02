@@ -1,10 +1,12 @@
-# XIUI
+# XIUI+
 
-XIUI is an in-client Final Fantasy XI HUD for Ashita v4, rendered with Direct3D8.
+XIUI+ is an in-client Final Fantasy XI HUD for Ashita v4, rendered with Direct3D8.
 
-Download `xiuinative.dll` from [GitHub Releases](https://github.com/Shuu-37/xiui-plugin/releases) (repository access required). Copy it into Ashita's `plugins` folder and run `/load xiuinative`. Existing settings are preserved. Local packaging produces [dist/xiuinative.dll](dist/xiuinative.dll). See [the changelog](CHANGELOG.md) and [the user guide](docs/user-guide.md) for features and commands.
+Download `XIUIplus.dll` from [GitHub Releases](https://github.com/Shuu-37/xiui-plugin/releases) (repository access required). Copy it into Ashita's `plugins` folder and run `/load XIUIplus`. Existing settings are preserved. Local packaging produces [dist/XIUIplus.dll](dist/XIUIplus.dll). See [the changelog](CHANGELOG.md) and [the user guide](docs/user-guide.md) for features and commands.
 
-## Working on XIUI
+When upgrading from XIUI Native, unload `xiuinative`, replace its DLL with `XIUIplus.dll`, and update any startup `/load xiuinative` line to `/load XIUIplus`. The next plugin load moves existing data into `config/XIUIplus/`, preserving settings, profiles, inventories and sounds. Existing destination files take priority; conflicts are archived under `legacy/`. `/xiuiplus` is the main command; `/xiuip`, `/xiui+`, `/xiui` and earlier aliases still work. New profile exports use `.xiuiplus`; existing `.xiui` files and XIUI1/XIUI2 share keys remain importable.
+
+## Working on XIUI+
 
 Start with [AGENTS.md](AGENTS.md), then [the task-to-file guide](docs/README.md). Read only the foundations and feature references relevant to the task.
 
@@ -18,7 +20,7 @@ Start with [AGENTS.md](AGENTS.md), then [the task-to-file guide](docs/README.md)
 
 ## Build and install
 
-Windows, Visual Studio C++ with x86 tools, CMake/Ninja, Python and the Ashita v4 SDK are required. While XIUI is unloaded:
+Windows, Visual Studio C++ with x86 tools, CMake/Ninja, Python and the Ashita v4 SDK are required. While XIUI+ is unloaded:
 
 ```powershell
 ./scripts/build_all.ps1

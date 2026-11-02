@@ -110,7 +110,7 @@ namespace xiui
             switch (index - sound_options_start)
             {
             case 0: return module_option::Choice("Sound", "Choose a sound; use Test sound for an explicit preview.", &settings.sound_choice, sounds, 2);
-            case 1: return module_option::Text("Custom WAV filename", "Filename in config/xiuinative/sounds. PCM 8/16-bit mono/stereo, up to 30 seconds and 8 MiB. Missing or unsupported files use the built-in chime.", &settings.sound_file, 128).VisibleWhen(settings.sound_choice == 1);
+            case 1: return module_option::Text("Custom WAV filename", "Filename in config/XIUIplus/sounds. PCM 8/16-bit mono/stereo, up to 30 seconds and 8 MiB. Missing or unsupported files use the built-in chime.", &settings.sound_file, 128).VisibleWhen(settings.sound_choice == 1);
             default: return module_option::Action("Reload custom WAV", this->sound_.Status().c_str(), "Reload").VisibleWhen(settings.sound_choice == 1);
             }
         }
@@ -171,7 +171,7 @@ namespace xiui
     auto ready_check_module::Report(const char* message) const -> void
     {
         if (this->core_ != nullptr && this->core_->GetChatManager() != nullptr)
-            this->core_->GetChatManager()->Writef(1, false, "[XIUI] %s", message);
+            this->core_->GetChatManager()->Writef(1, false, "[XIUI+] %s", message);
     }
 
     auto ready_check_module::Start(uint64_t now) -> void
@@ -245,7 +245,7 @@ namespace xiui
                 "; sound " + this->sound_.Status() + ".";
             this->Report(text.c_str());
         }
-        else this->Report("/readycheck [start|yes|no|close|status|test|volume <0-150>]; /xiui readycheck opens settings.");
+        else this->Report("/readycheck [start|yes|no|close|status|test|volume <0-150>]; /xiuiplus readycheck opens settings.");
     }
 
     auto ready_check_module::ShouldRender(const hud_snapshot&) const -> bool

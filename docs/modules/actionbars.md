@@ -18,7 +18,7 @@ An active native macro palette can sit above a still-visible command menu. Ident
 
 `shared/native_target.hpp` distinguishes a verified engaged character's auto-attack flag with no pending action ID from actual target selection. Host/controller input, action execution and macro waits share this check so combat does not disable hotbars or strand a macro after its own selector closes. Explicit subtargets and pending action IDs retain their guards; a previous action type is not reliable evidence of an open selector.
 
-`/xiui actionbars status` reports current TP, pending macro line/wait and the last queued timed line. Input suspension records its cancellation reason instead of silently discarding the remaining sequence.
+`/xiuiplus actionbars status` reports current TP, pending macro line/wait and the last queued timed line. Input suspension records its cancellation reason instead of silently discarding the remaining sequence.
 
 Replace native macros defaults off in code, resets and bundled setups. Preserve explicit saved choices.
 

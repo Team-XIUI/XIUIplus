@@ -103,7 +103,7 @@ namespace xiui
         case 0: return module_option::Toggle("Name", "Show the main target's name.", &this->name);
         case 1: return module_option::Toggle("Cast bar", "Show the main target's observed spell or action.", &this->casts);
         case 2: return module_option::Toggle("Lock highlight", "Highlight the HP bar when the native camera is locked on.", &this->lock);
-        case 3: return module_option::Choice("Enemy ID", "Last three characters of the monster's native server ID, matching XIUI; this is not entity index or mob level.", &this->id_format, formats, 3);
+        case 3: return module_option::Choice("Enemy ID", "Last three characters of the monster's native server ID, matching XIUI+; this is not entity index or mob level.", &this->id_format, formats, 3);
         case 4: return module_option::Toggle("Player HP percent", "Include player entities when main Target HP percent is enabled.", &this->percent_players);
         case 5: return module_option::Toggle("Monster HP percent", "Include monster entities when main Target HP percent is enabled.", &this->percent_mobs);
         case 6: return module_option::Slider("Cast height", "Height of the main Target cast bar.", &this->cast_height, 2, 32, 1).Ordered(301).VisibleWhen(this->casts);

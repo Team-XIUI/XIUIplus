@@ -105,9 +105,9 @@ return T{
  hotbarCrossbar = { slotActions={['15:0:palette:Test']={ L2x2={ [8]={actionType='pet', action='Assault',target='t'} } }} },
  macroDB={ [15]={ {id=12,actionType='macro',displayName='Summon',macroText='/ma "Ifrit" <me>\n/wait 1\n/echo ready'} } },
 })lua");
-        Check(xiui.Valid() && xiui.actions == 3 && xiui.palettes.size() == 2 && xiui.palettes[0].name == "Test", "XIUI keeps equally named hotbar and crossbar palettes independent");
-        Check(xiui.palettes[1].actions.hotbar[0][0].lines.size() == 3 && xiui.palettes[0].actions.crossbar[4][7].name == "Assault", "XIUI macro references resolve from their source library");
-        Check(xiui.source_context && xiui.palettes[0].job == 15 && xiui.palettes[0].subjob == 0, "XIUI imports preserve source job and shared-subjob context");
+        Check(xiui.Valid() && xiui.actions == 3 && xiui.palettes.size() == 2 && xiui.palettes[0].name == "Test", "XIUI+ keeps equally named hotbar and crossbar palettes independent");
+        Check(xiui.palettes[1].actions.hotbar[0][0].lines.size() == 3 && xiui.palettes[0].actions.crossbar[4][7].name == "Assault", "XIUI+ macro references resolve from their source library");
+        Check(xiui.source_context && xiui.palettes[0].job == 15 && xiui.palettes[0].subjob == 0, "XIUI+ imports preserve source job and shared-subjob context");
         const auto jobFile = PreviewActionImport(source, "C:/example/bindings/WAR.lua");
         Check(jobFile.source_context && jobFile.palettes[0].job == 1 && jobFile.palettes[0].subjob == 0, "tBar job filenames preserve their source job context");
         const auto petImport = PreviewActionImport(R"lua(return {

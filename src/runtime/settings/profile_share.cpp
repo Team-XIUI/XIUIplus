@@ -111,7 +111,7 @@ namespace xiui
 
     auto DecodeProfileKey(const std::string_view key, std::string& error) -> std::optional<shared_profile>
     {
-        error = "Invalid or damaged XIUI share key.";
+        error = "Invalid or damaged XIUI+ share key.";
         if (key.size() > maximum_profile_key) { error = "The old share key exceeds the 8 MB paste limit. Use a .xiui file instead."; return std::nullopt; }
         auto input = key;
         const auto trim = [](std::string_view text) {
@@ -141,7 +141,7 @@ namespace xiui
             return profile;
         }
         if (!compact.starts_with("XIUI1."))
-        { error = compact.starts_with("XIUI") ? "This share-key version is unsupported. Ask for a .xiui profile file." : "Paste an XIUI1 or XIUI2 share key, or choose a .xiui file."; return std::nullopt; }
+        { error = compact.starts_with("XIUI+") ? "This share-key version is unsupported. Ask for a .xiui profile file." : "Paste an XIUI1 or XIUI2 share key, or choose a .xiui file."; return std::nullopt; }
         if (compact.size() <= 15 || compact[14] != '.') return std::nullopt;
         uint32_t checksum{};
         const auto parsed = std::from_chars(compact.data() + 6, compact.data() + 14, checksum, 16);

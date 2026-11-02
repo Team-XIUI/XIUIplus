@@ -78,6 +78,23 @@ function Resolve-XiuiCMake {
     throw 'cmake.exe was not found on PATH or in the selected Visual Studio installation.'
 }
 
+function Install-XiuiStandalone {
+    param([Parameter(Mandatory)][string]$Source, [Parameter(Mandatory)][string]$InstallPath)
+
+    $PhoenixInstall = Resolve-XiuiInstallPath -PreferredPath $InstallPath
+    Publish-XiuiAtomic -Source $Source -Destination (Join-Path $PhoenixInstall 'plugins/XIUIplus.dll')
+    $LegacyDll = Join-Path $PhoenixInstall 'plugins/xiuinative.dll'
+    if (Test-Path -LiteralPath $LegacyDll -PathType Leaf) {
+        $Archive = [IO.Path]::GetFullPath((Join-Path $PhoenixInstall 'config/XIUIplus/legacy/plugins'))
+        if (-not $Archive.StartsWith($PhoenixInstall.TrimEnd('\', '/') + [IO.Path]::DirectorySeparatorChar, [StringComparison]::OrdinalIgnoreCase)) {
+            throw 'The previous DLL archive must remain inside the selected Phoenix install.'
+        }
+        [IO.Directory]::CreateDirectory($Archive) | Out-Null
+        $ArchivedDll = Join-Path $Archive ('xiuinative-' + [Guid]::NewGuid().ToString('N') + '.dll')
+        Move-Item -LiteralPath $LegacyDll -Destination $ArchivedDll
+    }
+}
+
 function Publish-XiuiAtomic {
     param(
         [Parameter(Mandatory)][string]$Source,

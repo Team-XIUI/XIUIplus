@@ -54,12 +54,12 @@ namespace xiui
 
     auto plugin::GetName(void) const -> const char*
     {
-        return "XIUI";
+        return "XIUI+";
     }
 
     auto plugin::GetAuthor(void) const -> const char*
     {
-        return "Team XIUI";
+        return "Team XIUI+";
     }
 
     auto plugin::GetDescription(void) const -> const char*
@@ -69,7 +69,7 @@ namespace xiui
 
     auto plugin::GetLink(void) const -> const char*
     {
-        return "https://github.com/tirem/XIUI";
+        return "https://github.com/Shuu-37/xiui-plugin";
     }
 
     auto plugin::GetVersion(void) const -> double
@@ -114,7 +114,7 @@ namespace xiui
         if (!runtimeLoaded)
         {
             this->native_hud_.Shutdown();
-            this->WriteChat("[XIUI] Could not initialize the UI.");
+            this->WriteChat("[XIUI+] Could not initialize the UI.");
             return false;
         }
 #endif
@@ -127,16 +127,16 @@ namespace xiui
         this->registered_controller_ = input != nullptr ? input->GetController() : nullptr;
         this->registered_xinput_ = input != nullptr ? input->GetXInput() : nullptr;
         if (this->registered_controller_ != nullptr)
-            this->registered_controller_->AddCallback("xiuinative", &plugin::ControllerDataCallback, &plugin::ControllerStateCallback, &plugin::ControllerButtonCallback);
+            this->registered_controller_->AddCallback("XIUIplus", &plugin::ControllerDataCallback, &plugin::ControllerStateCallback, &plugin::ControllerButtonCallback);
         if (this->registered_xinput_ != nullptr)
-            this->registered_xinput_->AddCallback("xiuinative", &plugin::XInputStateCallback, &plugin::XInputButtonCallback);
+            this->registered_xinput_->AddCallback("XIUIplus", &plugin::XInputStateCallback, &plugin::XInputButtonCallback);
         this->registered_mouse_ = input != nullptr ? input->GetMouse() : nullptr;
         this->registered_keyboard_ = input != nullptr ? input->GetKeyboard() : nullptr;
         if (this->registered_keyboard_ != nullptr)
-            this->registered_keyboard_->AddCallback("xiuinative", &plugin::KeyboardDataCallback, &plugin::KeyboardStateCallback, &plugin::KeyboardCallback);
+            this->registered_keyboard_->AddCallback("XIUIplus", &plugin::KeyboardDataCallback, &plugin::KeyboardStateCallback, &plugin::KeyboardCallback);
         if (this->registered_mouse_ != nullptr)
         {
-            this->registered_mouse_->AddCallback("xiuinative", &plugin::MouseCallback);
+            this->registered_mouse_->AddCallback("XIUIplus", &plugin::MouseCallback);
             this->mouse_callback_registered_ = true;
         }
         phase.Mark("input callbacks");
@@ -146,15 +146,15 @@ namespace xiui
             message,
             sizeof(message),
 #if defined(XIUI_SINGLE_DLL)
-            "[XIUI] Loaded %s. Use /xiui edit to configure.",
+            "[XIUI+] Loaded %s. Use /xiuiplus edit to configure.",
             release_version);
 #else
-            "[XIUI] Stable host %s; runtime %s. Use /xiui edit to configure.",
+            "[XIUI+] Stable host %s; runtime %s. Use /xiuiplus edit to configure.",
             native_build_id,
             runtimeLoaded ? this->runtime_.GetBuildId().c_str() : "waiting for first publish");
 #endif
         this->WriteChat(message);
-        if (!chatAvailable) this->WriteChat("[XIUI] Native chat capture unavailable for this client; keep the game chat enabled.");
+        if (!chatAvailable) this->WriteChat("[XIUI+] Native chat capture unavailable for this client; keep the game chat enabled.");
         return true;
     }
 
@@ -163,10 +163,10 @@ namespace xiui
         callback_gate_.Close();
         if (this->scene_target_hook_) ::MH_DisableHook(this->scene_target_hook_);
         if (this->mouse_callback_registered_ && this->registered_mouse_ != nullptr)
-            this->registered_mouse_->RemoveCallback("xiuinative");
-        if (this->registered_keyboard_ != nullptr) this->registered_keyboard_->RemoveCallback("xiuinative");
-        if (this->registered_controller_ != nullptr) this->registered_controller_->RemoveCallback("xiuinative");
-        if (this->registered_xinput_ != nullptr) this->registered_xinput_->RemoveCallback("xiuinative");
+            this->registered_mouse_->RemoveCallback("XIUIplus");
+        if (this->registered_keyboard_ != nullptr) this->registered_keyboard_->RemoveCallback("XIUIplus");
+        if (this->registered_controller_ != nullptr) this->registered_controller_->RemoveCallback("XIUIplus");
+        if (this->registered_xinput_ != nullptr) this->registered_xinput_->RemoveCallback("XIUIplus");
         callback_gate_.Wait();
         this->ring_capture_.Shutdown();
         this->keyboard_suppression_.Reset();
@@ -217,11 +217,12 @@ namespace xiui
             while (std::isspace(static_cast<unsigned char>(*action)) != 0) ++action;
             const auto request = std::string{"readycheck "} + (*action == '\0' ? "start" : action);
             this->runtime_.SetVisible(true);
-            if (!this->runtime_.HandleCommand(request.c_str())) this->WriteChat("[XIUI] Ready Check is unavailable.");
+            if (!this->runtime_.HandleCommand(request.c_str())) this->WriteChat("[XIUI+] Ready Check is unavailable.");
             return true;
         }
 
-        if (!is_command(command, "/xiui") && !is_command(command, "/xiuin") && !is_command(command, "/xiuinative") && !is_command(command, "/xiui-native"))
+        if (!is_command(command, "/xiuiplus") && !is_command(command, "/xiuip") && !is_command(command, "/xiui+") && !is_command(command, "/xiui") &&
+            !is_command(command, "/xiuin") && !is_command(command, "/xiuinative") && !is_command(command, "/xiui-native"))
             return false;
 
         const auto* argument = command;
@@ -236,7 +237,7 @@ namespace xiui
             {
                 const auto& entry = this->startup_profile_.entries[index];
                 char message[192]{};
-                std::snprintf(message, sizeof(message), "[XIUI] Startup %s: %.2f ms.", entry.name, entry.milliseconds);
+                std::snprintf(message, sizeof(message), "[XIUI+] Startup %s: %.2f ms.", entry.name, entry.milliseconds);
                 this->WriteChat(message);
             }
             return this->runtime_.HandleCommand("startup");
@@ -246,39 +247,39 @@ namespace xiui
         {
             this->runtime_.SetVisible(true);
             if (!this->runtime_.ToggleEdit())
-                this->WriteChat("[XIUI] Edit mode is unavailable because Ashita mouse input could not be captured.");
+                this->WriteChat("[XIUI+] Edit mode is unavailable because Ashita mouse input could not be captured.");
             else
                 this->WriteChat(this->runtime_.IsEditing()
-                    ? "[XIUI] Edit mode enabled. Drag modules or adjust their settings in Configuration."
-                    : "[XIUI] Edit mode disabled; layout saved.");
+                    ? "[XIUI+] Edit mode enabled. Drag modules or adjust their settings in Configuration."
+                    : "[XIUI+] Edit mode disabled; layout saved.");
             return true;
         }
 
         if (is_command(argument, "show") || is_command(argument, "start"))
         {
             this->runtime_.SetVisible(true);
-            this->WriteChat("[XIUI] In-client HUD shown.");
+            this->WriteChat("[XIUI+] In-client HUD shown.");
             return true;
         }
 
         if (is_command(argument, "hide") || is_command(argument, "stop"))
         {
             this->runtime_.SetVisible(false);
-            this->WriteChat("[XIUI] In-client HUD hidden.");
+            this->WriteChat("[XIUI+] In-client HUD hidden.");
             return true;
         }
 
         if (is_command(argument, "reload") || is_command(argument, "restart"))
         {
             this->runtime_.ReloadSettings();
-            this->WriteChat("[XIUI] Settings reloaded.");
+            this->WriteChat("[XIUI+] Settings reloaded.");
             return true;
         }
 
         if (is_command(argument, "reset"))
         {
             this->runtime_.ResetSettings();
-            this->WriteChat("[XIUI] Settings and panel layout reset.");
+            this->WriteChat("[XIUI+] Settings and panel layout reset.");
             return true;
         }
 
@@ -290,7 +291,7 @@ namespace xiui
             std::snprintf(
                 message,
                 sizeof(message),
-                "[XIUI] Host %s; runtime %s; text %s; HUD %s; edit mode %s.",
+                "[XIUI+] Host %s; runtime %s; text %s; HUD %s; edit mode %s.",
                 native_build_id,
                 runtimeLoaded ? runtimeBuild.c_str() : "unavailable",
                 runtimeLoaded ? (this->runtime_.IsGpuShaderActive() ? "GPU shader" : "fixed-function fallback") : "unavailable",
@@ -302,12 +303,12 @@ namespace xiui
 
         if (is_command(argument, "help"))
         {
-            this->WriteChat("[XIUI] /xiui setup|edit|save|show|hide|reload|reset|status");
-            this->WriteChat("[XIUI] /xiui preset classic|xiv; /xiui party preset classic|xiv");
-            this->WriteChat("[XIUI] /xiui notify test|clear|status; /xiui container preview|hide; /xiui gamehud");
-            this->WriteChat("[XIUI] /xiui commands; /xiui commands status; /xiui theme status");
-            this->WriteChat("[XIUI] /readycheck [yes|no|close|status]; /xiui readycheck for settings");
-            this->WriteChat("[XIUI] /xiui rings status|host|capture [stop|status]");
+            this->WriteChat("[XIUI+] /xiuiplus setup|edit|save|show|hide|reload|reset|status");
+            this->WriteChat("[XIUI+] /xiuiplus preset classic|xiv; /xiuiplus party preset classic|xiv");
+            this->WriteChat("[XIUI+] /xiuiplus notify test|clear|status; /xiuiplus container preview|hide; /xiuiplus gamehud");
+            this->WriteChat("[XIUI+] /xiuiplus commands; /xiuiplus commands status; /xiuiplus theme status");
+            this->WriteChat("[XIUI+] /readycheck [yes|no|close|status]; /xiuiplus readycheck for settings");
+            this->WriteChat("[XIUI+] /xiuiplus rings status|host|capture [stop|status]");
             return true;
         }
 
@@ -332,18 +333,18 @@ namespace xiui
         {
             char message[320]{};
             std::snprintf(message,sizeof(message),
-                "[XIUI] Target rings host: camera %s; overlay %s; depth format %u; opaque draws %u; opaque after overlay %u; late frames %llu/%llu; boundary hook %s.",
+                "[XIUI+] Target rings host: camera %s; overlay %s; depth format %u; opaque draws %u; opaque after overlay %u; late frames %llu/%llu; boundary hook %s.",
                 this->last_scene_camera_,this->last_world_overlay_,static_cast<unsigned>(this->last_scene_depth_format_),this->last_scene_opaque_draws_,this->last_scene_opaque_after_overlay_,
                 static_cast<unsigned long long>(this->world_overlay_late_frames_),static_cast<unsigned long long>(this->world_overlay_frames_),this->scene_hook_status_);
             this->WriteChat(message);
             const auto& probe=this->last_ring_probe_.frames ? this->last_ring_probe_ : this->ring_probe_;
             std::snprintf(message,sizeof(message),
-                "[XIUI] Ring probe %u frames: camera changes %u/%u (max %.6g); target moves %u (max %.6f); aspect mismatches %u; missing overlay %u; missing scene end %u.",
+                "[XIUI+] Ring probe %u frames: camera changes %u/%u (max %.6g); target moves %u (max %.6f); aspect mismatches %u; missing overlay %u; missing scene end %u.",
                 probe.frames,probe.camera_changes,probe.camera_checks,static_cast<double>(probe.camera_delta),
                 probe.target_moves,static_cast<double>(probe.target_delta),probe.aspect_mismatches,probe.overlay_misses,probe.scene_end_misses);
             this->WriteChat(message);
             std::snprintf(message,sizeof(message),
-                "[XIUI] Ring depth: mode %lu; function %lu; bias %lu; projection %.9g %.9g %.9g %.9g; viewport %lux%lu; scene %ux%u.",
+                "[XIUI+] Ring depth: mode %lu; function %lu; bias %lu; projection %.9g %.9g %.9g %.9g; viewport %lux%lu; scene %ux%u.",
                 static_cast<unsigned long>(this->scene_depth_mode_),static_cast<unsigned long>(this->scene_depth_function_),
                 static_cast<unsigned long>(this->scene_depth_bias_),static_cast<double>(this->scene_projection_._33),
                 static_cast<double>(this->scene_projection_._34),static_cast<double>(this->scene_projection_._43),static_cast<double>(this->scene_projection_._44),
@@ -354,7 +355,7 @@ namespace xiui
         }
         if (this->runtime_.HandleCommand(argument))
             return true;
-        this->WriteChat("[XIUI] Unknown command. Use /xiui help.");
+        this->WriteChat("[XIUI+] Unknown command. Use /xiuiplus help.");
         return true;
     }
 
@@ -433,15 +434,15 @@ namespace xiui
         { this->scene_hook_status_="outer wrapper unavailable"; return; }
         const auto initialized=::MH_Initialize();
         if (initialized!=MH_OK && initialized!=MH_ERROR_ALREADY_INITIALIZED)
-        { this->scene_hook_status_="initialization failed"; this->WriteChat("[XIUI] Target ring boundary hook initialization failed."); return; }
+        { this->scene_hook_status_="initialization failed"; this->WriteChat("[XIUI+] Target ring boundary hook initialization failed."); return; }
         this->scene_hook_minhook_owned_=initialized==MH_OK;
         if (::MH_CreateHook(site,&SceneTargetCallback,reinterpret_cast<void**>(&set_scene_target_original))!=MH_OK)
-        { this->scene_hook_status_="creation failed"; this->WriteChat("[XIUI] Target ring boundary hook creation failed."); return; }
+        { this->scene_hook_status_="creation failed"; this->WriteChat("[XIUI+] Target ring boundary hook creation failed."); return; }
         if (::MH_EnableHook(site)!=MH_OK)
-        { ::MH_RemoveHook(site); this->scene_hook_status_="enable failed"; this->WriteChat("[XIUI] Target ring boundary hook enable failed."); return; }
+        { ::MH_RemoveHook(site); this->scene_hook_status_="enable failed"; this->WriteChat("[XIUI+] Target ring boundary hook enable failed."); return; }
         this->scene_target_hook_=site;
         this->scene_hook_status_="ready";
-        this->WriteChat("[XIUI] Target ring boundary hook ready (Ashita.dll).");
+        this->WriteChat("[XIUI+] Target ring boundary hook ready (Ashita.dll).");
     }
 
     auto __stdcall plugin::SceneTargetCallback(IDirect3DDevice8* device, IDirect3DSurface8* color, IDirect3DSurface8* depth) -> HRESULT
@@ -504,7 +505,7 @@ namespace xiui
         if (this->BuildSnapshot(snapshot) && !this->runtime_.Render(snapshot) && this->runtime_.HasFaulted() && !this->runtime_fault_reported_)
         {
             this->runtime_fault_reported_ = true;
-            this->WriteChat("[XIUI] Runtime faulted and was quarantined; publish a new runtime generation to recover.");
+            this->WriteChat("[XIUI+] Runtime faulted and was quarantined; publish a new runtime generation to recover.");
         }
         this->UpdateKeyboardCapture();
     }

@@ -646,9 +646,9 @@ namespace xiui
             runtime->SetChatMouseCapture(true);
             const auto profile = module.CharacterBounds();
             Check(runtime->PointerInputBlocked(true) && !runtime->HandleSatchelMouse(WM_LBUTTONDOWN, 0, profile.x + 2, profile.y + 2, true) &&
-                module.dialog_ == satchel_module::dialog::none, "mouse capture preserves an input block that existed before XIUI acquired it");
+                module.dialog_ == satchel_module::dialog::none, "mouse capture preserves an input block that existed before XIUI+ acquired it");
             runtime->SetChatMouseCapture(false);
-            Check(input.blocked, "releasing XIUI capture restores the previous external block");
+            Check(input.blocked, "releasing XIUI+ capture restores the previous external block");
             input.blocked = false;
             runtime->native_ui_.menu_visible = false;
             runtime->mouse_block_state_saved_ = runtime->mouse_captured_ = true;

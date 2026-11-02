@@ -96,10 +96,10 @@ namespace xiui
         if (index == this->ExtraSettingsStart())
             return module_option::Toggle("Follow moved module settings", "Automatically select a module's settings when clicking or resizing it in edit mode. Turn off to keep the current settings page while arranging the HUD.", &this->follow_moved_module_settings_);
         if (index == this->AppearanceThemeOption())
-            return module_option::Choice("Theme", "Global XIUI artwork and HUD presentation. XIV1.0 Theme uses navy windows, aged metal frames, copper gauges and serif text. Saved positions and styling are preserved.", &this->appearance_theme_, ui::appearance_themes, std::size(ui::appearance_themes), module_option_group::appearance).Ordered(-50);
+            return module_option::Choice("Theme", "Global XIUI+ artwork and HUD presentation. XIV1.0 Theme uses navy windows, aged metal frames, copper gauges and serif text. Saved positions and styling are preserved.", &this->appearance_theme_, ui::appearance_themes, std::size(ui::appearance_themes), module_option_group::appearance).Ordered(-50);
         if (index >= this->HudScaleStart())
         {
-            if (index == this->HudScaleStart()) { auto option = module_option::Slider("Global Scale (%)", "Scale all XIUIN HUD elements. Each element keeps its own scale and saved placement.", &this->hud_scale_, .5f, 2, .01f).Ordered(-200); option.display_scale = 100; return option; }
+            if (index == this->HudScaleStart()) { auto option = module_option::Slider("Global Scale (%)", "Scale all XIUI+ HUD elements. Each element keeps its own scale and saved placement.", &this->hud_scale_, .5f, 2, .01f).Ordered(-200); option.display_scale = 100; return option; }
             if (index == this->HudScaleStart() + 1) return module_option::Action("Reset global scale", "Restore Global Scale to 100%.", "Reset").Ordered(-199);
             const auto preset = this->HudPresetFromOption(index);
             if (!preset) return {};
@@ -114,9 +114,9 @@ namespace xiui
         if (index >= this->FeedbackStart() && index < this->NameplatesOption()) return this->health_feedback_.Option(index - this->FeedbackStart());
         if (index == this->HideAllUiOption())
         {
-            auto option = module_option::Action("Hide all UI", "Warning: also hides chat and configuration. Restore: /xiui show.", "Hide all").Ordered(-100);
+            auto option = module_option::Action("Hide all UI", "Warning: also hides chat and configuration. Restore: /xiuiplus show.", "Hide all").Ordered(-100);
             option.warning = true;
-            option.confirmation = "Warning: XIUI and native HUD will hide.\n"
+            option.confirmation = "Warning: XIUI+ and native HUD will hide.\n"
                 "Chat and configuration will disappear.\n"
                 "To restore: press /, type xiui show,\n"
                 "then press Enter. Typing will be invisible.\n"
@@ -140,11 +140,11 @@ namespace xiui
             };
             switch (index - this->InputStart())
             {
-            case 1: return info("FFXI gamepad", "Enable the gamepad in FFXI Config if you want native controller input. XIUI does not change this setting.", status.configuration_known ? (status.gamepad_enabled ? "Enabled" : "Disabled") : "Unknown");
-            case 2: return info("Ashita enumeration", "Controller enumeration must be enabled in your Ashita boot configuration. XIUI leaves that policy unchanged.", status.enumeration_disabled ? "Disabled" : "Available");
+            case 1: return info("FFXI gamepad", "Enable the gamepad in FFXI Config if you want native controller input. XIUI+ does not change this setting.", status.configuration_known ? (status.gamepad_enabled ? "Enabled" : "Disabled") : "Unknown");
+            case 2: return info("Ashita enumeration", "Controller enumeration must be enabled in your Ashita boot configuration. XIUI+ leaves that policy unchanged.", status.enumeration_disabled ? "Disabled" : "Available");
             case 3: return info("Controller connection", "Connection and received input are separate checks. An emulated button call alone does not establish a connected device.", status.connection_known ? (status.connected ? "Connected" : "Disconnected") : "Unknown");
             case 4: return info("Observed input", "Becomes active after the host receives a real controller callback.", status.received_input ? "Received" : "Waiting");
-            case 5: return info("Controller mapping", "Confirm and Cancel follow verified effective bindings. Use the XIUI focus command to enter without claiming a gameplay button.", status.bindings_known ? "Resolved" : "Unresolved");
+            case 5: return info("Controller mapping", "Confirm and Cancel follow verified effective bindings. Use the XIUI+ focus command to enter without claiming a gameplay button.", status.bindings_known ? "Resolved" : "Unresolved");
             case 6: return info("Input backend", "Reports the last controller backend observed by the host.", status.backend == controller_backend::xinput ? "XInput" : status.backend == controller_backend::direct_input ? "DirectInput" : "Waiting");
             }
         }
@@ -173,7 +173,7 @@ namespace xiui
         {
             switch (index - this->GridStart())
             {
-            case 0: return module_option::Toggle("Show grid", "Screen-wide grid behind all XIUI elements in edit mode. Independent of snapping.", &this->grid_.visible).Ordered(-50);
+            case 0: return module_option::Toggle("Show grid", "Screen-wide grid behind all XIUI+ elements in edit mode. Independent of snapping.", &this->grid_.visible).Ordered(-50);
             case 1: return module_option::Toggle("Snap to grid", "Catch nearby grid lines while moving an element. Works with the grid hidden.", &this->grid_.snap_grid).Ordered(-40);
             case 2: return module_option::Toggle("Snap to elements", "Align edges and centers with other visible previews and the screen.", &this->grid_.snap_elements).Ordered(-39);
             case 3: return module_option::Slider("Snap amount", "Distance in pixels for catching grid lines or another element. Smaller values give finer control.", &this->grid_.amount, 1, 20, 1).Ordered(111).VisibleWhen(this->grid_.snap_grid || this->grid_.snap_elements);
@@ -205,12 +205,12 @@ namespace xiui
             return module_option::Toggle(module.DisplayName(), enabled.description, enabled.toggle);
         }
         if (index == dark_backing_opacity_option)
-            return module_option::Slider("Dark backing opacity", "Dark fill behind XIUI windows, borders and themed bars.",
+            return module_option::Slider("Dark backing opacity", "Dark fill behind XIUI+ windows, borders and themed bars.",
                 &this->dark_backing_opacity_, 0.0f, 1.0f, 0.05f, module_option_group::appearance).Ordered(450);
         if (index == window_theme_option)
         {
             static constexpr const char* types[]{"Type 1", "Type 2", "Type 3", "Type 4", "Type 5", "Type 6", "Type 7", "Type 8"};
-            auto result = module_option::Choice("Native Window Type", "Changes Window Type for the whole game. XIUI follows it when XI Theme is selected.", &this->window_type_, types, std::size(types), module_option_group::appearance).Ordered(-40);
+            auto result = module_option::Choice("Native Window Type", "Changes Window Type for the whole game. XIUI+ follows it when XI Theme is selected.", &this->window_type_, types, std::size(types), module_option_group::appearance).Ordered(-40);
             result.available = this->window_type_available_;
             if (!result.available) result.description = "Unavailable on this client.";
             return result;

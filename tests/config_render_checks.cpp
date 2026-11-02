@@ -175,8 +175,8 @@ namespace xiui
                 "credit source links are separate from module switches")) return false;
             if (std::strcmp(option.label, "Cadence") == 0) cadence = std::strstr(option.description, "Kipling") != nullptr;
             if (std::strcmp(option.label, "Momentum") == 0) momentum = std::strstr(option.description, "Kipling") != nullptr;
-            if (!check(std::strcmp(option.label, "XIVParty") != 0 && std::strcmp(option.label, "XIUI") != 0,
-                "XIVParty and XIUI are absent from project credits")) return false;
+            if (!check(std::strcmp(option.label, "XIVParty") != 0 && std::strcmp(option.label, "XIUI+") != 0,
+                "XIVParty and XIUI+ are absent from project credits")) return false;
         }
         if (!check(cadence && momentum, "Kipling is credited for both Cadence and Momentum")) return false;
         const auto click = [&](const ui::rect& bounds) {
@@ -275,7 +275,7 @@ namespace xiui
         std::filesystem::create_directory(root);
         struct cleanup { std::filesystem::path root; ~cleanup() { std::error_code ignored; std::filesystem::remove_all(root, ignored); } } cleanupFiles{root};
         hud_runtime runtime;
-        runtime.settings_path_ = (root / "xiuinative.ini").string();
+        runtime.settings_path_ = (root / "XIUIplus.ini").string();
         runtime.profiles_.Initialize(runtime.settings_path_);
         runtime.editing_ = true;
         runtime.config_.bounds = {40, 40, 1100, 600};
@@ -329,7 +329,7 @@ namespace xiui
 
     auto config_input_test::DarkBacking(void) -> bool
     {
-        const auto path = std::filesystem::temp_directory_path() / ("xiuinative-dark-backing-check-" + std::to_string(::GetCurrentProcessId()) + ".ini");
+        const auto path = std::filesystem::temp_directory_path() / ("XIUIplus-dark-backing-check-" + std::to_string(::GetCurrentProcessId()) + ".ini");
         struct cleanup { std::filesystem::path path; ~cleanup() { std::error_code ignored; std::filesystem::remove(path, ignored); } } cleanupFile{path};
         hud_runtime runtime;
         runtime.settings_path_ = path.string();
@@ -402,9 +402,9 @@ namespace xiui
         module.UpdateWindowType(client.Type());
         module.ResetDefaults(ui::theme::CreateDefault());
         if (!check(*option.choice == 2 && client.Type() == 2 && window_writes == 2,
-            "resetting XIUI preferences does not overwrite the client theme")) return false;
+            "resetting XIUI+ preferences does not overwrite the client theme")) return false;
         module.UpdateWindowType(uint8_t{6});
-        if (!check(*option.choice == 6, "changes made in the native menu sync back into XIUI")) return false;
+        if (!check(*option.choice == 6, "changes made in the native menu sync back into XIUI+")) return false;
         module.UpdateWindowType(std::nullopt);
         window_record[1] = 19;
         return check(!module.Option(general_module::window_theme_option).available && !client.Type() && !client.SetType(0),

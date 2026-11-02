@@ -67,7 +67,7 @@ namespace xiui
             else if (std::filesystem::is_regular_file(root / "XIUI.lua") && std::filesystem::is_directory(root.parent_path().parent_path() / "config/addons/xiui"))
                 root = root.parent_path().parent_path() / "config/addons/xiui";
             if (::_wcsicmp(root.filename().c_str(), L"profiles") == 0) root = root.parent_path();
-            if (!std::filesystem::is_directory(root)) throw std::runtime_error{"Choose an XIUI settings folder or a saved Lua profile."};
+            if (!std::filesystem::is_directory(root)) throw std::runtime_error{"Choose an XIUI+ settings folder or a saved Lua profile."};
             result.root = root;
             lua_data::value legacyPositions{lua_data::value::kind::table};
             for (const auto& path : {root / "imgui.ini", root.parent_path().parent_path() / "imgui.ini"})
@@ -155,7 +155,7 @@ namespace xiui
                             preview.resources.push_back({resource, destination});
                             preview.preferences.WriteString("readycheck", "sound_file", destination);
                             preview.preferences.WriteInt("readycheck", "sound_choice", 1);
-                            preview.issues.push_back({lua_import_severity::information, "readyCheckSoundFile", "Compatible WAV will be copied to config/xiuinative/sounds/" + destination});
+                            preview.issues.push_back({lua_import_severity::information, "readyCheckSoundFile", "Compatible WAV will be copied to config/XIUIplus/sounds/" + destination});
                             copied = true; break;
                         }
                     if (!copied) preview.issues.push_back({lua_import_severity::warning, "readyCheckSoundFile", "Custom sound is missing or unsupported; Native keeps its built-in chime."});
@@ -227,7 +227,7 @@ namespace xiui
                 for (const auto& path : {root / "inventory_cache.lua", root / "imgui.ini", root / "profiles" / "imgui.ini"})
                     if (std::filesystem::is_regular_file(path)) { read(path); result.notes.push_back(ToUtf8(path.filename().wstring()) + " is included in the source archive; historical data and unmatched positions remain separate from live Native state."); }
             }
-            if (result.profiles.empty()) throw std::runtime_error{"No saved XIUI profiles were found in this location."};
+            if (result.profiles.empty()) throw std::runtime_error{"No saved XIUI+ profiles were found in this location."};
             if (!result.characters.empty()) result.notes.push_back(std::to_string(result.characters.size()) + " character associations are recorded in the report; existing Native associations are preserved.");
             for (const auto& link : result.characters) result.notes.push_back("Source character " + link.character + " selected " + link.profile + ".");
         }

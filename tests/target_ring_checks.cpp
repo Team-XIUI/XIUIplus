@@ -91,7 +91,7 @@ auto CheckRingRasterProjection(IDirect3DDevice8* device) -> bool
 auto RunTargetRingStateChecks(void) -> bool
 {
     using Microsoft::WRL::ComPtr;
-    const auto window=::CreateWindowExW(0,L"STATIC",L"XIUI ring state check",WS_POPUP,0,0,64,64,nullptr,nullptr,::GetModuleHandleW(nullptr),nullptr);
+    const auto window=::CreateWindowExW(0,L"STATIC",L"XIUI+ ring state check",WS_POPUP,0,0,64,64,nullptr,nullptr,::GetModuleHandleW(nullptr),nullptr);
     struct close_window { HWND window; ~close_window() { if (window) ::DestroyWindow(window); } } close{window};
     wchar_t wrapperPath[MAX_PATH]{};
     const auto wrapperLength=::GetEnvironmentVariableW(L"XIUI_RING_RASTER_WRAPPER",wrapperPath,MAX_PATH);

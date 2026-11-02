@@ -378,7 +378,7 @@ namespace xiui
             {
                 stamina(value);
                 if (!check(controller.ShouldHide(primitivePointer) && controller.FishingStaminaPercent() == value,
-                    "native party stays hidden while XIUI reads live fish stamina, including zero")) return false;
+                    "native party stays hidden while XIUI+ reads live fish stamina, including zero")) return false;
             }
             stamina(101);
             if (!check(controller.FishingStaminaPercent() == -1, "out-of-range native stamina is rejected")) return false;
@@ -425,7 +425,7 @@ namespace xiui
             bool passed = check(host.macro_hook_enabled_ && calls == 1 && host.Status().find("macro guard active") != std::string::npos,
                 "the requested macro guard blocks native starts even without HUD draw discovery or a logged-in fixture");
             reinterpret_cast<native_hud_controller::macro_run_fn>(host.native_macros_.Entry())(&calls, 2, 9);
-            passed = check(calls == 2, "explicit XIUI macro references retain the original trampoline path") && passed;
+            passed = check(calls == 2, "explicit XIUI+ macro references retain the original trampoline path") && passed;
             host.Update(0); nativeRun(&calls, 1, 0);
             passed = check(!host.macro_hook_enabled_ && calls == 3, "turning suppression off immediately restores native starts") && passed;
             host.Update(native_keyboard_macro_palette); host.Shutdown(); nativeRun(&calls, 1, 0);
@@ -510,7 +510,7 @@ namespace xiui
             }
             controller.hidden_ = 0;
             for (const auto& palette : palettes)
-                if (!check(!controller.ShouldHide(palette.window.m_pParentMCD), "native macro palettes draw without an owned XIUI chord")) return false;
+                if (!check(!controller.ShouldHide(palette.window.m_pParentMCD), "native macro palettes draw without an owned XIUI+ chord")) return false;
             controller.hidden_ = native_keyboard_macro_palette;
             for (const auto& palette : palettes)
             {
@@ -518,7 +518,7 @@ namespace xiui
                 const auto originalPrimitive = palette.primitive;
                 if (!check(controller.ShouldHide(palette.window.m_pParentMCD) &&
                     std::memcmp(&originalWindow, &palette.window, sizeof(originalWindow)) == 0 && originalPrimitive == palette.primitive,
-                    "owned XIUI chord suppresses all four native palette variants without mutating native state")) return false;
+                    "owned XIUI+ chord suppresses all four native palette variants without mutating native state")) return false;
             }
             if (!check(!controller.ShouldHide(chat.window.m_pParentMCD) && !controller.ShouldHide(unrelated.window.m_pParentMCD),
                 "transient palette suppression leaves chat and unrelated native menus visible")) return false;

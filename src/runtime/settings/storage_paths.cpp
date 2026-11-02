@@ -22,13 +22,13 @@ namespace xiui
                 ::CharLowerBuffW(name.data(), static_cast<DWORD>(name.size()));
                 uint64_t hash = 14695981039346656037ull;
                 for (const auto c : name) hash = (hash ^ static_cast<uint16_t>(c)) * 1099511628211ull;
-                const auto key = L"Local\\XIUI.Storage." + std::to_wstring(hash);
+                const auto key = L"Local\\XIUIplus.Storage." + std::to_wstring(hash);
                 this->handle = ::CreateMutexW(nullptr, FALSE, key.c_str());
                 const auto status = this->handle != nullptr ? ::WaitForSingleObject(this->handle, 5000) : WAIT_FAILED;
                 if (status != WAIT_OBJECT_0 && status != WAIT_ABANDONED)
                 {
                     if (this->handle != nullptr) ::CloseHandle(this->handle);
-                    throw std::runtime_error{"Could not lock XIUI storage migration. Reload XIUI after other clients finish loading."};
+                    throw std::runtime_error{"Could not lock XIUI+ storage migration. Reload XIUI+ after other clients finish loading."};
                 }
             }
             ~migration_lock() { ::ReleaseMutex(this->handle); ::CloseHandle(this->handle); }
@@ -38,10 +38,10 @@ namespace xiui
         {
             const auto attributes = ::GetFileAttributesW(path.c_str());
             if (attributes != INVALID_FILE_ATTRIBUTES && (attributes & FILE_ATTRIBUTE_REPARSE_POINT) != 0)
-                throw std::runtime_error{"XIUI storage migration does not follow linked files or directories."};
+                throw std::runtime_error{"XIUI+ storage migration does not follow linked files or directories."};
             const auto relative = fs::weakly_canonical(path).lexically_relative(boundary);
             if (relative.empty() || relative.is_absolute() || *relative.begin() == "..")
-                throw std::runtime_error{"XIUI storage migration path is outside its data directory."};
+                throw std::runtime_error{"XIUI+ storage migration path is outside its data directory."};
         }
 
         auto CheckTree(const fs::path& path, const fs::path& boundary) -> void
@@ -54,7 +54,7 @@ namespace xiui
         auto Move(const fs::path& source, const fs::path& destination) -> void
         {
             if (!::MoveFileExW(source.c_str(), destination.c_str(), MOVEFILE_WRITE_THROUGH))
-                throw std::runtime_error{"Could not migrate XIUI data. Close other XIUI clients and check directory permissions; migration will retry on the next load."};
+                throw std::runtime_error{"Could not migrate XIUI+ data. Close other XIUI+ clients and check directory permissions; migration will retry on the next load."};
         }
 
         auto Merge(const fs::path& source, const fs::path& destination, const fs::path& archive,
@@ -99,12 +99,24 @@ namespace xiui
         const auto config = base / "config";
         fs::create_directories(config);
         const auto configBoundary = fs::weakly_canonical(config);
-        storage_paths paths{config / "xiuinative"};
+        storage_paths paths{config / "XIUIplus"};
         CheckPath(paths.root, configBoundary);
         const migration_lock lock{fs::weakly_canonical(paths.root)};
         fs::create_directories(paths.root);
         const auto boundary = fs::weakly_canonical(paths.root);
         const auto legacy = paths.root / "legacy";
+        const auto oldRoot = config / "xiuinative";
+        CheckPath(oldRoot, configBoundary);
+        if (fs::exists(oldRoot))
+        {
+            if (!fs::is_directory(oldRoot)) throw std::runtime_error{"The old XIUI data directory has an unexpected file type."};
+            CheckTree(oldRoot, configBoundary);
+            std::vector<fs::path> children;
+            for (const auto& child : fs::directory_iterator{oldRoot}) children.push_back(child.path());
+            for (const auto& child : children)
+                Merge(child, paths.root / child.filename(), legacy / "xiuinative" / child.filename(), configBoundary, boundary);
+            fs::remove(oldRoot);
+        }
         const auto marker = paths.root / "storage.version";
         CheckPath(marker, boundary);
         const bool migrateSounds = !fs::exists(marker) || fs::exists(config / "xiuinative.ini") || fs::exists(config / "xiuinative-profiles");
@@ -116,7 +128,7 @@ namespace xiui
             const bool file = name.extension() == ".ini";
             for (const auto& path : {config / name, destination})
                 if (fs::exists(path) && (file ? !fs::is_regular_file(path) : !fs::is_directory(path)))
-                    throw std::runtime_error{"An XIUI storage path has an unexpected file type. Existing data is unchanged at that path."};
+                    throw std::runtime_error{"An XIUI+ storage path has an unexpected file type. Existing data is unchanged at that path."};
             Merge(config / name, destination, legacy / name, configBoundary, boundary);
         }
         Merge(base / "plugins/xiuinative-licenses", paths.Licenses(), legacy / "plugin-licenses", base, boundary);
@@ -149,7 +161,7 @@ namespace xiui
                 const auto source = sharedSounds / name, target = paths.Sounds() / name;
                 CheckPath(source, configBoundary); CheckPath(target, boundary);
                 if (fs::is_regular_file(source) && !fs::exists(target) && !::CopyFileW(source.c_str(), target.c_str(), TRUE))
-                    throw std::runtime_error{"Could not migrate a custom XIUI sound. The source file is unchanged."};
+                    throw std::runtime_error{"Could not migrate a custom XIUI+ sound. The source file is unchanged."};
             }
             if (fs::is_empty(sharedSounds)) fs::remove(sharedSounds);
         }
@@ -158,11 +170,11 @@ namespace xiui
         if (!fs::exists(marker))
         {
             const auto file = ::CreateFileW(marker.c_str(), GENERIC_WRITE, 0, nullptr, CREATE_NEW, FILE_ATTRIBUTE_NORMAL, nullptr);
-            if (file == INVALID_HANDLE_VALUE) throw std::runtime_error{"Could not record the XIUI storage migration."};
+            if (file == INVALID_HANDLE_VALUE) throw std::runtime_error{"Could not record the XIUI+ storage migration."};
             const std::unique_ptr<void, decltype(&::CloseHandle)> closeFile{file, &::CloseHandle};
             DWORD written{};
             if (!::WriteFile(file, "1\r\n", 3, &written, nullptr) || written != 3 || !::FlushFileBuffers(file))
-                throw std::runtime_error{"Could not record the XIUI storage migration."};
+                throw std::runtime_error{"Could not record the XIUI+ storage migration."};
         }
         return paths;
     }
@@ -170,6 +182,8 @@ namespace xiui
     auto AshitaConfigDirectory(const std::filesystem::path& settings) -> std::filesystem::path
     {
         const auto parent = settings.parent_path();
-        return parent.filename() == "xiuinative" && settings.filename() == "settings.ini" ? parent.parent_path() : parent;
+        const auto directory = parent.filename().wstring();
+        return (::_wcsicmp(directory.c_str(), L"XIUIplus") == 0 || ::_wcsicmp(directory.c_str(), L"xiuinative") == 0) &&
+            settings.filename() == "settings.ini" ? parent.parent_path() : parent;
     }
 }

@@ -198,7 +198,7 @@ namespace xiui
                     const auto& sample = this->general_.GlobalTextStyle();
                     auto area = layout.ContentTabs();
                     area.height = 48;
-                    this->design_system_.DrawText("Aa Bb Cc 0123456789 - XIUI", area, sample);
+                    this->design_system_.DrawText("Aa Bb Cc 0123456789 - XIUI+", area, sample);
                 }
                 else if (this->IsGeneralAppearance() && this->general_.AppearanceTab() == 3)
                 {

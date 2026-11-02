@@ -1,11 +1,11 @@
 ---
 name: xiui-controller-support
-description: Design, implement or review controller support for XIUI Native interactions, including chat, party targeting and shared config controls. Apply when adding or changing interactive XIUI features so keyboard, mouse and controller paths remain compatible.
+description: Design, implement or review controller support for XIUI+ interactions, including chat, party targeting and shared config controls. Apply when adding or changing interactive XIUI+ features so keyboard, mouse and controller paths remain compatible.
 ---
 
-# XIUI controller support
+# XIUI+ controller support
 
-Apply to the XIUI Native repository containing this skill.
+Apply to the XIUI+ repository containing this skill.
 
 Read its `AGENTS.md`, relevant shared foundations and `docs/reference/input.md` first for implemented commands, semantic actions and native-keyboard/hardware limits. Resolve the ABI from `src/shared/runtime_api.hpp`. Reuse current normalized input, config session and focus foundations.
 
@@ -19,7 +19,7 @@ For live diagnostics, consult `docs/archive/controller-agentlink-2026-10-14.md`.
 - Treat native gamepad configuration, Ashita's runtime enumeration policy and actual device connection as separate prerequisites. Do not silently change them when selecting a presentation mode. Published mapping lengths may lag the client; preserve unrecognized fields and configured overrides.
 - Inspect the installed SDK. Use Ashita's controller interfaces and the host/runtime contract; support DirectInput and XInput. Avoid duplicate event/state processing and remapper-generated duplicate actions. Register and unregister callbacks through the host lifetime gate.
 - Normalize device input to shared actions. Mouse, keyboard and controller should activate the same module operations and validation; do not build a second behavior path by synthesizing clicks or globally injecting Enter/Escape.
-- Keep native movement, camera, macros, menus and targeting available outside explicit XIUI focus. Respect an already-blocked event and other input owners. A hidden native window may still own input.
+- Keep native movement, camera, macros, menus and targeting available outside explicit XIUI+ focus. Respect an already-blocked event and other input owners. A hidden native window may still own input.
 - Consume owned press, held state and release consistently. Handle direction repeat separately from one-shot activation. Require neutral after releasing a captured stick. Never let closing a dialog also act in the game.
 - Chat browsing captures navigation only: movement/camera sticks and unrelated keyboard movement remain available. Typing retains keyboard text ownership; config/modals may capture exclusively. Party browsing yields to the live native menu-input flag, including main menu, inventory and equipment, rather than relying only on movable command-panel visibility.
 - Keep native controller callbacks independent of the runtime/render mutex. Read cached routing, decide suppression immediately, and queue accepted actions for the render thread; never invoke UI/native actions while holding the mailbox lock. Expire stale work and invalidate it on suspension, profile changes and runtime replacement.
@@ -41,7 +41,7 @@ For live diagnostics, consult `docs/archive/controller-agentlink-2026-10-14.md`.
 - Prefer the existing Windows in-game software keyboard under Config → Misc. 4 when available. Read its current setting without changing it automatically. Do not confuse it with the PlayOnline password keyboard. Native chat input (0x11) and other text editors (0x21) need different ownership; generic menu visibility is not active-log focus.
 - Preserve draft, channel and recipient on cancel or device change. Opening chat must not send it. One explicit activation sends once, through the existing validated path; never submit again after native submission.
 - During native spell/ability subtargeting, let FFXI own navigation and confirmation. Mirror its party cursor; do not turn highlight movement into a hard-target change or new cast.
-- Separate a XIUI browsing cursor from game hard target and native subtarget. Keep member identity stable across row reorder, joins/leaves and hidden alliance groups. Slot-based native targeting must not depend on a visible world model during equipment changes.
+- Separate a XIUI+ browsing cursor from game hard target and native subtarget. Keep member identity stable across row reorder, joins/leaves and hidden alliance groups. Slot-based native targeting must not depend on a visible world model during equipment changes.
 - Revalidate identity and availability at activation. Out-of-zone inspection and world-target eligibility are different. Share normal target actions with pointer input; do not duplicate spell execution.
 
 ## Persistence and validation

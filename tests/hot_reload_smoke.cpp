@@ -79,8 +79,8 @@ int main(const int argc, char** argv)
     const std::string root = std::string(temporary) + directoryName;
     const std::string plugins = join(root, "plugins");
     const std::string config = join(root, "config");
-    const std::string published = join(plugins, "xiuinative-runtime.dll");
-    std::snprintf(directoryName, sizeof(directoryName), "xiuinative-runtime-%lu", static_cast<unsigned long>(::GetCurrentProcessId()));
+    const std::string published = join(plugins, "XIUIplus-runtime.dll");
+    std::snprintf(directoryName, sizeof(directoryName), "XIUIplus-runtime-%lu", static_cast<unsigned long>(::GetCurrentProcessId()));
     const std::string shadowDirectory = std::string(temporary) + directoryName;
 
     ::CreateDirectoryA(root.c_str(), nullptr);

@@ -31,7 +31,7 @@ namespace
                 "native cycle handoff retains ownership of chat confirmation")) return false;
             const auto batch = mailbox.Take();
             if (!require(batch.count == 1 && batch.events[0].action == controller_action::confirm,
-                "native cycling queues no duplicate XIUI cycle action")) return false;
+                "native cycling queues no duplicate XIUI+ cycle action")) return false;
         }
         return true;
     }

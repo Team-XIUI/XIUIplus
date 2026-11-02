@@ -134,7 +134,7 @@ namespace xiui
         const int preset = this->setup_preset_ < 0 ? PresetFor(mapping, this->setup_backend_) : std::clamp(this->setup_preset_, 0, 4);
         if (tab == 0)
         {
-            toggle(use_triggers, layout.Row(0), "Use XIUI triggers", this->controller_settings_.enabled && this->controller_settings_.replace_native);
+            toggle(use_triggers, layout.Row(0), "Use XIUI+ triggers", this->controller_settings_.enabled && this->controller_settings_.replace_native);
             choice(mapping_backend, layout.Row(setup_layout::row_pitch), "Input type", this->setup_backend_ == 0 ? "XInput" : "DirectInput");
             choice(mapping_preset, layout.Row(2 * setup_layout::row_pitch), "Controller preset", preset_names[preset]);
             toggle(ordered_banks, layout.Row(3 * setup_layout::row_pitch), "Ordered trigger banks", this->controller_settings_.expanded);

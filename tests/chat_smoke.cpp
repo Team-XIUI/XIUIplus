@@ -484,7 +484,7 @@ namespace xiui
             const auto nativeDue = chat.collapse_due_; chat.SetNativeWindowConfig(first);
             Check(chat.collapse_due_ == nativeDue, "unchanged native polls cannot extend the idle deadline");
             chat.SetNativeWindowConfig(second); chat.UpdateCompactLayout(design, 17000);
-            Check(chat.FrameBounds(design).height == 260, "native fixed sizing preserves the configured XIUI frame");
+            Check(chat.FrameBounds(design).height == 260, "native fixed sizing preserves the configured XIUI+ frame");
             const auto store = settings_store::FromIniText(""); chat.collapse_mode_ = 2; chat.collapse_delay_ = 9; chat.Save(store);
             chat_module restored; restored.Load(store);
             Check(restored.collapse_mode_ == 2 && restored.collapse_delay_ == 9 && restored.collapsed_through_ == 0 &&
@@ -760,7 +760,7 @@ namespace xiui
             }
             module.RebuildRows(design, 1500);
             Check(module.Count() == 2 && module.rows_.size() == 2 && module.rows_[1].spans[0].text.starts_with("Example"),
-                "both admitted native emote modes reach the normal XIUI log");
+                "both admitted native emote modes reach the normal XIUI+ log");
         }
 
         static auto ExpandedHistory(void) -> void
@@ -898,10 +898,10 @@ namespace xiui
                 "background cleanup releases input while retaining the expanded log, tab, scroll and draft");
             Check(key(VK_ESCAPE) && chat.HistoryFocused() && runtime.ChatFocused() && !chat.HistoryExpanded() && chat.editor_.Text() == "unsent draft" &&
                 chat.State().bounds.x == initial.x && chat.State().bounds.y == initial.y && chat.State().bounds.width == initial.width && chat.State().bounds.height == initial.height,
-                "Escape returns expanded history to the focused compact XIUI chat without altering its draft or layout");
+                "Escape returns expanded history to the focused compact XIUI+ chat without altering its draft or layout");
             Check(key(VK_ESCAPE, 0x40000000) && chat.HistoryFocused(), "holding Escape cannot also leave compact chat focus");
             Check(key(VK_RETURN) && chat.HistoryExpanded() && chat.history_view_.tab == 0 && key(VK_ESCAPE) && chat.HistoryFocused(),
-                "Enter reopens XIUI history on its first tab without focusing native chat");
+                "Enter reopens XIUI+ history on its first tab without focusing native chat");
             Check(key(VK_ESCAPE) && !runtime.ChatFocused(), "a second fresh Escape leaves compact chat focus");
             runtime.native_ui_.menu_visible = true;
             Check(!runtime.HandleChatKey('F', 0, false, true, true, 0) && !chat.HistoryFocused(), "an unfocused F stays native during target selection");
@@ -950,7 +950,7 @@ namespace xiui
                 "keyboard Buffs highlighting keeps controller sticks and keyboard movement available outside native menus");
             const auto firstBuff = runtime.buffs_.ControllerBounds();
             Check(key(VK_RIGHT) && runtime.buffs_.ControllerBounds().x > firstBuff.x,
-                "keyboard arrows move between the actual XIUI effect icons");
+                "keyboard arrows move between the actual XIUI+ effect icons");
             controller_status unavailable{}; unavailable.suspended = unavailable.enumeration_disabled = true;
             unavailable.connection_known = unavailable.configuration_known = true;
             runtime.UpdateControllerStatus(unavailable);
@@ -971,7 +971,7 @@ namespace xiui
             runtime.UpdateControllerStatus({});
             Check(key('F', 0x40000000) && runtime.buffs_.ControllerFocused(), "held F cannot skip a status group");
             Check(key('F') && runtime.debuffs_.ControllerFocused() && !runtime.buffs_.ControllerFocused(),
-                "F continues from XIUI Buffs to XIUI Debuffs");
+                "F continues from XIUI+ Buffs to XIUI+ Debuffs");
             Check(runtime.ControllerCapture() == controller_capture_mode::navigation && !runtime.KeyboardFocused(),
                 "keyboard Debuffs highlighting also keeps movement available outside native menus");
             runtime.UpdateControllerStatus(unavailable);
@@ -982,13 +982,13 @@ namespace xiui
             Check(key(VK_ESCAPE) && !runtime.ControllerCaptured() && !runtime.ChatFocused(), "Escape releases keyboard status inspection");
             second.State().enabled = false;
             Check(chat.BeginHistory() && chat.HistoryFocused() && key('F') && runtime.buffs_.ControllerFocused(),
-                "with Window 2 disabled, the second F selects XIUI Buffs");
+                "with Window 2 disabled, the second F selects XIUI+ Buffs");
             runtime.buffs_.State().enabled = false;
             Check(key('F') && runtime.debuffs_.ControllerFocused(), "disabled status modules are skipped without native focus");
             player.buff_count = 0;
             key(VK_ESCAPE);
             Check(chat.BeginHistory() && key('F') && chat.HistoryFocused() && !runtime.buffs_.ControllerFocused() && !runtime.debuffs_.ControllerFocused(),
-                "empty status groups are skipped and focus wraps within XIUI");
+                "empty status groups are skipped and focus wraps within XIUI+");
             key(VK_ESCAPE);
             player.buff_count = 3; runtime.buffs_.State().enabled = true;
             second.State().enabled = true;
@@ -1028,7 +1028,7 @@ namespace xiui
                 cycle(controller_action::left) && runtime.buffs_.ControllerBounds().x == controllerBuff.x,
                 "closing the combat menu keeps Buffs navigation without taking movement sticks");
             runtime.native_ui_.menu_visible = true;
-            Check(cycle(controller_action::cycle_window) && runtime.debuffs_.ControllerFocused(), "controller cycle continues to XIUI Debuffs");
+            Check(cycle(controller_action::cycle_window) && runtime.debuffs_.ControllerFocused(), "controller cycle continues to XIUI+ Debuffs");
             runtime.SyncNativeChatInput(nullptr, true);
             runtime.UpdateControllerFocus();
             Check(runtime.ControllerCapture() == controller_capture_mode::navigation && runtime.debuffs_.ControllerBounds().width > 0,
@@ -1286,14 +1286,14 @@ namespace xiui
                 Check(module.colors_.Resolve(modes[i], game, inlineColor) == inlineColor && module.colors_.Resolve(modes[i], game) == game,
                     "every chat type follows native and inline colors until explicitly overridden");
                 module.colors_.enabled[i] = true; module.colors_.colors[i] = custom;
-                Check(module.colors_.Resolve(modes[i], game, inlineColor) == custom, "XIUI overrides take precedence over game and inline colors");
+                Check(module.colors_.Resolve(modes[i], game, inlineColor) == custom, "XIUI+ overrides take precedence over game and inline colors");
                 module.colors_.enabled[i] = false;
                 Check(module.colors_.Resolve(modes[i], game, inlineColor) == inlineColor && module.colors_.colors[i] == custom,
                     "Game restores native colors while retaining the saved custom color");
             }
             module.colors_.enabled[0] = true;
             Check(module.colors_.Resolve(4, game) == game && second.Colors().Resolve(12, game) == custom,
-                "incoming and outgoing tells are independent and overrides are shared by both XIUI windows");
+                "incoming and outgoing tells are independent and overrides are shared by both XIUI+ windows");
             auto profile = module_text_profile{ui::theme::CreateDefault().body_text};
             profile.style.top_color = 0xFFFFFFFF; profile.style.bottom_color = 0xFF808080;
             const auto tinted = TintTextProfile(profile, module.colors_.Resolve(12, game));
@@ -1307,7 +1307,7 @@ namespace xiui
                 "sound selections, override flags and custom colors persist without changing the native palette");
             Check(second.Option(second.ColorsOptionStart()).toggle == &module.colors_.enabled[0] &&
                 std::string_view{module.ConfigSections()[6].description}.find("override your game settings colors") != std::string_view::npos,
-                "color controls share preferences and visibly explain that XIUI overrides game settings colors");
+                "color controls share preferences and visibly explain that XIUI+ overrides game settings colors");
             restored.ResetDefaults(ui::theme::CreateDefault());
             Check(std::none_of(restored.colors_.enabled.begin(), restored.colors_.enabled.end(), [](bool value) { return value; }),
                 "reset returns every channel to game colors");
@@ -1338,7 +1338,7 @@ namespace xiui
                 auto event = receive(modes[i]);
                 event.windows = 2;
                 module.Receive(nullptr, event); second.Receive(nullptr, event);
-                Check(alert_sounds == before + 1, "each chat type alerts once across both native and XIUI windows");
+                Check(alert_sounds == before + 1, "each chat type alerts once across both native and XIUI+ windows");
             }
             module.alerts_.channels = {};
             module.alerts_.keywords = "  hello, rare item, ,HELLO  ";
@@ -1436,11 +1436,11 @@ namespace xiui
                 "command menu confirmation and navigation keep their native input");
             Check(runtime.HandleChatKey(VK_OEM_2, 0, false, true, false, 0) && runtime.ChatFocused() &&
                 runtime.chat_.editor_.Text() == "/" && runtime.chat_native_context_suspended_,
-                "slash claims XIUI chat over a visible combat command menu");
+                "slash claims XIUI+ chat over a visible combat command menu");
             runtime.SyncNativeChatInput(&chat, true);
             Check(runtime.ChatFocused() && runtime.HandleChatKey(VK_BACK, 0, false, true, false, 0) &&
                 runtime.chat_.editor_.Text().empty() && chat.IsInputOpen() == 0 && chat.count == 0,
-                "frame synchronization and subsequent typing retain XIUI ownership without opening native chat");
+                "frame synchronization and subsequent typing retain XIUI+ ownership without opening native chat");
             Check(runtime.HandleChatKey(VK_ESCAPE, 0, false, true, false, 0) && !runtime.ChatFocused(),
                 "Escape cancels chat without reaching the underlying command menu");
             runtime.SyncNativeChatInput(&chat, true);
@@ -1454,7 +1454,7 @@ namespace xiui
                 !runtime.HandleChatKey(VK_OEM_2, 0, false, true, false, 0x21) &&
                 !runtime.HandleChatKey(VK_OEM_2, 0, false, true, false, 0x11) && !runtime.ChatFocused(),
                 "other input owners, disabled replacement and native editors retain slash");
-            Check(runtime.HandleChatKey(VK_OEM_2, 0, false, true, false, 0), "slash can reopen XIUI chat over the same menu");
+            Check(runtime.HandleChatKey(VK_OEM_2, 0, false, true, false, 0), "slash can reopen XIUI+ chat over the same menu");
             runtime.SyncNativeChatInput(&chat, true, true);
             Check(runtime.ChatFocused() && runtime.chat_native_context_suspended_, "target selection cannot interrupt explicitly opened chat");
             runtime.ReleaseChatInput();
@@ -1492,7 +1492,7 @@ namespace xiui
                         !runtime.HandleChatKey(slash, 0, false, true, true, 0x21) && !runtime.ChatFocused(),
                         "targeting does not bypass blocked shortcuts, key repeats, disabled replacement or other native editors");
                     Check(runtime.HandleChatKey(slash, 0, false, true, true, 0) && runtime.ChatFocused() &&
-                        runtime.chat_.editor_.Text() == "/", "slash opens XIUI chat while selecting a target");
+                        runtime.chat_.editor_.Text() == "/", "slash opens XIUI+ chat while selecting a target");
                     runtime.SyncNativeChatInput(&chat, nativeMenu, true);
                     Check(runtime.ChatFocused() && runtime.HandleChatKey(VK_BACK, 0, false, true, true, 0) &&
                         runtime.chat_.editor_.Text().empty(), "frame synchronization and editing retain chat focus during target selection");
@@ -1526,7 +1526,7 @@ namespace xiui
                 Check(runtime.ChatFocused() && runtime.chat_.editor_.Text() == text &&
                     runtime.chat_.editor_.Caret() == std::strlen(text) && chat.native[0] == 3 &&
                     chat.GetInputTextRawLength() == 0 && !player_menu_closed,
-                    "hidden native slash drafts transfer into XIUI during targeting using native session cleanup");
+                    "hidden native slash drafts transfer into XIUI+ during targeting using native session cleanup");
                 runtime.SyncNativeChatInput(&chat, true, true);
                 Check(runtime.ChatFocused() && runtime.chat_native_context_suspended_ && chat.count == 0 && chat.input_updates == 0,
                     "adopted commands retain focus without sending or rewriting the closed native editor");
@@ -1598,7 +1598,7 @@ namespace xiui
                 "Full keyboard mode reads the native configuration");
             Check(runtime.HandleChatKey('F', 0, false, true, false, 0) && runtime.chat_.Focused() && runtime.chat_.editor_.Text() == "f" &&
                 !runtime.chat_input_.HandoffAvailable() && chat.count == 0,
-                "Full-mode first-character typing opens XIUI directly without a native editor or sending");
+                "Full-mode first-character typing opens XIUI+ directly without a native editor or sending");
             Check(runtime.HandleChatKey('R', 0, false, true, false, 0) && runtime.chat_.editor_.Text() == "fr", "following letters enter the same draft once");
             runtime.ReleaseChatInput();
             Check(!runtime.HandleChatKey(VK_NUMPAD7, 0, false, true, false, 0) && !runtime.HandleChatKey(VK_F1, 0, false, true, false, 0) &&
@@ -1622,7 +1622,7 @@ namespace xiui
             runtime.SyncNativeChatInput(&chat, false);
             Check(runtime.ChatFocused() && runtime.chat_.editor_.Text() == "f" && runtime.chat_.editor_.Caret() == 1 &&
                 runtime.chat_.Layout(runtime.design_system_).input.height > 0 && chat.IsInputOpen() == 0 && chat.count == 0,
-                "the first native character opens visible XIUI input and transfers once without sending");
+                "the first native character opens visible XIUI+ input and transfers once without sending");
             Check(runtime.ChatFocusBounds().width == 0, "typing a message does not outline the chat history window");
             runtime.SyncNativeChatInput(&chat, false);
             Check(runtime.chat_.editor_.Text() == "f" && chat.input_updates == 0 && chat.count == 0,
@@ -1641,7 +1641,7 @@ namespace xiui
                 "non-chat native editors retain their own text and ownership");
             chat.OpenNative(""); runtime.SyncNativeChatInput(&chat, false);
             Check(runtime.ChatFocused() && chat.IsInputOpen() == 0 && runtime.chat_.editor_.Text() == "test",
-                "an empty native editor opens XIUI input while preserving the saved unsent draft");
+                "an empty native editor opens XIUI+ input while preserving the saved unsent draft");
             runtime.ReleaseChatInput();
             auto& compactMember = const_cast<party_member&>(runtime.party_source_.Members()[0]);
             compactMember.active = compactMember.buffs_known = true; compactMember.id = 50;
@@ -1684,7 +1684,7 @@ namespace xiui
             record[2] = 3;
             Check(!runtime.window_config_.FullKeyboard().has_value(), "unknown native keyboard layouts remain unavailable");
             Check(!runtime.HandleChatKey('F', 0, false, true, false, 0) && !runtime.ChatFocused(),
-                "unavailable native keyboard settings cannot turn F into an implicit XIUI shortcut");
+                "unavailable native keyboard settings cannot turn F into an implicit XIUI+ shortcut");
 
             runtime.actionbars_.Load(settings_store::FromIniText(
                 "[actionbars.hotbar]\nenabled=1\nslots=8\n"
@@ -1902,7 +1902,7 @@ namespace xiui
             Check(runtime.HandleChatKey(VK_RETURN, 0, false, true, false, 0) && !runtime.ChatFocused() && runtime.KeyboardFocused(),
                 "closing an empty chat also drains its Enter gesture");
             runtime.SetVisible(false); runtime.SetVisible(true);
-            Check(!runtime.KeyboardFocused(), "hiding XIUI clears pending chat keyboard capture");
+            Check(!runtime.KeyboardFocused(), "hiding XIUI+ clears pending chat keyboard capture");
         }
 
         static auto TellInputs(void) -> void
@@ -1929,7 +1929,7 @@ namespace xiui
             Check(!module.HandleKey(nullptr, 'R', alt, true, true, alice) && !module.Focused(), "other input owners retain Alt+R");
             Check(!module.HandleKey(nullptr, 'R', alt, false, false, alice) && !module.Focused(), "native chat keeps its shortcut when replacement is inactive");
             module.State().enabled = false;
-            Check(!module.HandleKey(nullptr, 'R', alt, false, true, alice), "disabled XIUI chat cannot claim reply");
+            Check(!module.HandleKey(nullptr, 'R', alt, false, true, alice), "disabled XIUI+ chat cannot claim reply");
             module.State().enabled = true;
             Check(!module.OpenTell("Alice /echo") && !module.OpenTell(""), "invalid recipients cannot enter the command prefix");
             for (const auto* draft : {"/tell Alice unsent message", "previous draft"})
@@ -1953,7 +1953,7 @@ namespace xiui
             chat.OpenNative("/tell Alice ", 5);
             Check(!input.TakeTell(&chat) && chat.IsInputOpen() == 0x21, "search and other native editors are never closed or adopted");
             chat.OpenNative("");
-            Check(!input.TakeTell(&chat) && chat.IsInputOpen() == 0x11 && !module.Focused(), "ordinary Enter does not open XIUI input");
+            Check(!input.TakeTell(&chat) && chat.IsInputOpen() == 0x11 && !module.Focused(), "ordinary Enter does not open XIUI+ input");
             chat.OpenNative("/s hello");
             Check(!input.TakeTell(&chat) && std::strcmp(chat.GetInputTextRaw(), "/s hello") == 0, "handoff is limited to explicitly addressed tells");
             chat.OpenNative("/tell Selectedplayer ");
@@ -1989,7 +1989,7 @@ namespace xiui
             runtime.chat_activation_enter_down_ = true;
             runtime.SyncNativeChatInput(&chat, true);
             Check(!runtime.chat_.Focused() && chat.native[0] == 4 && chat.GetInputTextRawLength() != 0 && chat.count == 1,
-                "native CHAT keeps its Enter release before XIUI takes keyboard capture");
+                "native CHAT keeps its Enter release before XIUI+ takes keyboard capture");
             runtime.HandleKey(VK_RETURN, static_cast<LPARAM>(0xC0000000u), false);
             runtime.SyncNativeChatInput(&chat, true);
             Check(runtime.chat_.Focused() && runtime.chat_.editor_.Text() == "/tell Curly " && chat.native[0] == 3 && chat.count == 1,
@@ -2112,7 +2112,7 @@ namespace xiui
                 "non-chat commands are not labeled as messages to the default channel");
             module.editor_.Set("ordinary message"); module.channel_ = 2;
             Check(module.SendChannelLabel() == "Linkshell 1" && module.InputCommand(module.editor_.Text()) == "/linkshell ordinary message",
-                "XIUI channel overrides describe the unchanged actual send command");
+                "XIUI+ channel overrides describe the unchanged actual send command");
             module.editor_.Set({});
             Check(module.SendChannelLabel() == "Linkshell 1", "clearing a draft does not reset an explicitly selected channel");
             module.editor_.Set("ordinary message");

@@ -143,7 +143,7 @@ namespace
         command_menu_module restored; restored.Load(store); restored.Update(native, 1920, 1080);
         Check(restored.AnchorsTop() && restored.Layout(true).enabled && restored.Layout(true).top == 268,
             "command anchor choice and position survive saving");
-        Check(!restored.Layout(false).enabled, "hiding XIUI disables native menu movement");
+        Check(!restored.Layout(false).enabled, "hiding XIUI+ disables native menu movement");
     }
 }
 

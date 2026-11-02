@@ -89,7 +89,7 @@ namespace xiui
     auto blue_magic_module::ConfigSections(void) const -> std::span<const module_config_section>
     {
         static constexpr module_config_section sections[]{
-            {"General", "A local Blue Magic learned event plays the original XIUI banner and optional sound.", "general"},
+            {"General", "A local Blue Magic learned event plays the original XIUI+ banner and optional sound.", "general"},
             {"Layout", "Drag the banner in edit mode and adjust its size and hold time.", "layout"},
             {"Text", "Fallback label style, used if the embedded artwork is unavailable.", "text"}};
         return sections;

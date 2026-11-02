@@ -1,6 +1,6 @@
 # Satchel
 
-Open or close the inventory browser with `/xiui satchel`. Use `/xiui satchel open`, `close`, `config` or `status` for explicit commands. Its settings are under **Inventory → Satchel**, alongside Dots, Equipment and Gil. Satchel retains its own position, text profiles and visibility rules.
+Open or close the inventory browser with `/xiuiplus satchel`. Use `/xiuiplus satchel open`, `close`, `config` or `status` for explicit commands. Its settings are under **Inventory → Satchel**, alongside Dots, Equipment and Gil. Satchel retains its own position, text profiles and visibility rules.
 
 ## Browsing
 
@@ -30,15 +30,15 @@ Actions remain pending until an appropriate inventory/equipment change is observ
 
 ## Saved characters and storage slips
 
-The character picker lists locally observed characters. After inventory loading has completed and a snapshot has settled, XIUI saves bags, gil and full item extra data under `config/xiuinative/inventories/<server-or-world-character>.ini`. Each character has an independent asynchronous atomic writer, so different game clients cannot replace each other's character files. Up to 64 characters are retained. Existing valid snapshots survive incomplete loading; unsupported/corrupt files are skipped.
+The character picker lists locally observed characters. After inventory loading has completed and a snapshot has settled, XIUI+ saves bags, gil and full item extra data under `config/XIUIplus/inventories/<server-or-world-character>.ini`. Each character has an independent asynchronous atomic writer, so different game clients cannot replace each other's character files. Up to 64 characters are retained. Existing valid snapshots survive incomplete loading; unsupported/corrupt files are skipped.
 
-Saved characters are read only and show a Last observed time. Their inventory is refreshed when that character is logged in with XIUI. Stable world/character identity is preferred. Private clients without native world identity can use the current process's observed login-server endpoint, requiring matching established data/auth connections on the standard 54230/54231 ports. Ambiguous local identity alone is never cached. Observation files and custom item layouts are excluded from portable HUD profiles and share keys.
+Saved characters are read only and show a Last observed time. Their inventory is refreshed when that character is logged in with XIUI+. Stable world/character identity is preferred. Private clients without native world identity can use the current process's observed login-server endpoint, requiring matching established data/auth connections on the standard 54230/54231 ports. Ambiguous local identity alone is never cached. Observation files and custom item layouts are excluded from portable HUD profiles and share keys.
 
 The slip picker lists owned Porter Moogle slips and decodes the stored-item bits for all 28 supported catalogs. Stored items share the search, paging and tooltip presentation, including saved characters' slips. Viewing a slip does not deposit or withdraw items. Truncated or unknown slip payloads produce no fabricated contents. Catalog attribution and the upstream MIT notice are embedded with the plugin.
 
 ## Input
 
-Use `/xiui focus satchel` or choose Satchel in `/xiui focus` for controller browsing. Directions navigate items across pages, Next/Previous tab switches bags, and Cycle window moves through the grid, bags, character/slip pickers, search, help, minimize/restore, title bar, resize grip and Close. Up/Down moves through the focused bag menu. Confirm/Actions opens the focused control; Cancel backs out or closes. Confirm on the title bar or resize grip starts adjustment: directions move or resize, Confirm saves, and Cancel restores the starting layout. Minimized browsing cycles through visible title-bar controls only. Numeric dialogs support direction adjustments; search accepts keyboard typing. Focused items show the same details as pointer hover.
+Use `/xiuiplus focus satchel` or choose Satchel in `/xiuiplus focus` for controller browsing. Directions navigate items across pages, Next/Previous tab switches bags, and Cycle window moves through the grid, bags, character/slip pickers, search, help, minimize/restore, title bar, resize grip and Close. Up/Down moves through the focused bag menu. Confirm/Actions opens the focused control; Cancel backs out or closes. Confirm on the title bar or resize grip starts adjustment: directions move or resize, Confirm saves, and Cancel restores the starting layout. Minimized browsing cycles through visible title-bar controls only. Numeric dialogs support direction adjustments; search accepts keyboard typing. Focused items show the same details as pointer hover.
 
 Ctrl+F focuses search whenever Satchel is open and available for input, without requiring a prior click. It selects the current query for replacement. Escape leaves search and returns movement to the game while retaining the query; Enter explicitly enters keyboard grid browsing. Arrow keys, Enter, Escape, Tab/F6 and Page Up/Down share its operations while browsing.
 

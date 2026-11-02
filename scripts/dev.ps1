@@ -9,10 +9,10 @@ $ErrorActionPreference = 'Stop'
 
 $Root = Split-Path -Parent $PSScriptRoot
 $BuildScript = Join-Path $PSScriptRoot 'build_all.ps1'
-$ThemeSource = Join-Path $Root 'config\xiuinative-theme.ini'
+$ThemeSource = Join-Path $Root 'config\XIUIplus-theme.ini'
 $Sdk = Resolve-XiuiSdk -PreferredPath $SdkPath
 $AshitaRoot = Resolve-XiuiInstallPath -PreferredPath $InstallPath
-$InstalledTheme = Join-Path $AshitaRoot 'config\xiuinative\theme.ini'
+$InstalledTheme = Join-Path $AshitaRoot 'config\XIUIplus\theme.ini'
 
 function Get-Fingerprint {
     param([string[]]$Paths)
@@ -39,7 +39,7 @@ function Get-Fingerprint {
 
 function Publish-Theme {
     Publish-XiuiAtomic -Source $ThemeSource -Destination $InstalledTheme
-    Write-Host "[$(Get-Date -Format T)] Theme published; XIUI will reload it automatically."
+    Write-Host "[$(Get-Date -Format T)] Theme published; XIUI+ will reload it automatically."
 }
 
 function Get-RuntimeFiles {
@@ -56,8 +56,8 @@ function Get-StableFiles {
 $RuntimeFiles = Get-RuntimeFiles
 $StableFiles = Get-StableFiles
 
-Write-Host 'XIUI development watcher'
-Write-Host '  Runtime changes: rebuild and atomically publish xiuinative-runtime.dll'
+Write-Host 'XIUI+ development watcher'
+Write-Host '  Runtime changes: rebuild and atomically publish XIUIplus-runtime.dll'
 Write-Host '  Theme changes: publish immediately; no compilation'
 Write-Host 'Press Ctrl+C to stop.'
 
@@ -82,7 +82,7 @@ while ($true) {
 
     if ($CurrentStable -ne $StableFingerprint) {
         $StableFingerprint = $CurrentStable
-        Write-Warning 'Development host source changed. Unload XIUI in the selected development install, then rebuild with -Development and its -InstallPath.'
+        Write-Warning 'Development host source changed. Unload XIUI+ in the selected development install, then rebuild with -Development and its -InstallPath.'
     }
     if ($CurrentRuntime -ne $RuntimeFingerprint) {
         $RuntimeDirty = $true

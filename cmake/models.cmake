@@ -13,7 +13,7 @@ endif()
 
 function(configure_xiui_hud_target target)
     configure_xiui_target(${target})
-    if(target STREQUAL "xiuinative_release")
+    if(target STREQUAL "XIUIplus_release")
         target_link_libraries(${target} PRIVATE xiui_models_release)
     else()
         target_link_libraries(${target} PRIVATE xiui_models)

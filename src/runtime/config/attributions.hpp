@@ -16,8 +16,8 @@ namespace xiui::ui
         attribution{"Phoenix", "Phoenix contributors - game rules and data.", "https://github.com/phoenixffxi/Phoenix"}};
 
     inline constexpr std::array ashita_credits{
-        attribution{"Ashita", "The framework and plugin SDK that XIUI runs on.", "https://www.ashitaxi.com/"},
-        attribution{"atom0s", "Thank you for your work on Ashita and the tools that make XIUI possible.", "https://github.com/atom0s"}};
+        attribution{"Ashita", "The framework and plugin SDK that XIUI+ runs on.", "https://www.ashitaxi.com/"},
+        attribution{"atom0s", "Thank you for your work on Ashita and the tools that make XIUI+ possible.", "https://github.com/atom0s"}};
 
     enum class contributor_group : uint8_t { founders, core, contributors };
     struct xiui_contributor { const char* name; const char* url; contributor_group group; };

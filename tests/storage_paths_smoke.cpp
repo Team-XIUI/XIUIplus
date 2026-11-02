@@ -57,7 +57,7 @@ int main()
         Write(config / "sounds" / owned, "imported sound");
         Write(config / "sounds/another-addon.wav", "unrelated sound"); Write(config / "imgui.ini", "shared imgui");
         const auto paths = xiui::PrepareStorage(root);
-        Check(paths.root == config / "xiuinative" && Read(paths.Settings()) == settings && Read(paths.Theme()) == theme, "preserve exact settings/theme bytes and selected character links");
+        Check(paths.root == config / "XIUIplus" && Read(paths.Settings()) == settings && Read(paths.Theme()) == theme, "preserve exact settings/theme bytes and selected character links");
         Check(Read(paths.Profiles() / "profile-a.ini").find("Personal") != std::string::npos && Read(paths.Profiles() / L"lua-batch/source-\u65E5\u672C.lua") == "original source", "preserve profile identities and Unicode source archive paths");
         Check(Read(paths.Inventories() / "world-123.ini") == "inventory and order data" && Read(paths.Licenses() / "XIVParty.txt") == "older development license" && Read(paths.Diagnostics() / "capture.json") == "diagnostic report", "consolidate inventory, licenses and diagnostics");
         Check(Read(paths.Sounds() / "custom.wav") == "custom sound" && Read(paths.Sounds() / "profile.wav") == "profile sound" && Read(paths.Sounds() / owned) == "imported sound", "move owned sounds and copy every referenced custom sound");
@@ -79,10 +79,31 @@ int main()
         bool failed{};
         try { xiui::PrepareStorage(retry); } catch (...) { failed = true; }
         ::CloseHandle(file);
-        Check(failed && Read(retry / "config/xiuinative/settings.ini") == settings && Read(retry / "config/xiuinative-theme.ini") == theme, "interrupted migration preserves both moved and unmoved data");
+        Check(failed && Read(retry / "config/XIUIplus/settings.ini") == settings && Read(retry / "config/xiuinative-theme.ini") == theme, "interrupted migration preserves both moved and unmoved data");
         const auto resumed = xiui::PrepareStorage(retry);
         Check(Read(resumed.Settings()) == settings && Read(resumed.Theme()) == theme, "retry completes an interrupted migration without resetting settings");
-        std::puts("XIUI storage consolidation, conflicts, shared resources and interrupted migration checks passed.");
+        const auto upgrade = root / "upgrade";
+        const auto oldRoot = upgrade / "config/xiuinative";
+        Write(oldRoot / "settings.ini", settings); Write(oldRoot / "theme.ini", theme);
+        Write(oldRoot / "storage.version", "1\r\n");
+        Write(oldRoot / "profiles/personal.ini", "saved profile");
+        Write(oldRoot / "inventories/world-123.ini", "saved inventory");
+        Write(oldRoot / "sounds/custom.wav", "saved sound");
+        Write(oldRoot / "diagnostics/capture.json", "saved diagnostics");
+        Write(oldRoot / "legacy/source.lua", "archived source");
+        const auto renamed = xiui::PrepareStorage(upgrade);
+        Check(!fs::exists(oldRoot) && Read(renamed.Settings()) == settings && Read(renamed.Theme()) == theme &&
+            Read(renamed.Profiles() / "personal.ini") == "saved profile" && Read(renamed.Inventories() / "world-123.ini") == "saved inventory" &&
+            Read(renamed.Sounds() / "custom.wav") == "saved sound" && Read(renamed.Diagnostics() / "capture.json") == "saved diagnostics" &&
+            Read(renamed.root / "legacy/source.lua") == "archived source", "rename the complete existing master directory without losing settings or supporting files");
+        Write(oldRoot / "settings.ini", "older settings");
+        Write(oldRoot / "profiles/additional.ini", "additional profile");
+        xiui::PrepareStorage(upgrade);
+        Check(!fs::exists(oldRoot) && Read(renamed.Settings()) == settings && Read(renamed.root / "legacy/xiuinative/settings.ini") == "older settings" &&
+            Read(renamed.Profiles() / "additional.ini") == "additional profile", "repeated upgrades retain new data, merge additions and archive old-name conflicts");
+        Check(xiui::AshitaConfigDirectory(renamed.Settings()) == upgrade / "config" &&
+            xiui::AshitaConfigDirectory(oldRoot / "settings.ini") == upgrade / "config", "Lua discovery supports both master-directory names");
+        std::puts("XIUI+ storage consolidation, rename compatibility, conflicts, shared resources and interrupted migration checks passed.");
         return 0;
     }
     catch (const std::exception& error) { std::fprintf(stderr, "Storage check: %s\n", error.what()); return 1; }

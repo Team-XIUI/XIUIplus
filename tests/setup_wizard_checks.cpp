@@ -31,7 +31,7 @@ namespace xiui
         const uint32_t nativeMask = (1u << native_hud_options.size()) - 1;
         if (!check(std::none_of(hud.modules_.All().begin(), hud.modules_.All().end(), [&](const auto* module) { return hud.ContextVisible(*module); }) &&
             (hud.NativeHudHiddenMask() & nativeMask) == nativeMask && hud.player_.State().enabled,
-            "intro hides all XIUI and native HUD without changing enabled preferences")) return false;
+            "intro hides all XIUI+ and native HUD without changing enabled preferences")) return false;
         const auto key = [&](WPARAM value, uint32_t flags = 0) { return hud.HandleSetupKey(value, flags, false); };
         key(VK_RETURN); key(VK_RETURN, 0x40000000);
         if (!check(hud.setup_.step == 1, "held confirmation advances only once")) return false;
@@ -52,11 +52,11 @@ namespace xiui
         hud.setup_.step = 5; hud.ActivateSetup(control::enable);
         if (!check((hud.NativeHudHiddenMask() & NativeHudBit(native_hud_element::party)) == 0 &&
             (hud.game_hud_.HiddenMask() & NativeHudBit(native_hud_element::party)) == 0,
-            "choosing XIUI Party retains the native player status fallback")) return false;
+            "choosing XIUI+ Party retains the native player status fallback")) return false;
         hud.setup_.step = 2;
         hud.ActivateSetup(control::enable);
         if (!check(hud.player_.State().enabled && hud.player_.State().bounds.x == playerBounds.x && hud.player_.State().bounds.y == playerBounds.y &&
-            (hud.game_hud_.HiddenMask() & playerHud) == playerHud, "enabling both XIUI replacements keeps layout and hides native duplicates")) return false;
+            (hud.game_hud_.HiddenMask() & playerHud) == playerHud, "enabling both XIUI+ replacements keeps layout and hides native duplicates")) return false;
         hud.ActivateSetup(control::next); hud.ActivateSetup(control::disable);
         if (!check(hud.ContextVisible(hud.player_) && !hud.ContextVisible(hud.target_), "accepted modules stay visible while future modules stay hidden")) return false;
         const uint32_t chatMask = NativeHudBit(native_hud_element::chat1) | NativeHudBit(native_hud_element::chat2) | NativeHudBit(native_hud_element::chatlog);

@@ -192,7 +192,7 @@ namespace xiui
         case 11: return module_option::Slider("X offset", "Move the recipient left or right.", &this->offset_x, -512, 512, 1).Ordered(210, true);
         case 12: return module_option::Slider("Y offset", "Move the recipient up or down, including overlap.", &this->offset_y, -512, 512, 1).Ordered(211);
         case 13: return module_option::Choice("Position", "Link the bars or move Target of Target independently when detached.", &this->placement, layouts, std::size(layouts)).Ordered(200);
-        case 14: return arrowOption(module_option::Toggle("Connecting arrow", "Use the original XIUI arrow for inline layouts.", &this->arrow), false);
+        case 14: return arrowOption(module_option::Toggle("Connecting arrow", "Use the original XIUI+ arrow for inline layouts.", &this->arrow), false);
         case 15: return arrowOption(module_option::Slider("Arrow size", "Connecting arrow size in pixels.", &this->arrow_size, 8, 64, 1).Ordered(110));
         case 16: return arrowOption(module_option::Slider("Arrow gap", "Space between the arrow and the recipient.", &this->arrow_gap, 0, 64, 1).Ordered(302));
         case 17: return arrowOption(module_option::Slider("Arrow X offset", "Nudge the arrow without moving the recipient.", &this->arrow_x, -128, 128, 1).Ordered(230, true));

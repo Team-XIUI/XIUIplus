@@ -39,13 +39,13 @@ namespace xiui
         const char* build = embedded.get_build_id();
         this->runtime_build_id_ = build != nullptr ? build : "unknown";
 #else
-        this->published_path_ = this->install_root_ + "\\plugins\\xiuinative-runtime.dll";
+        this->published_path_ = this->install_root_ + "\\plugins\\XIUIplus-runtime.dll";
 
         char temporaryPath[MAX_PATH]{};
         const DWORD temporaryLength = ::GetTempPathA(MAX_PATH, temporaryPath);
         const std::string temporaryRoot = temporaryLength > 0 && temporaryLength < MAX_PATH ? temporaryPath : this->install_root_ + "\\cache\\";
         char directoryName[96]{};
-        std::snprintf(directoryName, sizeof(directoryName), "xiuinative-runtime-%lu", static_cast<unsigned long>(::GetCurrentProcessId()));
+        std::snprintf(directoryName, sizeof(directoryName), "XIUIplus-runtime-%lu", static_cast<unsigned long>(::GetCurrentProcessId()));
         this->shadow_directory_ = temporaryRoot + directoryName;
         ::CreateDirectoryA(this->shadow_directory_.c_str(), nullptr);
 
@@ -219,9 +219,9 @@ namespace xiui
         const auto found = std::find_if(this->chat_history_.rbegin(), this->chat_history_.rend(), [](const chat_event& event) {
             return event.mode == 150 || event.mode == 151 || event.mode == 190 || event.mode == 142 || event.mode == 144;
         });
-        if (found == this->chat_history_.rend()) return "[XIUI] NPC capture: no NPC text captured since load.";
+        if (found == this->chat_history_.rend()) return "[XIUI+] NPC capture: no NPC text captured since load.";
         char header[160]{};
-        std::snprintf(header, sizeof(header), "[XIUI] NPC capture: mode %u; sequence %llu; windows %u; tail bytes: ", found->mode, found->sequence, found->windows);
+        std::snprintf(header, sizeof(header), "[XIUI+] NPC capture: mode %u; sequence %llu; windows %u; tail bytes: ", found->mode, found->sequence, found->windows);
         std::string result{header};
         const auto length = std::strlen(found->text);
         for (size_t at = length > 32 ? length - 32 : 0; at < length; ++at)
@@ -446,7 +446,7 @@ namespace xiui
         candidateApi.size = sizeof(candidateApi);
         if (getApi == nullptr || getApi(runtime_abi_version, &candidateApi) == FALSE || !ValidateApi(candidateApi))
         {
-            message = "[XIUI] Runtime ABI validation failed; previous runtime retained.";
+            message = "[XIUI+] Runtime ABI validation failed; previous runtime retained.";
             rejectCandidate();
             return load_result::rejected;
         }
@@ -454,7 +454,7 @@ namespace xiui
         runtime_state previousState{sizeof(runtime_state), TRUE, FALSE};
         if (this->instance_ != nullptr && this->api_.capture_state(this->instance_, &previousState) == FALSE)
         {
-            message = "[XIUI] Could not capture runtime state; previous runtime retained.";
+            message = "[XIUI+] Could not capture runtime state; previous runtime retained.";
             rejectCandidate();
             return load_result::rejected;
         }
@@ -463,7 +463,7 @@ namespace xiui
         void* candidateInstance = candidateApi.create(&context);
         if (candidateInstance == nullptr)
         {
-            message = "[XIUI] Runtime initialization failed; previous runtime retained.";
+            message = "[XIUI+] Runtime initialization failed; previous runtime retained.";
             rejectCandidate();
             return load_result::rejected;
         }
@@ -476,7 +476,7 @@ namespace xiui
         if (candidateApi.set_device(candidateInstance, this->device_) == FALSE ||
             (this->instance_ != nullptr && candidateApi.reload_settings(candidateInstance) == FALSE))
         {
-            message = "[XIUI] Runtime candidate validation failed; previous runtime retained.";
+            message = "[XIUI+] Runtime candidate validation failed; previous runtime retained.";
             destroyCandidate();
             return load_result::rejected;
         }
@@ -486,7 +486,7 @@ namespace xiui
         inactiveState.chat_focused = FALSE;
         if (candidateApi.apply_state(candidateInstance, &inactiveState) == FALSE)
         {
-            message = "[XIUI] Runtime candidate state validation failed; previous runtime retained.";
+            message = "[XIUI+] Runtime candidate state validation failed; previous runtime retained.";
             destroyCandidate();
             return load_result::rejected;
         }
@@ -500,8 +500,8 @@ namespace xiui
             {
                 const bool previousStateRestored = this->api_.apply_state(this->instance_, &previousState) != FALSE;
                 message = previousStateRestored
-                    ? "[XIUI] Previous runtime could not exit edit mode; candidate rejected."
-                    : "[XIUI] Previous runtime edit-state recovery failed; candidate rejected.";
+                    ? "[XIUI+] Previous runtime could not exit edit mode; candidate rejected."
+                    : "[XIUI+] Previous runtime edit-state recovery failed; candidate rejected.";
                 destroyCandidate();
                 return load_result::rejected;
             }
@@ -514,8 +514,8 @@ namespace xiui
             if (previousInputReleased)
                 previousStateRestored = this->api_.apply_state(this->instance_, &previousState) != FALSE;
             message = previousStateRestored
-                ? "[XIUI] Runtime activation failed; previous runtime retained."
-                : "[XIUI] Runtime activation failed and edit mode could not be restored.";
+                ? "[XIUI+] Runtime activation failed; previous runtime retained."
+                : "[XIUI+] Runtime activation failed and edit mode could not be restored.";
             destroyCandidate();
             return load_result::rejected;
         }
@@ -542,9 +542,9 @@ namespace xiui
             ::DeleteFileA(previousShadowPath.c_str());
 
         if (initial)
-            message = "[XIUI] Runtime loaded.";
+            message = "[XIUI+] Runtime loaded.";
         else
-            message = "[XIUI] Runtime hot-reloaded: " + this->runtime_build_id_ + ".";
+            message = "[XIUI+] Runtime hot-reloaded: " + this->runtime_build_id_ + ".";
         UNREFERENCED_PARAMETER(stamp);
         return load_result::loaded;
     }
@@ -640,7 +640,7 @@ namespace xiui
     auto runtime_host::LastErrorText(const char* action) -> std::string
     {
         char message[256]{};
-        std::snprintf(message, sizeof(message), "[XIUI] %s (Windows error %lu); previous runtime retained.", action, static_cast<unsigned long>(::GetLastError()));
+        std::snprintf(message, sizeof(message), "[XIUI+] %s (Windows error %lu); previous runtime retained.", action, static_cast<unsigned long>(::GetLastError()));
         return message;
     }
 #endif

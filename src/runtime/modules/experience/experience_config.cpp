@@ -258,7 +258,7 @@ namespace xiui
         case 6: return module_option::Color("Fill bottom", "Lower fill gradient.", &this->settings_.color, module_option_group::colors).Ordered(501);
         case 7: return module_option::Toggle("Mode label", "Show EXP, LIMIT, CAPACITY or EXEMPLAR on the bar's upper edge.", &this->settings_.show_label);
         case 8: return module_option::Choice("Info position", "Inset info at the upper or lower bar edge.", &this->settings_.info_position, infoPositions, 2);
-        case mode_option: return module_option::Choice("Progression mode", "Auto, Experience, Limit, Capacity or Exemplar Points. This only controls the XIUI bar.", &this->settings_.mode, modes, 5);
+        case mode_option: return module_option::Choice("Progression mode", "Auto, Experience, Limit, Capacity or Exemplar Points. This only controls the XIUI+ bar.", &this->settings_.mode, modes, 5);
         case points_option:
         {
             auto option = module_option::Toggle("Merit / JP totals", "Show accumulated merit points or job points independently of current/required points.", &this->settings_.show_points);
@@ -309,7 +309,7 @@ namespace xiui
         case alert_chain_option: return module_option::Toggle("Chain ending", "Warn once near the end of the chain countdown.", &this->settings_.alert_chain);
         case alert_merits_option: return module_option::Toggle("Merit storage full", "Notify when stored merits reach the client-reported capacity.", &this->settings_.alert_merits);
         case alert_goal_option: return module_option::Toggle("Goal reached", "Notify once when the selected goal is reached.", &this->settings_.alert_goal).VisibleWhen(this->settings_.goal_type != 0);
-        case sound_option: return module_option::Toggle("Alert sound", "Play XIUI's local notification chime with enabled alerts.", &this->settings_.sound);
+        case sound_option: return module_option::Toggle("Alert sound", "Play XIUI+'s local notification chime with enabled alerts.", &this->settings_.sound);
         case volume_option: return module_option::Slider("Sound volume", "Local alert chime level.", &this->settings_.volume, 0, 150, 1).VisibleWhen(this->settings_.sound);
         case mute_paused_option: return module_option::Toggle("Mute while paused", "Suppress optional notices and sounds during a manual pause.", &this->settings_.mute_paused);
         case chain_warning_option: return module_option::Slider("Chain warning", "Seconds remaining before the countdown uses its warning color.", &this->settings_.chain_warning, 1, 30, 1);
@@ -327,7 +327,7 @@ namespace xiui
                 }
                 else std::snprintf(label.data(), label.size(), "%zu. --", row + 1);
                 module_option option{}; option.label = label.data(); option.available = false;
-                option.description = "Completed sessions stay local and separate for each character. /xiui exp history prints their details."; return option;
+                option.description = "Completed sessions stay local and separate for each character. /xiuiplus exp history prints their details."; return option;
             }
             if (index < 9 + meter_style_option_count)
                 return MeterStyleOption(index - 9, this->settings_.style);

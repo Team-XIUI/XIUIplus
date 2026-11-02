@@ -163,7 +163,7 @@ namespace xiui
         this->profile_lua_done_ = true;
         this->profile_lua_status_ = std::to_string(created.size()) + " profiles imported. Your current setup is unchanged.";
         if (!this->profile_error_.empty()) this->profile_lua_status_ += " " + this->profile_error_;
-        if (this->core_ && this->core_->GetChatManager()) this->core_->GetChatManager()->Writef(1, false, "[XIUI] Imported %zu Lua profiles. Report: %s", created.size(), report.c_str());
+        if (this->core_ && this->core_->GetChatManager()) this->core_->GetChatManager()->Writef(1, false, "[XIUI+] Imported %zu Lua profiles. Report: %s", created.size(), report.c_str());
         if (this->profile_lua_activate_ && created.size() == 1)
         {
             const auto index = created.front();

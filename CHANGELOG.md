@@ -2,6 +2,12 @@
 
 ## Unreleased
 
+## 0.1.0 — 2026-11-01
+
+- Rename the plugin to XIUI+, with `XIUIplus.dll`, `/xiuiplus`, `.xiuiplus` profile files and `config/XIUIplus/`. Existing data migrates automatically; earlier command aliases, `.xiui` files and share keys remain supported.
+- Add `/xiuip` as a short alias for every XIUI+ command.
+- Package one standalone DLL with updated plugin metadata, Windows version information, documentation and install tooling. Preserve original XIUI attribution and historical records.
+
 ## 1.0.7-alpha.1 — 2026-10-31
 
 - Keep XIV 1.0 Party labels independent of XI label visibility and offsets, preserving moved positions when switching themes.

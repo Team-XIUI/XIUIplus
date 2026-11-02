@@ -447,7 +447,7 @@ int main(int argc, char** argv)
     }
     if (!xiui::config_input_test::DragPersistence()) return 1;
     if (!xiui::config_input_test::Run() || !enemy_cases() || !meter_text_cases()) return 1;
-    const auto path = std::filesystem::temp_directory_path() / ("xiuinative-toggle-check-" + std::to_string(::GetCurrentProcessId()) + ".ini");
+    const auto path = std::filesystem::temp_directory_path() / ("XIUIplus-toggle-check-" + std::to_string(::GetCurrentProcessId()) + ".ini");
     struct cleanup { std::filesystem::path path; ~cleanup() { std::error_code ignored; std::filesystem::remove(path, ignored); } } cleanupFile{path};
     const xiui::settings_store store{path.string()};
     if (!text_profile_cases(store)) return 1;

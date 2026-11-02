@@ -26,7 +26,7 @@ Shared buttons reveal overflowing labels with a clipped bounce marquee on hover 
 
 Use `ui::container_renderer` through the render context. It reads the installed native Window Type DATs, caches textures per device and preserves patch geometry, colors and blends. Theme changes select cached skins; rendering performs no file reads or uploads.
 
-The game's Window Type remains authoritative for XI Theme. Global's Native Window Type control uses the validated native setter. The separate Theme control selects XI Theme or XIV 1.0 Theme without changing that client preference. XIV 1.0 uses embedded screenshot-derived frames and gauges; selecting XI Theme restores the existing artwork and saved module styles. Do not reset the client preference when resetting XIUI.
+The game's Window Type remains authoritative for XI Theme. Global's Native Window Type control uses the validated native setter. The separate Theme control selects XI Theme or XIV 1.0 Theme without changing that client preference. XIV 1.0 uses embedded screenshot-derived frames and gauges; selecting XI Theme restores the existing artwork and saved module styles. Do not reset the client preference when resetting XIUI+.
 
 Keep opacity, padding and dark backing independent of module position/size. Tooltips use `DrawTooltip`. To put artwork under a native frame, draw the container without its border, clip the artwork, then use `DrawContainerFrame`. Preserve supported DAT-specific corrections rather than inventing replacement pixels.
 
@@ -67,7 +67,7 @@ Shared module controls append scale options after existing option IDs. Preserve 
 
 Apply [the controller skill](../.agents/skills/xiui-controller-support/SKILL.md) and [input contract](reference/input.md) for interactive changes. Use semantic actions across mouse, keyboard and controller, with deliberate focus and exactly-once activation.
 
-An ordinary native menu must not disable visible pointer controls. Distinguish XIUI's own mouse block from preexisting input blocking. Unclaimed keyboard/controller input stays native; explicitly clicked editors/popups own only their required input. Consume an owned press, repeats and release even when the action closes its surface.
+An ordinary native menu must not disable visible pointer controls. Distinguish XIUI+'s own mouse block from preexisting input blocking. Unclaimed keyboard/controller input stays native; explicitly clicked editors/popups own only their required input. Consume an owned press, repeats and release even when the action closes its surface.
 
 Release/suspend input on foreground loss, hidden/disabled context, zoning, profile/runtime changes and unload. Keep native text entry and subtarget ownership separate from HUD visibility. Presentation preferences must not change native keyboard size, gamepad configuration or Ashita enumeration.
 
@@ -77,7 +77,7 @@ Use `ui::native_ui_sounds` for native cursor, confirm and menu feedback. Unsuppo
 
 ## Settings persistence
 
-Installed data belongs under `config/xiuinative/`, resolved by `settings/storage_paths.*`. Migrate paths before starting writers; preserve current destination files and archive conflicting legacy files. Derive profile/resource directories from the settings file's parent rather than recreating top-level plugin folders.
+Installed data belongs under `config/XIUIplus/`, resolved by `settings/storage_paths.*`. Migrate paths before starting writers; preserve current destination files and archive conflicting legacy files. Derive profile/resource directories from the settings file's parent rather than recreating top-level plugin folders.
 
 Use `settings_store`, normal module load/save hooks and asynchronous writers. Snapshots merge unknown fields/comments and preserve supported encoding; unchanged values avoid rewrites. Keep full snapshots coalesced and retain failed work for retry. Sanitize non-finite values at the shared reader.
 

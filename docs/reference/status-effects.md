@@ -1,10 +1,10 @@
 # Status Effects
 
-XIUI uses the installed client's status icons, names and descriptions. Local countdowns come from actual client timers. Confirmed combat effects use the original XIUI duration database for estimated countdowns, identified in their hover tooltips.
+XIUI+ uses the installed client's status icons, names and descriptions. Local countdowns come from actual client timers. Confirmed combat effects use the original XIUI duration database for estimated countdowns, identified in their hover tooltips.
 
 ## Your Buffs and Debuffs
 
-Open **Status Effects** in configuration, or use `/xiui statuses`, `/xiui buffs` or `/xiui debuffs`. The page selects **Buffs** or **Debuffs**. These are independent HUD modules: enable either, move each in edit mode, and adjust its width, icon size, columns, spacing, offsets and opacity separately.
+Open **Status Effects** in configuration, or use `/xiuiplus statuses`, `/xiuiplus buffs` or `/xiuiplus debuffs`. The page selects **Buffs** or **Debuffs**. These are independent HUD modules: enable either, move each in edit mode, and adjust its width, icon size, columns, spacing, offsets and opacity separately.
 
 Each group offers an icon limit and overflow count, separate icon/row spacing, countdown visibility, crowd-control-only countdowns, optional heading/container and separate heading, timer and tooltip text profiles. Zero columns wraps at the available width. **Timer placement** offers Below icon, Above icon or Over icon. Text → Timers X/Y offsets fine-tune the countdown without moving the icons.
 
@@ -53,9 +53,9 @@ For the combined modes, **Status timers** optionally overlays real local countdo
 
 Their **Status Effects** controls set visibility, icon size, spacing, wrapping, limit/overflow, alignment, offsets, opacity and countdown presentation. **Unknown timer markers** can show `?` for a combat-observed effect with no usable database duration. Hiding a timer or marker only changes its presentation.
 
-XIUI's effect database is the primary duration catalog for combat observations. A confirmed successful application starts its fixed countdown: Paralyze uses 120 seconds, Blind 180 seconds, and Blaze Spikes 180 seconds. Countdowns use plain labels such as `1:30`; the hover tooltip identifies an estimated duration. A later confirmed application refreshes the effect; damage, resists and no-effect messages do not. Observed wear-off, removal or death clears the effect immediately, even before the estimate ends. Estimated expiry clears the tracked icon too, preventing known mob buffs from remaining indefinitely when no wear-off message arrives.
+XIUI+'s effect database is the primary duration catalog for combat observations. A confirmed successful application starts its fixed countdown: Paralyze uses 120 seconds, Blind 180 seconds, and Blaze Spikes 180 seconds. Countdowns use plain labels such as `1:30`; the hover tooltip identifies an estimated duration. A later confirmed application refreshes the effect; damage, resists and no-effect messages do not. Observed wear-off, removal or death clears the effect immediately, even before the estimate ends. Estimated expiry clears the tracked icon too, preventing known mob buffs from remaining indefinitely when no wear-off message arrives.
 
-Fixed spell, weapon-skill, ability, pet and additional-effect durations are embedded from the retained XIUI source snapshot. Per-effect fixed overrides are included; gear, merit, job-point and TP formulas and server overlays are omitted. Damage-only secondary effects are not inferred. Loading midway through a fight does not reconstruct an earlier application time. Target, Enemy List and Pet views share the same combat source; native local/party lists still determine which effects are actually present on those characters.
+Fixed spell, weapon-skill, ability, pet and additional-effect durations are embedded from the retained XIUI+ source snapshot. Per-effect fixed overrides are included; gear, merit, job-point and TP formulas and server overlays are omitted. Damage-only secondary effects are not inferred. Loading midway through a fight does not reconstruct an earlier application time. Target, Enemy List and Pet views share the same combat source; native local/party lists still determine which effects are actually present on those characters.
 
 Target prefers a known native local/party snapshot, including an empty list, over combat history. Mob icons come from confirmed gain/removal observations; a damaging spell or weapon skill alone does not add an assumed effect.
 
@@ -69,11 +69,11 @@ Controller routes use the configured semantic bindings:
 
 - Enter a Party row, then use **Next tab** to inspect its visible effects. **Actions** retains Tell composition.
 - Enter Enemy List, then use **Actions** to inspect the focused enemy's visible effects.
-- Use `/xiui focus target`, `/xiui focus buffs` or `/xiui focus debuffs` for direct inspection, or choose an available group in `/xiui focus`.
+- Use `/xiuiplus focus target`, `/xiuiplus focus buffs` or `/xiuiplus focus debuffs` for direct inspection, or choose an available group in `/xiuiplus focus`.
 - Directions or previous/next tab move between effects. **Cancel** returns to the originating row or releases the standalone inspection surface.
 - On your own Buffs/Debuffs, **Confirm** (normally A) or keyboard **Enter** requests removal of the selected effect when the client marks it cancellable. The effect remains visible until the server reports its removal. Held Confirm does not repeat the request; Cancel/B still leaves inspection.
 
-Hovering and browsing never cancel an effect. Non-cancellable effects and remote party/enemy/target/pet inspection remain read-only. The normal game retains input outside deliberate XIUI focus. Cancellation uses the installed status resource's `CanCancel` flag from the [Ashita SDK](https://github.com/AshitaXI/Ashita-v4beta/blob/main/plugins/sdk/Ashita.h) and the native request used by Ashita's [debuff addon](https://github.com/AshitaXI/Ashita-v4beta/blob/main/addons/debuff/debuff.lua).
+Hovering and browsing never cancel an effect. Non-cancellable effects and remote party/enemy/target/pet inspection remain read-only. The normal game retains input outside deliberate XIUI+ focus. Cancellation uses the installed status resource's `CanCancel` flag from the [Ashita SDK](https://github.com/AshitaXI/Ashita-v4beta/blob/main/plugins/sdk/Ashita.h) and the native request used by Ashita's [debuff addon](https://github.com/AshitaXI/Ashita-v4beta/blob/main/addons/debuff/debuff.lua).
 
 ## What the client provides
 
@@ -81,12 +81,12 @@ During zoning or an incomplete login, the shared party source clears its transie
 
 Focused verification: `xiui_config_input_smoke --status-snapshots-only` passes for zero-filled buffers, real KO, initialized empty lists, invalid slots, extended IDs and decode bounds. The broader legacy `--party-only` check reaches an unrelated old module-owned visibility assertion (`event hiding applies to each list`); current event visibility lives in the shared runtime policy. The zoning update's runtime built at 12:50:45 and AgentLink confirmed its installation at 12:51:49 on October 16. Live zoning appearance remains for Cody to check.
 
-**Your character:** `IPlayer::GetStatusIcons()` and `GetStatusTimers()` provide paired IDs and real expiration timestamps. XIUI converts their 60Hz timestamps with the validated client clock already used by EXP. Missing, hidden, expired or unavailable timestamps produce no invented countdown. Repeated effects retain their own paired deadlines.
+**Your character:** `IPlayer::GetStatusIcons()` and `GetStatusTimers()` provide paired IDs and real expiration timestamps. XIUI+ converts their 60Hz timestamps with the validated client clock already used by EXP. Missing, hidden, expired or unavailable timestamps produce no invented countdown. Repeated effects retain their own paired deadlines.
 
 **Other party members:** the native party status snapshot provides up to 32 effect IDs per member, including high bits and member identity. It supplies no expiration timestamps. Alliance members do not gain a fabricated status list or timers.
 
-**Mobs and other entities:** the SDK exposes no complete arbitrary-entity buff/debuff list or remaining-duration container. XIUI uses confirmed combat observations and its imported duration catalog, clearing them on matching removal, death, lifecycle reset or estimated expiry. Joining a fight late or missing an observation can leave this list incomplete. Resource icons and descriptions do not prove an effect is active; an estimated deadline is not a server-provided expiry.
+**Mobs and other entities:** the SDK exposes no complete arbitrary-entity buff/debuff list or remaining-duration container. XIUI+ uses confirmed combat observations and its imported duration catalog, clearing them on matching removal, death, lifecycle reset or estimated expiry. Joining a fight late or missing an observation can leave this list incomplete. Resource icons and descriptions do not prove an effect is active; an estimated deadline is not a server-provided expiry.
 
-**Paralysis and Blindness:** the October 16 read-only client check confirmed that their installed icon resources do not hide timers. The inspected Phoenix core sends finite local-player expiries for these effects. Enemy timers now use XIUI estimates after confirmed application. The live Paralyze capture lasted about 38 seconds, so its observed removal clears the 120-second estimate early. See the [live capture](../archive/native-mob-data-findings.md#live-paralyze-application-and-wear-off) for the evidence and the distinction between recast and effect expiry.
+**Paralysis and Blindness:** the October 16 read-only client check confirmed that their installed icon resources do not hide timers. The inspected Phoenix core sends finite local-player expiries for these effects. Enemy timers now use XIUI+ estimates after confirmed application. The live Paralyze capture lasted about 38 seconds, so its observed removal clears the 120-second estimate early. See the [live capture](../archive/native-mob-data-findings.md#live-paralyze-application-and-wear-off) for the evidence and the distinction between recast and effect expiry.
 
 The [native mob-data findings](../archive/native-mob-data-findings.md) record the HeadsUp, SDK and core-code research. [P13](../archive/implementation/13-debuff-tracking-rules.md) and [P14](../archive/implementation/14-status-controls-and-tooltips.md) record the implementation scope and focused checks. Native visual/gameplay and physical-controller behavior remain for Cody to check.

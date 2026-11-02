@@ -58,7 +58,7 @@ Invoke-XiuiBuild -Targets xiui_capture_defaults
 ./tests/capture_defaults_smoke.ps1 -Executable "$PWD/bin/tools/xiui_capture_defaults.exe"
 ```
 
-Locked HUD pointer capture and native-menu coexistence have focused runtime checks. They feed the mouse block set by XIUI back into its handlers and cover popup/search ownership, dismissal, owned releases and preservation of a preexisting input block:
+Locked HUD pointer capture and native-menu coexistence have focused runtime checks. They feed the mouse block set by XIUI+ back into its handlers and cover popup/search ownership, dismissal, owned releases and preservation of a preexisting input block:
 
 ```powershell
 . ./scripts/common.ps1
@@ -70,4 +70,4 @@ Invoke-XiuiBuild -Targets xiui_satchel_ui_smoke,xiui_actionbars_ui_smoke
 
 ## Standalone packaging
 
-`./scripts/package.ps1` runs `xiui_resource_smoke` and `xiui_single_dll_smoke` against the standalone DLL before publishing `dist/xiuinative.dll`. These cover resource integrity, Ashita exports, isolated initialization, embedded assets/defaults/theme/notices and saving. They are separate from broad feature checks. Use `-SkipBuild` only after that exact release has passed both checks; see [development](../docs/development.md) for installation and AgentLink confirmation.
+`./scripts/package.ps1` runs `xiui_resource_smoke` and `xiui_single_dll_smoke` against the standalone DLL before publishing `dist/XIUIplus.dll`. These cover resource integrity, Ashita exports, isolated initialization, embedded assets/defaults/theme/notices and saving. They are separate from broad feature checks. Use `-SkipBuild` only after that exact release has passed both checks; see [development](../docs/development.md) for installation and AgentLink confirmation.

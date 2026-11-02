@@ -64,9 +64,9 @@ namespace xiui::ui
             case 4: return module_option::Choice("Status alignment", "Align the strip within the available width.", &this->placement, placements, 3).Ordered(202).VisibleWhen(this->enabled);
             case 5: return module_option::Slider("Status X offset", "Horizontal offset in pixels.", &this->offset_x, -500, 500, 1).Ordered(210, true).VisibleWhen(this->enabled);
             case 6: return module_option::Slider("Status Y offset", "Vertical offset in pixels.", &this->offset_y, -100, 100, 1).Ordered(211).VisibleWhen(this->enabled);
-            case 7: return module_option::Toggle("Status timers", "Show countdowns. Tooltips identify XIUI duration estimates; local effects use native expiry times.", &this->timers).Ordered(850).VisibleWhen(this->enabled);
+            case 7: return module_option::Toggle("Status timers", "Show countdowns. Tooltips identify XIUI+ duration estimates; local effects use native expiry times.", &this->timers).Ordered(850).VisibleWhen(this->enabled);
             case 8: return module_option::Toggle("Crowd-control timers only", "Limit countdown labels to sleep, petrification, stun, charm and terror.", &this->crowd_control_only).Ordered(851).VisibleWhen(this->enabled && this->timers);
-            case 9: return module_option::Toggle("Unknown timer markers", "Show ? when neither a native timer nor an XIUI duration is available.", &this->uncertainty).Ordered(852).VisibleWhen(this->enabled && this->timers);
+            case 9: return module_option::Toggle("Unknown timer markers", "Show ? when neither a native timer nor an XIUI+ duration is available.", &this->uncertainty).Ordered(852).VisibleWhen(this->enabled && this->timers);
             case 10: return module_option::Toggle("Status tooltips", "Show game effect names and descriptions on hover or deliberate controller inspection.", &this->tooltips).Ordered(870).VisibleWhen(this->enabled);
             case 11: return module_option::Toggle("Status overflow count", "Show how many effects are hidden by the icon limit.", &this->overflow).Ordered(870).VisibleWhen(this->enabled);
             case 12: return module_option::Slider("Status timer scale", "Scale countdown text while retaining its normal effects.", &this->timer_scale, 0.5f, 1.5f, 0.05f).Ordered(861).VisibleWhen(this->enabled && this->timers);

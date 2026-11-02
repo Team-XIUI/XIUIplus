@@ -205,7 +205,7 @@ namespace
         std::array<entry, 3> first{{{enter, 0x80}, {movement, 0x80}, {digit, 0x80}}};
         input.FilterData(first.data(), sizeof(entry), first.size(), keyboard_capture_history, false, 0);
         if (!require(first[0].value == 0 && first[1].value == 0x80 && first[2].value == 0x80,
-            "buffered Enter cannot open the native log before XIUI receives its key event")) return false;
+            "buffered Enter cannot open the native log before XIUI+ receives its key event")) return false;
         input.Observe(enter, true, false, true);
         input.Observe(enter, false, false, false);
         std::array<entry, 1> release{{{enter, 0x01}}};

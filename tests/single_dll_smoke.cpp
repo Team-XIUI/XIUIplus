@@ -1,6 +1,7 @@
 #include "Ashita.h"
 
 #include <cstdio>
+#include <cstring>
 #include <filesystem>
 #include <fstream>
 #include <stdexcept>
@@ -38,10 +39,10 @@ int main(const int argc, char** argv)
                 std::filesystem::remove_all(root, ignored);
             }
         } state{root};
-        const auto installed = root / "plugins" / "xiuinative.dll";
+        const auto installed = root / "plugins" / "XIUIplus.dll";
         std::filesystem::copy_file(source, installed);
         std::filesystem::current_path(root);
-        Check(!std::filesystem::exists(root / "plugins" / "xiuinative-runtime.dll"), "isolated install must contain only one DLL");
+        Check(!std::filesystem::exists(root / "plugins" / "XIUIplus-runtime.dll"), "isolated install must contain only one DLL");
         state.module = ::LoadLibraryExW(installed.c_str(), nullptr, LOAD_WITH_ALTERED_SEARCH_PATH);
         Check(state.module != nullptr, "load standalone plugin");
         const auto create = reinterpret_cast<IPlugin*(__stdcall*)(const char*)>(::GetProcAddress(state.module, "expCreatePlugin"));
@@ -56,12 +57,16 @@ int main(const int argc, char** argv)
         Check(state.plugin != nullptr, "create Ashita plugin");
         state.initialized = state.plugin->Initialize(nullptr, nullptr, 0);
         Check(state.initialized, "initialize embedded runtime without a companion DLL");
-        Check(state.plugin->HandleCommand(0, "/xiui save", true), "standalone command routing");
+        Check(std::strcmp(state.plugin->GetName(), "XIUI+") == 0 &&
+            std::strcmp(state.plugin->GetLink(), "https://github.com/Shuu-37/xiui-plugin") == 0, "current product name and project link");
+        for (const auto* command : {"/xiuiplus show", "/xiuip show", "/xiui+ show", "/xiui show", "/xiuin show", "/xiuinative show", "/xiui-native show"})
+            Check(state.plugin->HandleCommand(0, command, true), "current commands and previous aliases remain available");
+        Check(state.plugin->HandleCommand(0, "/xiuiplus save", true), "standalone command routing");
         state.plugin->Release();
         state.initialized = false;
-        Check(std::filesystem::file_size(root / "config" / "xiuinative" / "settings.ini") > 1000, "save complete embedded profile");
-        Check(std::filesystem::file_size(root / "config" / "xiuinative" / "theme.ini") > 100, "seed embedded theme");
-        Check(!std::filesystem::exists(root / "config" / "xiuinative" / "licenses") && !std::filesystem::exists(oldNotices),
+        Check(std::filesystem::file_size(root / "config" / "XIUIplus" / "settings.ini") > 1000, "save complete embedded profile");
+        Check(std::filesystem::file_size(root / "config" / "XIUIplus" / "theme.ini") > 100, "seed embedded theme");
+        Check(!std::filesystem::exists(root / "config" / "XIUIplus" / "licenses") && !std::filesystem::exists(oldNotices),
             "retire extracted notices while keeping their DLL resources embedded");
         std::puts("Single DLL Ashita exports, isolated startup, assets, theme, defaults and saving passed.");
         return 0;

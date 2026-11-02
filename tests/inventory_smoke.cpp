@@ -181,7 +181,7 @@ namespace xiui
             Check(inventory_module::Fullness({59, 80, true}, 0, 75, 95) == 0 && inventory_module::Fullness({60, 80, true}, 0, 75, 95) == 1 &&
                 inventory_module::Fullness({76, 80, true}, 0, 75, 95) == 2, "percentage boundaries use occupied slots inclusively");
             Check(inventory_module::Fullness({15, 30, true}, 1, 15, 29) == 1 && inventory_module::Fullness({29, 30, true}, 1, 15, 29) == 2 &&
-                inventory_module::Fullness({30, 30, true}, 1, 60, 75) == 2, "fixed-count thresholds retain XIUI behavior and full bags are always critical");
+                inventory_module::Fullness({30, 30, true}, 1, 60, 75) == 2, "fixed-count thresholds retain XIUI+ behavior and full bags are always critical");
             Check(inventory_module::Fullness({0, 80, true}, 0, 0, 0) == 0 && inventory_module::Fullness({0, 0, false}, 0, 75, 95) == 0,
                 "empty and unavailable storage never warns");
             std::set<std::pair<int, int>> positions;

@@ -239,7 +239,7 @@ namespace xiui
         case controller_surface::pet_status: return "Pet status effects";
         case controller_surface::notifications: return "Notification details";
         case controller_surface::config: return "Configuration";
-        default: return "XIUI focus";
+        default: return "XIUI+ focus";
         }
     }
 
@@ -528,7 +528,7 @@ namespace xiui
             const auto& status = this->controller_status_;
             if (this->core_ != nullptr && this->core_->GetChatManager() != nullptr)
                 this->core_->GetChatManager()->Writef(1, false,
-                    "[XIUI] Controller: %s; enumeration %s; connection %s; input %s; bindings %s; focus %s.",
+                    "[XIUI+] Controller: %s; enumeration %s; connection %s; input %s; bindings %s; focus %s.",
                     status.backend == controller_backend::xinput ? "XInput" : status.backend == controller_backend::direct_input ? "DirectInput" : "not detected",
                     status.enumeration_disabled ? "disabled" : "enabled", !status.connection_known ? "unknown" : status.connected ? "connected" : "disconnected",
                     status.received_input ? "observed" : "not observed", status.bindings_known ? "resolved" : "unavailable", this->ControllerSurfaceName(this->controller_surface_));
@@ -563,11 +563,11 @@ namespace xiui
         else if (command != "focus")
         {
             if (this->core_ != nullptr && this->core_->GetChatManager() != nullptr)
-                this->core_->GetChatManager()->Write(1, false, "[XIUI] Use /xiui focus [chat|chat2|party|enemies|target|buffs|debuffs|config|readycheck|equipment|satchel|treasure|hotbar|crossbar|off].");
+                this->core_->GetChatManager()->Write(1, false, "[XIUI+] Use /xiuiplus focus [chat|chat2|party|enemies|target|buffs|debuffs|config|readycheck|equipment|satchel|treasure|hotbar|crossbar|off].");
             return true;
         }
         if (!this->BeginControllerFocus(surface) && this->core_ != nullptr && this->core_->GetChatManager() != nullptr)
-            this->core_->GetChatManager()->Write(1, false, "[XIUI] That surface is unavailable, or native text/targeting currently owns input.");
+            this->core_->GetChatManager()->Write(1, false, "[XIUI+] That surface is unavailable, or native text/targeting currently owns input.");
         return true;
     }
 
@@ -639,7 +639,7 @@ namespace xiui
             const auto bounds = this->ControllerPickerBounds(viewport);
             this->config_controls_.Panel(bounds);
             auto style = theme.body_text; style.scale = 0.78f;
-            this->config_controls_.Text("XIUI focus", {bounds.x + 14, bounds.y + 8, bounds.width - 28, 28}, style);
+            this->config_controls_.Text("XIUI+ focus", {bounds.x + 14, bounds.y + 8, bounds.width - 28, 28}, style);
             const auto surfaces = this->ControllerSurfaces();
             this->controller_picker_index_ = std::min(this->controller_picker_index_, surfaces.size() - 1);
             for (size_t i = 0; i < surfaces.size(); ++i)

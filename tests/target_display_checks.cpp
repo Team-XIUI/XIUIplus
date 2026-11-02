@@ -15,7 +15,7 @@ namespace xiui
             if (!Check(ClassifyEntity(1, 0, false, true) == entity_class::group_player &&
                 ClassifyEntity(2, 0, false, false) == entity_class::npc && ClassifyEntity(16, 7, true, false) == entity_class::group_mob &&
                 ClassifyEntity(16, 7, false, false) == entity_class::other_mob && TargetIdSuffix(123456, 1) == " [456]" &&
-                TargetIdSuffix(0x123ABC, 2) == " [ABC]" && TargetIdSuffix(0, 2).empty(), "entity classification and XIUI server-ID suffix formats"))
+                TargetIdSuffix(0x123ABC, 2) == " [ABC]" && TargetIdSuffix(0, 2).empty(), "entity classification and XIUI+ server-ID suffix formats"))
             { restore(); return false; }
             const auto native = EntityNameColor(16, 0, false, false, 0);
             shared_entity_name_palette.colors[3] = 0xFF123456; shared_entity_name_palette.enabled = true;
