@@ -15,7 +15,7 @@ Start with [AGENTS.md](AGENTS.md), then [the task-to-file guide](docs/README.md)
 - [Module notes](docs/modules/README.md): short agent overviews, source owners and focused checks.
 - [Input ownership](docs/reference/input.md): mouse, keyboard, controller and remaining hardware limits.
 - [Focused checks](tests/README.md): build targets, arguments and required fixtures.
-- [Assets and generators](assets/README.md): generated files, source provenance and notices.
+- [Resource build inputs](cmake/resources.cmake): embedded assets and resource packing.
 - [Detailed references](docs/reference/README.md): current behavior and implementation contracts.
 
 Shared development guidance lives in `AGENTS.md` and `docs/`. Local agent state (`.agents/`, `.pi/`) and generated outputs (`bin/`, `out/`, `dist/`) are ignored by Git.
@@ -41,4 +41,4 @@ Normal builds install one DLL in the selected Phoenix setup. `ASHITA4_SDK_PATH` 
 - `docs/`: maintained feature guides and shared implementation contracts.
 - `third_party/`: [vendored build dependencies](third_party/README.md) for native hooks, map decoding and resource decompression.
 
-Party artwork is bundled from [XIVParty](assets/jobs/README.md); other artwork/data provenance is recorded in [the asset index](assets/README.md). Window themes and native item artwork are read from the installed client.
+Party artwork is bundled from [XIVParty](assets/jobs/README.md); other artwork/data provenance stays beside its files under [assets/](assets/). Window themes and native item artwork are read from the installed client.

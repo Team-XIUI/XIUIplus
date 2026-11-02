@@ -13,7 +13,7 @@
 
 For HUD changes, follow [the shared foundations](docs/foundations.md), especially **HUD text**. Reuse the theme roles, module text profiles, rendering, controls, and persistence. Compact sizing must retain normal text effects. Apply game-state colors with `TintTextProfile` so gradients and effects survive. Plain configuration text is a separate presentation.
 
-Start with [developer navigation](docs/README.md) and the relevant [short module note](docs/modules/README.md). [Development](docs/development.md) covers builds/install/default capture; [focused checks](tests/README.md) keeps validation proportional. Generated documentation uses `scripts/update-docs.ps1`; assets have a [generator index](assets/README.md).
+Start with [developer navigation](docs/README.md) and the relevant [short module note](docs/modules/README.md). [Development](docs/development.md) covers builds/install/default capture; [focused checks](tests/README.md) keeps validation proportional. Generated documentation uses `scripts/update-docs.ps1`; embedded asset inputs are defined in [cmake/resources.cmake](cmake/resources.cmake).
 
 For interactive feature changes, follow [controller support](docs/reference/controller-support.md) and [input ownership](docs/reference/input.md). Its [remaining acceptance](docs/reference/input.md#remaining-acceptance) distinguishes implemented behavior from hardware/native-keyboard limits. Keep current behavior in the maintained guides; completed plans and audits remain available in Git history. Local agent skills under `.agents/` are optional and ignored by Git.
 

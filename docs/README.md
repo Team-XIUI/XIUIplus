@@ -9,7 +9,7 @@ Start with the [module index](modules/README.md) and read only the note for the 
 - [Input ownership](reference/input.md): current mouse, keyboard and controller rules; remaining hardware/software-keyboard acceptance.
 - [Controller support](reference/controller-support.md): interaction design, native ownership and focused validation requirements.
 - [Configuration](reference/configuration.md) and [settings](reference/settings.md): shared controls, navigation and preference organization.
-- [Focused checks](../tests/README.md) and [assets](../assets/README.md): validation routes and generator ownership.
+- [Focused checks](../tests/README.md): validation routes.
 - [Player guide](user-guide.md): commands and player-facing usage.
 
 ## Source routes
@@ -20,7 +20,7 @@ Start with the [module index](modules/README.md) and read only the note for the 
 - Input: `src/host/controller_input.*`, `src/shared/controller_input.hpp`, `src/runtime/input/` and `hud_runtime_controller*.cpp`; native mouse/key dispatch starts in `src/host/plugin.cpp`.
 - Settings/profiles: `settings/settings_store.*`, `settings/settings_profiles.*` and `hud_runtime_profiles.cpp`; [Lua imports](reference/lua-profile-import.md) use `hud_runtime_lua_import.cpp` and `settings/lua_*` adapters.
 - Native hooks/lifetime: `src/host/plugin.*`, `src/host/runtime_host.*`, `src/shared/runtime_api.hpp` and `src/runtime/runtime_exports.cpp`. Read the ABI value from source.
-- Build/resources: root `CMakeLists.txt`, `cmake/` and [the asset index](../assets/README.md).
+- Build/resources: root `CMakeLists.txt`, `cmake/` and [assets/](../assets/).
 
 Unqualified source paths above are relative to `src/runtime/`. Search the relevant owner before expanding to all source.
 
