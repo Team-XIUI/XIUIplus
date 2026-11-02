@@ -87,14 +87,14 @@ The November 1, 2026 live XIV1.0 setup is captured in both reset defaults and th
 
 ## GitHub releases
 
-DLL releases live in the public [xiuiplus-releases repository](https://github.com/Shuu-37/xiuiplus-releases/releases). Its independent `main` contains public download instructions only; development source and history remain in private `Shuu-37/XIUIplus`. The development checkout's `origin` stays private. Use `--repo Shuu-37/xiuiplus-releases` explicitly for every GitHub release command.
+DLL releases live in the public [xiuiplus-releases repository](https://github.com/Team-XIUI/xiuiplus-releases/releases). Its independent `main` contains public download instructions only; development source and history remain in private `Shuu-37/XIUIplus`. The development checkout's `origin` stays private. Use `--repo Team-XIUI/xiuiplus-releases` explicitly for every GitHub release command.
 
 Keep root `VERSION` numeric for CMake/Windows; alpha tags append the channel, such as `v0.1.1-alpha.1`. Preserve the shipped defaults unless a capture was requested. Run `./scripts/package.ps1` and require both packaging checks to pass. Commit and push the intended source on private `main`, then create and push an annotated source tag at that commit. Never push that source tag or private branch into the public repository.
 
 Upload only `dist/XIUIplus.dll` and the generated `dist/SHA256SUMS.txt`; no companion runtime or external assets are needed. With the private source tag pushed and public release notes written:
 
 ```powershell
-gh release create v0.1.1-alpha.1 dist/XIUIplus.dll dist/SHA256SUMS.txt --repo Shuu-37/xiuiplus-releases --target main --prerelease --latest=false --title 'XIUIplus 0.1.1 Alpha 1' --notes-file out/release-notes.md
+gh release create v0.1.1-alpha.1 dist/XIUIplus.dll dist/SHA256SUMS.txt --repo Team-XIUI/xiuiplus-releases --target main --prerelease --latest=false --title 'XIUIplus 0.1.1 Alpha 1' --notes-file out/release-notes.md
 ```
 
 GitHub creates the public release tag on the public repository's own `main`; it shares the version name with the private source tag, not its Git history. Use a new tag for each release. Stable releases omit the channel suffix and prerelease flags and use `--latest`. Write public notes from the intended changes and known limitations; the public repository has no development PR history from which to generate them. Verify uploaded asset hashes and release status after publication.
