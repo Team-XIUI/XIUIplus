@@ -87,7 +87,7 @@ The November 1, 2026 live XIV1.0 setup is captured in both reset defaults and th
 
 ## GitHub releases
 
-Releases live in the [private repository](https://github.com/Shuu-37/xiui-plugin/releases). Keep root `VERSION` numeric for CMake/Windows; alpha tags append the channel, such as `v1.0.5-alpha.1`. Preserve the shipped defaults unless a capture was requested.
+Releases live in the [private repository](https://github.com/Shuu-37/XIUIplus/releases). Keep root `VERSION` numeric for CMake/Windows; alpha tags append the channel, such as `v1.0.5-alpha.1`. Preserve the shipped defaults unless a capture was requested.
 
 Run `./scripts/package.ps1` and require both packaging checks to pass. Commit and push the intended source on `main`, then create and push an annotated tag at that commit. Upload only `dist/XIUIplus.dll` and `dist/SHA256SUMS.txt`; no companion runtime or external assets are needed. Write the checksum as `<lowercase SHA-256>  XIUIplus.dll`.
 

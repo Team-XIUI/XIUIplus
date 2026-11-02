@@ -58,7 +58,7 @@ int main(const int argc, char** argv)
         state.initialized = state.plugin->Initialize(nullptr, nullptr, 0);
         Check(state.initialized, "initialize embedded runtime without a companion DLL");
         Check(std::strcmp(state.plugin->GetName(), "XIUI+") == 0 &&
-            std::strcmp(state.plugin->GetLink(), "https://github.com/Shuu-37/xiui-plugin") == 0, "current product name and project link");
+            std::strcmp(state.plugin->GetLink(), "https://github.com/Shuu-37/XIUIplus") == 0, "current product name and project link");
         for (const auto* command : {"/xiuiplus show", "/xiuip show", "/xiui+ show", "/xiui show", "/xiuin show", "/xiuinative show", "/xiui-native show"})
             Check(state.plugin->HandleCommand(0, command, true), "current commands and previous aliases remain available");
         Check(state.plugin->HandleCommand(0, "/xiuiplus save", true), "standalone command routing");

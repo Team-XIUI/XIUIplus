@@ -69,7 +69,7 @@ namespace xiui
 
     auto plugin::GetLink(void) const -> const char*
     {
-        return "https://github.com/Shuu-37/xiui-plugin";
+        return "https://github.com/Shuu-37/XIUIplus";
     }
 
     auto plugin::GetVersion(void) const -> double
