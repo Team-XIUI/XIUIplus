@@ -8,7 +8,7 @@
 
 namespace xiui
 {
-    enum class native_window_focus : uint8_t { unknown, other, chat, chat2, statuses, commands, chatlog };
+    enum class native_window_focus : uint8_t { unknown, other, chat, chat2, statuses, commands, chatlog, chatmode };
 
     struct module_visibility_context
     {

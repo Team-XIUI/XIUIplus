@@ -50,7 +50,7 @@ namespace xiui
         const auto focused = this->visibility_context_.window_focus;
         this->native_window_cycle_ = !this->editing_ && this->ControllerNativeMenuOpen() &&
             focused != native_window_focus::unknown && focused != native_window_focus::commands;
-        if (!this->editing_ && focused == native_window_focus::chatlog)
+        if (!this->editing_ && (focused == native_window_focus::chatlog || focused == native_window_focus::chatmode))
         {
             this->ReleaseChatInput();
             this->ReleaseControllerFocus();
@@ -92,7 +92,8 @@ namespace xiui
         const auto* player = memory != nullptr ? memory->GetPlayer() : nullptr;
         if (player != nullptr && player->GetLoginStatus() != static_cast<uint8_t>(Ashita::FFXI::Enums::LoginStatus::LoggedIn)) return true;
         return this->visibility_context_.event_active || this->visibility_context_.map_open || this->visibility_context_.interface_hidden ||
-            this->visibility_context_.window_focus == native_window_focus::chatlog || this->party_source_.InCutscene() || NativeTargetSelectionActive(memory);
+            this->visibility_context_.window_focus == native_window_focus::chatlog ||
+            this->visibility_context_.window_focus == native_window_focus::chatmode || this->party_source_.InCutscene() || NativeTargetSelectionActive(memory);
     }
 
     auto hud_runtime::ControllerNativeMenuOpen(void) const -> bool

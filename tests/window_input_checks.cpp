@@ -91,6 +91,26 @@ namespace xiui
             "F selects chat history over the combat command menu without opening composition")) return false;
         if (!check(hud.KeyboardInputState() == keyboard_capture_history && !hud.KeyboardFocused(),
             "chat reserves navigation for DirectInput without capturing unrelated movement keys")) return false;
+        const auto channelDraft = hud.chat_.editor_.Text();
+        const auto channelCaret = hud.chat_.editor_.Caret();
+        const auto channel = hud.chat_.channel_;
+        hud.chat_.tabs_[hud.chat_.active_tab_].scroll = 3;
+        for (unsigned poll = 0; poll < 2; ++poll)
+        {
+            focus("chatctrl");
+            if (!check(hud.visibility_context_.window_focus == native_window_focus::chatmode && !hud.ChatFocused() &&
+                hud.KeyboardInputState() == 0 && hud.ControllerCapture() == controller_capture_mode::none,
+                "the native chat-mode selector releases compact-log navigation on every poll")) return false;
+            for (const WPARAM key : {VK_TAB, VK_UP, VK_DOWN, VK_LEFT, VK_RIGHT, VK_PRIOR, VK_NEXT, VK_HOME, VK_END, VK_RETURN, VK_ESCAPE})
+                if (!check(!hud.HandleChatKey(key, 0, false, true, false, 0),
+                    "chat-mode selection keeps its navigation and confirmation native")) return false;
+        }
+        if (!check(hud.chat_.editor_.Text() == channelDraft && hud.chat_.editor_.Caret() == channelCaret &&
+            hud.chat_.channel_ == channel && hud.chat_.tabs_[hud.chat_.active_tab_].scroll == 3,
+            "native channel selection preserves the draft, caret, send channel and compact scroll")) return false;
+        focus("playermo");
+        if (!check(hud.HandleChatKey('F', 0, false, true, false, 0) && hud.KeyboardInputState() == keyboard_capture_history,
+            "closing the chat-mode selector permits deliberate log browsing again")) return false;
         focus("playermo"); hud.SyncNativeChatInput(nullptr, true); hud.UpdateControllerFocus();
         if (!check(hud.chat_.HistoryFocused() && !hud.HandleChatKey(VK_RETURN, 0, true, true, false, 0) && !hud.chat_.HistoryExpanded(),
             "combat menu polling retains chat focus while prior input owners still block Enter")) return false;
@@ -125,7 +145,7 @@ namespace xiui
             hud.chat_.HistoryExpanded(), "controller cycle and Confirm use the same combat-menu chat entry")) return false;
         hud.ReleaseChatInput();
         hud.keyboard_window_focus_ = true;
-        focus("chatctrl");
+        focus("logwindo");
         controller_status keyboardOnly{}; keyboardOnly.enumeration_disabled = true;
         hud.UpdateControllerStatus(keyboardOnly);
         if (!check(hud.chat_.HistoryFocused() && hud.keyboard_window_focus_, "native F cycling retains keyboard focus with controller enumeration disabled")) return false;

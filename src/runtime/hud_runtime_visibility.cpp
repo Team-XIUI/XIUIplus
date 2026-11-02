@@ -251,7 +251,8 @@ namespace xiui
             context.window_focus = id.empty() ? native_window_focus::unknown :
                 id == "playermo" ? native_window_focus::commands :
                 id == "fulllog" ? native_window_focus::chatlog :
-                id == "logwindo" || id == "log1win" || id == "chatctrl" ? native_window_focus::chat :
+                id == "chatctrl" ? native_window_focus::chatmode :
+                id == "logwindo" || id == "log1win" ? native_window_focus::chat :
                 id == "logwin2" || id == "log2win" ? native_window_focus::chat2 :
                 id == "buff" ? native_window_focus::statuses : native_window_focus::other;
             context.menu_open = !id.empty() && std::find(std::begin(ignored), std::end(ignored), id) == std::end(ignored);

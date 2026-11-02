@@ -1049,7 +1049,7 @@ namespace xiui
     auto hud_runtime::HandleChatKey(const WPARAM key, const LPARAM flags, const bool blocked, const bool replacement,
         const bool targeting, const uint8_t nativeInput) -> bool
     {
-        if (nativeInput != 0)
+        if (nativeInput != 0 || (!this->editing_ && this->visibility_context_.window_focus == native_window_focus::chatmode))
         {
             this->ReleaseControllerFocus();
             this->ReleaseChatInput();
