@@ -169,7 +169,7 @@ debuff estimates. Select it in Skillchains or use `/xiuiplus rules phoenix`;
 `/xiuiplus rules retail` and `/xiuiplus rules horizon` remain available. Phoenix predictions
 retain primary-property priority and the three-second link delay. Rolls show base
 potency, and variable debuffs show base ranges rather than exact deadlines.
-See the [Phoenix source audit](archive/phoenix-source-audit.md).
+See the [Phoenix rules and source provenance](../assets/phoenix/README.md).
 
 **Extras → Treasure Pool** provides native item rows, lots/passes, winning players,
 recent history and estimated/unknown timers. `/xiuiplus treasure` opens it; automatic
@@ -177,7 +177,7 @@ appearance is configurable. Lot/Pass and Lot All/Pass All share the same validat
 actions. Alerts stay in **Notifications**. Enter controller browsing through the
 focus picker or `/xiuiplus focus treasure`: Up/Down changes rows, Left/Right chooses an
 action, Confirm activates once, Actions toggles details and Cancel returns to gameplay.
-See [Treasure Pool](archive/implementation/07-treasure-pool.md).
+See [Treasure Pool](modules/treasure.md).
 
 **Minimap → Markers → Distant party/alliance** supplements nearby native entities
 with same-zone map snapshots when needed. Requests are limited to ten-second
@@ -193,8 +193,8 @@ Cursor artwork is from Kenney's CC0 Cursor Pack. The original notice is retained
 
 Native command/details menus: `/xiuiplus commands` opens their movable module. It preserves native actions, item/spell details, selections and cursor handling; disabling movement restores the game positions. With **XI Theme**, HUD containers and the configuration UI follow **Menu → Config → Windows → Shared → Window Type**, using all eight installed DAT skins. **XIV 1.0 Theme** uses navy fabric, aged-metal frames, copper gauges, serif HUD text, transparent chat and a softly fading minimap. Choose it with **Theme** in Basic settings or **Global → Appearance**. Switching themes preserves saved module styling and placement. `/xiuiplus commands status` and `/xiuiplus theme status` report native support and the selected theme.
 
-Target includes **World Target Bar**, an optional small HP bar beneath the selected world target, and **Mob Info** group sub-tabs for combined rows, separate rows or independent movement. See [World Target Bar](reference/world-target-bar.md) and [Mob Info](archive/implementation/06-mob-information.md).
+Target includes **World Target Bar**, an optional small HP bar beneath the selected world target, and **Mob Info** group sub-tabs for combined rows, separate rows or independent movement. See [World Target Bar](reference/world-target-bar.md) and [Mob Info](modules/mobinfo.md).
 
-Notifications support **2–6 groups** with per-kind routing and independent positions, text, appearance and animation. **Animation → Pin invitations** minimizes party/trade notices; hover or `/xiuiplus focus notifications` reveals sender details. See [Notification groups](archive/implementation/22-notification-groups-and-pinning.md).
+Notifications support **2–6 groups** with per-kind routing and independent positions, text, appearance and animation. **Animation → Pin invitations** minimizes party/trade notices; hover or `/xiuiplus focus notifications` reveals sender details. See [Notifications](modules/notifications.md).
 
 **Extras → HP Feedback** controls damage trails, healing segments and flashes, with separate switches, colors and timing. **Global → Visibility → Hide overhead names** hides player/NPC/enemy names; turn it off to restore them.

@@ -107,4 +107,4 @@ Use a new tag for each alpha. Stable releases omit the channel suffix and prerel
 ./scripts/update-docs.ps1 -SkipBuild
 ```
 
-This exports the [settings inventory](reference/settings-inventory.md) from option metadata and checks local file links. It does not run gameplay checks, regenerate assets or refresh historical acceptance records. `python scripts/check-doc-links.py` checks links alone. The archived feature view is rebuilt only when needed with `python scripts/render_feature_parity.py`; `--export-diagram` additionally writes the personal diagrams copy.
+This exports the [settings inventory](reference/settings-inventory.md) from option metadata and checks local file links. It does not run gameplay checks or regenerate assets. `python scripts/check-doc-links.py` checks links alone; local agent folders and vendored upstream documentation are outside its scan. Completed plans and audit records remain available in Git history.

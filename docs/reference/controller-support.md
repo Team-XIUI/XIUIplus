@@ -1,17 +1,12 @@
----
-name: xiui-controller-support
-description: Design, implement or review controller support for XIUI+ interactions, including chat, party targeting and shared config controls. Apply when adding or changing interactive XIUI+ features so keyboard, mouse and controller paths remain compatible.
----
+# Controller support
 
-# XIUI+ controller support
+Shared requirements for XIUI+ keyboard, mouse and controller interactions.
 
-Apply to the XIUI+ repository containing this skill.
+Read [project guidance](../../AGENTS.md), [shared foundations](../foundations.md) and [input ownership](input.md) first for implemented commands, semantic actions and native-keyboard/hardware limits. Resolve the ABI from `src/shared/runtime_api.hpp`. Reuse current normalized input, config session and focus foundations.
 
-Read its `AGENTS.md`, relevant shared foundations and `docs/reference/input.md` first for implemented commands, semantic actions and native-keyboard/hardware limits. Resolve the ABI from `src/shared/runtime_api.hpp`. Reuse current normalized input, config session and focus foundations.
+`docs/reference/input.md#remaining-acceptance` records remaining acceptance. Historical proposals are not available APIs or standing authorization for live experiments. A request for research or planning authorizes documentation, not application implementation.
 
-`docs/reference/input.md#remaining-acceptance` records remaining acceptance and links dated research. Historical proposals are not available APIs or standing authorization for live experiments. A request for research or planning authorizes documentation, not application implementation.
-
-For live diagnostics, consult `docs/archive/controller-agentlink-2026-10-14.md`. AgentLink can forward existing Ashita diagnostic commands, but an accepted `QueueButtonData` call does not prove a connected or emulated controller, delivered input or successful navigation. Confirm runtime readiness, device/backend availability and observed callbacks/state transitions first. Honor the task's authorization for experiments and preserve current user work.
+For live diagnostics, AgentLink can forward existing Ashita diagnostic commands, but an accepted `QueueButtonData` call does not prove a connected or emulated controller, delivered input or successful navigation. Confirm runtime readiness, device/backend availability and observed callbacks/state transitions first. Honor the task's authorization for experiments and preserve current user work.
 
 ## Native behavior and input contract
 

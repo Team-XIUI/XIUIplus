@@ -1,6 +1,6 @@
 # Mouse, keyboard and controller ownership
 
-This is the current input contract. Feature-specific actions belong in the [module notes](../modules/README.md); old probes and proposed designs are in [the archive](../archive/README.md).
+This is the current input contract. Feature-specific actions belong in the [module notes](../modules/README.md).
 
 ## Source owners
 
@@ -9,7 +9,7 @@ This is the current input contract. Feature-specific actions belong in the [modu
 - Runtime focus/activation: `src/runtime/hud_runtime_controller*.cpp`, [hud_runtime.cpp](../../src/runtime/hud_runtime.cpp) and `src/runtime/input/`.
 - Configuration: [config_session.hpp](../../src/runtime/config/config_session.hpp), shared control geometry and `hud_runtime_config*.cpp`.
 
-Read the ABI from [runtime_api.hpp](../../src/shared/runtime_api.hpp); do not copy a version number from an old plan. Follow [the controller skill](../../.agents/skills/xiui-controller-support/SKILL.md) when changing an interaction.
+Read the ABI from [runtime_api.hpp](../../src/shared/runtime_api.hpp). Follow [controller support](controller-support.md) when changing an interaction.
 
 ## Ownership rules
 
@@ -72,7 +72,7 @@ Physical devices, remappers, hotplug and multiplayer cases need observed gamepla
 
 Controller-only composition still needs verified native software-keyboard, IME and auto-translate ownership/transfer. Preserve drafts on Cancel and establish exactly-once send before extending it. Keep the game's software keyboard separate from PlayOnline login input.
 
-[Controller research](../archive/controller-research-2026-10-14.md) and [AgentLink evidence](../archive/controller-agentlink-2026-10-14.md) preserve the native findings. They are not standing authorization for live experiments.
+Research and synthetic checks do not establish native input delivery or authorize live experiments outside the current task.
 
 For a changed boundary, choose `controller-input`, `controller-config`, `cursor-ownership`, or the module's focused ownership argument from [the check guide](../../tests/README.md).
 

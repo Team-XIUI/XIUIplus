@@ -16,7 +16,9 @@ Start with [AGENTS.md](AGENTS.md), then [the task-to-file guide](docs/README.md)
 - [Input ownership](docs/reference/input.md): mouse, keyboard, controller and remaining hardware limits.
 - [Focused checks](tests/README.md): build targets, arguments and required fixtures.
 - [Assets and generators](assets/README.md): generated files, source provenance and notices.
-- [Detailed references](docs/reference/README.md) and [archived records](docs/archive/README.md): current deep dives versus historical evidence.
+- [Detailed references](docs/reference/README.md): current behavior and implementation contracts.
+
+Shared development guidance lives in `AGENTS.md` and `docs/`. Local agent state (`.agents/`, `.pi/`) and generated outputs (`bin/`, `out/`, `dist/`) are ignored by Git.
 
 ## Build and install
 
@@ -36,6 +38,7 @@ Normal builds install one DLL in the selected Phoenix setup. `ASHITA4_SDK_PATH` 
 - `src/runtime/config/`, `input/`, `ui/`: shared configuration, input and rendering foundations.
 - `src/runtime/settings/`: persistence, profiles and portable preference boundaries.
 - `cmake/`: source groups, resource generation, runtime targets and focused checks.
-- `docs/`: current guides, feature records and dated historical evidence.
+- `docs/`: maintained feature guides and shared implementation contracts.
+- `third_party/`: [vendored build dependencies](third_party/README.md) for native hooks, map decoding and resource decompression.
 
 Party artwork is bundled from [XIVParty](assets/jobs/README.md); other artwork/data provenance is recorded in [the asset index](assets/README.md). Window themes and native item artwork are read from the installed client.

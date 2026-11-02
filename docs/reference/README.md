@@ -5,6 +5,7 @@ Start with a [short module note](../modules/README.md). Open these guides when t
 ## Shared systems
 
 - [Input ownership](input.md): mouse, keyboard, controller routing and remaining acceptance.
+- [Controller support](controller-support.md): shared interaction design, native coexistence and validation requirements.
 - [Configuration](configuration.md): shared navigation, search, editors and responsive geometry.
 - [Settings organization](settings.md): preference presentation and ownership; [generated inventory](settings-inventory.md).
 - [Party presets](party-presets.md): Classic/XIV application, confirmation and preservation rules.
@@ -18,4 +19,4 @@ Start with a [short module note](../modules/README.md). Open these guides when t
 - [Party job text](party-jobs.md), [Status Effects](status-effects.md), and [heal prediction](heal-prediction.md).
 - [Native HUD hooks](game-hud.md), [world target bar](world-target-bar.md), and [target rings](target-rings.md).
 
-Old audits, implementation records and native investigations are in [the archive](../archive/README.md), outside the routine reading path.
+Completed plans, old audits and investigation records remain available in Git history.

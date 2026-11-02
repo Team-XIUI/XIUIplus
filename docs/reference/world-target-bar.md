@@ -14,7 +14,7 @@ Rendering occurs outside Target's content-bounds measurement. Moving the camera 
 
 Implementation: [host projection](../../src/host/plugin.cpp), [versioned snapshot](../../src/shared/runtime_api.hpp), [settings/rendering](../../src/runtime/modules/target/world_target_bar.cpp) and [Target integration](../../src/runtime/modules/target/target_module.cpp). ABI 16 requires the development host/runtime pair to be replaced together; the standalone distribution remains one DLL.
 
-`xiui_config_input_smoke --mob-info-only` covers projection rejection, compact placement, settings round trips and category ownership alongside the Mob Info checks. Shared settings presentation/defaults and standalone startup checks are recorded in the [feature audit](../archive/feature-parity.md). Cody checks appearance and gameplay.
+`xiui_config_input_smoke --mob-info-only` covers projection rejection, compact placement, settings round trips and category ownership alongside the Mob Info checks. See the [focused checks](../../tests/README.md) for shared settings/defaults and standalone startup validation. Cody checks appearance and gameplay.
 
 ## Healing recipient
 

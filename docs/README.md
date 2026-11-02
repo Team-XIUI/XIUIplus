@@ -2,15 +2,12 @@
 
 Start with the [module index](modules/README.md) and read only the note for the area you are changing. Each note gives the source owners, important constraints and a focused check.
 
-## Active planning
-
-- [Basic settings and HUD scaling](plans/2026-10-20-basic-settings-and-hud-scale.md): implemented Basic/Advanced settings, Classic/XIV presets, global scale and element edit grips; includes the delivery record.
-
 ## Shared guidance
 
 - [Foundations](foundations.md): HUD text, containers, bars, configuration, input and persistence contracts.
 - [Development](development.md): build/install, AgentLink, defaults capture and documentation generation.
 - [Input ownership](reference/input.md): current mouse, keyboard and controller rules; remaining hardware/software-keyboard acceptance.
+- [Controller support](reference/controller-support.md): interaction design, native ownership and focused validation requirements.
 - [Configuration](reference/configuration.md) and [settings](reference/settings.md): shared controls, navigation and preference organization.
 - [Focused checks](../tests/README.md) and [assets](../assets/README.md): validation routes and generator ownership.
 - [Player guide](user-guide.md): commands and player-facing usage.
@@ -29,6 +26,6 @@ Unqualified source paths above are relative to `src/runtime/`. Search the releva
 
 ## Where detail belongs
 
-[Module notes](modules/README.md) are short agent entry points. [Reference](reference/README.md) holds detailed current usage and system contracts. [Archive](archive/README.md) preserves old audits, plans, feature records and native investigation evidence; it is not required reading for routine changes.
+[Module notes](modules/README.md) are short development entry points. [Reference](reference/README.md) holds detailed current usage and system contracts. Completed plans and old investigation records remain available in Git history.
 
 Update the owning note when behavior or source ownership changes. Keep cross-module rules in the shared guides, and edit generated documentation through its generator.

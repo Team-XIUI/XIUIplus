@@ -1,6 +1,6 @@
 # XIUI+ plugin
 
-- Use **XIUI+** in display text and **XIUIplus** in filenames and data directories. `/xiuiplus` is the documented command; old aliases and import formats remain compatible. Preserve original XIUI credits and historical records.
+- Use **XIUI+** in display text and **XIUIplus** in filenames and data directories. `/xiuiplus` is the documented command; old aliases and import formats remain compatible. Preserve original XIUI credits.
 - Never add Codex co-author signatures to commits. Use `main` as the default branch name.
 - Keep comments clear and concise.
 - Keep routine validation focused. Do not run full suites, repeated builds, broad asset validation, or visual/gameplay checks unless requested or needed for a specific failure. The user checks visual and gameplay behavior. Stop checking when the user says a change works.
@@ -15,6 +15,6 @@ For HUD changes, follow [the shared foundations](docs/foundations.md), especiall
 
 Start with [developer navigation](docs/README.md) and the relevant [short module note](docs/modules/README.md). [Development](docs/development.md) covers builds/install/default capture; [focused checks](tests/README.md) keeps validation proportional. Generated documentation uses `scripts/update-docs.ps1`; assets have a [generator index](assets/README.md).
 
-For interactive feature changes, apply [the controller support skill](.agents/skills/xiui-controller-support/SKILL.md) and read [input ownership](docs/reference/input.md) first. Its [remaining acceptance](docs/reference/input.md#remaining-acceptance) distinguishes implemented behavior from hardware/native-keyboard limits. Old audits and implementation plans live in [the archive](docs/archive/README.md), not the routine reading path.
+For interactive feature changes, follow [controller support](docs/reference/controller-support.md) and [input ownership](docs/reference/input.md). Its [remaining acceptance](docs/reference/input.md#remaining-acceptance) distinguishes implemented behavior from hardware/native-keyboard limits. Keep current behavior in the maintained guides; completed plans and audits remain available in Git history. Local agent skills under `.agents/` are optional and ignored by Git.
 
 For releases, use the `xiui-native-release` skill and `scripts/package.ps1`. Ship one `dist/XIUIplus.dll`; the host/runtime DLL pair is for development hot reload.

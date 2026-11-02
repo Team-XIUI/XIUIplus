@@ -65,7 +65,7 @@ Shared module controls append scale options after existing option IDs. Preserve 
 
 ## Input ownership
 
-Apply [the controller skill](../.agents/skills/xiui-controller-support/SKILL.md) and [input contract](reference/input.md) for interactive changes. Use semantic actions across mouse, keyboard and controller, with deliberate focus and exactly-once activation.
+Follow [controller support](reference/controller-support.md) and the [input contract](reference/input.md) for interactive changes. Use semantic actions across mouse, keyboard and controller, with deliberate focus and exactly-once activation.
 
 An ordinary native menu must not disable visible pointer controls. Distinguish XIUI+'s own mouse block from preexisting input blocking. Unclaimed keyboard/controller input stays native; explicitly clicked editors/popups own only their required input. Consume an owned press, repeats and release even when the action closes its surface.
 

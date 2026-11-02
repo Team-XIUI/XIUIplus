@@ -1,11 +1,15 @@
-bin/
-out/
-dist/
-.vs/
-.pi/
+# Local agent and editor state
+/.agents/
+/.pi/
+/.vs/
 CMakeUserPresets.json
 *.user
 *.suo
+
+# Generated build outputs
+/bin/
+/out/
+/dist/
 *.obj
 *.pdb
 *.ilk
