@@ -36,6 +36,27 @@ namespace xiui
             target.settings_.display.name = false; target.settings_.show_distance = false;
             const auto compact = target.DrawView(view, {0, 0, 400, 0}, "", animation, 2000, context);
             if (!Check(noCast == normal && compact < noCast, "casting does not change Target flow while name/distance still control header height")) { restore(); return false; }
+            {
+                target_module themed; themed.ApplyTextDefaults(ui::theme::CreateDefault());
+                design.SetAppearanceTheme(ui::xiv1_appearance);
+                auto idle = view; idle.cast = {};
+                const auto idleHeight = themed.DrawView(idle, {0, 0, 400, 0}, "", animation, 2000, context);
+                const auto castHeight = themed.DrawView(view, {0, 0, 400, 0}, "", animation, 2000, context);
+                themed.settings_.display.name = false; themed.settings_.show_distance = false;
+                const auto hiddenIdle = themed.DrawView(idle, {0, 0, 400, 0}, "", animation, 2000, context);
+                const auto hiddenCast = themed.DrawView(view, {0, 0, 400, 0}, "", animation, 2000, context);
+                if (!Check(idleHeight == castHeight && hiddenIdle == hiddenCast,
+                    "XIV target casts replace the header without shifting HP, statuses or attached children")) { restore(); return false; }
+                themed.settings_.display.cast_placement = 1;
+                themed.cast_state_.bounds.x = 123; themed.cast_state_.bounds.y = 456;
+                themed.settings_.display.cast_height = 32;
+                target_cast_module detached{themed};
+                detached.Render({}, context);
+                if (!Check(detached.State().bounds.height <= 32 && detached.State().bounds.x == 123 && detached.State().bounds.y == 456 &&
+                    themed.settings_.display.cast_height == 32 && themed.settings_.display.cast_text.style.shadow.enabled,
+                    "XIV independent casts stay compact while retaining saved positions and text effects")) { restore(); return false; }
+                design.SetAppearanceTheme(ui::native_appearance);
+            }
             target.settings_.display.casts = true;
             target.settings_.display.cast_width = 210; target.settings_.display.cast_offset_x = -7; target.settings_.display.cast_offset_y = 12;
             const auto attached = target.AttachedCastBounds(target.State().bounds);

@@ -153,6 +153,7 @@ namespace xiui
 
         auto SelectedTextProfile(void) -> module_text_profile&;
         auto AttachedCastBounds(const ui::rect& panel) const -> ui::rect;
+        auto CastHeight(const ui::design_system& design) const -> float;
         auto DrawCast(const combat_cast& cast, const ui::rect& bounds, uint64_t now, const module_render_context& context) -> void;
         auto ReadView(IAshitaCore& core, uint32_t index, const combat_source& combat, const party_source& party, target_view& view) -> void;
         auto DrawView(const target_view& view, const ui::rect& area, const char* prefix, meter_animation_state& animation,

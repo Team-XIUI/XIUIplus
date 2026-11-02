@@ -79,15 +79,15 @@ namespace xiui
     {
         if (index >= layout_options)
         {
-            static constexpr const char* placements[]{"Below Target", "Independent"};
+            static constexpr const char* placements[]{"Follow Target", "Independent"};
             switch (index - layout_options)
             {
-            case 0: return module_option::Choice("Cast position", "Follow the HP bar or move the cast bar independently in Movement. Casting never shifts other Target elements.", &this->cast_placement, placements, 2).Ordered(200, true).VisibleWhen(this->casts);
-            case 1: return module_option::Slider("Cast width", "Zero follows the Target HP width.", &this->cast_width, 0, 1600, 1).Ordered(300, true).VisibleWhen(this->casts);
+            case 0: return module_option::Choice("Cast position", "XI Theme places casts below HP; XIV 1.0 replaces the target name while casting. Independent uses its saved Movement position. Casting never shifts other Target elements.", &this->cast_placement, placements, 2).Ordered(200, true).VisibleWhen(this->casts);
+            case 1: return module_option::Slider("Cast width", "Zero follows the Target HP width. Attached XIV 1.0 casts always fit the name row.", &this->cast_width, 0, 1600, 1).Ordered(300, true).VisibleWhen(this->casts);
             default:
                 auto option = index - layout_options == 2 ?
-                    module_option::Slider("Cast X offset", "Horizontal adjustment from the Target HP bar. Independent positioning uses Movement.", &this->cast_offset_x, -1600, 1600, 1).Ordered(320, true) :
-                    module_option::Slider("Cast Y offset", "Vertical adjustment from below the Target HP bar. Independent positioning uses Movement.", &this->cast_offset_y, -1600, 1600, 1).Ordered(321);
+                    module_option::Slider("Cast X offset", "Horizontal adjustment for attached XI Theme casts. XIV 1.0 uses the name row; independent positioning uses Movement.", &this->cast_offset_x, -1600, 1600, 1).Ordered(320, true) :
+                    module_option::Slider("Cast Y offset", "Vertical adjustment for attached XI Theme casts. XIV 1.0 uses the name row; independent positioning uses Movement.", &this->cast_offset_y, -1600, 1600, 1).Ordered(321);
                 return option.VisibleWhen(this->casts && this->cast_placement == 0);
             }
         }
@@ -106,8 +106,8 @@ namespace xiui
         case 3: return module_option::Choice("Enemy ID", "Last three characters of the monster's native server ID, matching XIUI+; this is not entity index or mob level.", &this->id_format, formats, 3);
         case 4: return module_option::Toggle("Player HP percent", "Include player entities when main Target HP percent is enabled.", &this->percent_players);
         case 5: return module_option::Toggle("Monster HP percent", "Include monster entities when main Target HP percent is enabled.", &this->percent_mobs);
-        case 6: return module_option::Slider("Cast height", "Height of the main Target cast bar.", &this->cast_height, 2, 32, 1).Ordered(301).VisibleWhen(this->casts);
-        case 7: return module_option::Slider("Cast spacing", "Gap below the Target HP bar; does not move other Target elements.", &this->cast_spacing, 0, 32, 1).Ordered(310, true).VisibleWhen(this->casts && this->cast_placement == 0);
+        case 6: return module_option::Slider("Cast height", "Height of the main Target cast bar. XIV 1.0 keeps its compact track at most six pixels tall.", &this->cast_height, 2, 32, 1).Ordered(301).VisibleWhen(this->casts);
+        case 7: return module_option::Slider("Cast spacing", "Gap below HP in XI Theme. Attached XIV 1.0 casts use the name row.", &this->cast_spacing, 0, 32, 1).Ordered(310, true).VisibleWhen(this->casts && this->cast_placement == 0);
         case 8: return module_option::Toggle("Independent cast style", "Configure the cast meter separately from the HP bar.", &this->custom_cast_meter).VisibleWhen(this->casts);
         case 9: return module_option::Toggle("Custom cast gradient", "Replace the theme accent with a dedicated cast fill.", &this->custom_cast_fill).VisibleWhen(this->casts);
         case 10: return module_option::Color("Cast fill top", "Upper custom cast fill.", &this->cast_top).VisibleWhen(this->casts && this->custom_cast_fill);

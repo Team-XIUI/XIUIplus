@@ -2,6 +2,12 @@
 
 ## Unreleased
 
+## 0.1.0-alpha — 2026-11-02
+
+- Open saved macros for editing when clicked in Actions & Macros. Save and Cancel return to the same library view; dragging still assigns macros to hotbars.
+- Simplify XIV 1.0 target casts into a compact bar with endcaps and an overlapping spell name, temporarily replacing the target name without moving the rest of the layout.
+- Brighten regular XIV 1.0 chat text while preserving channel colors and text effects.
+
 ## 0.1.0 — 2026-11-01
 
 - Rename the plugin to XIUI+, with `XIUIplus.dll`, `/xiuiplus`, `.xiuiplus` profile files and `config/XIUIplus/`. Existing data migrates automatically; earlier command aliases, `.xiui` files and share keys remain supported.

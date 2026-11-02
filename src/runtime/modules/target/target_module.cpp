@@ -3,7 +3,7 @@
 #include "chat/chat_encoding.hpp"
 #include "ui/status_strip.hpp"
 #include "modules/mobinfo/mob_database.hpp"
-#include "xiv1_cast_chrome.hpp"
+#include "ui/text_fit.hpp"
 
 #include <algorithm>
 #include <cmath>
@@ -405,10 +405,11 @@ namespace xiui
         const bool showHealth = (!valid || view.health) && (!recipient || options.health);
         const bool showDistance = recipient ? options.distance : this->settings_.show_distance;
         const bool showName = recipient ? options.name : this->settings_.display.name;
+        const bool castHeader = xiv1 && !recipient && this->settings_.display.casts && this->settings_.display.cast_placement == 0;
         const bool nameInside = recipient && options.name_placement == 1 && showHealth;
         const bool nameBelow = recipient && options.name_placement == 2;
         const bool nameAbove = showName && !nameInside && !nameBelow;
-        const bool captionDistance = xiv1 && nameAbove;
+        const bool captionDistance = xiv1 && (nameAbove || castHeader);
         auto profiles = std::array{this->settings_.name_text, this->settings_.distance_text, this->settings_.label_text, this->settings_.value_text};
         if (recipient && !options.follow_text) profiles = options.text;
         auto nameText = valid && (!recipient || options.tint_name) ? TintTextProfile(profiles[0], view.color) : profiles[0];
@@ -440,14 +441,22 @@ namespace xiui
         constexpr float tickToRail = 12;
         ui::rect flourish{panel.x + 7 + tickToRail, panel.y + 21, panel.width - 9 - tickToRail, 7};
         ui::rect nameTextBounds{};
-        float header = showName || showDistance ? xiv1 ? 36.0f : 31.0f : 5.0f;
-        if (xiv1 && nameAbove)
+        float header = showName || showDistance || castHeader ? xiv1 ? 36.0f : 31.0f : 5.0f;
+        if (xiv1 && (nameAbove || castHeader))
         {
-            nameTextBounds = context.TextBounds(name.c_str(), nameBounds, panel, nameText);
+            auto headerText = nameText;
+            if (castHeader) headerText.visible = true;
+            nameTextBounds = context.TextBounds(name.c_str(), nameBounds, panel, headerText);
             const float textBottom = nameTextBounds.y + nameTextBounds.height;
             flourish.y = std::max(panel.y + 5, textBottom) + 1;
             // Keep a one-pixel gap below the flipped rail's flat edge.
             header = flourish.y + 5 - panel.y - (meterHeight - meterStyle.height) * .5f;
+            if (castHeader)
+            {
+                const float minimum = this->CastHeight(context.Design()) + 7;
+                flourish.y += std::max(0.0f, minimum - header);
+                header = std::max(header, minimum);
+            }
         }
         float bottom = panel.y + header - 2;
         char hpValue[24]{};
@@ -515,7 +524,7 @@ namespace xiui
         ui::DrawStatusStrip(statuses, strip, now, statusText, context, statusSettings);
         if (statusSettings.tooltips)
             for (size_t i = 0; i < layout.count; ++i) this->status_hits_.push_back({statuses[i], context.Design().Transform().Map(layout.Icon(i)), view.id});
-        if (nameAbove)
+        if (nameAbove || castHeader)
         {
             if (xiv1)
             {
@@ -548,7 +557,10 @@ namespace xiui
                 if (subtarget) nameText.offset_x -= 8;
                 nameText.offset_y += 4;
             }
-            context.DrawText(name.c_str(), nameBounds, panel, nameText);
+            if (castHeader && view.cast.Active(now))
+                this->DrawCast(view.cast, {nameBounds.x, panel.y + 3, nameBounds.width, std::max(1.0f, header - 7)}, now, context);
+            else if (nameAbove)
+                context.DrawText(name.c_str(), nameBounds, panel, nameText);
         }
         if (showDistance && valid)
         {
@@ -576,12 +588,30 @@ namespace xiui
         const auto color = context.Design().GetTheme().colors.accent;
         if (context.Design().IsXiv1Theme())
         {
-            auto frame = bounds;
-            frame.height = 52;
-            DrawXiv1Cast(context, frame, cast.Active(now) ? (cast.interrupted ? "Interrupted" : cast.name.c_str()) : "Stone IV",
-                cast.Active(now) ? cast.Ratio(now) : .6f, options.custom_cast_fill ? options.cast_top : 0xFFEDCAB5,
-                options.custom_cast_fill ? options.cast_bottom : 0xFFB98370, style,
-                cast.interrupted ? TintTextProfile(options.cast_text, 0xFFFF8888) : options.cast_text);
+            style.appearance = ui::meter_style::window_theme;
+            style.height = std::clamp(options.cast_height, 2.0f, 6.0f);
+            style.bookends = true;
+            style.themed_bookends = true;
+            style.border_width = 1;
+            style.corner_radius = 2;
+            const ui::rect track{bounds.x, bounds.y + bounds.height - style.height - 2, bounds.width, style.height + 2};
+            context.DrawBar(track, cast.Active(now) ? cast.Ratio(now) : .6f,
+                options.custom_cast_fill ? options.cast_top : 0xFFEDCAB5,
+                options.custom_cast_fill ? options.cast_bottom : 0xFFB98370, 0, style);
+            auto text = cast.interrupted ? TintTextProfile(options.cast_text, 0xFFFF8888) : options.cast_text;
+            text.style.font = ui::xiv1_italic_font;
+            text.style.alignment = ui::text_alignment::left;
+            text.placement = 0;
+            const float available = std::max(1.0f, track.y - bounds.y - 2);
+            const float height = context.Design().TextHeight(text.style);
+            text.style.scale *= std::min(1.0f, std::min(18.0f, available) / std::max(1.0f, height));
+            const auto trackBounds = ui::LayoutMeterTrack(track, style);
+            const auto textBounds = context.MeterTextBounds(track, style);
+            const float labelHeight = context.Design().TextHeight(text.style);
+            const ui::rect label{textBounds.x, trackBounds.y - labelHeight + 3, textBounds.width, labelHeight};
+            const auto fitted = ui::FitText(context.Design(), cast.Active(now) ? (cast.interrupted ? "Interrupted" : cast.name.c_str()) : "Stone IV",
+                std::max(0.0f, label.width - std::max(0.0f, text.offset_x)), context.Design().ResolveHudText(text.style));
+            context.DrawText(fitted.c_str(), label, label, text);
             return;
         }
         context.DrawBar(bounds, cast.Active(now) ? cast.Ratio(now) : 0.6f,
@@ -591,6 +621,13 @@ namespace xiui
         const float height = std::max(bounds.height, context.Design().TextHeight(text.style));
         const ui::rect line{bounds.x, bounds.y + (bounds.height - height) * 0.5f, bounds.width, height};
         context.DrawText(cast.Active(now) ? (cast.interrupted ? "Interrupted" : cast.name.c_str()) : "Stone IV", line, line, text);
+    }
+
+    auto target_module::CastHeight(const ui::design_system& design) const -> float
+    {
+        const auto& options = this->settings_.display;
+        if (!design.IsXiv1Theme()) return options.cast_height + 2;
+        return std::clamp(design.TextHeight(options.cast_text.style), 12.0f, 18.0f) + std::clamp(options.cast_height, 2.0f, 6.0f) + 4;
     }
     auto target_module::RenderWorldBar(const hud_snapshot& snapshot, const module_render_context& context) -> void
     {
@@ -627,11 +664,9 @@ namespace xiui
         const auto now = ::GetTickCount64();
         const auto& main = this->details_ready_ ? this->views_[0] : fallback;
         float height = this->DrawView(main, this->state_.bounds, "", this->detail_animations_[0], now, context);
-        if (this->settings_.display.cast_placement == 0)
+        if (this->settings_.display.cast_placement == 0 && !context.Design().IsXiv1Theme())
         {
-            auto cast = this->AttachedCastBounds(this->state_.bounds);
-            if (context.Design().IsXiv1Theme()) { cast.y = this->state_.bounds.y - 54 + this->settings_.display.cast_offset_y; cast.height = 52; }
-            this->DrawCast(main.cast, cast, now, context);
+            this->DrawCast(main.cast, this->AttachedCastBounds(this->state_.bounds), now, context);
         }
         target_view preview{};
         if (context.IsEditing())
@@ -679,7 +714,7 @@ namespace xiui
     {
         auto& state = this->State();
         const auto anchor = this->parent_.AttachedCastBounds(this->parent_.state_.bounds);
-        state.bounds.width = anchor.width; state.minimum_height = state.bounds.height = context.Design().IsXiv1Theme() ? 52 : anchor.height;
+        state.bounds.width = anchor.width; state.minimum_height = state.bounds.height = this->parent_.CastHeight(context.Design());
         this->parent_.DrawCast(this->parent_.views_[0].cast, state.bounds, ::GetTickCount64(), context);
     }
 

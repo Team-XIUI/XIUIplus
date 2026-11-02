@@ -1788,6 +1788,7 @@ namespace xiui
                 {
                     const auto color = this->SpanColor(row, span, snapshot.chat_colors, context.Design().IsXiv1Theme());
                     auto profile = FadeText(TintTextProfile(this->text_, color), motion.opacity);
+                    if (!span.emphasis && !span.timestamp) profile = ChatBodyProfile(context.Design(), profile);
                     profile.style.weight = ChatRunWeight(context.Design(), span.emphasis);
                     profile.placement = 0; profile.style.alignment = ui::text_alignment::left;
                     const float padding = span.dialogue_prompt ? dialogue_prompt_padding : 0.0f;

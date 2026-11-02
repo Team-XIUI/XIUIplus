@@ -524,6 +524,34 @@ namespace xiui
                 store.ExpandMacro(store.Resolve(action_surface::hotbar, 0, 4)).lines == std::vector<std::string>{"/echo saved"} &&
                 std::any_of(module.results_.begin(), module.results_.end(), [](const auto& action) { return action.name == "Saved macro"; }),
                 "saving returns to the library, assigns the selected slot and refreshes the shared macro results");
+            const auto savedId = store.Resolve(action_surface::hotbar, 0, 4).macro_id;
+            store.Assign(action_surface::hotbar, 0, 7, Command("Untouched slot"));
+            module.OpenLibrary(false, 0, 7); module.category_ = 7; module.query_ = "Saved"; module.RebuildResults();
+            Click(module, ControlBounds(module, "Saved macro"));
+            Check(module.dialog_ == actionbars_module::dialog::editor && module.library_edit_ && module.library_popup_ &&
+                module.draft_.macro_id == savedId && !module.placing_ && store.Resolve(action_surface::hotbar, 0, 7).name == "Untouched slot",
+                "clicking a saved macro opens its shared editor without assigning the selected slot");
+            module.draft_.lines = {"/echo discarded"}; Click(module, ControlBounds(module, "Cancel"));
+            Check(module.dialog_ == actionbars_module::dialog::picker && module.query_ == "Saved" && module.category_ == 7 &&
+                module.selected_.slot == 7 && store.ExpandMacro(store.Resolve(action_surface::hotbar, 0, 4)).lines == std::vector<std::string>{"/echo saved"},
+                "canceling a clicked macro preserves its saved commands and returns to the same library view");
+            Click(module, ControlBounds(module, "Saved macro"));
+            module.draft_.lines = {"/echo edited"}; Click(module, ControlBounds(module, "Save"));
+            Check(module.dialog_ == actionbars_module::dialog::picker && module.query_ == "Saved" && module.category_ == 7 &&
+                store.Resolve(action_surface::hotbar, 0, 7).name == "Untouched slot" &&
+                store.ExpandMacro(store.Resolve(action_surface::hotbar, 0, 4)).lines == std::vector<std::string>{"/echo edited"},
+                "saving a clicked macro updates its references while leaving the selected destination unchanged");
+            module.focused_control_ = Control(module, "Saved macro");
+            Check(module.HandleControllerAction(controller_action::actions, false) && module.library_edit_ && module.draft_.macro_id == savedId,
+                "controller Actions retains the same shared macro editor route");
+            module.HandleControllerAction(controller_action::cancel, false);
+            module.bars_[0].state.bounds.x = 100; module.bars_[0].state.bounds.y = 800; module.Layout(0);
+            const auto source = ControlBounds(module, "Saved macro"), destination = module.SlotBounds({action_surface::hotbar, 0, 8});
+            module.HandleMouse(WM_LBUTTONDOWN, 0, source.x + 8, source.y + 8, false);
+            module.HandleMouse(WM_MOUSEMOVE, MK_LBUTTON, destination.x + 8, destination.y + 8, false);
+            module.HandleMouse(WM_LBUTTONUP, 0, destination.x + 8, destination.y + 8, false);
+            Check(module.dialog_ == actionbars_module::dialog::picker && store.Resolve(action_surface::hotbar, 0, 8).macro_id == savedId &&
+                store.Resolve(action_surface::hotbar, 0, 7).name == "Untouched slot", "dragging a saved macro still assigns its drop slot without opening the editor");
         }
         static auto BarControlsAndCrossbarGeometry(void) -> void
         {

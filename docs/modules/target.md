@@ -16,7 +16,7 @@ Opt-in shader diagnostics live in [ring_shader_capture.cpp](../../src/host/ring_
 
 Shared meter defaults resolve an automatic Target HP height to 12 pixels; the world bar retains 6 pixels. Classic and XIV apply the same Target text styles and HP height.
 
-XIV 1.0 appearance adds the screenshot-derived name flourish, italic target caption, copper HP gauge and cast medallion. Attached casts appear above the target; independent casts retain their saved position. The shared cast chrome also serves the player Cast Bar, whose medallion uses the actual action icon when available.
+XIV 1.0 appearance adds the screenshot-derived name flourish, italic target caption and copper HP gauge. Attached target casts temporarily replace the name with a thin progress bar with themed endcaps; the spell/action name slightly overlaps its upper-left edge. The target name returns when casting ends. They have no icon or medallion, and the HP/status layout stays fixed. Independent target casts use the same compact presentation at their saved position. Text effects and custom cast gradients remain active. The separate player Cast Bar retains its action medallion.
 
 Target of Target defaults below the main Target without a connecting arrow in XIV 1.0, with X/Y offsets of 240/-32 pixels to sit farther right and closer vertically. XI keeps the inline-right default and arrow with zero offsets. Untouched defaults follow theme changes; customized positions and arrow choices remain authoritative. Both shared configuration routes mark explicit layout choices, including controller changes.
 

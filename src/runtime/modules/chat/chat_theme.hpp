@@ -34,6 +34,19 @@ namespace xiui
     inline auto ChatThemeProfile(const ui::design_system& design, module_text_profile profile) -> module_text_profile
     { profile.style = ChatThemeStyle(design, profile.style); return profile; }
 
+    inline auto ChatBodyProfile(const ui::design_system& design, module_text_profile profile) -> module_text_profile
+    {
+        if (!design.IsXiv1Theme()) return profile;
+        const auto brighten = [](const D3DCOLOR color) {
+            const auto lift = [](const uint32_t value) { return (value * 3 + 257) / 4; };
+            return (color & 0xFF000000) | (lift((color >> 16) & 255) << 16) |
+                (lift((color >> 8) & 255) << 8) | lift(color & 255);
+        };
+        profile.style.top_color = brighten(profile.style.top_color);
+        profile.style.bottom_color = brighten(profile.style.bottom_color);
+        return profile;
+    }
+
     inline auto DrawThemedChatText(const module_render_context& context, const std::string_view text,
         const ui::rect& bounds, const module_text_profile& profile) -> void
     { DrawChatText(context, text, bounds, ChatThemeProfile(context.Design(), profile)); }

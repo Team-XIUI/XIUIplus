@@ -794,15 +794,23 @@ namespace xiui
     auto actionbars_module::EditLibraryEntry(const size_t index) -> bool
     {
         if (!this->store_ || index >= this->results_.size() || this->results_[index].macro_id.empty()) return false;
-        this->CommitField(); const auto& source = this->results_[index];
+        const auto source = this->results_[index];
+        this->RememberLibrary(); this->CommitField();
         this->draft_ = this->store_->ExpandMacro(source); this->draft_.macro_id = source.macro_id;
         this->library_edit_ = this->library_draft_ = true; this->line_scroll_ = 0; this->dialog_ = dialog::editor;
         this->editor_options_ = this->editor_recast_ = this->editor_new_ = false;
         this->focused_control_ = command_kind; this->message_.clear(); this->SetWindowFocused(true); return true;
     }
+    auto actionbars_module::CloseLibraryEditor(void) -> void
+    {
+        this->library_edit_ = false; this->CloseDialog();
+        if (this->dialog_ == dialog::picker) this->RebuildResults();
+        else this->OpenPicker();
+    }
     auto actionbars_module::ChooseResult(const size_t index) -> void
     {
         if (index >= this->results_.size()) return;
+        if (!this->navigation_focus_ && this->EditLibraryEntry(index)) return;
         this->draft_ = this->results_[index];
         this->input_.Cancel(); this->editing_field_ = 0;
         if (this->navigation_focus_) this->placing_ = true;
@@ -835,7 +843,7 @@ namespace xiui
             else if (!this->store_->SaveMacro(macro)) { this->Notice("The shared action could not be saved."); return; }
             if (this->draft_.macro_id.empty()) { this->Notice("The shared library is full or the action is invalid."); return; }
         }
-        if (this->library_edit_) { this->library_edit_ = false; this->OpenPicker(); return; }
+        if (this->library_edit_) { this->CloseLibraryEditor(); return; }
         if (this->store_ && this->store_->Assign(this->selected_.surface, this->selected_.bar, this->selected_.slot, this->draft_, this->draft_pet_))
         {
             this->Presentation(this->selected_).state.enabled = true; this->settings_changed_ = true; this->CloseDialog();
@@ -958,7 +966,7 @@ namespace xiui
         case command_icon_back: this->CloseIconPicker(); break;
         case command_icon_default: this->draft_.icon.clear(); this->CloseIconPicker(); break;
         case command_cancel:
-            if (this->library_edit_ && this->dialog_ == dialog::editor) { this->library_edit_ = false; this->OpenPicker(); break; }
+            if (this->library_edit_ && this->dialog_ == dialog::editor) { this->CloseLibraryEditor(); break; }
             if (this->dialog_ == dialog::delete_macro) { this->dialog_ = dialog::editor; this->focused_control_ = command_macro_delete; }
             else if (this->dialog_ == dialog::name || this->dialog_ == dialog::delete_palette) { this->dialog_ = dialog::palettes; this->focused_control_ = command_cancel; }
             else this->CloseDialog();
@@ -1003,7 +1011,7 @@ namespace xiui
         case command_delete:
             if (this->dialog_ == dialog::delete_macro)
             {
-                if (this->store_ && this->store_->DeleteMacro(this->draft_.macro_id)) { this->draft_.macro_id.clear(); this->library_draft_ = false; if (this->library_edit_) { this->library_edit_ = false; this->OpenPicker(); } else { this->dialog_ = dialog::editor; this->focused_control_ = command_save; } }
+                if (this->store_ && this->store_->DeleteMacro(this->draft_.macro_id)) { this->draft_.macro_id.clear(); this->library_draft_ = false; if (this->library_edit_) this->CloseLibraryEditor(); else { this->dialog_ = dialog::editor; this->focused_control_ = command_save; } }
                 else this->Notice("The macro could not be removed.");
             }
             else if (this->dialog_ == dialog::delete_palette)

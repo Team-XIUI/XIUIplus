@@ -407,6 +407,7 @@ namespace xiui
         auto DrawLibraryIcon(const action_slot&, const ui::rect&, const module_render_context&) const -> void;
         auto RebuildResults(void) -> void;
         auto EditLibraryEntry(size_t index) -> bool;
+        auto CloseLibraryEditor(void) -> void;
         auto ChooseResult(size_t) -> void;
         auto NewDraft(action_kind) -> void;
         auto SaveDraft(void) -> void;
