@@ -30,6 +30,8 @@ The game's Window Type remains authoritative for XI Theme. Global's Native Windo
 
 Keep opacity, padding and dark backing independent of module position/size. Tooltips use `DrawTooltip`. To put artwork under a native frame, draw the container without its border, clip the artwork, then use `DrawContainerFrame`. Preserve supported DAT-specific corrections rather than inventing replacement pixels.
 
+XIV 1.0 tooltips add a subtle dark interior fill for readability, independently of ordinary window styling and HUD text.
+
 XIV 1.0 window backgrounds default to 40% through Global → Appearance → Window. This adjustable theme opacity combines with each module's existing opacity and leaves frame/text settings intact. XI Theme keeps its original opacity behavior.
 
 ## Bars
@@ -74,6 +76,8 @@ Release/suspend input on foreground loss, hidden/disabled context, zoning, profi
 Use `ui::native_ui_sounds` for native cursor, confirm and menu feedback. Unsupported clients stay silent. Hover does not repeat at rest or while dragging; accepted activation confirms once. Restoration/replay is silent. Chat send feedback follows successful validation/queueing; sound previews do not change preferences or send actions. Embedded clips retain their notices and lifetime-managed playback.
 
 ## Settings persistence
+
+Installed data belongs under `config/xiuinative/`, resolved by `settings/storage_paths.*`. Migrate paths before starting writers; preserve current destination files and archive conflicting legacy files. Derive profile/resource directories from the settings file's parent rather than recreating top-level plugin folders.
 
 Use `settings_store`, normal module load/save hooks and asynchronous writers. Snapshots merge unknown fields/comments and preserve supported encoding; unchanged values avoid rewrites. Keep full snapshots coalesced and retain failed work for retry. Sanitize non-finite values at the shared reader.
 

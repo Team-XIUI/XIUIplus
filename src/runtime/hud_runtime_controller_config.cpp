@@ -459,6 +459,11 @@ namespace xiui
             const bool deleting = this->profile_dialog_ == profile_dialog::delete_profile;
             const bool confirming = this->ConfirmingAction();
             if (value == action::cancel) this->CloseProfileControls();
+            else if (this->profile_transfer_.Busy())
+            {
+                focus.modal_item = 0;
+                if (value == action::confirm) this->CloseProfileControls();
+            }
             else if (Directional(value))
             {
                 const auto previous = focus.modal_item;

@@ -1,5 +1,7 @@
 #include "satchel_module.hpp"
 #include "ui/game_icon_cache.hpp"
+#include "ui/item_slot_frame.hpp"
+#include "ui/text_fit.hpp"
 
 #include "satchel_source.hpp"
 #include "satchel_cache.hpp"
@@ -46,8 +48,10 @@ namespace xiui
             return text;
         }
         constexpr const char* profile_sections[]{"text.satchel.title", "text.satchel.caption", "text.satchel.quantity", "text.satchel.tooltip"};
+        constexpr const char* empty_slot_key = "empty";
         constexpr const char* sort_names[]{"Custom order", "Name", "Item ID", "Quantity"};
         constexpr size_t picker_rows = 8;
+        constexpr float item_menu_width = 252, item_menu_header = 30, item_menu_row = 24;
         constexpr float sidebar_width = 136, sidebar_gap = 12, bag_pitch = 28, scroll_gutter = 14;
 
         auto FitCells(const float available, const float cell, const float spacing, const size_t previous) -> float
@@ -137,13 +141,19 @@ namespace xiui
         this->autosort_ = store.ReadBool("satchel", "autosort", false);
         this->background_ = store.ReadBool("satchel", "background", true);
         this->frames_ = store.ReadBool("satchel", "slot_frames", true);
+        this->position_locked_ = store.ReadBool("satchel", "lock_position", false);
         const auto number = [&](const char* key, const float value, const float minimum, const float maximum) {
             const auto result = store.ReadFloat("satchel", key, value);
             return std::clamp(std::isfinite(result) ? result : value, minimum, maximum);
         };
         this->columns_ = number("columns", 10, 1, 128); this->rows_ = number("rows", 5, 1, 128);
         this->icon_size_ = number("icon_size", 32, 24, 64); this->spacing_ = number("spacing", 5, 0, 16);
-        this->container_.opacity = number("opacity", 1, 0.1f, 1); this->container_.padding = number("padding", 8, 0, 24);
+        this->slot_opacity_ = number("slot_background_opacity", 0.8f, 0, 1);
+        if (store.ReadInt("satchel", "slot_background_version", 0) < 1 && std::abs(this->slot_opacity_ - 0.55f) < 0.002f)
+            this->slot_opacity_ = 0.8f;
+        this->container_.opacity = number("opacity", 0.35f, 0.1f, 1); this->container_.padding = number("padding", 8, 0, 24);
+        if (store.ReadInt("satchel", "container_opacity_version", 0) < 1 && std::abs(this->container_.opacity - 1.0f) < 0.002f)
+            this->container_.opacity = 0.35f;
         this->sort_ = std::clamp(store.ReadInt("satchel", "display_sort", 0), 0, 3);
         this->selected_text_ = std::clamp(store.ReadInt("satchel", "selected_text", 0), 0, 3);
         for (size_t i = 0; i < this->text_.size(); ++i) this->text_[i] = LoadTextProfile(store, profile_sections[i], this->text_[i]);
@@ -162,9 +172,13 @@ namespace xiui
         store.WriteBool("satchel", "all_bags_search", this->all_bags_search_); store.WriteBool("satchel", "tooltips", this->tooltips_);
         store.WriteBool("satchel", "read_only", this->restricted_); store.WriteBool("satchel", "autosort", this->autosort_);
         store.WriteBool("satchel", "background", this->background_); store.WriteBool("satchel", "slot_frames", this->frames_);
+        store.WriteBool("satchel", "lock_position", this->position_locked_);
+        store.WriteFloat("satchel", "slot_background_opacity", this->slot_opacity_);
+        store.WriteInt("satchel", "slot_background_version", 1);
         store.WriteFloat("satchel", "columns", this->columns_); store.WriteFloat("satchel", "rows", this->rows_);
         store.WriteFloat("satchel", "icon_size", this->icon_size_); store.WriteFloat("satchel", "spacing", this->spacing_);
         store.WriteFloat("satchel", "opacity", this->container_.opacity); store.WriteFloat("satchel", "padding", this->container_.padding);
+        store.WriteInt("satchel", "container_opacity_version", 1);
         store.WriteInt("satchel", "display_sort", this->sort_); store.WriteInt("satchel", "selected_text", this->selected_text_);
         for (size_t i = 0; i < this->text_.size(); ++i) SaveTextProfile(store, profile_sections[i], this->text_[i]);
     }
@@ -182,6 +196,8 @@ namespace xiui
     auto satchel_module::ContentConfigSectionContains(const size_t section, const size_t index) -> bool
     {
         if (index >= this->OptionCount()) return false;
+        if (index == lock_position) return section == 1;
+        if (index == slot_opacity) return section == 2;
         if (index <= autosort) return section == 0;
         if (index <= sort) return section == 1;
         if (index <= padding) return section == 2;
@@ -206,8 +222,10 @@ namespace xiui
         case spacing: return module_option::Slider("Slot spacing", "Pixels between item cells.", &this->spacing_, 0, 16, 1).Ordered(300);
         case sort: return module_option::Choice("Display order", "Change the presentation without sorting game inventory. Drag between item cells in Custom order to rearrange.", &this->sort_, sort_names, 4).Ordered(-30);
         case background: return module_option::Toggle("Container", "Use the shared native game window around the browser.", &this->background_, module_option_group::appearance).Ordered(-10);
-        case frames: return module_option::Toggle("Slot frames", "Draw native frames around item cells. Item quality borders remain part of the artwork.", &this->frames_, module_option_group::appearance).Ordered(470);
-        case opacity: return module_option::Slider("Container opacity", "Opacity of native containers.", &this->container_.opacity, 0.1f, 1, 0.05f, module_option_group::appearance).Ordered(450).VisibleWhen(this->background_ || this->frames_);
+        case frames: return module_option::Toggle("Slot frames", "Draw flat backgrounds and thin rounded outlines around item cells. Native item quality borders remain intact.", &this->frames_, module_option_group::appearance).Ordered(470);
+        case opacity: return module_option::Slider("Container opacity", "Opacity of the outer container and slot outlines.", &this->container_.opacity, 0.1f, 1, 0.05f, module_option_group::appearance).Ordered(450).VisibleWhen(this->background_ || this->frames_);
+        case lock_position: return module_option::Toggle("Lock position", "Prevent moving or resizing Satchel independently of HUD Edit Mode. Browsing and item actions remain available.", &this->position_locked_).Ordered(-50);
+        case slot_opacity: return module_option::Slider("Slot background opacity", "Background opacity for filled and empty item cells, independently of the outer window and item artwork.", &this->slot_opacity_, 0, 1, 0.05f, module_option_group::appearance).Ordered(471).VisibleWhen(this->frames_);
         case padding: return module_option::Slider("Container padding", "Space inside the outer frame.", &this->container_.padding, 0, 24, 1, module_option_group::appearance).Ordered(402);
         case selected_text: return module_option::Element("Selected text", "Configure each text role independently.", &this->selected_text_, profiles, 4, module_option_group::text);
         default: return TextProfileOption(index - base_options, this->text_[this->selected_text_]).VisibleWhen(this->selected_text_ != 3 || this->tooltips_);
@@ -216,6 +234,13 @@ namespace xiui
 
     auto satchel_module::OnContentOptionChanged(const size_t index) -> void
     {
+        if (index == lock_position && this->position_locked_)
+        {
+            const bool pointer = this->pointer_down_ && this->window_action_ != window_action::none;
+            this->FinishWindow(false);
+            if (pointer) { this->pointer_down_ = false; this->discard_pointer_release_ = true; }
+            if (!this->RegionAvailable(this->region_)) this->region_ = this->minimized_ ? region::minimize : region::grid;
+        }
         if (index == columns) this->width_ = 0;
         if (index == rows) this->height_ = 0;
         this->UpdateSize(); this->rebuild_ = true;
@@ -236,6 +261,7 @@ namespace xiui
         this->ReleaseBrowseFocus();
         this->pointer_down_ = this->dragging_ = this->discard_pointer_release_ = false;
         this->dialog_ = dialog::none; this->editor_.Cancel(); this->picks_.clear(); this->pending_autosort_bag_ = -1;
+        this->pressed_pick_.reset();
         this->hover_x_ = this->hover_y_ = -1;
         this->help_open_ = false;
         this->navigation_focus_ = false;
@@ -343,10 +369,31 @@ namespace xiui
             const auto order = this->cache_->ReadOrder(snapshot->identity, this->slip_ >= 0 ? 100 + this->slip_ : this->bag_);
             std::unordered_map<std::string, size_t> positions;
             for (size_t i = 0; i < order.size(); ++i) positions.emplace(order[i], i);
-            std::stable_sort(this->cells_.begin(), occupied, [&](const auto& a, const auto& b) {
-                const auto left = positions.find(a.key), right = positions.find(b.key);
-                return (left == positions.end() ? order.size() : left->second) < (right == positions.end() ? order.size() : right->second);
-            });
+            if (this->empty_slots_ && this->bag_ >= 0 && this->slip_ < 0 && query.empty() &&
+                std::find(order.begin(), order.end(), empty_slot_key) != order.end())
+            {
+                std::vector<cell> arranged(this->cells_.size(), cell{{}, true, {}}), remaining;
+                for (auto& value : this->cells_)
+                {
+                    if (value.empty) continue;
+                    const auto found = positions.find(value.key);
+                    if (found != positions.end() && found->second < arranged.size() && arranged[found->second].empty)
+                        arranged[found->second] = std::move(value);
+                    else remaining.push_back(std::move(value));
+                }
+                size_t next{};
+                for (auto& value : remaining)
+                {
+                    while (next < arranged.size() && !arranged[next].empty) ++next;
+                    if (next < arranged.size()) arranged[next++] = std::move(value);
+                }
+                this->cells_ = std::move(arranged);
+            }
+            else
+                std::stable_sort(this->cells_.begin(), occupied, [&](const auto& a, const auto& b) {
+                    const auto left = positions.find(a.key), right = positions.find(b.key);
+                    return (left == positions.end() ? order.size() : left->second) < (right == positions.end() ? order.size() : right->second);
+                });
         }
         else if (this->sort_ == 1) std::stable_sort(this->cells_.begin(), occupied, [&](const auto& a, const auto& b) { return Lower(this->Name(a.item.id)) < Lower(this->Name(b.item.id)); });
         else if (this->sort_ == 2) std::stable_sort(this->cells_.begin(), occupied, [](const auto& a, const auto& b) { return a.item.id < b.item.id; });
@@ -459,6 +506,7 @@ namespace xiui
     }
     auto satchel_module::RegionAvailable(const region value) const -> bool
     {
+        if (this->position_locked_ && (value == region::move || value == region::resize)) return false;
         return !this->minimized_ || (value != region::grid && value != region::bags && value != region::slips &&
             value != region::search && value != region::resize);
     }
@@ -554,6 +602,7 @@ namespace xiui
 
     auto satchel_module::BeginWindow(const window_action action) -> void
     {
+        if (this->position_locked_) return;
         this->UpdateSize();
         this->window_start_ = this->state_.bounds;
         this->window_columns_ = this->columns_; this->window_rows_ = this->rows_;
@@ -606,6 +655,19 @@ namespace xiui
     auto satchel_module::DialogBounds(void) const -> ui::rect
     {
         const auto b = this->state_.transform.Map(this->state_.bounds);
+        if (this->ItemMenuOpen())
+        {
+            const auto viewport = this->viewport_.width > 0 ? this->state_.transform.Map(this->viewport_) : b;
+            const float width = std::min(item_menu_width, std::max(80.0f, viewport.width - 16));
+            const float height = item_menu_header + 12 + static_cast<float>(std::min(picker_rows, this->picks_.size())) * item_menu_row +
+                (this->dialog_ == dialog::actions ? 12 : 0) + (this->picks_.size() > picker_rows ? 24 : 0);
+            float x = this->action_anchor_.x + this->action_anchor_.width + 4;
+            if (x + width > viewport.x + viewport.width - 8) x = this->action_anchor_.x - width - 4;
+            float y = this->action_anchor_.y + (this->action_anchor_.height == 0 ? 4 : 0);
+            if (y + height > viewport.y + viewport.height - 8) y = this->action_anchor_.y + this->action_anchor_.height - height;
+            return {std::clamp(x, viewport.x + 8, std::max(viewport.x + 8, viewport.x + viewport.width - width - 8)),
+                std::clamp(y, viewport.y + 8, std::max(viewport.y + 8, viewport.y + viewport.height - height - 8)), width, height};
+        }
         if (this->dialog_ == dialog::characters)
         {
             const auto viewport = this->viewport_.width > 0 ? this->state_.transform.Map(this->viewport_) : b;
@@ -627,6 +689,11 @@ namespace xiui
     auto satchel_module::PickBounds(const size_t index) const -> ui::rect
     {
         const auto b = this->DialogBounds();
+        if (this->ItemMenuOpen())
+        {
+            const float gap = this->dialog_ == dialog::actions ? (index >= 5 ? 6.0f : 0) + (index >= 6 ? 6.0f : 0) : 0;
+            return {b.x + 6, b.y + item_menu_header + 4 + index * item_menu_row + gap, b.width - 12, item_menu_row - 2};
+        }
         if (this->dialog_ == dialog::characters) return {b.x + 8, b.y + 8 + index * 28, b.width - 16, 26};
         if (this->dialog_ == dialog::quantity || this->dialog_ == dialog::price)
         {
@@ -638,6 +705,7 @@ namespace xiui
 
     auto satchel_module::OpenPicker(const dialog type) -> void
     {
+        this->pressed_pick_.reset();
         this->editor_.Cancel(); this->dialog_ = type; this->picks_.clear(); this->pick_index_ = this->pick_page_ = 0;
         if (type == dialog::characters)
         {
@@ -659,26 +727,37 @@ namespace xiui
         if (this->sounds_) this->sounds_->MenuOpened(this->now_);
     }
 
-    auto satchel_module::OpenActions(const satchel_item& item) -> void
+    auto satchel_module::OpenActions(const satchel_item& item, const std::optional<ui::point> pointer) -> void
     {
         if (this->ReadOnly() || item.read_only) { this->message_ = "Read-only view: item actions are unavailable."; return; }
         if (this->actions_ && this->actions_->Busy()) { this->message_ = "Waiting for the previous inventory action."; return; }
-        this->editor_.Cancel(); this->dialog_ = dialog::actions;
         this->action_item_ = item; this->action_identity_ = this->Snapshot()->identity;
+        this->action_name_ = this->Name(item.id);
+        this->action_anchor_ = this->state_.transform.Map(pointer ? ui::rect{pointer->x, pointer->y, 0, 0} : this->CellBounds(this->focus_cell_));
         this->quantity_ = item.count; this->price_ = item.price; this->equipment_slot_ = -1;
+        this->ShowActions(); this->PlaySelect();
+    }
+
+    auto satchel_module::ShowActions(const bool returning) -> void
+    {
+        this->editor_.Cancel(); this->pressed_pick_.reset(); this->dialog_ = dialog::actions;
+        if (this->pointer_down_) this->discard_pointer_release_ = true;
         this->picks_ = {{"Move to bag...", "", static_cast<int>(satchel_action::move)},
-            {"Split stack...", "", static_cast<int>(satchel_action::split), item.count > 1},
+            {"Split stack...", "", static_cast<int>(satchel_action::split), this->action_item_.count > 1},
             {"Use item", "", static_cast<int>(satchel_action::use)},
             {"Equip...", "", static_cast<int>(satchel_action::equip)},
-            {item.price ? "Change / remove bazaar price..." : "Set bazaar price...", "", static_cast<int>(satchel_action::bazaar)},
+            {this->action_item_.price ? "Change / remove bazaar price..." : "Set bazaar price...", "", static_cast<int>(satchel_action::bazaar)},
             {"Drop item...", "", static_cast<int>(satchel_action::drop)},
             {"Sort this bag", "", static_cast<int>(satchel_action::sort)}, {"Cancel", "", -1}};
         this->pick_index_ = this->picks_.size() - 1; this->pick_page_ = 0;
-        this->PlaySelect();
+        if (returning)
+            for (size_t i = 0; i < this->picks_.size(); ++i) if (this->picks_[i].id == this->action_) { this->pick_index_ = i; break; }
     }
 
     auto satchel_module::CancelDialog(void) -> void
     {
+        if (this->pointer_down_) this->discard_pointer_release_ = true;
+        this->pressed_pick_.reset();
         this->region_ = this->dialog_ == dialog::characters ? region::character : region::grid;
         if (!this->RegionAvailable(this->region_)) this->region_ = region::minimize;
         this->dialog_ = dialog::none; this->picks_.clear(); this->editor_.Cancel();
@@ -687,11 +766,13 @@ namespace xiui
 
     auto satchel_module::StartAction(const int action) -> void
     {
+        this->pressed_pick_.reset();
+        if (this->pointer_down_) this->discard_pointer_release_ = true;
         this->action_ = action; this->quantity_ = this->action_item_.count;
         const auto type = static_cast<satchel_action>(action);
         if (type == satchel_action::move)
         {
-            this->dialog_ = dialog::destinations; this->picks_.clear(); this->picks_.push_back({"Cancel", "", -1});
+            this->dialog_ = dialog::destinations; this->picks_.clear(); this->picks_.push_back({"Back", "", -1});
             const auto* snapshot = this->Snapshot();
             if (snapshot) for (const auto bag : satchel_bag_order)
                 if (bag != this->action_item_.bag && bag != 3 && snapshot->bags[bag].ready && snapshot->bags[bag].accessible)
@@ -704,7 +785,7 @@ namespace xiui
         {
             const auto* resources = this->core_ ? this->core_->GetResourceManager() : nullptr;
             const auto* resource = resources ? resources->GetItemById(this->action_item_.id) : nullptr;
-            this->dialog_ = dialog::equipment; this->picks_.clear(); this->picks_.push_back({"Cancel", "", -1});
+            this->dialog_ = dialog::equipment; this->picks_.clear(); this->picks_.push_back({"Back", "", -1});
             if (resource) for (int slot = 0; slot < 16; ++slot)
                 if (resource->Slots & (1u << slot)) this->picks_.push_back({equipment_slot_names[slot], "", slot});
             this->pick_index_ = this->pick_page_ = 0;
@@ -766,9 +847,9 @@ namespace xiui
         else if (type == dialog::actions)
         { if (pick.id < 0) this->CancelDialog(); else this->StartAction(pick.id); }
         else if (type == dialog::destinations)
-        { if (pick.id < 0) this->CancelDialog(); else { this->destination_ = pick.id; this->EnterQuantity(); } }
+        { if (pick.id < 0) this->ShowActions(true); else { this->destination_ = pick.id; this->EnterQuantity(); } }
         else if (type == dialog::equipment)
-        { if (pick.id < 0) this->CancelDialog(); else { this->equipment_slot_ = pick.id; this->Submit(); } }
+        { if (pick.id < 0) this->ShowActions(true); else { this->equipment_slot_ = pick.id; this->Submit(); } }
         else if (type == dialog::drop)
         { if (pick.id == 0) this->CancelDialog(); else this->Submit(); }
     }
@@ -870,7 +951,8 @@ namespace xiui
         }
         if (action == controller_action::cancel)
         {
-            if (this->dialog_ != dialog::none) this->CancelDialog();
+            if (this->dialog_ == dialog::destinations || this->dialog_ == dialog::equipment) this->ShowActions(true);
+            else if (this->dialog_ != dialog::none) this->CancelDialog();
             else if (this->editor_.Focused()) { this->editor_.Cancel(); this->region_ = region::grid; }
             else if (this->help_open_ || this->region_ == region::help) { this->help_open_ = false; this->region_ = this->minimized_ ? region::minimize : region::grid; }
             else this->Open(false);
@@ -903,6 +985,9 @@ namespace xiui
                 const int step = action == controller_action::up ? -1 : action == controller_action::down ? 1 : action == controller_action::left ? -static_cast<int>(picker_rows) : static_cast<int>(picker_rows);
                 const auto size = static_cast<int>(count);
                 this->pick_index_ = static_cast<size_t>(((static_cast<int>(this->pick_index_) + step) % size + size) % size);
+                if (this->ItemMenuOpen())
+                    for (size_t attempt = 0; attempt < count && !this->picks_[this->pick_index_].available; ++attempt)
+                        this->pick_index_ = static_cast<size_t>((static_cast<int>(this->pick_index_) + (step < 0 ? -1 : 1) + size) % size);
                 this->pick_page_ = this->pick_index_ / picker_rows;
             }
             if (action == controller_action::confirm) this->SelectPick();
@@ -1023,9 +1108,9 @@ namespace xiui
         }
         if (message == WM_MOUSEMOVE)
         {
-            if (this->dialog_ == dialog::none && Contains(this->ResizeBounds(), x, y))
+            if (!this->position_locked_ && this->dialog_ == dialog::none && Contains(this->ResizeBounds(), x, y))
             { ::SetCursor(::LoadCursor(nullptr, IDC_SIZENWSE)); return true; }
-            if (this->dialog_ == dialog::none && Contains(this->TitleBounds(), x, y))
+            if (!this->position_locked_ && this->dialog_ == dialog::none && Contains(this->TitleBounds(), x, y))
             { ::SetCursor(::LoadCursor(nullptr, IDC_SIZEALL)); return true; }
             if (this->pointer_down_ && this->down_item_.id && std::abs(x - this->down_x_) + std::abs(y - this->down_y_) > 7) this->dragging_ = true;
             return this->pointer_down_ || this->dialog_ != dialog::none;
@@ -1051,7 +1136,7 @@ namespace xiui
         {
             if (this->dialog_ != dialog::none) { this->CancelDialog(); return true; }
             if (const auto index = this->ItemAt(x, y); index && !this->cells_[*index].empty)
-            { this->focus_cell_ = *index; this->region_ = region::grid; this->OpenActions(this->cells_[*index].item); }
+            { this->focus_cell_ = *index; this->region_ = region::grid; this->OpenActions(this->cells_[*index].item, ui::point{x, y}); }
             return true;
         }
         if (message == WM_RBUTTONUP && inside) return true;
@@ -1072,6 +1157,14 @@ namespace xiui
             if (!Contains(this->HelpBounds(), x, y)) this->help_open_ = false;
             this->pointer_down_ = true; this->dragging_ = false;
             this->down_x_ = x; this->down_y_ = y; this->down_item_ = {}; this->down_key_.clear();
+            if (this->ItemMenuOpen())
+            {
+                this->pressed_pick_.reset();
+                if (!Contains(this->DialogBounds(), x, y)) { this->CancelDialog(); return true; }
+                for (size_t i = this->pick_page_ * picker_rows; i < std::min((this->pick_page_ + 1) * picker_rows, this->picks_.size()); ++i)
+                    if (this->picks_[i].available && Contains(this->PickBounds(i % picker_rows), x, y)) { this->pressed_pick_ = i; break; }
+                return true;
+            }
             if (this->dialog_ == dialog::none && !this->minimized_)
             {
                 for (const auto area : {scroll_area::bags, scroll_area::items})
@@ -1086,7 +1179,7 @@ namespace xiui
                     return true;
                 }
             }
-            if (this->dialog_ == dialog::none && (Contains(this->TitleBounds(), x, y) || Contains(this->ResizeBounds(), x, y)))
+            if (!this->position_locked_ && this->dialog_ == dialog::none && (Contains(this->TitleBounds(), x, y) || Contains(this->ResizeBounds(), x, y)))
             { this->BeginWindow(Contains(this->ResizeBounds(), x, y) ? window_action::resize : window_action::move); return true; }
             if (this->dialog_ == dialog::none)
                 if (const auto index = this->ItemAt(x, y); index && !this->cells_[*index].empty)
@@ -1101,16 +1194,17 @@ namespace xiui
             if (Contains(this->SidebarBounds(), x, y))
                 for (size_t i = 1; i < 18; ++i)
                     if (Contains(this->BagBounds(i), x, y)) { this->Transfer(this->down_item_, satchel_bag_order[i - 1]); return true; }
-            if (const auto index = this->ItemAt(x, y); index && this->sort_ == 0 && !this->cells_[*index].empty && this->cache_)
+            if (const auto index = this->ItemAt(x, y); index && this->sort_ == 0 && this->cache_)
             {
                 auto from = this->cells_.end();
                 for (auto it = this->cells_.begin(); it != this->cells_.end(); ++it) if (it->key == this->down_key_) { from = it; break; }
                 if (from != this->cells_.end())
                 {
                     const auto to = this->cells_.begin() + *index;
-                    if (from < to) std::rotate(from, from + 1, to + 1); else if (to < from) std::rotate(to, from, from + 1);
+                    if (to->empty) std::iter_swap(from, to);
+                    else if (from < to) std::rotate(from, from + 1, to + 1); else if (to < from) std::rotate(to, from, from + 1);
                     std::vector<std::string> order;
-                    for (const auto& cell : this->cells_) if (!cell.empty) order.push_back(cell.key);
+                    for (const auto& cell : this->cells_) order.push_back(cell.empty ? empty_slot_key : cell.key);
                     this->cache_->WriteOrder(this->view_identity_, this->slip_ >= 0 ? 100 + this->slip_ : this->bag_, order);
                     this->focus_cell_ = *index;
                 }
@@ -1119,6 +1213,14 @@ namespace xiui
         }
         if (this->dialog_ != dialog::none)
         {
+            if (this->ItemMenuOpen())
+            {
+                const auto pressed = std::exchange(this->pressed_pick_, {});
+                if (pressed && *pressed < this->picks_.size() && this->picks_[*pressed].available &&
+                    *pressed / picker_rows == this->pick_page_ && Contains(this->PickBounds(*pressed % picker_rows), x, y))
+                { this->pick_index_ = *pressed; this->SelectPick(); }
+                return true;
+            }
             if (!Contains(this->DialogBounds(), x, y)) { this->CancelDialog(); return true; }
             if (this->dialog_ == dialog::quantity || this->dialog_ == dialog::price)
             {
@@ -1207,12 +1309,18 @@ namespace xiui
         }
         controls.Scrollbar(this->SidebarScrollbar(), Contains(this->SidebarScrollbar().track, this->hover_x_, this->hover_y_), this->scrolling_ == scroll_area::bags);
         const auto first = this->page_ * this->PageSize(); const auto end = std::min(first + this->PageSize(), this->cells_.size());
+        const auto slotBackground = (colors.surface & 0xFFFFFF) | (static_cast<uint32_t>(std::round(this->slot_opacity_ * 255)) << 24);
+        const ui::item_slot_frame slotFrame{design, this->icon_size_ + 8, this->container_.opacity, slotBackground};
+        const bool itemDrag = this->pointer_down_ && this->dragging_ && this->down_item_.id && this->sort_ == 0 && this->cache_ &&
+            std::any_of(this->cells_.begin(), this->cells_.end(), [&](const auto& cell) { return cell.key == this->down_key_; });
+        const auto dropTarget = itemDrag ? this->ItemAt(this->hover_x_, this->hover_y_) : std::nullopt;
         {
             const auto clip = design.Clip(this->GridBounds());
             for (size_t index = first; index < end; ++index)
             {
                 const auto& cell = this->cells_[index]; const auto bounds = this->CellBounds(index);
-                if (this->frames_) context.DrawContainer(bounds, {this->container_.opacity * (cell.empty ? 0.4f : 1), 4, 0, false});
+                if (this->frames_) slotFrame.Draw(bounds);
+                if (dropTarget == index && cell.key != this->down_key_) slotFrame.Highlight(bounds, colors.accent);
                 if (cell.empty) continue;
                 const ui::rect icon{bounds.x + 4, bounds.y + 4, this->icon_size_, this->icon_size_};
                 auto* texture = context.Icons() ? context.Icons()->Item(cell.item.id) : nullptr;
@@ -1222,16 +1330,17 @@ namespace xiui
                     auto fallback = this->text_[1]; fallback.style.alignment = ui::text_alignment::center;
                     context.DrawText(this->Name(cell.item.id).c_str(), bounds, bounds, fallback);
                 }
-                if (cell.item.equipped) design.BorderRect({bounds.x + 1, bounds.y + 1, bounds.width - 2, bounds.height - 2}, colors.accent, 2);
-                else if (cell.item.price) design.BorderRect({bounds.x + 1, bounds.y + 1, bounds.width - 2, bounds.height - 2}, colors.gold, 2);
-                else if (cell.item.flags) design.BorderRect({bounds.x + 1, bounds.y + 1, bounds.width - 2, bounds.height - 2}, colors.muted, 1);
+                const ui::rect marker{bounds.x + 1, bounds.y + 1, bounds.width - 2, bounds.height - 2};
+                if (cell.item.equipped) slotFrame.Outline(marker, colors.accent, 2);
+                else if (cell.item.price) slotFrame.Outline(marker, colors.gold, 2);
+                else if (cell.item.flags) slotFrame.Outline(marker, colors.muted);
                 if (cell.item.count > 1)
                 {
                     const auto quantity = std::to_string(cell.item.count); const float height = std::max(14.0f, design.TextHeight(this->text_[2].style));
                     const ui::rect at{icon.x - 2, icon.y + icon.height - height + 2, icon.width + 1, height};
                     context.DrawText(quantity.c_str(), at, at, this->text_[2]);
                 }
-                if (Contains(bounds, this->hover_x_, this->hover_y_) && !this->controller_) design.BorderRect(bounds, colors.accent_dim, 1);
+                if (!this->dragging_ && Contains(bounds, this->hover_x_, this->hover_y_) && !this->controller_) slotFrame.Outline(bounds, colors.accent_dim);
             }
             if (end == first)
             {
@@ -1269,9 +1378,12 @@ namespace xiui
         else if (!this->message_.empty()) status = this->message_;
         const ui::rect statusAt{inner.x, inner.y + inner.height - 48, inner.width, 22};
         if (!status.empty()) context.DrawText(status.c_str(), statusAt, statusAt, this->text_[1]);
-        const auto grip = this->ResizeBounds();
-        design.DrawTriangle(grip.x + 5, grip.y + 15, grip.x + 15, grip.y + 5, grip.x + 15, grip.y + 15,
-            Contains(grip, this->hover_x_, this->hover_y_) || this->window_action_ == window_action::resize ? colors.accent : colors.muted);
+        if (!this->position_locked_)
+        {
+            const auto grip = this->ResizeBounds();
+            design.DrawTriangle(grip.x + 5, grip.y + 15, grip.x + 15, grip.y + 5, grip.x + 15, grip.y + 15,
+                Contains(grip, this->hover_x_, this->hover_y_) || this->window_action_ == window_action::resize ? colors.accent : colors.muted);
+        }
     }
 
     auto satchel_module::DrawDialog(const module_render_context& context) -> void
@@ -1279,6 +1391,32 @@ namespace xiui
         const auto bounds = this->DialogBounds(); const auto content = context.DrawTooltip(bounds);
         ui::config_controls controls{context.Design(), nullptr, context.NativeAssets()};
         if (this->config_text_) controls.SetTextSettings(*this->config_text_);
+        if (this->ItemMenuOpen())
+        {
+            const auto& design = context.Design(); const auto& colors = design.GetTheme().colors;
+            const auto title = this->dialog_ == dialog::actions ? this->action_name_ : this->dialog_ == dialog::destinations ? "Move to bag" : "Equipment slot";
+            const ui::rect header{bounds.x + 12, bounds.y + 6, bounds.width - 24, 22};
+            const auto fitted = ui::FitText(design, title, header.width, controls.Style(design.GetTheme().caption_text));
+            controls.Text(fitted.c_str(), header, design.GetTheme().caption_text);
+            const auto separator = [&](const float y) { design.FillRect({bounds.x + 10, y, bounds.width - 20, 1}, (colors.border & 0xFFFFFF) | 0x50000000); };
+            separator(bounds.y + item_menu_header - 1);
+            if (this->dialog_ == dialog::actions) { separator(this->PickBounds(5).y - 4); separator(this->PickBounds(6).y - 4); }
+            const auto first = this->pick_page_ * picker_rows;
+            for (size_t i = first; i < std::min(first + picker_rows, this->picks_.size()); ++i)
+            {
+                const auto at = this->PickBounds(i % picker_rows); const auto& pick = this->picks_[i];
+                controls.NavigationItem(at, pick.label.c_str(), this->navigation_focus_ && this->pick_index_ == i,
+                    Contains(at, this->hover_x_, this->hover_y_), pick.available);
+            }
+            if (this->navigation_focus_ && this->pick_index_ < this->picks_.size())
+                design.DrawFocusFrame(this->PickBounds(this->pick_index_ % picker_rows), this->focus_style_);
+            if (this->picks_.size() > picker_rows)
+            {
+                const auto pages = std::to_string(this->pick_page_ + 1) + " / " + std::to_string((this->picks_.size() + picker_rows - 1) / picker_rows);
+                controls.Text(pages.c_str(), {bounds.x + 12, bounds.y + bounds.height - 24, bounds.width - 24, 20}, design.GetTheme().caption_text);
+            }
+            return;
+        }
         if (this->dialog_ == dialog::characters)
         {
             const auto first = this->pick_page_ * picker_rows;

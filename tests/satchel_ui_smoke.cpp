@@ -7,6 +7,7 @@
 #include <algorithm>
 #include <cmath>
 #include <cstdio>
+#include <filesystem>
 #include <memory>
 #include <stdexcept>
 
@@ -33,6 +34,190 @@ namespace xiui
 
     struct satchel_ui_test
     {
+        static auto ContextMenu(void) -> void
+        {
+            satchel_source source; satchel_cache cache; satchel_actions actions;
+            satchel_data_test::Set(source, Fixture());
+            satchel_module module; module.Initialize(nullptr, &source, &cache, &actions); module.ApplyTextDefaults(ui::theme::CreateDefault());
+            module.viewport_ = {0, 0, 1280, 900}; module.state_.bounds.x = 80; module.state_.bounds.y = 60;
+            module.Open(true); module.Update(1000); module.UpdateSize();
+            const auto click = [&](const ui::rect& at) {
+                Check(module.HandleMouse(WM_LBUTTONDOWN, 0, at.x + 10, at.y + 10, false) &&
+                    module.HandleMouse(WM_LBUTTONUP, 0, at.x + 10, at.y + 10, false), "context menu rows own matching press and release");
+            };
+            const auto item = module.CellBounds(0); const float x = item.x + 12, y = item.y + 12;
+            module.HandleMouse(WM_RBUTTONDOWN, 0, x, y, false); module.HandleMouse(WM_RBUTTONUP, 0, x, y, false);
+            const auto menu = module.DialogBounds();
+            Check(module.dialog_ == satchel_module::dialog::actions && menu.width == 252 && menu.x == x + 4 && menu.y == y + 4,
+                "right-click opens a compact item context menu beside the pointer");
+            for (size_t i = 0; i < module.picks_.size(); ++i)
+            {
+                const auto row = module.PickBounds(i);
+                Check(row.x >= menu.x && row.y >= menu.y && row.x + row.width <= menu.x + menu.width && row.y + row.height <= menu.y + menu.height,
+                    "all context actions and separators fit inside the popup");
+            }
+            const auto split = module.PickBounds(1), use = module.PickBounds(2);
+            module.HandleMouse(WM_LBUTTONDOWN, 0, split.x + 10, split.y + 10, false);
+            module.HandleMouse(WM_LBUTTONUP, 0, use.x + 10, use.y + 10, false);
+            Check(module.dialog_ == satchel_module::dialog::actions && actions.Outcome() == satchel_action_outcome::none,
+                "pressing a disabled action cannot activate another row on release");
+            const auto identity = module.action_identity_;
+            click(module.PickBounds(0));
+            Check(module.dialog_ == satchel_module::dialog::destinations && module.ItemMenuOpen() && module.picks_[0].label == "Back",
+                "bag destinations use the same anchored menu with a Back row");
+            module.HandleKey(VK_ESCAPE, 0);
+            Check(module.dialog_ == satchel_module::dialog::actions && module.action_identity_ == identity && module.pick_index_ == 0,
+                "keyboard Back restores the parent menu without recapturing the item identity");
+            click(module.PickBounds(0)); click(module.PickBounds(0));
+            Check(module.dialog_ == satchel_module::dialog::actions, "pointer Back restores item actions");
+            module.pick_index_ = 2; module.HandleControllerAction(controller_action::up, false);
+            Check(module.pick_index_ == 0, "context menu navigation skips unavailable actions");
+            module.HandleControllerAction(controller_action::cancel, false);
+            module.BeginControllerBrowse(); module.focus_cell_ = 1; module.region_ = satchel_module::region::grid;
+            const auto focused = module.CellBounds(1); module.HandleControllerAction(controller_action::confirm, false);
+            Check(module.dialog_ == satchel_module::dialog::actions && module.DialogBounds().x == focused.x + focused.width + 4,
+                "controller activation anchors the context menu to the focused item");
+            module.HandleControllerAction(controller_action::cancel, false);
+            module.state_.transform = {1.5f, 1.25f, -40, -20};
+            module.viewport_ = module.state_.transform.Inverse(ui::rect{0, 0, 1280, 900});
+            module.OpenActions(module.cells_[0].item, ui::point{module.state_.transform.InverseX(1274), module.state_.transform.InverseY(894)});
+            const auto edge = module.DialogBounds();
+            Check(edge.x >= 8 && edge.y >= 8 && edge.x + edge.width <= 1272 && edge.y + edge.height <= 892,
+                "context menus flip and clamp to the screen with HUD scaling");
+            module.HandleMouse(WM_LBUTTONDOWN, 0, 4, 4, false);
+            Check(module.dialog_ == satchel_module::dialog::none && module.PointerDown(), "outside press dismisses the menu while retaining its owned release");
+            module.HandleMouse(WM_LBUTTONUP, 0, 4, 4, false);
+            Check(!module.PointerDown() && !module.InputFocused(), "outside release returns pointer and keyboard ownership to gameplay");
+            module.state_.transform = {}; module.viewport_ = {0, 0, 1280, 900};
+            module.OpenActions(module.cells_[0].item); click(module.PickBounds(5));
+            Check(module.dialog_ == satchel_module::dialog::drop && module.pick_index_ == 0 && actions.Outcome() == satchel_action_outcome::none,
+                "Drop still requires a separate Cancel-first confirmation");
+            click(module.PickBounds(0));
+            Check(module.dialog_ == satchel_module::dialog::none && actions.Outcome() == satchel_action_outcome::none,
+                "cancelling the destructive prompt does not submit an item action");
+        }
+        static auto EmptySlotReorder(void) -> void
+        {
+            const auto path = std::filesystem::temp_directory_path() / ("xiui-empty-slots-" + std::to_string(::GetCurrentProcessId()) + "-" + std::to_string(::GetTickCount64()));
+            satchel_source source; satchel_actions actions; satchel_cache cache; cache.Initialize(path.string());
+            auto snapshot = Fixture(); snapshot.character_id = 123;
+            satchel_data_test::Set(source, snapshot); satchel_data_test::Set(cache, snapshot);
+            const auto setup = [&](satchel_module& module, satchel_cache& layout) {
+                module.Initialize(nullptr, &source, &layout, &actions); module.ApplyTextDefaults(ui::theme::CreateDefault());
+                module.viewport_ = {0, 0, 1280, 900}; module.state_.bounds.x = 80; module.state_.bounds.y = 60;
+                module.columns_ = 5; module.rows_ = 4; module.Open(true); module.Update(1000); module.UpdateSize();
+            };
+            const auto drag = [](satchel_module& module, const size_t from, const size_t to) {
+                const auto a = module.CellBounds(from), b = module.CellBounds(to);
+                Check(module.HandleMouse(WM_LBUTTONDOWN, 0, a.x + 10, a.y + 10, false) &&
+                    module.HandleMouse(WM_MOUSEMOVE, MK_LBUTTON, b.x + 10, b.y + 10, false) &&
+                    module.HandleMouse(WM_LBUTTONUP, 0, b.x + 10, b.y + 10, false), "custom-order drag owns its complete pointer gesture");
+            };
+            satchel_module module; setup(module, cache);
+            const auto first = module.cells_[0].key, second = module.cells_[1].key, third = module.cells_[2].key;
+            cache.WriteOrder(snapshot.identity, 0, {third, second, first}); module.rebuild_ = true; module.Update(1100);
+            Check(module.cells_[0].key == third && module.cells_[1].key == second && module.cells_[2].key == first,
+                "legacy occupied-only layouts retain their custom order");
+            drag(module, 0, 8);
+            Check(module.cells_[0].empty && module.cells_[8].key == third && module.cells_[1].key == second && module.cells_[2].key == first &&
+                cache.ReadOrder(snapshot.identity, 0).size() == 20, "empty-slot drops move only the selected item and save explicit empty positions");
+            snapshot.bags[0].items[2].slot = 9; ++snapshot.generation; satchel_data_test::Set(source, snapshot); module.Update(1200);
+            Check(module.cells_[0].empty && module.cells_[8].key == third && module.cells_[8].item.slot == 9,
+                "inventory refresh and native slot compaction preserve the chosen empty destination");
+            cache.Stop(); satchel_cache restoredCache; restoredCache.Initialize(path.string());
+            satchel_module restored; setup(restored, restoredCache);
+            Check(restored.cells_[0].empty && restored.cells_[8].key == third && restored.cells_[1].key == second && restored.cells_[2].key == first,
+                "empty positions and moved items survive a cache reload");
+            satchel_item added; added.id = 200; added.bag = 0; added.slot = 4; added.count = 1;
+            snapshot.bags[0].items.push_back(added); ++snapshot.generation; satchel_data_test::Set(source, snapshot); restored.Update(1300);
+            Check(restored.cells_[0].item.id == 200 && restored.cells_[8].key == third,
+                "new items fill available gaps without displacing saved items");
+            drag(restored, 8, 1); restored.rebuild_ = true; restored.Update(1400);
+            Check(restored.cells_[1].key == third && std::count_if(restored.cells_.begin(), restored.cells_.end(), [](const auto& cell) { return !cell.empty; }) == 4,
+                "occupied destinations still reorder without losing or duplicating items in a layout with gaps");
+            const auto order = restoredCache.ReadOrder(snapshot.identity, 0);
+            const auto start = restored.CellBounds(1), target = restored.CellBounds(9);
+            restored.HandleMouse(WM_LBUTTONDOWN, 0, start.x + 10, start.y + 10, false);
+            restored.HandleMouse(WM_MOUSEMOVE, MK_LBUTTON, target.x + 10, target.y + 10, false);
+            restored.SuspendInput();
+            Check(restored.cells_[1].key == third && restored.cells_[9].empty && restoredCache.ReadOrder(snapshot.identity, 0) == order &&
+                actions.Outcome() == satchel_action_outcome::none, "cancelled previews preserve layout and never submit native item actions");
+            restoredCache.Stop(); std::filesystem::remove(path / (snapshot.identity + ".ini")); std::filesystem::remove(path);
+        }
+        static auto PositionLock(void) -> void
+        {
+            auto runtime = std::make_unique<hud_runtime>(); auto& module = runtime->satchel_;
+            runtime->inventory_source_.state_.available = true; satchel_data_test::Set(runtime->satchel_source_, Fixture());
+            module.Initialize(nullptr, &runtime->satchel_source_, &runtime->satchel_cache_, &runtime->satchel_actions_);
+            module.ApplyTextDefaults(ui::theme::CreateDefault()); module.viewport_ = {0, 0, 1280, 900};
+            module.state_.bounds.x = 80; module.state_.bounds.y = 60; module.Open(true); module.Update(1000); module.UpdateSize();
+            Check(runtime->SatchelInputAvailable(true) && module.CanMove(), "Satchel is interactive and movable with global HUD editing off");
+            *module.Option(satchel_module::lock_position).toggle = true; module.OnOptionChanged(satchel_module::lock_position);
+            Check(!module.CanMove() && !module.ConfigScaleEditable() && module.EditGrip() == edit_grip_kind::none &&
+                !module.RegionAvailable(satchel_module::region::move) && !module.RegionAvailable(satchel_module::region::resize),
+                "Satchel's independent lock disables pointer and controller layout gestures");
+            const auto original = module.state_.bounds;
+            for (const auto handle : {module.TitleBounds(), module.ResizeBounds()})
+            {
+                module.HandleMouse(WM_LBUTTONDOWN, 0, handle.x + 8, handle.y + 8, false);
+                module.HandleMouse(WM_MOUSEMOVE, MK_LBUTTON, handle.x + 48, handle.y + 38, false);
+                module.HandleMouse(WM_LBUTTONUP, 0, handle.x + 48, handle.y + 38, false);
+                Check(module.state_.bounds.x == original.x && module.state_.bounds.y == original.y && module.state_.bounds.width == original.width &&
+                    module.state_.bounds.height == original.height && !module.PointerDown(), "locked title and resize drags leave the window in place and drain release");
+            }
+            runtime->editing_ = runtime->config_.edit_mode = true;
+            const auto movable = runtime->ControllerMovableModules();
+            Check(!runtime->ModuleEditControlsVisible(module) && std::find(movable.begin(), movable.end(), &module) == movable.end() &&
+                !runtime->CenterModuleLayout(module, 0, {0, 0, 1280, 900, 0, 1}), "global edit controls cannot bypass Satchel's own lock");
+            runtime->editing_ = false;
+            const auto item = module.CellBounds(0);
+            module.HandleMouse(WM_RBUTTONDOWN, 0, item.x + 8, item.y + 8, false);
+            Check(runtime->SatchelInputAvailable(true) && module.dialog_ == satchel_module::dialog::actions, "locked Satchel still opens item actions with the HUD locked");
+            module.HandleControllerAction(controller_action::cancel, false);
+            const auto search = module.SearchBounds();
+            module.HandleMouse(WM_LBUTTONDOWN, 0, search.x + 8, search.y + 8, false);
+            module.HandleMouse(WM_LBUTTONUP, 0, search.x + 8, search.y + 8, false);
+            Check(module.KeyboardFocused(), "position locking leaves search interactive");
+            module.editor_.Cancel();
+            const auto saved = settings_store::FromIniText(""); module.Save(saved);
+            satchel_module restored; restored.ApplyTextDefaults(ui::theme::CreateDefault()); restored.Load(saved);
+            Check(!restored.CanMove() && restored.slot_opacity_ == .8f && saved.ReadBool("satchel", "lock_position", false),
+                "the independent lock and darker slot background persist through reload");
+            *module.Option(satchel_module::lock_position).toggle = false; module.OnOptionChanged(satchel_module::lock_position);
+            const auto title = module.TitleBounds();
+            Check(runtime->HandleSatchelMouse(WM_LBUTTONDOWN, 0, title.x + 8, title.y + 8, false) &&
+                runtime->HandleSatchelMouse(WM_MOUSEMOVE, MK_LBUTTON, title.x + 38, title.y + 28, false) &&
+                runtime->HandleSatchelMouse(WM_LBUTTONUP, 0, title.x + 38, title.y + 28, false) &&
+                module.state_.bounds.x == original.x + 30 && module.state_.bounds.y == original.y + 20 && !module.PointerDown(),
+                "unlocking allows movement through the runtime while global HUD editing remains off");
+        }
+        static auto ContainerOpacity(void) -> void
+        {
+            auto runtime = std::make_unique<hud_runtime>();
+            const auto legacy = settings_store::FromIniText("[satchel]\nopacity=1.000\nslot_background_opacity=0.550\n[treasure]\nopacity=0.949\n");
+            runtime->LoadSettings(legacy);
+            const auto checkOpacity = [&](const float satchel, const float treasure) {
+                const auto saved = runtime->CaptureSettings();
+                Check(saved.ReadFloat("satchel", "opacity", 0) == satchel && saved.ReadFloat("treasure", "opacity", 0) == treasure,
+                    "Satchel and Treasure retain the expected container opacity");
+            };
+            checkOpacity(.35f, .35f);
+            Check(runtime->CaptureSettings().ReadFloat("satchel", "slot_background_opacity", 0) == .8f, "old slot backgrounds migrate to the darker default");
+            auto snapshot = runtime->CaptureSettings();
+            OverlayProfilePreferences(snapshot, legacy);
+            runtime->LoadSettings(snapshot);
+            checkOpacity(.35f, .35f);
+            Check(runtime->CaptureSettings().ReadFloat("satchel", "slot_background_opacity", 0) == .8f, "legacy profile overlays retain the slot-background migration");
+            const auto custom = settings_store::FromIniText("[satchel]\nopacity=0.600\n[treasure]\nopacity=0.700\n");
+            OverlayProfilePreferences(snapshot, custom);
+            runtime->LoadSettings(snapshot);
+            checkOpacity(.6f, .7f);
+            const auto modern = settings_store::FromIniText("[satchel]\nopacity=1.000\ncontainer_opacity_version=1\nslot_background_opacity=0.550\nslot_background_version=1\n[treasure]\nopacity=0.950\ncontainer_opacity_version=1\n");
+            OverlayProfilePreferences(snapshot, modern);
+            runtime->LoadSettings(snapshot);
+            checkOpacity(1, .95f);
+            Check(runtime->CaptureSettings().ReadFloat("satchel", "slot_background_opacity", 0) == .55f, "later custom slot opacity survives reload");
+        }
         static auto Fixture(void) -> satchel_snapshot
         {
             satchel_snapshot snapshot;
@@ -594,6 +779,9 @@ namespace xiui
             CompactInteraction();
             ForgivingReflow();
             Ownership();
+            ContextMenu();
+            EmptySlotReorder();
+            PositionLock();
             RuntimeOwnership();
         }
     };
@@ -601,9 +789,19 @@ namespace xiui
 
 auto main(const int argc, char** argv) -> int
 {
+    if (argc == 2 && std::strcmp(argv[1], "--slot-reorder-only") == 0)
+    {
+        try { xiui::satchel_ui_test::EmptySlotReorder(); std::puts("Satchel empty-slot drops, refresh, persistence and cancellation checks passed."); return 0; }
+        catch (const std::exception& error) { std::fprintf(stderr, "Satchel slot reorder check failed: %s\n", error.what()); return 1; }
+    }
+    if (argc == 2 && std::strcmp(argv[1], "--container-opacity-only") == 0)
+    {
+        try { xiui::satchel_ui_test::ContainerOpacity(); std::puts("Satchel and Treasure container opacity migration and profile checks passed."); return 0; }
+        catch (const std::exception& error) { std::fprintf(stderr, "Container opacity check failed: %s\n", error.what()); return 1; }
+    }
     if (argc == 2 && std::strcmp(argv[1], "--input-ownership-only") == 0)
     {
-        try { xiui::satchel_ui_test::RuntimeOwnership(); std::puts("Satchel pointer, menu and keyboard ownership checks passed."); return 0; }
+        try { xiui::satchel_ui_test::ContextMenu(); xiui::satchel_ui_test::PositionLock(); xiui::satchel_ui_test::RuntimeOwnership(); std::puts("Satchel context menu, position lock, pointer and keyboard ownership checks passed."); return 0; }
         catch (const std::exception& error) { std::fprintf(stderr, "Satchel input check failed: %s\n", error.what()); return 1; }
     }
     try { xiui::satchel_ui_test::Run(); std::puts("Satchel UI checks passed."); return 0; }

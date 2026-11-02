@@ -20,6 +20,7 @@ namespace xiui
         auto Initialize(IAshitaCore* core) -> void;
         auto LastTeller(void) const -> std::string;
         auto ReplyTargets(void) const -> std::vector<std::string>;
+        auto SendPrefix(void) const -> std::optional<std::string>;
         auto TakeTell(IChatManager* chat) const -> std::optional<chat_draft>;
         auto TakeCommand(IChatManager* chat) const -> std::optional<chat_draft>;
         auto TakeInput(IChatManager* chat) const -> std::optional<chat_draft>;
@@ -35,6 +36,7 @@ namespace xiui
         uintptr_t last_teller_{}, reset_chat_{};
         uintptr_t reply_teller_{}, reply_manager_{};
         uintptr_t close_menu_{}, menu_manager_{};
+        uintptr_t send_prefix_slot_{};
         uint32_t raw_offset_{}, state_offset_{};
     };
 }

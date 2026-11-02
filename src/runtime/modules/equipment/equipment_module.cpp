@@ -1,6 +1,6 @@
 #include "equipment_module.hpp"
 #include "ui/game_icon_cache.hpp"
-#include "ui/rounded_rect.hpp"
+#include "ui/item_slot_frame.hpp"
 
 #include <algorithm>
 #include <cmath>
@@ -152,21 +152,13 @@ namespace xiui
             context.DrawText("Equipment", at, at, this->text_[0]);
         }
         const auto& design = context.Design();
-        const auto fade = [&](const D3DCOLOR color, const float amount) {
-            return (color & 0xFFFFFF) | (static_cast<uint32_t>(std::round((color >> 24) * this->container_.opacity * amount)) << 24);
-        };
-        const auto& colors = design.GetTheme().colors;
-        const ui::contour_style slotStyle{fade(colors.surface, .7f), fade(colors.border, .45f), 1,
-            1 / std::max(design.Transform().x, design.Transform().y)};
-        std::array<ui::point, ui::rounded_rect_points> slotContour{};
-        for (size_t i = 0; i < slotContour.size(); ++i)
-            slotContour[i] = ui::RoundedRectPoint({0, 0, 1, 1}, 3 / this->CellSize(), i);
+        const ui::item_slot_frame slotFrame{design, this->CellSize(), this->container_.opacity};
         for (size_t cell = 0; cell < equipment_grid_order.size(); ++cell)
         {
             const auto slot = equipment_grid_order[cell];
             const auto bounds = this->SlotBounds(cell);
             const auto item = this->source_ != nullptr && this->source_->Available() ? &this->source_->Items()[slot] : nullptr;
-            if (this->slot_frames_) design.DrawContour(bounds, slotContour, slotStyle);
+            if (this->slot_frames_) slotFrame.Draw(bounds);
             const ui::rect icon{bounds.x + 1 + this->inset_, bounds.y + 1 + this->inset_, this->icon_size_, this->icon_size_};
             auto* texture = item != nullptr && item->id != 0 && context.Icons() != nullptr ? context.Icons()->Item(item->id) : nullptr;
             if (texture != nullptr) design.DrawTexture(texture, icon, (static_cast<uint32_t>(std::round(this->icon_opacity_ * 255)) << 24) | 0xFFFFFF);

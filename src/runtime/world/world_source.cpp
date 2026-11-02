@@ -1,4 +1,5 @@
 #include "world_source.hpp"
+#include "compass_radar.hpp"
 #include "entities/entity_name_colors.hpp"
 #include "Memory.h"
 #include "native_pattern.hpp"
@@ -29,6 +30,20 @@ namespace
         __try { rotation = reinterpret_cast<float(__cdecl*)(void)>(function)(); return std::isfinite(rotation); }
         __except (EXCEPTION_EXECUTE_HANDLER) { return false; }
     }
+
+    auto CompassEntityVisible(const uintptr_t function, const uintptr_t entity) noexcept -> bool
+    {
+        if (function == 0 || entity == 0) return false;
+        __try { return reinterpret_cast<uint8_t(__thiscall*)(void*, uint32_t)>(function)(reinterpret_cast<void*>(entity), 0) != 0; }
+        __except (EXCEPTION_EXECUTE_HANDLER) { return false; }
+    }
+
+    auto CompassActorVisible(const uintptr_t actor) noexcept -> bool
+    {
+        if (actor == 0) return true;
+        uint8_t first{}, second{};
+        return Read(actor + 0xB2, first) && Read(actor + 0xB3, second) && (first & 0x80) == 0 && (second & 1) == 0;
+    }
 }
 
 namespace xiui
@@ -57,6 +72,16 @@ namespace xiui
                 valid = valid && Read(compass + call + 1, relative) && inside(compass + call + 5 + relative, 1);
             if (valid) this->compass_rotation_function_ = compass;
         }
+        const auto radar = find("A1????????85C0742ED9442404D80D????????8B4C2404894834D95838D94424088B15????????8A44240CD95A308B0D????????88412FC3");
+        if (radar != 0 && Read(radar + 1, offset) && inside(offset, 4)) this->compass_state_slot_ = offset;
+        const auto markers = find("6A008BCDE8????????84C00F84????????8B85A000000085C0741F8A88B200000084C90F88????????85C0740DF680B3000000010F85????????8B9DD001000085DB");
+        if (markers != 0 && Read(markers + 5, relative))
+        {
+            const auto visibility = markers + 9 + relative;
+            constexpr char entry[] = "8A81EE0000005384C056741B3C0174173C0274133C06740F3C07740B3C0874075E32C05BC20400";
+            if (inside(visibility, (sizeof(entry) - 1) / 2) && FindUniquePattern(visibility, (sizeof(entry) - 1) / 2, entry) == visibility)
+                this->compass_visibility_function_ = visibility;
+        }
     }
 
     auto world_source::Update(IAshitaCore* core, const uint64_t now) -> void
@@ -76,25 +101,51 @@ namespace xiui
         auto* party = memory != nullptr ? memory->GetParty() : nullptr;
         const auto* target = memory != nullptr ? memory->GetTarget() : nullptr;
         const auto player = party != nullptr ? party->GetMemberTargetIndex(0) : 0;
-        this->state_.heading_valid = entity != nullptr && player > 0 && player < entity->GetEntityMapSize();
+        this->state_.heading_valid = entity != nullptr && party != nullptr && player > 0 && player < entity->GetEntityMapSize();
         if (!this->state_.heading_valid) { this->state_.markers.clear(); return; }
         this->state_.heading = entity->GetHeading(player);
         this->state_.heading_valid = std::isfinite(this->state_.heading);
         if (now < this->next_markers_) return;
         this->next_markers_ = now + 150;
         this->state_.markers.clear();
-        const float x = entity->GetLocalPositionX(player), y = entity->GetLocalPositionY(player);
-        const auto add = [&](const uint32_t index, const uint32_t color, const bool selected) {
-            if (index == 0 || index == player || index >= entity->GetEntityMapSize() || entity->GetServerId(index) == 0) return;
+        const float x = entity->GetLocalPositionX(player), y = entity->GetLocalPositionY(player), height = entity->GetLocalPositionZ(player);
+        if (!std::isfinite(x) || !std::isfinite(y) || !std::isfinite(height)) return;
+        const auto limit = std::min(entity->GetEntityMapSize(), 0x900u);
+        const auto selected = target != nullptr ? target->GetTargetIndex(0) : 0;
+        std::array<bool, 0x900> added{};
+        const auto add = [&](const uint32_t index, const uint32_t color) {
+            if (index == 0 || index == player || index >= limit || added[index] || entity->GetServerId(index) == 0) return;
+            if (this->compass_visibility_function_ != 0 &&
+                (!CompassEntityVisible(this->compass_visibility_function_, reinterpret_cast<uintptr_t>(entity->GetRawEntity(index))) ||
+                    !CompassActorVisible(entity->GetActorPointer(index)))) return;
             const float dx = entity->GetLocalPositionX(index) - x, dy = entity->GetLocalPositionY(index) - y;
-            if (std::isfinite(dx) && std::isfinite(dy)) this->state_.markers.push_back({dx, dy, color, selected});
+            if (!std::isfinite(dx) || !std::isfinite(dy)) return;
+            added[index] = true;
+            this->state_.markers.push_back({dx, dy, index == selected ? ReadEntityNameColor(*party, *entity, index) : color, index == selected});
         };
         for (uint32_t member = 1; member < 18; ++member)
-            if (party->GetMemberIsActive(member) && party->GetMemberZone(member) == party->GetMemberZone(0)) add(party->GetMemberTargetIndex(member), member < 6 ? 0xFF9AE6DA : 0xFF9EBDF1, false);
-        if (target != nullptr)
+            if (party->GetMemberIsActive(member) && party->GetMemberZone(member) == party->GetMemberZone(0))
+            {
+                const auto index = party->GetMemberTargetIndex(member);
+                if (index > 0 && index < limit && entity->GetServerId(index) == party->GetMemberServerId(member))
+                    add(index, member < 6 ? 0xFF9AE6DA : 0xFF9EBDF1);
+            }
+        uintptr_t radar{}; uint8_t enemies{};
+        const bool enemyRadar = Read(this->compass_state_slot_, radar) && radar != 0 && Read(radar + 0x2F, enemies) && enemies == 1;
+        if (this->compass_visibility_function_ != 0)
         {
-            const auto index = target->GetTargetIndex(0);
-            if (index > 0 && index < entity->GetEntityMapSize()) add(index, ReadEntityNameColor(*party, *entity, index), true);
+            for (uint32_t index = 1; index < limit; ++index)
+            {
+                if (index == player || added[index] || entity->GetServerId(index) == 0) continue;
+                const auto color = CompassRadarColor(entity->GetSpawnFlags(index), entity->GetStatus(index), entity->GetMonstrosityFlag(index) != 0, enemyRadar);
+                if (!color) continue;
+                const float dz = entity->GetLocalPositionZ(index) - height;
+                if (!std::isfinite(dz) || std::abs(dz) >= 4) continue;
+                const float dx = entity->GetLocalPositionX(index) - x, dy = entity->GetLocalPositionY(index) - y;
+                if (!std::isfinite(dx) || !std::isfinite(dy) || dx * dx + dy * dy > 200 * 200) continue;
+                add(index, *color);
+            }
         }
+        add(selected, 0xFFFFFFFF);
     }
 }

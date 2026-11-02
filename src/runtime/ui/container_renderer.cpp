@@ -245,7 +245,10 @@ namespace xiui::ui
     {
         auto style = TooltipStyle();
         if (this->appearance_theme_ == 1 && this->xiv1_fabric_ != nullptr)
-            return this->Draw(design, bounds, style);
+        {
+            const std::array fills{container_fill{bounds, 0x60000000}};
+            return this->Draw(design, bounds, style, fills);
+        }
         const auto& window = this->windows_[this->selected_];
         if (window.source)
         {

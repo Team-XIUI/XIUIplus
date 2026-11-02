@@ -40,6 +40,13 @@ namespace
 
 namespace xiui
 {
+    auto ChatLocalSeconds(const uint64_t receivedTick, const uint64_t nowTick, const uint32_t localMilliseconds) -> uint32_t
+    {
+        constexpr uint32_t day = 86400000;
+        const auto elapsed = nowTick - std::min(nowTick, receivedTick);
+        return static_cast<uint32_t>((localMilliseconds + day - elapsed % day) % day) / 1000;
+    }
+
     auto ChatTypeIndex(const uint32_t raw) -> size_t
     {
         switch (raw & 255)
@@ -136,7 +143,11 @@ namespace xiui
         EmphasizeChatText(spans, event.mode);
         if (spans.empty()) return;
         if (event.indent) spans.insert(spans.begin(), chat_span{"  ", -1});
-        this->lines_.push_back({event.sequence, event.timestamp, event.mode, event.color, event.windows, std::move(spans), prompt});
+        const auto tick = ::GetTickCount64();
+        SYSTEMTIME clock{}; ::GetLocalTime(&clock);
+        const auto milliseconds = ((clock.wHour * 60u + clock.wMinute) * 60u + clock.wSecond) * 1000u + clock.wMilliseconds;
+        this->lines_.push_back({event.sequence, event.timestamp, event.mode, event.color, event.windows, std::move(spans), prompt,
+            ChatLocalSeconds(event.timestamp, tick, milliseconds)});
         while (this->lines_.size() > chat_history_capacity) this->lines_.pop_front();
         ++this->revision_;
     }

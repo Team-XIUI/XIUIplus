@@ -6,6 +6,7 @@
 #include "chat/chat_text.hpp"
 #include "resources/auto_translate.hpp"
 #include "utf8.hpp"
+#include "ui/text_fit.hpp"
 
 #include <algorithm>
 #include <cmath>
@@ -17,6 +18,10 @@
 namespace
 {
     constexpr float dialogue_prompt_padding = 2.0f;
+    constexpr uint64_t input_animation_ms = 240;
+
+    auto InputEase(const float progress) -> float
+    { return progress * progress * progress * (progress * (progress * 6 - 15) + 10); }
 
     auto KeyText(const WPARAM key, const LPARAM flags) -> std::string
     {
@@ -263,7 +268,9 @@ namespace xiui
     auto chat_module::ResetDefaults(const ui::theme& theme) -> void
     {
         this->Focus(false);
-        this->input_reveal_ = 0; this->input_animation_tick_ = 0;
+        this->input_reveal_ = this->destination_reveal_ = 0; this->input_animation_tick_ = 0;
+        this->channel_picker_open_ = this->destination_hovered_ = false; this->channel_pointer_press_ = -2;
+        this->reply_destination_.clear();
         this->message_animation_ = 1; this->message_entrances_.clear();
         this->message_animation_speed_ = 100;
         this->collapse_mode_ = 0; this->collapse_delay_ = 5;
@@ -636,8 +643,10 @@ namespace xiui
         this->focused_ = focused && this->state_.enabled && !this->secondary_;
         if (!this->focused_)
         {
+            this->channel_picker_open_ = false;
             this->editor_.ResetCompletion();
             this->reply_recipient_.clear();
+            this->reply_destination_.clear();
         }
     }
 
@@ -651,9 +660,10 @@ namespace xiui
     auto chat_module::UpdateInputAnimation(const uint64_t now) -> void
     {
         const float elapsed = this->input_animation_tick_ != 0 && now >= this->input_animation_tick_ ?
-            static_cast<float>(std::min<uint64_t>(now - this->input_animation_tick_, 140)) / 140.0f : 0;
+            static_cast<float>(std::min<uint64_t>(now - this->input_animation_tick_, input_animation_ms)) / static_cast<float>(input_animation_ms) : 0;
         this->input_animation_tick_ = now;
         this->input_reveal_ = this->secondary_ ? 0 : std::clamp(this->input_reveal_ + (this->Focused() ? elapsed : -elapsed), 0.0f, 1.0f);
+        this->destination_reveal_ = this->input_reveal_;
     }
 
     auto chat_module::Restore(const runtime_state& state) -> void
@@ -890,6 +900,7 @@ namespace xiui
 
     auto chat_module::LayoutHitTest(const ui::design_system& design, const float x, const float y) const -> bool
     {
+        if (this->channel_picker_open_) return true;
         if (this->HistoryExpanded()) return Contains(this->history_view_.viewport, x, y);
         if (Contains(this->FrameBounds(design), x, y)) return true;
         const auto layout = this->Layout(design);
@@ -902,6 +913,14 @@ namespace xiui
         if (!this->WindowVisible() && (!editing || this->secondary_)) return 0;
         if (!this->MatchingWindow1() && Contains(this->Grip(design), x, y)) return 12;
         const auto layout = this->Layout(design);
+        if (!editing && this->channel_picker_open_)
+        {
+            const auto picker = this->ChannelPickerLayout(design);
+            for (size_t index = 0; index < picker.rows.size(); ++index)
+                if (Contains(picker.rows[index], x, y)) return static_cast<uint32_t>(500 + index);
+            return 0;
+        }
+        if (!editing && layout.destination.height > 0 && Contains(layout.destination, x, y)) return 30;
         if (Contains(layout.completion, x, y) && layout.completion_rows > 0)
         {
             const auto row = static_cast<int>(std::floor((y - layout.completion.y - 24) / layout.completion_row_height));
@@ -919,6 +938,12 @@ namespace xiui
         return 0;
     }
 
+    auto chat_module::InputRowHeight(const ui::design_system& design) const -> float
+    {
+        return this->secondary_ ? 0 : std::max({26.0f, design.TextHeight(ChatInputStyle(design, this->text_.style)) + 6,
+            design.TextHeight(ChatThemeStyle(design, this->chrome_.style)) + 4});
+    }
+
     auto chat_module::Layout(const ui::design_system& design) const -> layout
     {
         layout result{};
@@ -933,18 +958,22 @@ namespace xiui
             result.tabs[tab] = {x, frame.y - 28, width, 24};
             x += width + 2;
         }
-        const float counterHeight = this->input_counter_ ? design.TextHeight(ChatThemeStyle(design, this->chrome_.style)) + 4 : 0;
-        const float inputHeight = this->secondary_ || (!this->Focused() && this->input_reveal_ == 0) ? 0 :
-            std::max({26.0f, design.TextHeight(ChatInputStyle(design, this->text_.style)) + 6.0f, counterHeight});
+        const float inputReveal = InputEase(this->input_reveal_);
+        const float inputHeight = frame.height <= (this->container_.edge_size + this->container_.padding) * 2 ? 0 :
+            std::min(result.content.height, this->InputRowHeight(design) * inputReveal);
+        const float channelWidth = this->secondary_ ? 0 : std::min(result.content.width * 0.25f,
+            std::max(28.0f, design.MeasureText("WWW", ChatThemeStyle(design, this->chrome_.style)) + 14));
         result.input = {result.content.x, result.content.y + result.content.height - inputHeight, result.content.width, inputHeight};
-        result.input_text = {result.input.x + 5, result.input.y + 2, std::max(1.0f, result.input.width - 10), std::max(0.0f, inputHeight - 4)};
-        if (inputHeight > 0 && this->input_counter_)
+        result.destination = {result.input.x + 5, result.input.y + 2, std::max(0.0f, channelWidth - 10), std::max(0.0f, inputHeight - 4)};
+        result.input_text = {result.input.x + channelWidth + 5, result.input.y + 2,
+            std::max(1.0f, result.input.width - channelWidth - 10), std::max(0.0f, inputHeight - 4)};
+        if (!this->secondary_ && this->input_counter_)
         {
             const float width = std::min(result.content.width, design.MeasureText("000/000", ChatThemeStyle(design, this->chrome_.style)) + 8);
             result.counter = {result.input.x + result.input.width - width - 5, result.input_text.y, width, result.input_text.height};
             result.input_text.width = std::max(1.0f, result.counter.x - 8 - result.input_text.x);
         }
-        result.log = {result.content.x + 2.0f, result.content.y, result.content.width - 14.0f, std::max(1.0f, result.input.y - result.content.y - (inputHeight > 0 ? 5.0f : 0.0f))};
+        result.log = {result.content.x + 2.0f, result.content.y, result.content.width - 14.0f, std::max(1.0f, result.input.y - result.content.y - 5 * inputReveal)};
         if (this->ControllerComposing())
         {
             const float height = std::max(24.0f, design.TextHeight(ChatThemeStyle(design, this->chrome_.style)) + 6);
@@ -984,6 +1013,8 @@ namespace xiui
         if (!this->WindowVisible() && (!editing || this->secondary_)) { this->CancelPointer(); return false; }
         if (editing) return false;
         if (this->HistoryExpanded()) return this->HandleHistoryMouse(message, wParam, x, y, design);
+        this->channel_picker_viewport_ = viewport;
+        if (!this->resizing_ && this->HandleChannelMouse(message, x, y, design, save)) return true;
         const bool down = message == WM_LBUTTONDOWN || message == WM_LBUTTONDBLCLK;
         if (down && !this->pointer_down_ && this->sounds_ != nullptr && this->LayoutSoundTarget(design, x, y, editing) != 0)
             this->sounds_->Select(::GetTickCount64());
@@ -1221,6 +1252,17 @@ namespace xiui
         return !draft.empty() && draft.front() == '/' ? draft : std::string{commands[this->channel_]} + draft;
     }
 
+    auto chat_module::InputDestination(void) const -> chat_destination
+    {
+        const auto command = this->InputCommand(this->editor_.Text());
+        if (this->channel_ == game_channel && (command.empty() || command.front() != '/'))
+            return DescribeChatDestination(this->native_send_prefix_.value_or("/say "), this->native_reply_recipient_);
+        auto destination = DescribeChatDestination(command, this->native_reply_recipient_);
+        if (destination.mode == 4 && !this->reply_destination_.empty() && destination.label.starts_with("Tell: ") &&
+            SameRecipient(std::string_view{destination.label}.substr(6), this->reply_destination_)) destination.reply = true;
+        return destination;
+    }
+
     auto chat_module::InputUsage(const std::string_view text) const -> std::pair<size_t, size_t>
     {
         const auto command = this->InputCommand(text);
@@ -1394,6 +1436,7 @@ namespace xiui
         }
         this->editor_.Set("/t " + std::string{recipient} + " " + std::string{body});
         this->reply_recipient_.clear();
+        this->reply_destination_.clear();
         this->error_.clear();
         this->input_start_ = 0;
         this->Focus(true);
@@ -1420,6 +1463,7 @@ namespace xiui
         }
         if (!this->OpenTell(ordered[next])) return false;
         this->reply_recipient_ = ordered[next];
+        this->reply_destination_ = ordered[next];
         return true;
     }
 
@@ -1461,6 +1505,7 @@ namespace xiui
         if (!this->state_.enabled || this->secondary_) return false;
         if (!draft.text.empty()) this->editor_.Set(std::move(draft.text), draft.caret);
         this->reply_recipient_.clear();
+        this->reply_destination_.clear();
         this->error_.clear();
         this->input_start_ = 0;
         this->Focus(true);
@@ -1500,6 +1545,11 @@ namespace xiui
             return false;
         }
         const HWND window = core != nullptr && core->GetProperties() != nullptr ? core->GetProperties()->GetFinalFantasyHwnd() : nullptr;
+        if (this->channel_picker_open_)
+        {
+            this->channel_picker_open_ = false;
+            if (key == VK_ESCAPE || key == VK_RETURN) return true;
+        }
         this->error_.clear();
         if (key == VK_RETURN && (static_cast<uint32_t>(flags) & 0x40000000u) != 0) return true;
         if (alt && key == VK_TAB) return false;
@@ -1610,9 +1660,7 @@ namespace xiui
             };
             const auto appendTimestamp = [&] {
                 if (timestampMode == 0) return;
-                SYSTEMTIME now{}; ::GetLocalTime(&now);
-                const auto elapsed = static_cast<uint32_t>((::GetTickCount64() - std::min(::GetTickCount64(), line.timestamp)) / 1000) % 86400;
-                const auto seconds = (now.wHour * 3600u + now.wMinute * 60u + now.wSecond + 86400u - elapsed) % 86400u;
+                const auto seconds = line.local_seconds;
                 char timestamp[20]{};
                 if (timestampMode == 2) std::snprintf(timestamp, sizeof(timestamp), "[%02u:%02u:%02u] ", seconds / 3600, seconds / 60 % 60, seconds % 60);
                 else std::snprintf(timestamp, sizeof(timestamp), "[%02u:%02u] ", seconds / 3600, seconds / 60 % 60);
@@ -1780,6 +1828,13 @@ namespace xiui
         if (this->HistoryExpanded()) return;
         const auto now = ::GetTickCount64();
         this->SetLayoutEditing(context.IsEditing());
+        this->channel_picker_viewport_ = context.Viewport();
+        if (context.IsEditing()) this->channel_picker_open_ = false;
+        const auto destinationBounds = this->Layout(context.Design()).destination;
+        const ui::rect destinationHit{destinationBounds.x - 3, destinationBounds.y + 1,
+            destinationBounds.width + 6, std::max(0.0f, destinationBounds.height - 2)};
+        this->destination_hovered_ = this->hovered_ && !context.IsEditing() &&
+            Contains(destinationHit, this->hover_point_.x, this->hover_point_.y);
         this->UpdateInputAnimation(now);
         this->UpdateCompactLayout(context.Design(), now);
         const auto frame = this->FrameBounds(context.Design());
@@ -1806,7 +1861,7 @@ namespace xiui
         }
         if (!this->secondary_ && this->input_reveal_ > 0)
         {
-            const float reveal = this->input_reveal_ * this->input_reveal_ * (3 - 2 * this->input_reveal_);
+            const float reveal = InputEase(this->input_reveal_);
             const float slide = 4 * (1 - reveal);
             if (!context.Design().IsXiv1Theme()) context.Design().FillRect(layout.input, FadeColor(0x60000000, reveal));
             auto input = layout.input_text; input.y += slide;
@@ -1856,21 +1911,41 @@ namespace xiui
                 context.DrawText(hint.c_str(), hintBounds, hintBounds, FadeText(ChatThemeProfile(context.Design(), this->chrome_), reveal));
             }
         }
+        if (layout.destination.height > 0 && this->destination_reveal_ > 0)
+        {
+            const float reveal = InputEase(this->destination_reveal_);
+            auto bounds = layout.destination; bounds.y += 4 * (1 - reveal);
+            const ui::rect pill{bounds.x - 3, bounds.y + 1, bounds.width + 6, std::max(0.0f, bounds.height - 2)};
+            context.Design().FillRoundedRect(pill, FadeColor(this->destination_hovered_ || this->channel_picker_open_ ? 0x68000000 : 0x50000000, reveal), pill.height * 0.5f);
+            const auto destination = this->InputDestination();
+            auto profile = ChatThemeProfile(context.Design(), this->chrome_); profile.style.alignment = ui::text_alignment::center;
+            profile.placement = 0; profile.offset_x = profile.offset_y = 0;
+            if (destination.mode != 0)
+            {
+                const auto colorMode = destination.mode == 213 ? 6u : destination.mode;
+                auto color = this->Colors().Resolve(colorMode,
+                    ChatThemeColor(colorMode, snapshot.chat_colors.modes[colorMode], context.Design().IsXiv1Theme()));
+                if (destination.mode == 213)
+                    color = (color & 0xFF000000) | (((color >> 16) & 255) * 9 / 10 << 16) |
+                        (((color >> 8) & 255) * 9 / 10 << 8) | ((color & 255) * 9 / 10);
+                if (color != 0) profile = TintTextProfile(profile, color);
+            }
+            const auto label = ui::FitText(context.Design(), ChatDestinationTag(destination), bounds.width, profile.style);
+            context.DrawText(label.c_str(), bounds, bounds, FadeText(profile, reveal));
+        }
         if (layout.counter.height > 0)
         {
             const auto [used, maximum] = this->InputUsage(this->editor_.Text());
             char count[32]{}; std::snprintf(count, sizeof(count), "%zu/%zu", used, maximum);
             auto profile = ChatThemeProfile(context.Design(), this->chrome_); profile.style.alignment = ui::text_alignment::right;
             if (used >= maximum) profile = TintTextProfile(profile, 0xFFFF8C8C);
-            const float reveal = this->input_reveal_ * this->input_reveal_ * (3 - 2 * this->input_reveal_);
+            const float reveal = InputEase(this->input_reveal_);
             auto counter = layout.counter; counter.y += 4 * (1 - reveal);
             context.DrawText(count, counter, counter, FadeText(profile, reveal));
         }
         if (this->ControllerComposing())
         {
-            const auto& draft = this->editor_.Text();
-            const auto channel = !draft.empty() && draft.front() == '/' ? "Command: " + draft.substr(0, draft.find(' ')) :
-                this->controller_channel_adjusting_ ? std::string{"< "} + channels[this->channel_] + " >" : std::string{"Channel: "} + channels[this->channel_];
+            const auto channel = this->controller_channel_adjusting_ ? std::string{"< "} + channels[this->channel_] + " >" : this->InputDestination().label;
             const std::array<const char*, 3> labels{channel.c_str(), "Send", "Back"};
             auto profile = ChatThemeProfile(context.Design(), this->chrome_); profile.style.alignment = ui::text_alignment::center;
             for (size_t index = 0; index < layout.controller_actions.size(); ++index)
@@ -1881,6 +1956,26 @@ namespace xiui
         {
             const auto grip = this->Grip(context.Design());
             context.Design().DrawTriangle(grip.x + 3, grip.y + 3, grip.x + 15, grip.y + 3, grip.x + 15, grip.y + 15, theme.colors.accent);
+        }
+        if (this->hovered_ && !this->channel_picker_open_ && this->destination_reveal_ >= 1 &&
+            !context.IsEditing() && !this->pointer_down_ && !this->resizing_ &&
+            layout.destination.height > 0 && Contains(layout.destination, this->hover_point_.x, this->hover_point_.y))
+        {
+            const auto destination = this->InputDestination();
+            auto profile = ChatThemeProfile(context.Design(), this->chrome_); profile.style.alignment = ui::text_alignment::left;
+            profile.placement = 0; profile.offset_x = profile.offset_y = 0;
+            const auto viewport = context.Viewport();
+            const float width = std::min(std::max(40.0f, viewport.width - 16),
+                std::max(context.Design().MeasureText("Click to change channel", profile.style),
+                    context.Design().MeasureText(destination.label.c_str(), profile.style)) + 26);
+            const float lineHeight = context.Design().TextHeight(profile.style) + 2;
+            const float height = lineHeight * 2 + 26;
+            const float x = std::clamp(layout.destination.x, viewport.x + 8, std::max(viewport.x + 8, viewport.x + viewport.width - width - 8));
+            const float y = std::clamp(layout.destination.y - height - 6, viewport.y + 8, std::max(viewport.y + 8, viewport.y + viewport.height - height - 8));
+            const auto content = context.DrawTooltip({x, y, width, height});
+            const auto label = ui::FitText(context.Design(), destination.label, content.width, profile.style);
+            context.DrawText(label.c_str(), {content.x, content.y, content.width, lineHeight}, content, profile);
+            context.DrawText("Click to change channel", {content.x, content.y + lineHeight, content.width, lineHeight}, content, FadeText(profile, 0.7f));
         }
     }
 }

@@ -1,4 +1,5 @@
 #include "world/world_state.hpp"
+#include "world/compass_radar.hpp"
 #include "modules/compass/compass_module.hpp"
 #include "modules/world/world_info_module.hpp"
 #include "resources/menu_window.hpp"
@@ -18,6 +19,15 @@ int main(const int argc, char** argv)
     try
     {
         using namespace xiui;
+        Check(CompassRadarColor(1, 0, false, false) == 0xFF0040F0 && CompassRadarColor(0x101, 0, false, false) == 0xFF0040F0,
+            "ordinary players retain blue radar dots without an enemy-radar job");
+        Check(CompassRadarColor(0x100, 0, false, false) == 0xFF30D000 && CompassRadarColor(2, 0, false, false) == 0xFF00B040,
+            "native NPC and ally dots do not depend on enemy radar");
+        Check(!CompassRadarColor(0, 0, false, true) && !CompassRadarColor(2, 0x31, false, true) &&
+            !CompassRadarColor(0x10, 0, false, false) && !CompassRadarColor(1, 0, true, false),
+            "inactive, hidden NPC, monster and Monstrosity dots retain native eligibility");
+        Check(CompassRadarColor(0x10, 0, false, true) == 0xFF808080 && CompassRadarColor(0x10, 2, false, true) == 0xFF206060,
+            "enabled native enemy radar retains living and defeated colors");
         const auto epoch = DecodeVanaTime(0), day = DecodeVanaTime(3456), month = DecodeVanaTime(103680), year = DecodeVanaTime(1244160);
         Check(epoch.year == 886 && epoch.month == 1 && epoch.day == 1 && epoch.weekday == 0, "Vana epoch");
         Check(day.day == 2 && day.weekday == 1 && day.hour == 0 && day.minute == 0, "day rollover");

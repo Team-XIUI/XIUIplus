@@ -12,7 +12,7 @@ Pets with the native Ally flag have health even without Player/Monster flags. Ke
 
 World rendering accepts the native fixed-function camera as well as the recognized terrain shader. The latter takes priority when present. Submit only at the matching scene end or scene-copy boundary; `target-ring-camera` covers both paths and frame lifetime.
 
-Opt-in shader diagnostics live in [ring_shader_capture.cpp](../../src/host/ring_shader_capture.cpp). `/xiui rings capture` records rejected and accepted layouts for up to three seconds, then saves a bounded JSON report under the active install's `logs/xiui/` directory. Keep its GPU inspection inactive otherwise, and drain its background writer before unload.
+Opt-in shader diagnostics live in [ring_shader_capture.cpp](../../src/host/ring_shader_capture.cpp). `/xiui rings capture` records rejected and accepted layouts for up to three seconds, then saves a bounded JSON report under the active install's `config/xiuinative/diagnostics/` directory. Keep its GPU inspection inactive otherwise, and drain its background writer before unload.
 
 Shared meter defaults resolve an automatic Target HP height to 12 pixels; the world bar retains 6 pixels. Classic and XIV apply the same Target text styles and HP height.
 

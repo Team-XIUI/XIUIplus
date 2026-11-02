@@ -35,11 +35,13 @@ namespace xiui
         uint32_t mode{}, color{}, windows{};
         std::vector<chat_span> spans;
         bool dialogue_prompt{};
+        uint32_t local_seconds{};
     };
 
     auto ChatCategory(uint32_t mode) -> chat_tab;
     auto ChatTabMatches(chat_tab tab, uint32_t mode, uint32_t windows) -> bool;
     auto ParseChatText(std::string_view text) -> std::vector<chat_span>;
+    auto ChatLocalSeconds(uint64_t receivedTick, uint64_t nowTick, uint32_t localMilliseconds) -> uint32_t;
 
     class chat_model
     {

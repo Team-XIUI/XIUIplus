@@ -1094,6 +1094,13 @@ namespace xiui
 
         static auto Timestamps(void) -> void
         {
+            constexpr uint32_t capturedSeconds = 12 * 3600 + 34 * 60 + 56;
+            constexpr uint32_t capturedMilliseconds = capturedSeconds * 1000 + 900;
+            for (const uint64_t age : {0ull, 50ull, 150ull, 999ull, 1001ull, 1500ull, 86400150ull})
+                Check(ChatLocalSeconds(10000, 10000 + age, static_cast<uint32_t>((capturedMilliseconds + age) % 86400000)) == capturedSeconds,
+                    "capture time stays fixed across fractional-second boundaries, animation duration and full days");
+            Check(ChatLocalSeconds(10000, 10200, 50) == 86399 && ChatLocalSeconds(11000, 10000, 50) == 0,
+                "timestamp capture wraps midnight and clamps a future monotonic timestamp");
             std::array<uint32_t, 0xB6 * 11> table{};
             std::array<uintptr_t, 2> manager{0, reinterpret_cast<uintptr_t>(table.data())};
             const uintptr_t config = reinterpret_cast<uintptr_t>(manager.data());
@@ -1127,6 +1134,21 @@ namespace xiui
             record[2] = 2; module.SetNativeTimestamps(native.TimestampMode()); text = rows();
             Check(text[6] == ':' && text[9] == ']' && std::count(text.begin(), text.end(), '[') == 2,
                 "Follow game retains the native seconds format without duplicate addon times");
+            const auto captured = module.model_.Lines().back().local_seconds;
+            char prefix[20]{}; std::snprintf(prefix, sizeof(prefix), "[%02u:%02u:%02u] ", captured / 3600, captured / 60 % 60, captured % 60);
+            Check(text == std::string{prefix} + "Hello\n" + prefix + "  Indented\n", "all logical lines render the message's captured clock value");
+            event.windows = 2; event.timestamp = ::GetTickCount64() + 86400000;
+            module.Receive(nullptr, event, false);
+            Check(module.model_.Lines().back().local_seconds == captured, "late routing updates retain the original message time");
+            module.RebuildRows(design, 1499);
+            Check(rows() == text, "full width reflow keeps timestamps identical to their first rendered value");
+            chat_module shared{true}; module.AttachSecondWindow(shared); shared.EnsureWindowDefaults(); shared.timestamp_display_ = 3; shared.source_ = 0;
+            shared.RebuildRows(design, 1500);
+            Check(shared.rows_.front().spans.front().text == prefix, "both windows use the same captured timestamp");
+            event.timestamp = ::GetTickCount64();
+            event.windows = 3;
+            module.second_window_ = nullptr;
+
             *module.Option(5).choice = 1;
             Check(rows() == "Hello\n  Indented\n", "explicit Off overrides native timestamps for this window");
             auto store = settings_store::FromIniText(""); module.Save(store); chat_module restored; restored.Load(store);
@@ -2025,6 +2047,161 @@ namespace xiui
             Check(source.Read().modes[11] == ChatColor(0x80603070), "native color setting changes refresh without reusing the duplicate entry");
         }
 
+        static auto DestinationIndicator(void) -> void
+        {
+            std::array<char, 264> object{};
+            uintptr_t current = reinterpret_cast<uintptr_t>(object.data());
+            native_chat_input native;
+            native.send_prefix_slot_ = reinterpret_cast<uintptr_t>(&current);
+            const auto prefix = [&](const char* text) { object.fill(0); strcpy_s(object.data() + 8, object.size() - 8, text); };
+            chat_module module; ui::design_system design;
+            module.ApplyTextDefaults(ui::theme::CreateDefault());
+            prefix("/say "); module.SetNativeDestination(native.SendPrefix(), "Shio");
+            Check(module.SendChannelLabel() == "Say" && !module.Focused() && module.editor_.Text().empty(),
+                "the native default channel is readable without opening composition or changing the draft");
+            const auto idle = module.Layout(design);
+            Check(idle.destination.height == 0 && idle.input.height == 0 && idle.destination.y == idle.input_text.y &&
+                idle.destination.x + idle.destination.width < idle.input_text.x && idle.input_text.x > idle.content.x + 5,
+                "idle chat reclaims the typing row while retaining the fixed horizontal columns");
+            module.UpdateInputAnimation(1000); module.Focus(true); module.UpdateInputAnimation(1120);
+            Check(module.destination_reveal_ > 0 && module.destination_reveal_ < 1 && module.destination_reveal_ == module.input_reveal_,
+                "opening an empty draft reveals the channel pill together with the typing row");
+            module.editor_.Set("x"); module.UpdateInputAnimation(1240);
+            Check(module.destination_reveal_ == 1, "typing retains the already-visible channel pill");
+            module.UpdateInputAnimation(1360);
+            Check(module.destination_reveal_ == 1, "a nonempty draft completes the channel pill entrance");
+            module.editor_.Set({}); module.UpdateInputAnimation(1480);
+            Check(module.destination_reveal_ == 1, "clearing a focused draft keeps its channel pill visible");
+            module.UpdateInputAnimation(1600);
+            Check(module.destination_reveal_ == 1 && module.Layout(design).input_text.x == idle.input_text.x,
+                "an empty focused draft preserves the pill and reserved input columns");
+            module.Focus(false);
+            Check(idle.destination.width < 60 && std::string_view{ChatDestinationTag(module.InputDestination())} == "SAY",
+                "the abbreviated channel badge gives unused label space back to the draft");
+            for (const auto command : {"/s", "/p", "/l", "/l2", "/u", "/sh", "/y", "/t Cody", "/r", "/em", "/ae", "/aj", "/fishwatch", ""})
+                Check(std::strlen(ChatDestinationTag(DescribeChatDestination(command))) <= 3, "every destination tag is at most three characters");
+            prefix("/unity "); module.SetNativeDestination(native.SendPrefix(), "Shio");
+            Check(module.SendChannelLabel() == "Unity", "native mode changes refresh without observing a typed /cm command");
+            prefix("/tell Cody "); module.SetNativeDestination(native.SendPrefix(), "Shio");
+            Check(module.SendChannelLabel() == "Tell: Cody", "native locked tells include the actual recipient");
+            Check(std::string_view{ChatDestinationTag(module.InputDestination())} == "TEL", "tell badges stay compact while retaining the full recipient label");
+            module.Focus(true); const auto original = module.Layout(design);
+            Check(original.input_text.x == idle.input_text.x && original.input_text.width == idle.input_text.width &&
+                original.destination.width == idle.destination.width && original.input.height > idle.input.height,
+                "opening composition animates its row without shifting the reserved horizontal columns");
+            module.editor_.Set("/p one message");
+            Check(module.SendChannelLabel() == "Party" && module.InputDestination().mode == 5 &&
+                module.Layout(design).input_text.x == original.input_text.x && module.Layout(design).input_text.width == original.input_text.width,
+                "typed channel commands update the indicator without shifting the draft or character counter");
+            module.editor_.Set("/t Another hello");
+            Check(module.SendChannelLabel() == "Tell: Another", "an explicit tell replaces the locked native recipient in the indicator");
+            module.editor_.Set("/r hello");
+            Check(module.SendChannelLabel() == "Tell: Shio", "reply indicators use the native reply recipient");
+            Check(std::string_view{ChatDestinationTag(module.InputDestination())} == "REP" && module.InputDestination().mode == 4,
+                "typed replies show REP with the tell channel's text color");
+            chat_module reply;
+            const std::array<std::string, 1> targets{"Shio"};
+            Check(reply.OpenReply(targets) && std::string_view{ChatDestinationTag(reply.InputDestination())} == "REP" && reply.InputDestination().mode == 4,
+                "reply shortcuts retain REP when composition expands to a tell command");
+            reply.ObserveTeller("Another");
+            Check(std::string_view{ChatDestinationTag(reply.InputDestination())} == "REP", "new incoming tells cannot relabel the reply being composed");
+            reply.OpenTell("Shio");
+            Check(std::string_view{ChatDestinationTag(reply.InputDestination())} == "TEL", "explicit tells keep their own TEL indicator");
+            module.editor_.Set("/fishwatch");
+            Check(module.SendChannelLabel() == "Command: /fishwatch" && module.InputDestination().mode == 0,
+                "non-chat commands are not labeled as messages to the default channel");
+            module.editor_.Set("ordinary message"); module.channel_ = 2;
+            Check(module.SendChannelLabel() == "Linkshell 1" && module.InputCommand(module.editor_.Text()) == "/linkshell ordinary message",
+                "XIUI channel overrides describe the unchanged actual send command");
+            module.editor_.Set({});
+            Check(module.SendChannelLabel() == "Linkshell 1", "clearing a draft does not reset an explicitly selected channel");
+            module.editor_.Set("ordinary message");
+            module.channel_ = chat_module::game_channel;
+            module.active_tab_ = static_cast<int>(chat_tab::party);
+            Check(module.SendChannelLabel() == "Tell: Cody", "history filters do not select an outgoing channel");
+            prefix("/unknown "); module.SetNativeDestination(native.SendPrefix(), {});
+            module.editor_.Set({});
+            Check(module.SendChannelLabel() == "Say" && std::string_view{ChatDestinationTag(module.InputDestination())} == "SAY",
+                "an empty draft without a selected or readable native channel defaults its pill to SAY");
+            object.fill('x'); Check(!native.SendPrefix(), "unterminated native prefixes are rejected");
+            current = 0; Check(!native.SendPrefix(), "unavailable native state is safe during client transitions");
+            chat_module secondary{true}; secondary.ApplyTextDefaults(ui::theme::CreateDefault());
+            Check(secondary.Layout(design).destination.height == 0, "the shared composition destination is not duplicated in Window 2");
+            Check(DescribeChatDestination(" /L2 hello").mode == 213 && DescribeChatDestination("/aj hello").mode == 219 &&
+                DescribeChatDestination("/em waves").mode == 7 && DescribeChatDestination("/t").label == "Tell",
+                "channel aliases, casing, emotes and incomplete tell drafts retain truthful labels");
+            module.editor_.Set("animation"); module.Focus(true); module.UpdateInputAnimation(2000);
+            const auto composing = module.Layout(design);
+            module.Focus(false); module.UpdateInputAnimation(2120);
+            const auto closing = module.Layout(design);
+            Check(closing.input.height > 0 && closing.input.height < composing.input.height &&
+                closing.log.height > composing.log.height && closing.log.height < idle.log.height,
+                "closing composition smoothly returns the typing row's height to the log");
+            module.UpdateInputAnimation(2240);
+            Check(module.Layout(design).input.height == 0 && module.Layout(design).destination.height == 0 &&
+                module.Layout(design).counter.height == 0 && module.Layout(design).log.height == idle.log.height,
+                "the completed exit leaves no typing row, pill, counter or reserved vertical gap");
+        }
+
+        static auto DestinationPicker(void) -> void
+        {
+            chat_module module; chat_manager chat; ui::design_system design; bool save{};
+            module.ApplyTextDefaults(ui::theme::CreateDefault());
+            module.SetNativeDestination("/say ", {});
+            module.editor_.Set("unsent message", 4);
+            module.Focus(true); module.UpdateInputAnimation(1); module.UpdateInputAnimation(241);
+            const ui::rect viewport{0, 0, 1280, 720};
+            const auto mouse = [&](const uint32_t message, const ui::rect& bounds) {
+                return module.HandleMouse(message, 0, bounds.x + bounds.width * 0.5f, bounds.y + bounds.height * 0.5f,
+                    false, design, viewport, save, &chat);
+            };
+            const auto pill = module.Layout(design).destination;
+            const ui::rect outside{1000, 20, 10, 10};
+            Check(mouse(WM_LBUTTONDOWN, pill) && !module.ChannelPickerOpen(), "channel picker waits for its matching click release");
+            Check(mouse(WM_LBUTTONUP, outside) && !module.ChannelPickerOpen(), "releasing outside the pill cancels opening and owns the release");
+            const auto open = [&] {
+                mouse(WM_LBUTTONDOWN, pill); mouse(WM_LBUTTONUP, pill);
+                Check(module.ChannelPickerOpen(), "clicking the channel pill opens its picker");
+            };
+            open();
+            Check(module.editor_.Text() == "unsent message" && module.editor_.Caret() == 4 && chat.count == 0,
+                "opening the picker preserves the draft and caret without sending");
+            const auto party = module.ChannelPickerLayout(design).rows[1];
+            mouse(WM_LBUTTONDOWN, party);
+            Check(module.channel_ == chat_module::game_channel, "pressing a channel choice alone cannot change the destination");
+            mouse(WM_LBUTTONUP, party);
+            Check(module.channel_ == 1 && save && !module.ChannelPickerOpen() && module.editor_.Caret() == 4 &&
+                module.InputCommand(module.editor_.Text()) == "/party unsent message" && chat.count == 0,
+                "a released channel choice changes the actual outgoing command once and requests persistence");
+            module.editor_.Set("/p hello all");
+            Check(module.ChooseSendChannel(2, save) && module.editor_.Text() == "hello all" && module.InputCommand(module.editor_.Text()) == "/linkshell hello all",
+                "changing channels replaces an explicit chat prefix while preserving its message");
+            module.editor_.Set("/p /echo literal");
+            Check(module.ChooseSendChannel(0, save) && module.InputCommand(module.editor_.Text()) == "/say /echo literal",
+                "changing a chat destination cannot turn a literal slash-leading body into a command");
+            module.editor_.Set("/fishwatch");
+            Check(!module.ChooseSendChannel(1, save) && module.editor_.Text() == "/fishwatch", "utility commands are never rewritten by channel selection");
+            module.editor_.Set("keep my message");
+            Check(!module.ChooseSendChannel(7, save) && module.editor_.Text() == "keep my message", "Tell selection without a recipient leaves the message intact");
+            module.SetNativeDestination("/say ", "Shio");
+            Check(module.ChooseSendChannel(7, save) && module.InputCommand(module.editor_.Text()) == "/t Shio keep my message" && chat.count == 0,
+                "Tell selection uses a known recipient and never treats message text as a name");
+            Check(module.ChooseSendChannel(chat_module::game_channel, save) && module.editor_.Text() == "keep my message" && module.SendChannelLabel() == "Say",
+                "Game selection restores native routing without retaining a tell recipient in the body");
+            open(); mouse(WM_LBUTTONDOWN, outside);
+            Check(!module.ChannelPickerOpen() && mouse(WM_LBUTTONUP, outside), "clicking outside dismisses the picker and drains the owned release");
+            open(); module.HandleKey(nullptr, VK_ESCAPE, 0, false, true);
+            Check(!module.ChannelPickerOpen() && module.Focused() && module.editor_.Text() == "keep my message", "Escape dismisses the picker without closing composition");
+            module.editor_.Set({}); module.Focus(false);
+            module.UpdateInputAnimation(2000);
+            Check(module.Layout(design).input.height == 0, "closing composition removes the entire typing row");
+            module.Focus(true); module.UpdateInputAnimation(2120);
+            mouse(WM_MOUSEMOVE, module.Layout(design).destination); module.UpdateInputAnimation(2240);
+            Check(module.destination_reveal_ > 0, "hover reveals the channel slot in an active empty composition");
+            open(); module.CancelPointer();
+            Check(!module.ChannelPickerOpen(), "input suspension closes the picker without sending a message");
+        }
+
         static auto NativeSendChannel(void) -> void
         {
             chat_module module; chat_manager chat; ui::design_system design;
@@ -2051,7 +2228,7 @@ namespace xiui
             module.Focus(true); module.editor_.Set("hello native channel");
             const auto ordinary = module.Layout(design);
             Check(ordinary.input.x == ordinary.content.x && ordinary.input.width == ordinary.content.width,
-                "ordinary messages use the entire input row without a channel prefix");
+                "the channel indicator shares the input row without changing its outer bounds");
             Check(module.Submit(&chat) && chat.mode == static_cast<int32_t>(Ashita::CommandMode::Typed) && chat.sent == "hello native channel" && chat.count == 1,
                 "default messages reach the native typed-chat path once without forcing a channel or recipient");
             module.Focus(true); module.editor_.Set("/l explicit linkshell");
@@ -2105,6 +2282,7 @@ namespace xiui
             Check(module.InputCommand(module.editor_.Text()).size() == 18 && module.InputUsage(module.editor_.Text()).first == 18,
                 "resolved auto-translate commands share the exact submission budget");
             module.editor_.Set({}); module.Focus(true);
+            module.UpdateInputAnimation(1000); module.UpdateInputAnimation(1240);
             ui::design_system design;
             design.SetAppearanceTheme(ui::xiv1_appearance);
             const auto layout = module.Layout(design);
@@ -2462,11 +2640,11 @@ namespace xiui
             const float idleLogHeight = animated.Layout(design).log.height;
             Check(animated.Layout(design).input.height == 0 && animated.HandleKey(nullptr, VK_OEM_2, 0, false, true) && animated.Focused() && animated.editor_.Text() == "/",
                 "slash starts typing from a hidden input");
-            animated.UpdateInputAnimation(1070);
+            animated.UpdateInputAnimation(1120);
             Check(animated.input_reveal_ > 0 && animated.input_reveal_ < 1 && animated.Layout(design).log.height < idleLogHeight, "input animates into the space reserved for typing");
-            animated.UpdateInputAnimation(1140); animated.Focus(false); animated.UpdateInputAnimation(1210);
+            animated.UpdateInputAnimation(1240); animated.Focus(false); animated.UpdateInputAnimation(1360);
             Check(animated.input_reveal_ > 0 && animated.input_reveal_ < 1, "input animates out after focus is released");
-            animated.UpdateInputAnimation(1280);
+            animated.UpdateInputAnimation(1480);
             Check(animated.Layout(design).input.height == 0 && animated.Layout(design).log.height == idleLogHeight && animated.editor_.Text() == "/", "idle input disappears, restores message space, and keeps its draft");
             chat_module templateView, copiedView{true}; templateView.AttachSecondWindow(copiedView);
             templateView.ApplyTextDefaults(theme); copiedView.ApplyTextDefaults(theme);
@@ -2569,6 +2747,8 @@ int main(int argc, char** argv)
         }
         if (argc == 2 && std::strcmp(argv[1], "--native-channel-only") == 0)
         {
+            xiui::chat_test::DestinationIndicator();
+            xiui::chat_test::DestinationPicker();
             xiui::chat_test::NativeSendChannel();
             xiui::chat_test::InputLimits();
             xiui::chat_test::AutoTranslateCommands();

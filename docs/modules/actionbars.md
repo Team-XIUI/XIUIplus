@@ -28,7 +28,11 @@ Closing Configuration hands focus to an open action workspace and retains its un
 
 Workspace close buttons activate on release and cancel outside the button. Popup dismissal retains mouse blocking and held movement capture through its owned release.
 
+Holding Shift when pressing a slot temporarily bypasses assignment locks for that drag, including locked destination bars and hidden empty slots. The gesture keeps that permission through release and preserves saved locks and slot keybinds.
+
 Actions & Macros is nonmodal to exposed hotbars: slot drags, bar locks and slot/bar menus remain usable with the library open. The library keeps its search, category, scroll, assignment context and draft behind child menus; dismissing a menu restores it. Window bounds take precedence over covered bars, and an active drag retains its press/release ownership. Existing slot actions and controller Cancel are shared with the child menus. Focused check: `xiui_actionbars_ui_smoke --library-bars-only`.
+
+Clicking an action or confirming controller placement keeps the library open. New macro, Single command and Game macro remember the library while their independent editor is open; Cancel, Escape, controller Cancel and Save return to its existing search, category, scroll and slot context. Save refreshes the results immediately.
 
 `ReleaseChatInput` must preserve action-workspace pointer capture while native chat polls the command menu. The input-ownership fixture places that poll between drag/button press and release, during and after combat, and checks suspension cleanup. Create labels distinguish multi-line New macro, Single command and an existing FFXI Game macro; old imported type names remain accepted.
 

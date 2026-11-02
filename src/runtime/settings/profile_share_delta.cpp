@@ -18,11 +18,16 @@ namespace xiui::profile_share_detail
 
     auto ValidName(const std::string_view name) -> bool
     {
-        return !name.empty() && name.size() <= 64 && std::none_of(name.begin(), name.end(), [](const unsigned char c) { return c < 32 || c == 127; });
+        return !name.empty() && name.size() <= 64 && ::MultiByteToWideChar(CP_UTF8, MB_ERR_INVALID_CHARS, name.data(), static_cast<int>(name.size()), nullptr, 0) > 0 && std::none_of(name.begin(), name.end(), [](const unsigned char c) { return c < 32 || c == 127; });
     }
 
     namespace
     {
+        auto Lower(std::string text) -> std::string
+        {
+            for (auto& c : text) if (c >= 'A' && c <= 'Z') c += 'a' - 'A';
+            return text;
+        }
         using field_name = std::pair<std::string, std::string>;
         using fields = std::map<field_name, std::string>;
 
@@ -131,8 +136,9 @@ namespace xiui::profile_share_detail
             const auto operation = read.Number();
             if (operation == 0)
             {
-                const auto section = read.Text(), key = read.Text(), value = read.Text();
-                if (section.empty() || key.empty() || section.find_first_of("[]") != std::string::npos || key.find_first_of("=[]") != std::string::npos ||
+                const auto section = Lower(read.Text()), key = Lower(read.Text()), value = read.Text();
+                if (!read.valid || section.empty() || key.empty() || section.find_first_of("[]") != std::string::npos || key.find_first_of("=[]") != std::string::npos ||
+                    section.front() <= ' ' || section.back() <= ' ' || key.front() <= ' ' || key.back() <= ' ' || key.front() == ';' || key.front() == '#' ||
                     values.contains({section, key})) return std::nullopt;
                 values[{section, key}] = value;
             }
@@ -146,6 +152,14 @@ namespace xiui::profile_share_detail
             }
         }
         if (!read.valid || !read.input.empty()) return std::nullopt;
+        size_t total{};
+        std::string_view section;
+        for (const auto& [field, value] : values)
+        {
+            if (field.first != section) { total += field.first.size() + 4; section = field.first; }
+            total += field.second.size() + value.size() + 3;
+            if (total > maximum_profile_payload) return std::nullopt;
+        }
         auto store = settings_store::FromIniText("");
         for (const auto& [field, value] : values) store.WriteString(field.first.c_str(), field.second.c_str(), value);
         if (store.ToIniText().size() > maximum_profile_payload) return std::nullopt;

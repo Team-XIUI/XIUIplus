@@ -193,7 +193,7 @@ namespace xiui
                 {
                     const address value{header.surface, group, slot}; const auto cell = this->SlotBounds(value);
                     if (!Contains(bar.state.transform.Map(cell), x, y)) continue;
-                    const bool assigning = !bar.locked || this->library_drag_.has_value() || this->placing_;
+                    const bool assigning = !bar.locked || this->shift_drag_ || this->library_drag_.has_value() || this->placing_;
                     if (this->store_ && this->store_->Resolve(value.surface, value.bar, value.slot).Empty() && !bar.empty && !assigning && !this->crossbar_preview_) continue;
                     return hit{value, bar.state.transform.Map(cell), 0};
                 }
@@ -210,7 +210,7 @@ namespace xiui
         const ui::rect contentBounds{cell.x, cell.y + yOffset, cell.width, cell.height};
         const auto& slot = this->store_->Resolve(value.surface, value.bar, value.slot); const auto& bar = this->Presentation(value);
         const auto& style = bar.style;
-        const bool assigning = !bar.locked || context.IsEditing() || this->library_drag_.has_value() || this->placing_;
+        const bool assigning = !bar.locked || this->shift_drag_ || context.IsEditing() || this->library_drag_.has_value() || this->placing_;
         if (slot.Empty() && !bar.empty && !assigning) return;
         const auto& design = context.Design();
         const bool hovered = !outgoing && this->BarPointerAvailable(this->hover_x_, this->hover_y_) && Contains(context.Design().Transform().Map(cell), this->hover_x_, this->hover_y_) && (!this->pointer_down_ || this->library_drag_ || this->placing_ || this->dragging_);
@@ -545,7 +545,7 @@ namespace xiui
         const auto& bar = this->Presentation(this->pressed_);
         this->DrawSlot(this->pressed_, {this->hover_x_ - bar.size / 2, this->hover_y_ - bar.size / 2, bar.size, bar.size}, true, context);
         const auto hit = this->BarPointerAvailable(this->hover_x_, this->hover_y_) ? this->HitTest(this->hover_x_, this->hover_y_) : std::nullopt;
-        if (hit && hit->header == 0 && !this->Presentation(hit->slot).locked) context.Design().DrawFocusFrame(hit->bounds, this->focus_style_);
+        if (hit && hit->header == 0 && (!this->Presentation(hit->slot).locked || this->shift_drag_)) context.Design().DrawFocusFrame(hit->bounds, this->focus_style_);
     }
 
     auto actionbars_module::DrawTooltip(const address& value, const ui::rect& anchor, const module_render_context& context) -> void
@@ -571,7 +571,7 @@ namespace xiui
         }
         if (slot.kind == action_kind::native_macro) lines.push_back("Book " + std::to_string(slot.native.book) + ", set " + std::to_string(slot.native.set) + ", " + (slot.native.alt ? "Alt " : "Ctrl ") + std::to_string(slot.native.slot));
         const auto binding = this->Binding(value); if (binding.key) lines.push_back(this->BindingLabel(binding));
-        lines.push_back(this->Presentation(value).locked ? "Click to activate" : "Drag to rearrange  |  Right-click for options");
+        lines.push_back(this->Presentation(value).locked ? "Click to activate  |  Shift-drag to rearrange" : "Drag to rearrange  |  Right-click for options");
         float width = 220;
         for (const auto& line : lines) width = std::max(width, design.MeasureText(line.c_str(), profiles[4].style) + 24);
         const auto viewport = context.Viewport().width > 0 ? context.Viewport() : ui::rect{0, 0, 1280, 720};

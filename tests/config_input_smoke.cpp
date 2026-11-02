@@ -239,7 +239,7 @@ int main(int argc, char** argv)
     if (argc == 2 && std::strcmp(argv[1], "--profile-sharing-only") == 0)
     {
         if (!xiui::config_input_test::ProfileSharing() || !xiui::config_input_test::Profiles()) return 1;
-        std::puts("Profile duplication, portable key sharing/import, invalid-key handling and existing profile persistence checks passed.");
+        std::puts("Background file sharing, cancellation, legacy keys and existing profile persistence checks passed.");
         return 0;
     }
     if (argc == 2 && std::strcmp(argv[1], "--chat-customization-only") == 0)

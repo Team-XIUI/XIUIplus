@@ -45,10 +45,11 @@ namespace xiui
         return shared_profile{name, store.Preferences("")};
     }
 
-    auto SaveProfileFile(const std::filesystem::path& path, const std::string& name, const settings_store& snapshot, std::string& error) -> bool
+    auto SaveProfileFile(const std::filesystem::path& path, const std::string& name, const settings_store& snapshot, std::string& error, const std::stop_token stop) -> bool
     {
+        if (stop.stop_requested()) return false;
         const auto bytes = SerializeProfileFile(name, snapshot, error);
-        if (bytes.empty()) return false;
+        if (bytes.empty() || stop.stop_requested()) return false;
         static std::atomic<uint64_t> sequence{};
         auto temporary = path;
         temporary += L".tmp." + std::to_wstring(::GetCurrentProcessId()) + L"." + std::to_wstring(++sequence);
@@ -58,7 +59,7 @@ namespace xiui
         const bool complete = ::WriteFile(file, bytes.data(), static_cast<DWORD>(bytes.size()), &written, nullptr) != FALSE &&
             written == bytes.size() && ::FlushFileBuffers(file) != FALSE;
         ::CloseHandle(file);
-        if (!complete || !::MoveFileExW(temporary.c_str(), path.c_str(), MOVEFILE_REPLACE_EXISTING | MOVEFILE_WRITE_THROUGH))
+        if (!complete || stop.stop_requested() || !::MoveFileExW(temporary.c_str(), path.c_str(), MOVEFILE_REPLACE_EXISTING | MOVEFILE_WRITE_THROUGH))
         {
             ::DeleteFileW(temporary.c_str());
             error = "Could not save the profile file. The existing file is unchanged.";

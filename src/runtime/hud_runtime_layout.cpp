@@ -154,6 +154,7 @@ namespace xiui
     {
         if (!this->editing_ || this->MovementSelectionModule() == nullptr || !this->MovementSelectionModule()->HasEditableBounds() || !this->ModuleDisplayed(*this->MovementSelectionModule())) return std::nullopt;
         const auto* module = this->MovementSelectionModule();
+        if (!module->CanMove() && !module->ConfigScaleEditable()) return std::nullopt;
         return ui::movement_toolbar::AtTop({0, 0, static_cast<float>(viewport.Width), static_cast<float>(viewport.Height)},
             module->SupportsScale() && module->EditGrip() != edit_grip_kind::none);
     }
@@ -186,7 +187,7 @@ namespace xiui
 
     auto hud_runtime::CenterModuleLayout(hud_module& module, const size_t axis, const D3DVIEWPORT8& viewport) -> bool
     {
-        if (axis > 1 || !module.State().enabled || !module.HasEditableBounds() || !this->ModuleDisplayed(module) || !module.PositionBoundsReady()) return false;
+        if (axis > 1 || !module.State().enabled || !module.HasEditableBounds() || !module.CanMove() || !this->ModuleDisplayed(module) || !module.PositionBoundsReady()) return false;
         const auto visual = this->MovementBounds(module);
         auto& bounds = module.State().bounds;
         if (axis == 0) bounds.x += std::round((viewport.Width - visual.width) * 0.5f) - visual.x;

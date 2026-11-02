@@ -14,6 +14,7 @@ namespace xiui
 
     private:
         uintptr_t time_function_{}, weather_address_{}, compass_rotation_function_{};
+        uintptr_t compass_state_slot_{}, compass_visibility_function_{};
         uint64_t next_environment_{}, next_markers_{};
         world_state state_{};
     };

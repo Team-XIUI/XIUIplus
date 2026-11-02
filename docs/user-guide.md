@@ -46,11 +46,19 @@ Installation and build instructions are in [Development](development.md). For so
 - Per-element native game HUD visibility controls, independent of XIUI module visibility
 - Explicit Direct3D8 state capture and restoration
 
+## Files and backups
+
+XIUI keeps its data in your Ashita install's `config/xiuinative/` folder: `settings.ini`, `theme.ini`, `profiles/`, `inventories/`, `sounds/` and optional `diagnostics/`. Back up this folder to preserve your setup, character links, imported profiles and saved inventories.
+
+Existing installations migrate automatically when XIUI loads. Existing files in the new layout take precedence; older conflicting files are preserved under `legacy/`. An interrupted migration retries on the next load. XIUI-generated sounds move into its own folder; referenced custom WAVs are copied from the shared `config/sounds` folder so other addons can keep using them. Shared Ashita files such as `imgui.ini` stay in place. License notices stay embedded in the DLL; older generated copies are cleaned up automatically.
+
 ## Share profiles
 
 Open the three-dot menu beside the profile selector and choose **Share profile → Save file**. Attach the saved `.xiui` file in Discord or another message. It includes your layout and module settings; character bindings, session totals and local controller-device settings stay private.
 
 To use a shared file, choose **Import profile → Choose file**, select the `.xiui` file, choose a name and click **Import**. This creates and selects a separate profile while keeping your existing profiles. **Ctrl+O** opens the file chooser. **Paste old key** or **Ctrl+V** still accepts previously shared keys. XIUI Lua imports remain on the **XIUI Lua** tab.
+
+File selection and processing run in the background. The dialog shows its status and keeps Cancel available; cancelling an import leaves your current profile untouched. File selection uses Windows mouse/keyboard controls. Large profiles use files instead of generating long clipboard keys.
 
 ## Commands
 
@@ -61,7 +69,7 @@ To use a shared file, choose **Import profile → Choose file**, select the `.xi
 - `/xiui reload` — force settings and theme reload
 - `/xiui reset` — reset settings and panel positions
 - `/xiui status` — show stable-host, runtime, text path, visibility, and edit status
-- `/xiui rings capture` — record a short Target Rings shader compatibility report; the saved file appears under `logs/xiui/`. Optional `stop` finishes early and `status` shows progress or the last saved path. See [Target Rings](reference/target-rings.md).
+- `/xiui rings capture` — record a short Target Rings shader compatibility report; the saved file appears under `config/xiuinative/diagnostics/`. Optional `stop` finishes early and `status` shows progress or the last saved path. See [Target Rings](reference/target-rings.md).
 - `/xiui focus` — open the controller focus picker; `focus chat|chat2|party|enemies|target|buffs|debuffs|config|readycheck|equipment|off` selects or leaves a surface
 - `/xiui controller` — open General → Input; `controller status` prints device and mapping observations
 - `/xiui chat` — configure the Chat module; `chat show|hide|clear|status` controls it

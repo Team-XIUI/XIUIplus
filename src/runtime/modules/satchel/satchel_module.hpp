@@ -26,6 +26,9 @@ namespace xiui
         auto DisplayName(void) const -> const char* override { return "Satchel"; }
         auto State(void) -> module_state& override { return this->state_; }
         auto State(void) const -> const module_state& override { return this->state_; }
+        auto CanMove(void) const -> bool override { return !this->position_locked_; }
+        auto ConfigScaleEditable(void) const -> bool override { return !this->position_locked_; }
+        auto EditGrip(void) const -> edit_grip_kind override { return this->position_locked_ ? edit_grip_kind::none : edit_grip_kind::scale; }
         auto Initialize(IAshitaCore*, satchel_source*, satchel_cache*, satchel_actions*) -> void;
         auto SetSounds(ui::native_ui_sounds* sounds) -> void { this->sounds_ = sounds; }
         auto SetFocusStyle(const ui::focus_frame_style& style) -> void { this->focus_style_ = style; }
@@ -58,7 +61,7 @@ namespace xiui
         auto ResetDefaults(const ui::theme&) -> void override;
         auto Load(const settings_store&) -> void override;
         auto Save(const settings_store&) const -> void override;
-        auto ContentOptionCount(void) const -> size_t override { return base_options + text_profile_option_count; }
+        auto ContentOptionCount(void) const -> size_t override { return slot_opacity + 1; }
         auto ContentOption(size_t) -> module_option override;
         auto ConfigSections(void) const -> std::span<const module_config_section> override;
         auto ContentConfigSectionContains(size_t, size_t) -> bool override;
@@ -73,6 +76,7 @@ namespace xiui
 #endif
         enum option : size_t { enabled, override_command, empty_slots, all_bags_search, tooltips, restricted, autosort,
             columns, rows, icon_size, spacing, sort, background, frames, opacity, padding, selected_text, base_options };
+        static constexpr size_t lock_position = base_options + text_profile_option_count, slot_opacity = lock_position + 1;
         enum class region : uint8_t { grid, bags, character, slips, search, help, minimize, move, resize, close, count };
         enum class dialog : uint8_t { none, characters, slips, actions, destinations, quantity, price, equipment, drop };
         enum class window_action : uint8_t { none, move, resize };
@@ -83,6 +87,7 @@ namespace xiui
         module_state state_{true, {-1, -1, 576, 456}, 330, 200};
         ui::rect viewport_{};
         ui::rect window_start_{};
+        ui::rect action_anchor_{};
         float width_{}, height_{};
         float window_columns_{}, window_rows_{};
         window_action window_action_{};
@@ -94,19 +99,21 @@ namespace xiui
         const ui::config_text_settings* config_text_{};
         ui::focus_frame_style focus_style_{};
         std::array<module_text_profile, 4> text_{};
-        ui::container_style container_{1, 5, 8, false};
+        ui::container_style container_{0.35f, 5, 8, false};
         bool opened_{}, override_satchel_{}, empty_slots_{true}, all_bags_search_{true}, tooltips_{true}, restricted_{}, autosort_{};
         bool background_{true}, frames_{true}, controller_{}, keyboard_{}, settings_changed_{}, pointer_down_{}, dragging_{}, discard_pointer_release_{};
-        bool help_open_{}, minimized_{}, navigation_focus_{};
+        bool help_open_{}, minimized_{}, navigation_focus_{}, position_locked_{};
+        float slot_opacity_{0.8f};
         int sidebar_scroll_{};
         scroll_area scrolling_{};
         float scroll_grab_{};
         float columns_{10}, rows_{5}, icon_size_{32}, spacing_{5}, hover_x_{-1}, hover_y_{-1}, down_x_{}, down_y_{};
         int sort_{}, selected_text_{}, bag_{0}, slip_{-1};
         size_t page_{}, focus_cell_{}, pick_index_{}, pick_page_{}, focused_pick_{};
+        std::optional<size_t> pressed_pick_{};
         region region_{region::grid};
         dialog dialog_{};
-        std::string character_{}, query_{}, message_{}, view_identity_{}, action_identity_{}, down_key_{};
+        std::string character_{}, query_{}, message_{}, view_identity_{}, action_identity_{}, action_name_{}, down_key_{};
         ui::text_input editor_{};
         std::vector<cell> cells_{};
         std::vector<pick> picks_{};
@@ -163,9 +170,11 @@ namespace xiui
         auto CloseBounds(void) const -> ui::rect;
         auto DialogBounds(void) const -> ui::rect;
         auto PickBounds(size_t) const -> ui::rect;
+        auto ItemMenuOpen(void) const -> bool { return this->dialog_ == dialog::actions || this->dialog_ == dialog::destinations || this->dialog_ == dialog::equipment; }
         auto FocusBounds(void) const -> ui::rect;
         auto OpenPicker(dialog) -> void;
-        auto OpenActions(const satchel_item&) -> void;
+        auto OpenActions(const satchel_item&, std::optional<ui::point> pointer = {}) -> void;
+        auto ShowActions(bool returning = false) -> void;
         auto SelectPick(void) -> void;
         auto CancelDialog(void) -> void;
         auto StartAction(int) -> void;

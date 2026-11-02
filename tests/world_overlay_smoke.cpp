@@ -107,7 +107,7 @@ namespace xiui
             Check(currentShader==alternateShader && currentView._41==view._41, "shader inspection preserves native device state");
             Check(host.HandleCommand(0,"/xiui rings capture stop",false), "manual stop command"); present();
             host.ring_capture_.Shutdown();
-            const auto folder=captureRoot/"logs"/"xiui";
+            const auto folder=captureRoot/"config"/"xiuinative"/"diagnostics";
             std::vector<std::filesystem::path> reports;
             for (const auto& entry : std::filesystem::directory_iterator(folder)) if (entry.path().extension()==".json") reports.push_back(entry.path());
             Check(reports.size()==1, "one completed report is atomically saved");

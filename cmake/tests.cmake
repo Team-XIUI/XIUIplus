@@ -2,6 +2,10 @@ add_executable(xiui_single_dll_smoke tests/single_dll_smoke.cpp)
 configure_xiui_target(xiui_single_dll_smoke)
 set_target_properties(xiui_single_dll_smoke PROPERTIES RUNTIME_OUTPUT_DIRECTORY "${CMAKE_SOURCE_DIR}/bin/tests")
 
+add_executable(xiui_storage_paths_smoke tests/storage_paths_smoke.cpp src/runtime/settings/storage_paths.cpp src/runtime/settings/settings_store.cpp)
+configure_xiui_target(xiui_storage_paths_smoke)
+set_target_properties(xiui_storage_paths_smoke PROPERTIES RUNTIME_OUTPUT_DIRECTORY "${CMAKE_SOURCE_DIR}/bin/tests")
+
 set(XIUI_SCENE_TEST_SOURCES ${XIUI_HOST_SOURCES})
 list(FILTER XIUI_SCENE_TEST_SOURCES EXCLUDE REGEX "\\.def$")
 add_executable(xiui_world_overlay_smoke tests/world_overlay_smoke.cpp ${XIUI_SCENE_TEST_SOURCES})

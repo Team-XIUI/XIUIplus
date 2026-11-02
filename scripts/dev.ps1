@@ -12,7 +12,7 @@ $BuildScript = Join-Path $PSScriptRoot 'build_all.ps1'
 $ThemeSource = Join-Path $Root 'config\xiuinative-theme.ini'
 $Sdk = Resolve-XiuiSdk -PreferredPath $SdkPath
 $AshitaRoot = Resolve-XiuiInstallPath -PreferredPath $InstallPath
-$InstalledTheme = Join-Path $AshitaRoot 'config\xiuinative-theme.ini'
+$InstalledTheme = Join-Path $AshitaRoot 'config\xiuinative\theme.ini'
 
 function Get-Fingerprint {
     param([string[]]$Paths)

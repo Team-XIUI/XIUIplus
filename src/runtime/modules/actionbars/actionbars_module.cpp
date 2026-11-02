@@ -493,7 +493,7 @@ namespace xiui
         case skillchain_rules: return module_option::Choice("Skillchain rules", "Shared combat profile for predictions, debuff estimates and Phantom Roll base values. Phoenix uses its 75-cap rules. Changing rules clears combat observations.", this->CombatSettings().RulesChoice(), server_rule_names, 3);
         case magic_burst_settings: return module_option::Action("Magic Burst HUD", "Open the separate burst display's visibility, appearance and text settings.", "Open HUD settings");
         case enabled: return module_option::Toggle("Enabled", "Show this bar; other bars keep their own enabled state.", &bar.state.enabled).Ordered(-100);
-        case locked: return module_option::Toggle("Lock slot positions", "Prevent dragging existing actions. Click to activate; right-click for slot options.", &bar.locked).Ordered(-90);
+        case locked: return module_option::Toggle("Lock slot positions", "Prevent dragging existing actions unless Shift is held when clicking. Click to activate; right-click for slot options.", &bar.locked).Ordered(-90);
         case edit: { auto option = module_option::Action("Actions & macros", "Open Actions & Macros from the destination tabs.", "Open library").Ordered(-70); option.available = false; return option; }
         case palettes: { auto option = module_option::Action("Action sets", "Open Action Sets from the destination tabs.", "Manage sets").Ordered(-60); option.available = false; return option; }
         case import: { auto option = module_option::Action("Import Lua / tHotBar / tCrossBar", "Open Import from the destination tabs.", "Preview import"); option.available = false; return option; }
@@ -663,7 +663,7 @@ namespace xiui
     {
         this->FinishWindowGesture(false); this->window_focused_ = false;
         if (this->pointer_down_) this->discard_pointer_release_ = true;
-        this->pointer_down_ = this->bar_pointer_down_ = this->dragging_ = this->browsing_ = this->navigation_focus_ = this->binding_capture_ = this->scrolling_ = false;
+        this->pointer_down_ = this->bar_pointer_down_ = this->dragging_ = this->shift_drag_ = this->browsing_ = this->navigation_focus_ = this->binding_capture_ = this->scrolling_ = false;
         this->library_popup_.reset();
         this->input_.Cancel(); this->editing_field_ = 0; this->dialog_ = dialog::none;
         this->CancelSetupControls();
@@ -806,10 +806,11 @@ namespace xiui
         this->draft_ = this->results_[index];
         this->input_.Cancel(); this->editing_field_ = 0;
         if (this->navigation_focus_) this->placing_ = true;
-        else if (this->AssignAction(this->selected_, this->draft_)) this->CloseDialog();
+        else this->AssignAction(this->selected_, this->draft_);
     }
     auto actionbars_module::NewDraft(const action_kind kind) -> void
     {
+        this->RememberLibrary();
         this->editor_options_ = this->editor_recast_ = false; this->editor_new_ = true;
         this->library_edit_ = false; this->library_draft_ = kind == action_kind::macro;
         this->draft_ = {}; this->draft_.kind = kind; this->draft_.target = "<t>";
@@ -838,6 +839,7 @@ namespace xiui
         if (this->store_ && this->store_->Assign(this->selected_.surface, this->selected_.bar, this->selected_.slot, this->draft_, this->draft_pet_))
         {
             this->Presentation(this->selected_).state.enabled = true; this->settings_changed_ = true; this->CloseDialog();
+            if (this->dialog_ == dialog::picker) this->RebuildResults();
         }
         else this->Notice("The action could not be saved in this context.");
     }
@@ -848,7 +850,7 @@ namespace xiui
         this->CancelSetupControls();
         this->dialog_ = dialog::none; this->library_edit_ = false; this->navigation_focus_ = this->browsing_;
         if (this->pointer_down_) this->discard_pointer_release_ = true;
-        this->pointer_down_ = this->bar_pointer_down_ = this->dragging_ = this->scrolling_ = false; this->pressed_control_ = 0;
+        this->pointer_down_ = this->bar_pointer_down_ = this->dragging_ = this->shift_drag_ = this->scrolling_ = false; this->pressed_control_ = 0;
         this->library_drag_.reset(); this->library_pressed_.reset(); this->placing_ = false;
         if (this->library_popup_)
         {
@@ -1395,7 +1397,11 @@ namespace xiui
         if (this->placing_)
         {
             if (action == controller_action::cancel) { this->placing_ = false; this->focused_control_ = result_first + static_cast<int>(this->focused_result_); }
-            else if (action == controller_action::confirm) { if (this->AssignAction(this->selected_, this->draft_)) this->CloseDialog(); }
+            else if (action == controller_action::confirm)
+            {
+                if (this->AssignAction(this->selected_, this->draft_))
+                { this->placing_ = false; this->focused_control_ = result_first + static_cast<int>(this->focused_result_); }
+            }
             else this->MoveAssignment(action);
             return true;
         }
@@ -1732,6 +1738,7 @@ namespace xiui
             }
             const auto hit = this->HitTest(x, y); if (!hit) return false;
             this->pointer_down_ = this->bar_pointer_down_ = true; this->dragging_ = false; this->pressed_ = hit->slot; this->down_header_ = hit->header;
+            this->shift_drag_ = hit->header == 0 && (wParam & MK_SHIFT) != 0;
             if (this->dialog_ == dialog::none) this->selected_ = hit->slot;
             this->down_x_ = x; this->down_y_ = y; this->pressed_control_ = 0;
             return true;
@@ -1740,7 +1747,7 @@ namespace xiui
         {
             if (this->library_pressed_ && *this->library_pressed_ < this->results_.size() && std::hypot(x - this->down_x_, y - this->down_y_) >= 6)
                 this->library_drag_ = this->results_[*this->library_pressed_];
-            if (this->bar_pointer_down_ && this->down_header_ == 0 && !this->Presentation(this->pressed_).locked && std::hypot(x - this->down_x_, y - this->down_y_) >= 6)
+            if (this->bar_pointer_down_ && this->down_header_ == 0 && (!this->Presentation(this->pressed_).locked || this->shift_drag_) && std::hypot(x - this->down_x_, y - this->down_y_) >= 6)
                 this->dragging_ = true;
             return true;
         }
@@ -1764,10 +1771,11 @@ namespace xiui
                 this->pressed_control_ = 0; return true;
             }
             const auto hit = this->BarPointerAvailable(x, y) ? this->HitTest(x, y) : std::nullopt;
+            const bool shiftDrag = std::exchange(this->shift_drag_, false);
             if (this->dragging_)
             {
                 this->dragging_ = false;
-                if (hit && hit->header == 0 && !this->Presentation(hit->slot).locked && this->store_)
+                if (hit && hit->header == 0 && (!this->Presentation(hit->slot).locked || shiftDrag) && this->store_)
                     this->store_->Swap(this->pressed_.surface, this->pressed_.bar, this->pressed_.slot, hit->slot.surface, hit->slot.bar, hit->slot.slot);
                 return true;
             }
@@ -1858,11 +1866,13 @@ namespace xiui
         if (!floating && this->FloatingWindowOpen())
         {
             const auto modal = this->dialog_; const auto focused = this->window_focused_, navigation = this->navigation_focus_;
-            if (this->library_popup_) this->SwapLibraryContext(*this->library_popup_);
-            this->dialog_ = this->WindowDialog(); this->window_focused_ = this->navigation_focus_ = false;
+            const auto parent = this->WindowDialog();
+            const bool library = parent == dialog::picker && this->library_popup_.has_value();
+            if (library) this->SwapLibraryContext(*this->library_popup_);
+            this->dialog_ = parent; this->window_focused_ = this->navigation_focus_ = false;
             this->RenderOverlay(context);
             this->dialog_ = modal; this->window_focused_ = focused; this->navigation_focus_ = navigation;
-            if (this->library_popup_) this->SwapLibraryContext(*this->library_popup_);
+            if (library) this->SwapLibraryContext(*this->library_popup_);
             design.FillRect(this->WindowBounds(), 0x50000000);
         }
         const auto bounds = this->DialogBounds();

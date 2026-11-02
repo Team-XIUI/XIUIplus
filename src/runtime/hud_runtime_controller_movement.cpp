@@ -21,7 +21,8 @@ namespace xiui
     {
         std::vector<hud_module*> modules;
         for (auto* module : this->modules_.All())
-            if (module->State().enabled && module->HasEditableBounds() && this->ModuleDisplayed(*module) && module->PositionBoundsReady()) modules.push_back(module);
+            if (module->State().enabled && module->HasEditableBounds() && (module->CanMove() || module->ConfigScaleEditable()) &&
+                this->ModuleDisplayed(*module) && module->PositionBoundsReady()) modules.push_back(module);
         std::sort(modules.begin(), modules.end(), [](const auto* left, const auto* right) { return std::strcmp(left->DisplayName(), right->DisplayName()) < 0; });
         return modules;
     }

@@ -1,4 +1,5 @@
 #include "ring_shader_capture.hpp"
+#include "settings/storage_paths.hpp"
 
 #include <Windows.h>
 #include <wrl/client.h>
@@ -146,7 +147,7 @@ namespace xiui
     ring_shader_capture::~ring_shader_capture() { this->Shutdown(); }
     ring_shader_capture::draw_scope::~draw_scope() { if (capture) capture->Record(device,result); }
     auto ring_shader_capture::Initialize(const std::filesystem::path& install, const char* version, const char* build) -> void
-    { state_->directory=install/"logs"/"xiui"; state_->version=version; state_->build=build; }
+    { state_->directory=storage_paths{install/"config"/"xiuinative"}.Diagnostics(); state_->version=version; state_->build=build; }
     auto ring_shader_capture::Request(const request value) noexcept -> void { state_->requests.fetch_or(static_cast<unsigned>(value),std::memory_order_release); }
     auto ring_shader_capture::Trace(IDirect3DDevice8* device) noexcept -> draw_scope { return {state_->active ? this : nullptr,device}; }
 

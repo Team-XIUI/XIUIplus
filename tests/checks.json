@@ -1,6 +1,12 @@
 {
   "checks": [
     {
+      "name": "storage-paths",
+      "target": "xiui_storage_paths_smoke",
+      "arguments": [],
+      "requires_arguments": false
+    },
+    {
       "name": "xiv1-theme",
       "target": "xiui_config_input_smoke",
       "arguments": ["--xiv1-theme-only"],

@@ -7,6 +7,7 @@
 #include "config/config_window_resize.hpp"
 #include "ui/sound_choices.hpp"
 #include "settings/settings_store.hpp"
+#include "settings/storage_paths.hpp"
 #include "Memory.h"
 
 #include <algorithm>
@@ -44,6 +45,71 @@ namespace
         const bool saved = ::WriteFile(file, text.data(), static_cast<DWORD>(text.size()), &written, nullptr) != FALSE && written == text.size();
         ::CloseHandle(file);
         if (!saved) ::DeleteFileA(path.c_str());
+    }
+
+    auto RemoveExtractedNotices(const xiui::storage_paths& storage) -> void
+    {
+        constexpr const wchar_t* notices[]{
+            L"XIVParty.txt",
+            L"XIUI-Notification-Icons.txt",
+            L"Kenney-Cursors.txt",
+            L"MinHook.txt",
+            L"Satchel-Storage-Slips.txt",
+            L"Satchel-MIT.txt",
+            L"libwebp.txt",
+            L"libwebp-PATENTS.txt",
+            L"miniz.txt",
+            L"ChatMon-Sounds.txt",
+            L"Grammara-Font.txt",
+            L"HeadsUp-Phoenix-Mob-Data.txt",
+            L"HeadsUp-Phoenix-GPL-3.0.txt",
+            L"MobDB-Damage-Icons.txt",
+            L"XIUI-Blue-Magic.txt",
+            L"XIUI-Icon-Themes-GPL-3.0.txt",
+            L"XIUI-Icon-Themes.txt",
+            L"XIUI-XIV-1.0-Artwork.txt",
+            L"XIUI-Pet-Portraits.txt",
+            L"XIUI-Minimap.txt",
+            L"Remapster-CC-BY-SA-4.0.txt",
+            L"XIUI-Action-Bar-Artwork.txt",
+            L"Vincerno-Macro-Icons.txt",
+            L"Vincerno-GPL-3.0.txt",
+            L"XIUI-Skillchains-Magic-Burst.txt",
+            L"Phoenix-Rules-Data.txt",
+            L"Phoenix-GPL-3.0.txt",
+        };
+        namespace fs = std::filesystem;
+        std::error_code error;
+        const auto boundary = fs::weakly_canonical(storage.root, error);
+        if (error) return;
+        for (const auto& directory : {storage.Licenses(), storage.root / "legacy/xiuinative-licenses", storage.root / "legacy/plugin-licenses"})
+        {
+            const auto attributes = ::GetFileAttributesW(directory.c_str());
+            if (attributes == INVALID_FILE_ATTRIBUTES || (attributes & FILE_ATTRIBUTE_DIRECTORY) == 0 || (attributes & FILE_ATTRIBUTE_REPARSE_POINT) != 0) continue;
+            const auto relative = fs::weakly_canonical(directory, error).lexically_relative(boundary);
+            if (error || relative.empty() || relative.is_absolute() || *relative.begin() == "..") continue;
+            for (fs::directory_iterator file{directory, error}, end; !error && file != end; file.increment(error))
+            {
+                const auto fileAttributes = ::GetFileAttributesW(file->path().c_str());
+                if (fileAttributes == INVALID_FILE_ATTRIBUTES || (fileAttributes & (FILE_ATTRIBUTE_REPARSE_POINT | FILE_ATTRIBUTE_DIRECTORY)) != 0) continue;
+                const auto name = file->path().filename().wstring();
+                for (const auto* filename : notices)
+                {
+                    const std::wstring original{filename};
+                    if (name != original && !(name.starts_with(original + L".") &&
+                        name.size() > original.size() + 1 && name.substr(original.size() + 1).find_first_not_of(L"0123456789") == name.npos)) continue;
+                    fs::remove(file->path(), error);
+                    error.clear(); break;
+                }
+            }
+            error.clear();
+            fs::remove(directory, error);
+            error.clear();
+        }
+        const auto legacy = storage.root / "legacy";
+        const auto attributes = ::GetFileAttributesW(legacy.c_str());
+        if (attributes != INVALID_FILE_ATTRIBUTES && (attributes & FILE_ATTRIBUTE_DIRECTORY) != 0 && (attributes & FILE_ATTRIBUTE_REPARSE_POINT) == 0)
+            fs::remove(legacy, error);
     }
 
     class render_frame_guard
@@ -305,44 +371,21 @@ namespace xiui
         const std::string resolvedInstallPath = installPath != nullptr && installPath[0] != '\0'
             ? installPath
             : (core != nullptr && core->GetInstallPath() != nullptr ? core->GetInstallPath() : ".");
-        const std::string configDirectory = resolvedInstallPath + "\\config";
-        ::CreateDirectoryA(configDirectory.c_str(), nullptr);
-        ::CreateDirectoryA((configDirectory + "\\sounds").c_str(), nullptr);
-        this->ready_check_.SetSoundDirectory(configDirectory + "\\sounds");
-        this->settings_path_ = configDirectory + "\\xiuinative.ini";
-        this->satchel_cache_.Initialize(configDirectory + "\\xiuinative-inventories");
+        storage_paths storage;
+        try { storage = PrepareStorage(resolvedInstallPath); }
+        catch (const std::exception& error)
+        {
+            if (core != nullptr && core->GetChatManager() != nullptr)
+                core->GetChatManager()->Writef(1, false, "[XIUI] Storage migration failed: %s", error.what());
+            throw;
+        }
+        this->ready_check_.SetSoundDirectory(storage.Sounds().string());
+        this->settings_path_ = storage.Settings().string();
+        this->satchel_cache_.Initialize(storage.Inventories().string());
         this->default_settings_text_ = LoadEmbeddedText(301);
-        const std::string themePath = configDirectory + "\\xiuinative-theme.ini";
+        const auto themePath = storage.Theme().string();
         SeedEmbeddedFile(302, themePath);
-        const auto notices = configDirectory + "\\xiuinative-licenses";
-        ::CreateDirectoryA(notices.c_str(), nullptr);
-        SeedEmbeddedFile(202, notices + "\\XIVParty.txt");
-        SeedEmbeddedFile(204, notices + "\\XIUI-Notification-Icons.txt");
-        SeedEmbeddedFile(303, notices + "\\Kenney-Cursors.txt");
-        SeedEmbeddedFile(304, notices + "\\MinHook.txt");
-        SeedEmbeddedFile(310, notices + "\\Satchel-Storage-Slips.txt");
-        SeedEmbeddedFile(311, notices + "\\Satchel-MIT.txt");
-        SeedEmbeddedFile(312, notices + "\\libwebp.txt");
-        SeedEmbeddedFile(313, notices + "\\libwebp-PATENTS.txt");
-        SeedEmbeddedFile(314, notices + "\\miniz.txt");
-        SeedEmbeddedFile(406, notices + "\\ChatMon-Sounds.txt");
-        SeedEmbeddedFile(502, notices + "\\Grammara-Font.txt");
-        SeedEmbeddedFile(702, notices + "\\HeadsUp-Phoenix-Mob-Data.txt");
-        SeedEmbeddedFile(703, notices + "\\HeadsUp-Phoenix-GPL-3.0.txt");
-        SeedEmbeddedFile(705, notices + "\\MobDB-Damage-Icons.txt");
-        SeedEmbeddedFile(602, notices + "\\XIUI-Blue-Magic.txt");
-        SeedEmbeddedFile(806, notices + "\\XIUI-Icon-Themes-GPL-3.0.txt");
-        SeedEmbeddedFile(807, notices + "\\XIUI-Icon-Themes.txt");
-        SeedEmbeddedFile(851, notices + "\\XIUI-XIV-1.0-Artwork.txt");
-        SeedEmbeddedFile(901, notices + "\\XIUI-Pet-Portraits.txt");
-        SeedEmbeddedFile(1001, notices + "\\XIUI-Minimap.txt");
-        SeedEmbeddedFile(1002, notices + "\\Remapster-CC-BY-SA-4.0.txt");
-        SeedEmbeddedFile(1101, notices + "\\XIUI-Action-Bar-Artwork.txt");
-        SeedEmbeddedFile(1103, notices + "\\Vincerno-Macro-Icons.txt");
-        SeedEmbeddedFile(1104, notices + "\\Vincerno-GPL-3.0.txt");
-        SeedEmbeddedFile(1201, notices + "\\XIUI-Skillchains-Magic-Burst.txt");
-        SeedEmbeddedFile(1202, notices + "\\Phoenix-Rules-Data.txt");
-        SeedEmbeddedFile(1203, notices + "\\Phoenix-GPL-3.0.txt");
+        RemoveExtractedNotices(storage);
         this->design_system_.SetThemePath(themePath.c_str());
         for (auto* module : this->modules_.All())
         {
@@ -365,6 +408,7 @@ namespace xiui
 
     auto hud_runtime::Shutdown(void) -> void
     {
+        this->profile_transfer_.Stop();
         this->SuspendActionBarsInput();
         this->action_executor_.Cancel();
         this->SuspendSatchelInput();
@@ -397,7 +441,11 @@ namespace xiui
     {
         startup_profile::scope timing(this->startup_profile_, "device resources", device != nullptr && device != this->device_);
         if (device == nullptr) { this->ReleaseControllerFocus(); this->SuspendSatchelInput(); }
-        if (device == nullptr) { this->FinishConfigInput(false); this->CloseProfileControls(); }
+        if (device == nullptr)
+        {
+            this->FinishConfigInput(false);
+            if (!this->profile_transfer_.Busy()) this->CloseProfileControls();
+        }
         this->device_ = device;
         const bool designReady = this->design_system_.SetDevice(device);
         const bool cursorReady = this->cursor_renderer_.SetDevice(device);
@@ -676,6 +724,7 @@ namespace xiui
 
     auto hud_runtime::ChatAt(const float x, const float y) -> chat_module*
     {
+        if (this->ModuleDisplayed(this->chat_) && this->chat_.ChannelPickerOpen()) return &this->chat_;
         if (this->ContextVisible(this->chat_) && this->chat_.HistoryExpanded() && this->chat_.HitTest(this->design_system_, x, y)) return &this->chat_;
         if (this->ContextVisible(this->chat_second_) && this->chat_second_.WindowVisible() && this->chat_second_.HitTest(this->design_system_, x, y)) return &this->chat_second_;
         if (this->ModuleDisplayed(this->chat_) && this->chat_.HitTest(this->design_system_, x, y)) return &this->chat_;
@@ -1623,10 +1672,10 @@ namespace xiui
                 const auto layout = this->window_config_.KeyboardLayout();
                 const char* layoutName = !layout ? "unavailable" : *layout == native_keyboard_layout::full ? "Full" :
                     *layout == native_keyboard_layout::compact1 ? "Compact 1" : "Compact 2";
-                this->core_->GetChatManager()->Writef(1, false, "[XIUI] Chat input: reply lookup %s; native chat handoff %s; native input status %u; editor %s; keyboard %s; layout %s.",
+                this->core_->GetChatManager()->Writef(1, false, "[XIUI] Chat input: reply lookup %s; native chat handoff %s; native input status %u; editor %s; keyboard %s; layout %s; destination %s.",
                     this->chat_input_.ReplyAvailable() ? "available" : "unavailable", this->chat_input_.HandoffAvailable() ? "available" : "unavailable",
                     this->core_->GetChatManager()->IsInputOpen(), this->ChatFocused() ? "focused" : "idle",
-                    keyboard != nullptr && keyboard->GetBlockInput() ? "blocked" : "available", layoutName);
+                    keyboard != nullptr && keyboard->GetBlockInput() ? "blocked" : "available", layoutName, this->chat_.SendChannelLabel().c_str());
                 this->core_->GetChatManager()->Writef(1, false, "[XIUI] Chat routing: replacement %s; native menu %s; subtarget %u; action target %u; target menu %u; action type %u; action ID %u.",
                     this->chat_capture_available_ && (this->game_hud_.HiddenMask() & NativeHudBit(native_hud_element::chat1)) != 0 ? "enabled" : "disabled",
                     this->native_ui_.menu_visible ? "visible" : "hidden", target != nullptr ? target->GetIsSubTargetActive() : 0,
@@ -2179,7 +2228,7 @@ namespace xiui
             const bool config = this->editing_ && (this->ProfileSurface(viewport) || this->config_.choice_input.Opened() || Contains(this->ConfigVisibleBounds(), x, y) ||
                 (this->config_.active_color != nullptr && Contains(this->ConfigLayout().ColorEditor(viewport), x, y)));
             if (!config)
-                if (auto* chat = this->ChatAt(x, y); chat != nullptr) chat->SetHovered(Contains(chat->State().transform.Map(chat->State().bounds), x, y));
+                if (auto* chat = this->ChatAt(x, y); chat != nullptr) chat->SetHovered(Contains(chat->State().transform.Map(chat->State().bounds), x, y), x, y);
             target = config ? this->ConfigSoundTarget(viewport) : this->HudSoundTarget();
         }
         const bool enabled = active && this->interaction_ == interaction::none && !this->mouse_down_ &&
@@ -2523,6 +2572,7 @@ namespace xiui
         this->settings_error_reported_ = settingsFailed;
         const uint64_t now = ::GetTickCount64();
         this->UpdateCharacterProfile(now);
+        this->UpdateProfileTransfer();
         if (this->ContextVisible(this->chat_bubbles_)) this->chat_bubbles_.Update(this->core_, this->visibility_context_.dialogue_active, now);
         else this->chat_bubbles_.Clear();
         if (now >= this->next_chat_palette_update_)
@@ -2531,6 +2581,7 @@ namespace xiui
             this->chat_filters_.Refresh();
             const auto timestamps = this->window_config_.TimestampMode();
             this->chat_.SetInputContext(this->core_ != nullptr ? this->core_->GetChatManager() : nullptr);
+            this->chat_.SetNativeDestination(this->chat_input_.SendPrefix(), this->chat_input_.LastTeller());
             this->chat_.SetNativeTimestamps(timestamps);
             this->chat_second_.SetNativeTimestamps(timestamps);
             this->chat_.SetNativeWindowConfig(this->window_config_.ChatWindow());
@@ -2720,6 +2771,11 @@ namespace xiui
         if (this->SatchelInputAvailable(true)) this->satchel_.RenderOverlay(context);
         if (!floatingActions && (this->ActionBarsInputAvailable(false, true) || this->actionbars_.FloatingWindowOpen())) this->actionbars_.RenderOverlay(context);
         if (this->TreasureInputAvailable(true)) this->treasure_.RenderOverlay(context, this->general_.ConfigText(), static_cast<float>(this->mouse_x_), static_cast<float>(this->mouse_y_));
+        if (!this->editing_ && this->ModuleDisplayed(this->chat_) && this->chat_.ChannelPickerOpen())
+        {
+            const auto transform = this->design_system_.Transform(this->chat_.State().transform);
+            this->chat_.RenderChannelPicker(context);
+        }
         this->DrawSetup(snapshot, viewport);
         if (this->editing_ || this->chat_mouse_block_saved_) this->DrawCursor(viewport);
     }

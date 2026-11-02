@@ -74,7 +74,7 @@ namespace xiui
         bool member_status_{true};
         size_t focus_{}, selected_{};
         int selected_text_{};
-        ui::container_style container_{0.95f, 5, 10, false};
+        ui::container_style container_{0.35f, 5, 10, false};
         std::array<module_text_profile, 5> text_{};
         std::vector<control> controls_{};
         std::optional<pointer_press> pressed_{};

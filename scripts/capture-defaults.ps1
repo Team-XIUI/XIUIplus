@@ -14,9 +14,14 @@ $Root = Split-Path -Parent $PSScriptRoot
 if (-not $FromSaved -and $SettingsPath) { throw 'Use -FromSaved when selecting an existing settings file.' }
 if (-not $SettingsPath) {
     $PhoenixInstall = Resolve-XiuiInstallPath -PreferredPath $InstallPath
-    $SettingsPath = Join-Path $PhoenixInstall 'config/xiuinative.ini'
+    $SettingsPath = Join-Path $PhoenixInstall 'config/xiuinative/settings.ini'
+    $LegacySettings = Join-Path $PhoenixInstall 'config/xiuinative.ini'
+    if (-not (Test-Path -LiteralPath $SettingsPath) -and (Test-Path -LiteralPath $LegacySettings)) { $SettingsPath = $LegacySettings }
 }
-if (-not $ThemePath) { $ThemePath = Join-Path (Split-Path -Parent $SettingsPath) 'xiuinative-theme.ini' }
+if (-not $ThemePath) {
+    $ThemeName = if ((Split-Path -Leaf $SettingsPath) -eq 'xiuinative.ini') { 'xiuinative-theme.ini' } else { 'theme.ini' }
+    $ThemePath = Join-Path (Split-Path -Parent $SettingsPath) $ThemeName
+}
 if (-not $OutputPath) { $OutputPath = Join-Path $Root 'config/xiuinative-defaults.ini' }
 if (-not $ThemeOutputPath) { $ThemeOutputPath = Join-Path $Root 'config/xiuinative-theme.ini' }
 if (-not $FromSaved) {

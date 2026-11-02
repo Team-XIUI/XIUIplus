@@ -111,10 +111,25 @@ namespace xiui
             "profile files use the portable preference boundary and omit local character, session and device data")) return false;
         if (!check(DecodeProfileKey(" \n" + key.substr(0, 30) + "\n" + key.substr(30) + "\t", error).has_value(),
             "share keys tolerate whitespace introduced while copying")) return false;
+        const auto fenced = DecodeProfileKey("```text\r\n" + key + "\r\n```", error);
+        if (!check(fenced && fenced->preferences.ToIniText() == decoded->preferences.ToIniText() &&
+            !DecodeProfileKey("```\n" + key, error), "legacy keys accept complete chat code fences and reject truncated wrappers")) return false;
         auto damaged = key; damaged[6] = damaged[6] == '0' ? '1' : '0';
         if (!check(!DecodeProfileKey(damaged, error) && !DecodeProfileKey("XIUI2." + key.substr(6), error) &&
             !DecodeProfileKey(key + "!", error) && !DecodeProfileKey(std::string(maximum_profile_key + 1, 'a'), error),
             "damaged, unsupported and oversized keys are rejected")) return false;
+        const auto deltaText = [](std::string& out, std::string_view value) {
+            size_t size = value.size();
+            while (size >= 128) { out += static_cast<char>((size & 127) | 128); size >>= 7; }
+            out += static_cast<char>(size); out += value;
+        };
+        for (const auto& field : {std::pair{"PLAYER", "enabled"}, {"future", ";comment"}, {"future ", "option"}})
+        {
+            std::string unsafe; deltaText(unsafe, "Bad delta"); unsafe += '\x01'; unsafe += '\0';
+            deltaText(unsafe, field.first); deltaText(unsafe, field.second); deltaText(unsafe, "1");
+            if (!check(!profile_share_detail::DecodeDelta(unsafe), "compact imports reject colliding or ambiguous INI fields")) return false;
+        }
+        if (!check(!profile_share_detail::ValidName(std::string{"bad\xFF"}), "legacy profile names require valid UTF-8")) return false;
         auto bulky = settings_store::FromIniText("");
         std::string varied(512 * 1024, '\0'); uint32_t random = 0x12345678;
         constexpr std::string_view characters = "ABCDEFGHIJKLMNOPQRSTUVWXYZabcdefghijklmnopqrstuvwxyz0123456789-_";
@@ -141,7 +156,7 @@ namespace xiui
             ~cleanup()
             {
                 std::error_code ignored;
-                const auto directory = this->root / "xiuinative-profiles";
+                const auto directory = this->root / "profiles";
                 for (const auto& file : std::filesystem::directory_iterator{directory, ignored}) std::filesystem::remove(file.path(), ignored);
                 std::filesystem::remove(directory, ignored); std::filesystem::remove(this->root / "xiuinative.ini", ignored);
                 std::filesystem::remove(this->root / L"Shared-\u65E5\u672C.xiui", ignored);
@@ -153,6 +168,21 @@ namespace xiui
         runtime.config_.bounds = {30, 30, 1100, 600}; runtime.profiles_.Initialize(runtime.settings_path_);
         runtime.player_.State().bounds.x = 123; runtime.SaveSettings(); runtime.DrainSettings();
         const D3DVIEWPORT8 viewport{0, 0, 1600, 900, 0, 1};
+        const auto finishTransfer = [&] {
+            const auto deadline = std::chrono::steady_clock::now() + std::chrono::seconds{10};
+            while (runtime.profile_transfer_.Busy() && std::chrono::steady_clock::now() < deadline)
+            {
+                runtime.UpdateProfileTransfer();
+                if (runtime.profile_transfer_.Busy()) std::this_thread::sleep_for(std::chrono::milliseconds{1});
+            }
+            return !runtime.profile_transfer_.Busy();
+        };
+        const auto loadKey = [&](std::string_view value) {
+            return runtime.LoadProfileKey(value) && finishTransfer() && runtime.profile_import_.has_value();
+        };
+        const auto loadFile = [&](const std::filesystem::path& path) {
+            return runtime.LoadProfileFile(path) && finishTransfer() && runtime.profile_import_.has_value();
+        };
         const auto click = [&](const ui::rect& bounds) {
             runtime.mouse_x_ = static_cast<int>(bounds.x + 3); runtime.mouse_y_ = static_cast<int>(bounds.y + 3);
             runtime.ProcessPointerMessage(WM_LBUTTONDOWN, MK_LBUTTON, viewport);
@@ -177,12 +207,22 @@ namespace xiui
         if (!check(runtime.config_.focus.modal_item == 1 && runtime.profile_file_.empty(),
             "controller navigation reaches Save file and held confirmation cannot export repeatedly")) return false;
         const auto sharedPath = root / L"Shared-\u65E5\u672C.xiui";
-        if (!check(runtime.ExportProfileFile(sharedPath) && runtime.profile_file_ == sharedPath,
-            "Share saves a portable file to a Unicode path")) return false;
+        if (!check(runtime.ExportProfileFile(sharedPath) && runtime.profile_transfer_.Busy() && runtime.profile_file_.empty() &&
+            !runtime.ExportProfileFile(sharedPath), "export queues one background operation and rejects duplicate activation")) return false;
+        runtime.HandleControllerConfig(controller_action::down, false);
+        if (!check(runtime.config_.focus.modal_item == 0, "busy controller focus stays on Cancel")) return false;
+        runtime.player_.State().bounds.x = 777;
+        if (!check(finishTransfer() && runtime.profile_file_ == sharedPath, "background export saves to a Unicode path")) return false;
+        runtime.player_.State().bounds.x = 123;
         decoded = ReadProfileFile(sharedPath, error);
         if (!check(decoded && decoded->preferences.ReadRect("layout.player", {}).x == 123 &&
             !SaveProfileFile(sharedPath, "Too large", bulky, error) && ReadProfileFile(sharedPath, error).has_value(),
-            "full runtime snapshots round trip through files and rejected exports preserve an existing file")) return false;
+            "exports use the captured snapshot, and rejected exports preserve an existing file")) return false;
+        std::stop_source cancelledExport; cancelledExport.request_stop();
+        const bool cancelledSaved = SaveProfileFile(sharedPath, "Cancelled", source, error, cancelledExport.get_token());
+        const auto afterCancel = ReadProfileFile(sharedPath, error);
+        if (!check(!cancelledSaved && afterCancel && afterCancel->preferences.ReadRect("layout.player", {}).x == 123,
+            "cancelled exports leave the existing destination intact")) return false;
         if (!check(!SaveProfileFile(root / "missing" / "profile.xiui", "Missing folder", source, error) &&
             !ReadProfileFile(root / "missing.xiui", error), "unwritable destinations and missing imports report failure")) return false;
         runtime.HandleProfileKey(VK_ESCAPE, 0);
@@ -196,16 +236,29 @@ namespace xiui
         if (!check(runtime.config_.focus.modal_item == 2, "controller focus skips disabled Import and reaches Choose file")) return false;
         runtime.mouse_x_ = static_cast<int>(dialog.Browse().x + 3); runtime.mouse_y_ = static_cast<int>(dialog.Browse().y + 3);
         if (!check(runtime.ProfileSoundTarget(viewport) == (0xF000000000000000ULL | 14), "mouse and controller expose the file chooser")) return false;
-        if (!check(runtime.LoadProfileKey(" \n" + completeKey.substr(0, 30) + "\n" + completeKey.substr(30)) && runtime.profile_legacy_import_,
+        if (!check(loadKey(" \n" + completeKey.substr(0, 30) + "\n" + completeKey.substr(30)) && runtime.profile_legacy_import_,
             "legacy wrapped keys remain importable without keeping a giant key in the dialog")) return false;
-        if (!check(runtime.LoadProfileKey(completeKey) && runtime.profile_name_.Editor().Text() == "Default 2" &&
-            !runtime.LoadProfileKey("damaged") && !runtime.CreateProfile() && runtime.profiles_.Entries().size() == 2 && runtime.player_.State().bounds.x == 123,
+        if (!check(loadKey(completeKey) && runtime.profile_name_.Editor().Text() == "Default 2" &&
+            !loadKey("damaged") && !runtime.profile_error_.empty() && !runtime.CreateProfile() && runtime.profiles_.Entries().size() == 2 && runtime.player_.State().bounds.x == 123,
             "imports suggest unique names and invalid keys cannot create or overwrite profiles")) return false;
         { std::ofstream file{root / "damaged.xiui", std::ios::binary}; file << damagedFile; }
-        if (!check(runtime.LoadProfileFile(sharedPath) && !runtime.profile_legacy_import_ && !runtime.LoadProfileFile(root / "damaged.xiui") &&
+        if (!check(loadFile(sharedPath) && !runtime.profile_legacy_import_ && !loadFile(root / "damaged.xiui") && !runtime.profile_error_.empty() &&
             !runtime.CreateProfile() && runtime.profiles_.Entries().size() == 2,
             "a damaged replacement file clears the preview and cannot import stale preferences")) return false;
-        if (!check(runtime.LoadProfileFile(sharedPath) && runtime.CreateProfile() && runtime.profiles_.Current().name == "Default 2" &&
+        if (!check(runtime.LoadProfileFile(sharedPath) && !runtime.CreateProfile(),
+            "pending background imports cannot create a profile before validation")) return false;
+        runtime.HandleControllerConfig(controller_action::cancel, false);
+        runtime.OpenProfileDialog(hud_runtime::profile_dialog::import_profile);
+        if (!check(finishTransfer() && !runtime.profile_import_ && runtime.profile_file_.empty(),
+            "closing and reopening discards late results without changing the new dialog")) return false;
+        if (!check(runtime.LoadProfileKey(completeKey), "legacy decoding starts in the background")) return false;
+        runtime.SetProfileImportSource(false);
+        if (!check(finishTransfer() && !runtime.profile_import_, "changing import source discards pending key results")) return false;
+        if (!check(runtime.LoadProfileFile(sharedPath), "file import starts before a device reset")) return false;
+        runtime.SetDevice(nullptr);
+        if (!check(runtime.profile_name_.Focused() && finishTransfer() && runtime.profile_import_,
+            "device loss during Windows file selection preserves the dialog and pending transfer")) return false;
+        if (!check(runtime.CreateProfile() && runtime.profiles_.Current().name == "Default 2" &&
             runtime.profiles_.Entries().size() == 3 && runtime.player_.State().bounds.x == 123 && runtime.SelectProfile(1) && runtime.player_.State().bounds.x == 321,
             "file import creates a separate profile while preserving existing originals and duplicates")) return false;
         runtime.FlushSettings(); runtime.editing_ = false;
@@ -222,7 +275,7 @@ namespace xiui
             ~cleanup()
             {
                 std::error_code error;
-                const auto profiles = this->root / "xiuinative-profiles";
+                const auto profiles = this->root / "profiles";
                 for (const auto& file : std::filesystem::directory_iterator{profiles, error}) std::filesystem::remove(file.path(), error);
                 std::filesystem::remove(profiles, error);
                 std::filesystem::remove(this->root / "xiuinative.ini", error);
@@ -313,7 +366,7 @@ namespace xiui
             ~cleanup()
             {
                 std::error_code error;
-                const auto profiles = this->root / "xiuinative-profiles";
+                const auto profiles = this->root / "profiles";
                 for (const auto& file : std::filesystem::directory_iterator{profiles, error}) std::filesystem::remove(file.path(), error);
                 std::filesystem::remove(profiles, error);
                 std::filesystem::remove(this->root / "xiuinative.ini", error);
@@ -442,7 +495,7 @@ namespace xiui
             ~cleanup()
             {
                 std::error_code error;
-                const auto profiles = this->root / "xiuinative-profiles";
+                const auto profiles = this->root / "profiles";
                 for (const auto& file : std::filesystem::directory_iterator{profiles, error}) std::filesystem::remove(file.path(), error);
                 std::filesystem::remove(profiles, error);
                 std::filesystem::remove(this->root / "xiuinative.ini", error);

@@ -283,7 +283,7 @@ namespace xiui
         size_t view_{}, result_scroll_{}, palette_scroll_{}, line_scroll_{}, focused_result_{};
         int selected_bank_{}, selected_text_{}, selected_bar_{}, storage_scope_{}, category_{}, target_{}, editor_kind_{}, editor_equipment_{}, prompt_theme_{}, shape_{};
         int focused_control_{}, editing_field_{}, name_action_{}, setup_step_{}, setup_backend_{}, setup_preset_{}, pressed_control_{}, down_header_{};
-        bool storage_pet_{}, browsing_{}, navigation_focus_{}, pointer_down_{}, bar_pointer_down_{}, dragging_{}, discard_pointer_release_{};
+        bool storage_pet_{}, browsing_{}, navigation_focus_{}, pointer_down_{}, bar_pointer_down_{}, dragging_{}, shift_drag_{}, discard_pointer_release_{};
         bool shared_expanded_{}, engaged_{};
         int crossbar_visibility_{};
         float crossbar_delay_{5}, crossbar_fade_{0.15f}, crossbar_alpha_{1};

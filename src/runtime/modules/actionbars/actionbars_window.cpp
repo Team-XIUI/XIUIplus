@@ -21,10 +21,10 @@ namespace xiui
     { return value == dialog::picker || value == dialog::editor || value == dialog::palettes || value == dialog::import || value == dialog::setup || value == dialog::keybinds || value == dialog::icons; }
     auto actionbars_module::WindowDialog(void) const -> dialog
     {
-        if (this->library_popup_) return dialog::picker;
+        if (IsWindowDialog(this->dialog_)) return this->dialog_;
         if (this->dialog_ == dialog::name || this->dialog_ == dialog::delete_palette) return dialog::palettes;
         if (this->dialog_ == dialog::delete_macro) return dialog::editor;
-        return IsWindowDialog(this->dialog_) ? this->dialog_ : dialog::none;
+        return this->library_popup_ ? dialog::picker : dialog::none;
     }
     auto actionbars_module::WindowIndex(void) const -> size_t
     {
@@ -219,7 +219,7 @@ namespace xiui
     {
         if (this->pointer_down_) this->discard_pointer_release_ = true;
         this->FinishWindowGesture(false);
-        this->pointer_down_ = this->bar_pointer_down_ = this->dragging_ = this->scrolling_ = false;
+        this->pointer_down_ = this->bar_pointer_down_ = this->dragging_ = this->shift_drag_ = this->scrolling_ = false;
         this->CancelSetupControls();
         this->library_drag_.reset(); this->library_pressed_.reset(); this->pressed_control_ = 0;
     }

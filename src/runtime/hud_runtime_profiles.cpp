@@ -1,15 +1,11 @@
 #include "hud_runtime.hpp"
 #include "settings/profile_share.hpp"
-#include "settings/profile_file.hpp"
 #include "config/clipboard.hpp"
 #include "chat/chat_encoding.hpp"
 #include "ui/text_fit.hpp"
 
 #include <algorithm>
-#include <commdlg.h>
 #include <string_view>
-
-#pragma comment(lib, "comdlg32.lib")
 
 namespace
 {
@@ -90,6 +86,7 @@ namespace xiui
 
     auto hud_runtime::CloseProfileControls(void) -> void
     {
+        this->profile_transfer_.Cancel();
         this->config_.focus.modal_item = 0;
         this->config_.focus.modal_id.clear();
         this->profile_name_.Cancel();
@@ -200,12 +197,7 @@ namespace xiui
         }
         if (mode == profile_dialog::duplicate) name = this->profiles_.UniqueName(this->profiles_.Current().name + " Copy");
         if (mode == profile_dialog::delete_profile || mode == profile_dialog::rename) name = this->profiles_.Current().name;
-        if (mode == profile_dialog::share)
-        {
-            this->SaveSettings();
-            if (!this->DrainSettings()) { this->profile_error_ = "Could not save this profile. Try again."; return false; }
-            name = this->profiles_.Current().name;
-        }
+        if (mode == profile_dialog::share) name = this->profiles_.Current().name;
         this->profile_name_.Open(std::move(name));
         this->ui_sounds_.MenuOpened(::GetTickCount64());
         return true;
@@ -236,63 +228,96 @@ namespace xiui
         }
     }
 
+    auto hud_runtime::StartProfileTransfer(profile_transfer_request request) -> bool
+    {
+        if (this->profile_transfer_.Busy()) return false;
+        this->profile_file_.clear();
+        if (request.kind == profile_transfer_kind::import_file || request.kind == profile_transfer_kind::import_key)
+        {
+            this->profile_import_.reset(); this->profile_legacy_import_ = false;
+        }
+        this->profile_error_.clear();
+        this->config_.focus.modal_item = 0;
+        if (this->profile_transfer_.Start(std::move(request))) return true;
+        this->profile_error_ = "Could not start the file operation. Try again.";
+        return false;
+    }
+
+    auto hud_runtime::UpdateProfileTransfer() -> void
+    {
+        auto result = this->profile_transfer_.Take();
+        if (!result || !this->profile_name_.Focused()) return;
+        if (result->cancelled)
+        {
+            if (!result->stopped && this->profile_import_lua_) this->profile_lua_status_ = "File selection cancelled. Choose Scan or Browse to try again.";
+            return;
+        }
+        if (result->kind == profile_transfer_kind::scan_lua || result->kind == profile_transfer_kind::stage_lua)
+        {
+            if (!result->error.empty()) { this->profile_lua_status_ = std::move(result->error); return; }
+            if (result->lua_staged) { this->FinishLuaImport(*result->lua_staged); return; }
+            if (result->lua_preview)
+            {
+                if (!result->path.empty()) this->profile_lua_path_.Open(ToUtf8(result->path.wstring()), 2048);
+                this->profile_lua_preview_ = std::move(result->lua_preview);
+                this->profile_lua_report_text_ = std::move(result->lua_report);
+                this->profile_lua_report_.Reset();
+                this->profile_lua_status_ = this->profile_lua_preview_->error.empty() ? "Review the report, then import as new profiles." : this->profile_lua_preview_->error;
+            }
+            return;
+        }
+        if (!result->error.empty()) { this->profile_error_ = std::move(result->error); return; }
+        this->profile_error_.clear();
+        if (result->kind == profile_transfer_kind::export_file) this->profile_file_ = std::move(result->path);
+        else if (result->profile)
+        {
+            this->profile_name_.Open(this->profiles_.UniqueName(result->profile->name));
+            this->profile_import_ = std::move(result->profile->preferences);
+            this->profile_file_ = std::move(result->path);
+            this->profile_legacy_import_ = result->kind == profile_transfer_kind::import_key;
+        }
+    }
+
     auto hud_runtime::ExportProfileFile(const std::filesystem::path& path) -> bool
     {
-        if (!SaveProfileFile(path, this->profiles_.Current().name, this->CaptureSettings(), this->profile_error_)) return false;
-        this->profile_file_ = path;
-        return true;
+        if (this->profile_transfer_.Busy()) return false;
+        profile_transfer_request request;
+        request.kind = profile_transfer_kind::export_file; request.path = path;
+        request.name = this->profiles_.Current().name;
+        request.snapshot = this->CaptureSettings();
+        return this->StartProfileTransfer(std::move(request));
     }
 
     auto hud_runtime::BrowseProfileFile(const bool save) -> void
     {
-        std::array<wchar_t, 32768> filename{};
+        if (this->profile_transfer_.Busy()) return;
+        profile_transfer_request request;
+        request.kind = save ? profile_transfer_kind::export_file : profile_transfer_kind::import_file;
+        request.browse = true;
         if (save)
         {
-            auto name = FromUtf8(this->profiles_.Current().name);
-            for (auto& c : name) if (c < 32 || std::wstring_view{L"<>:\"/\\|?*"}.find(c) != std::wstring_view::npos) c = L'_';
-            const auto suggested = L"XIUI - " + name + L".xiui";
-            std::copy(suggested.begin(), suggested.end(), filename.begin());
+            request.name = this->profiles_.Current().name;
+            request.snapshot = this->CaptureSettings();
         }
-        OPENFILENAMEW dialog{}; dialog.lStructSize = sizeof(dialog);
-        const auto* properties = this->core_ != nullptr ? this->core_->GetProperties() : nullptr;
-        dialog.hwndOwner = properties != nullptr ? properties->GetFinalFantasyHwnd() : nullptr;
-        dialog.lpstrFilter = L"XIUI profile (*.xiui)\0*.xiui\0All files\0*.*\0";
-        dialog.lpstrDefExt = L"xiui";
-        dialog.lpstrFile = filename.data(); dialog.nMaxFile = static_cast<DWORD>(filename.size());
-        dialog.lpstrTitle = save ? L"Export XIUI profile" : L"Import XIUI profile";
-        dialog.Flags = OFN_EXPLORER | OFN_NOCHANGEDIR | OFN_PATHMUSTEXIST | (save ? OFN_OVERWRITEPROMPT : OFN_FILEMUSTEXIST);
-        if (save ? ::GetSaveFileNameW(&dialog) : ::GetOpenFileNameW(&dialog))
-        {
-            if (save) this->ExportProfileFile(filename.data());
-            else this->LoadProfileFile(filename.data());
-        }
-        else if (::CommDlgExtendedError() != 0) this->profile_error_ = "Could not open the file picker. Try again.";
+        this->StartProfileTransfer(std::move(request));
     }
 
     auto hud_runtime::LoadProfileFile(const std::filesystem::path& path) -> bool
     {
-        this->profile_import_.reset(); this->profile_file_.clear(); this->profile_legacy_import_ = false;
-        auto decoded = ReadProfileFile(path, this->profile_error_);
-        if (!decoded) return false;
-        this->profile_name_.Open(this->profiles_.UniqueName(decoded->name));
-        this->profile_import_ = std::move(decoded->preferences);
-        this->profile_file_ = path;
-        return true;
+        profile_transfer_request request; request.kind = profile_transfer_kind::import_file; request.path = path;
+        return this->StartProfileTransfer(std::move(request));
     }
 
     auto hud_runtime::LoadProfileKey(const std::string_view key) -> bool
     {
-        this->profile_import_.reset(); this->profile_file_.clear(); this->profile_legacy_import_ = false;
-        auto decoded = DecodeProfileKey(key, this->profile_error_);
-        if (!decoded) return false;
-        this->profile_name_.Open(this->profiles_.UniqueName(decoded->name));
-        this->profile_import_ = std::move(decoded->preferences);
-        this->profile_legacy_import_ = true;
-        return true;
+        if (this->profile_transfer_.Busy()) return false;
+        profile_transfer_request request; request.kind = profile_transfer_kind::import_key; request.key = key;
+        return this->StartProfileTransfer(std::move(request));
     }
 
     auto hud_runtime::PasteProfileKey(void) -> bool
     {
+        if (this->profile_transfer_.Busy()) return false;
         const auto* properties = this->core_ != nullptr ? this->core_->GetProperties() : nullptr;
         const auto key = ui::ReadClipboardText(properties != nullptr ? properties->GetFinalFantasyHwnd() : nullptr, maximum_profile_key);
         if (!key)
@@ -327,10 +352,11 @@ namespace xiui
             { const auto target = this->LuaImportTarget(viewport); return target != 0 ? profile_target | target : 0; }
             const bool extended = this->profile_dialog_ == profile_dialog::share || this->profile_dialog_ == profile_dialog::import_profile;
             const ui::profile_dialog_layout dialog{this->config_.bounds, viewport, extended};
-            if (this->profile_dialog_ != profile_dialog::share && this->profile_dialog_ != profile_dialog::delete_profile && !this->ConfirmingAction() && Contains(dialog.Field(), x, y)) return profile_target | 10;
             if (Contains(dialog.Cancel(), x, y)) return profile_target | 11;
-            if (Contains(dialog.Create(), x, y) && (this->profile_dialog_ != profile_dialog::import_profile || this->profile_import_)) return profile_target | 12;
             if (Contains(dialog.Close(), x, y)) return profile_target | 13;
+            if (this->profile_transfer_.Busy()) return 0;
+            if (this->profile_dialog_ != profile_dialog::share && this->profile_dialog_ != profile_dialog::delete_profile && !this->ConfirmingAction() && Contains(dialog.Field(), x, y)) return profile_target | 10;
+            if (Contains(dialog.Create(), x, y) && (this->profile_dialog_ != profile_dialog::import_profile || this->profile_import_)) return profile_target | 12;
             if (this->profile_dialog_ == profile_dialog::import_profile && Contains(dialog.Browse(), x, y)) return profile_target | 14;
             if (this->profile_dialog_ == profile_dialog::import_profile && Contains(dialog.Paste(), x, y)) return profile_target | 15;
             if (this->profile_dialog_ == profile_dialog::import_profile)
@@ -436,6 +462,7 @@ namespace xiui
         }
         if (this->profile_name_.Focused())
         {
+            if (this->profile_transfer_.Busy()) return true;
             if (this->profile_dialog_ == profile_dialog::import_profile && key == VK_TAB && (::GetKeyState(VK_CONTROL) & 0x8000) != 0 && !repeat)
             { this->SetProfileImportSource(true); return true; }
             if (this->profile_dialog_ == profile_dialog::delete_profile || this->ConfirmingAction())
@@ -500,6 +527,7 @@ namespace xiui
 
     auto hud_runtime::CreateProfile(void) -> bool
     {
+        if (this->profile_transfer_.Busy()) return false;
         if (this->profile_dialog_ == profile_dialog::import_profile && this->profile_import_lua_) return this->CreateLuaProfiles();
         if (this->profile_dialog_ == profile_dialog::import_profile && !this->profile_import_)
         { this->profile_error_ = "Choose a valid profile file first."; return false; }
@@ -653,6 +681,7 @@ namespace xiui
         const bool warning = moduleReset || confirmationOption.warning;
         const bool resetting = this->profile_dialog_ == profile_dialog::reset_defaults;
         const bool extended = sharing || importing;
+        const bool busy = this->profile_transfer_.Busy();
         const ui::profile_dialog_layout dialog{this->config_.bounds, viewport, extended};
         const auto bounds = dialog.Bounds();
         this->config_controls_.Panel(bounds);
@@ -698,8 +727,9 @@ namespace xiui
             if (importing)
             {
                 auto sourceStyle = caption; sourceStyle.alignment = ui::text_alignment::center;
-                this->config_controls_.Button(dialog.ImportSource(0), "Profile file", sourceStyle, true);
-                this->config_controls_.Button(dialog.ImportSource(1), "XIUI Lua", sourceStyle, Contains(dialog.ImportSource(1), x, y));
+                if (busy) sourceStyle.top_color = sourceStyle.bottom_color = (sourceStyle.top_color & 0x00FFFFFF) | 0x80000000;
+                this->config_controls_.Button(dialog.ImportSource(0), "Profile file", sourceStyle, !busy);
+                this->config_controls_.Button(dialog.ImportSource(1), "XIUI Lua", sourceStyle, !busy && Contains(dialog.ImportSource(1), x, y));
             }
             else this->config_controls_.Text("Profile file", dialog.SourceLabel(), caption);
             const auto source = dialog.Source();
@@ -712,14 +742,15 @@ namespace xiui
             this->config_controls_.Text(fitted.c_str(), fileBounds, body);
             this->config_controls_.Text(sharing ? "Includes your layout and module settings." : "Imports as a separate profile; existing profiles are kept.",
                 {source.x + 12, source.y + 50, source.width - 24, 24}, caption);
-            const char* status = sharing ? (this->profile_file_.empty() ? "Choose Save file to export your profile." : "File saved. Attach it to share your profile.") :
+            const char* status = busy ? (this->profile_transfer_.Selecting() ? "Choose a file in Windows, or Cancel here." : sharing ? "Saving profile..." : "Reading profile...") : sharing ? (this->profile_file_.empty() ? "Choose Save file to export your profile." : "File saved. Attach it to share your profile.") :
                 this->profile_import_ ? "Profile ready. Choose a name above, then Import." : "Choose a .xiui file, or press Ctrl+O.";
             this->config_controls_.Text(status, dialog.Status(), caption);
             auto action = body; action.alignment = ui::text_alignment::center;
             if (importing)
             {
-                this->config_controls_.Button(dialog.Browse(), "Choose file", action, Contains(dialog.Browse(), x, y));
-                this->config_controls_.Button(dialog.Paste(), "Paste old key", action, Contains(dialog.Paste(), x, y));
+                if (busy) action.top_color = action.bottom_color = (action.top_color & 0x00FFFFFF) | 0x80000000;
+                this->config_controls_.Button(dialog.Browse(), "Choose file", action, !busy && Contains(dialog.Browse(), x, y));
+                this->config_controls_.Button(dialog.Paste(), "Paste old key", action, !busy && Contains(dialog.Paste(), x, y));
             }
         }
         if (!this->profile_error_.empty())
@@ -729,9 +760,9 @@ namespace xiui
         }
         else if (deleting) this->config_controls_.Text("This cannot be undone.", dialog.Error(), caption);
         auto button = body; button.alignment = ui::text_alignment::center;
-        this->config_controls_.Button(dialog.Cancel(), sharing ? "Close" : "Cancel", button,
+        this->config_controls_.Button(dialog.Cancel(), sharing && !busy ? "Close" : "Cancel", button,
             Contains(dialog.Cancel(), x, y) || ((deleting || confirming) && this->profile_keyboard_selection_ == 0));
-        const bool available = !importing || this->profile_import_.has_value();
+        const bool available = !busy && (!importing || this->profile_import_.has_value());
         if (!available) button.top_color = button.bottom_color = (button.top_color & 0x00FFFFFF) | 0x80000000;
         this->config_controls_.Button(dialog.Create(), moduleReset ? "Reset settings" : warning ? confirmationOption.action_text : resetting ? "Reset" : confirming ? "Apply" : deleting ? "Delete" : sharing ? "Save file" : importing ? "Import" : duplicate ? "Duplicate" : renaming ? "Rename" : "Create", button,
             available && (Contains(dialog.Create(), x, y) || ((deleting || confirming) && this->profile_keyboard_selection_ == 1)),

@@ -36,7 +36,9 @@ namespace xiui
         this->member_status_ = store.ReadBool("treasure", "member_status", true);
         this->state_.bounds = store.ReadRect("layout.treasure", this->state_.bounds);
         this->state_.bounds.width = std::clamp(this->state_.bounds.width, 440.0f, 1000.0f);
-        this->container_.opacity = std::clamp(store.ReadFloat("treasure", "opacity", 0.95f), 0.0f, 1.0f);
+        this->container_.opacity = std::clamp(store.ReadFloat("treasure", "opacity", 0.35f), 0.0f, 1.0f);
+        if (store.ReadInt("treasure", "container_opacity_version", 0) < 1 && std::abs(this->container_.opacity - 0.95f) < 0.002f)
+            this->container_.opacity = 0.35f;
         this->container_.padding = std::clamp(store.ReadFloat("treasure", "padding", 10), 0.0f, 24.0f);
         this->selected_text_ = std::clamp(store.ReadInt("treasure", "selected_text", 0), 0, 4);
         for (size_t i = 0; i < 4; ++i) this->text_[i] = LoadTextProfile(store, text_sections[i], this->text_[i]);
@@ -52,6 +54,7 @@ namespace xiui
         store.WriteBool("treasure", "expanded", this->expanded_); store.WriteRect("layout.treasure", this->state_.bounds);
         store.WriteBool("treasure", "member_status", this->member_status_);
         store.WriteFloat("treasure", "opacity", this->container_.opacity); store.WriteFloat("treasure", "padding", this->container_.padding);
+        store.WriteInt("treasure", "container_opacity_version", 1);
         store.WriteInt("treasure", "selected_text", this->selected_text_);
         store.WriteInt("treasure", "presentation_version", 1);
         for (size_t i = 0; i < this->text_.size(); ++i) SaveTextProfile(store, text_sections[i], this->text_[i]);

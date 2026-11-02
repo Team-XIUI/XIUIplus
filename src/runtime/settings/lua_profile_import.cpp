@@ -5,6 +5,8 @@
 #include <cmath>
 #include <cstdio>
 #include <functional>
+#include <limits>
+#include <climits>
 #include <sstream>
 
 namespace xiui::lua_import
@@ -43,7 +45,13 @@ namespace xiui::lua_import
         }
         auto Argb(const lua_data::value& input) -> D3DCOLOR
         {
-            if (input.scalar_type == lua_data::scalar_kind::number) return static_cast<D3DCOLOR>(static_cast<uint64_t>(input.Number()));
+            if (input.type != lua_data::value::kind::scalar) throw std::runtime_error{"Expected a color value"};
+            if (input.scalar_type == lua_data::scalar_kind::number)
+            {
+                const auto value = input.Number(NAN);
+                if (!std::isfinite(value) || value < 0 || value > UINT32_MAX || std::floor(value) != value) throw std::runtime_error{"Color must be a 32-bit unsigned integer"};
+                return static_cast<D3DCOLOR>(value);
+            }
             auto hex = input.text; if (hex.starts_with('#')) hex.erase(0, 1);
             char* end{}; const auto number = std::strtoul(hex.c_str(), &end, 16);
             if (*end != '\0' || (hex.size() != 6 && hex.size() != 8)) throw std::runtime_error{"Invalid Lua color"};
@@ -64,8 +72,19 @@ namespace xiui::lua_import
         { this->Mark(std::string{path}, "unsupported: no Native equivalent for " + std::string{section} + "." + key); return; }
         const std::string group{section};
         if (item->scalar_type == lua_data::scalar_kind::boolean) this->result.preferences.WriteBool(group.c_str(), key, item->Boolean());
-        else if (item->scalar_type == lua_data::scalar_kind::number) this->result.preferences.WriteFloat(group.c_str(), key, static_cast<float>(item->Number() * multiplier));
-        else this->result.preferences.WriteString(group.c_str(), key, item->text);
+        else if (item->scalar_type == lua_data::scalar_kind::number)
+        {
+            const auto value = item->Number() * multiplier;
+            if (!std::isfinite(value) || std::abs(value) > std::numeric_limits<float>::max())
+            { this->Issue(lua_import_severity::error, std::string{path}, "Converted number exceeds Native's supported range."); return; }
+            this->result.preferences.WriteFloat(group.c_str(), key, static_cast<float>(value));
+        }
+        else
+        {
+            if (item->text.find_first_of("\r\n") != item->text.npos || item->text.find('\0') != item->text.npos)
+            { this->Issue(lua_import_severity::error, std::string{path}, "This setting cannot contain line breaks or NUL bytes."); return; }
+            this->result.preferences.WriteString(group.c_str(), key, item->text);
+        }
         this->Mark(std::string{path}, group + "." + key);
     }
     auto context::Maps(const std::string_view prefix, const std::string_view section, std::initializer_list<std::pair<const char*, const char*>> fields) -> void
@@ -156,6 +175,9 @@ namespace xiui
     {
         std::ostringstream out;
         out << this->name << " (XIUI Lua " << this->version << ")\n" << this->converted << " converted fields; " << this->internal << " internal fields; " << this->unresolved << " unsupported fields.\n";
+        const auto errors = std::count_if(this->issues.begin(), this->issues.end(), [](const auto& issue) { return issue.severity == lua_import_severity::error; });
+        const auto warnings = std::count_if(this->issues.begin(), this->issues.end(), [](const auto& issue) { return issue.severity == lua_import_severity::warning; });
+        out << errors << " blocking errors; " << warnings << " warnings.\n";
         for (const auto severity : {lua_import_severity::error, lua_import_severity::warning, lua_import_severity::information})
             for (const auto& issue : this->issues) if (issue.severity == severity) out << '\n' << issue.path << ": " << issue.message;
         return out.str();
@@ -164,8 +186,47 @@ namespace xiui
     {
         lua_import::context context{};
         context.source = lua_data::UserSettings(document);
-        context.source.MergeDefaults(lua_import::Defaults(version));
         context.result.name = std::move(name); context.result.version = std::string{version};
+        const auto schema = lua_import::Defaults(version);
+        const auto* wrapper = document.Find("userSettings");
+        if ((wrapper && wrapper->type != lua_data::value::kind::table) || context.source.type != lua_data::value::kind::table ||
+            (!wrapper && std::none_of(context.source.fields.begin(), context.source.fields.end(), [&](const auto& field) { return schema.Find(field.first) != nullptr; })))
+        { context.Issue(lua_import_severity::error, "profile", "This table does not contain XIUI saved settings."); return std::move(context.result); }
+        const auto validate = [&](const auto& self, lua_data::value& source, const lua_data::value& expected, const std::string& path) -> void {
+            using kind = lua_data::value::kind;
+            using scalar = lua_data::scalar_kind;
+            if (source.type == kind::nil) return;
+            if (source.type != expected.type)
+            { context.Issue(lua_import_severity::error, path, expected.type == kind::table ? "Expected a settings table." : "Expected a scalar setting."); return; }
+            if (source.type == kind::table)
+            {
+                for (auto& [key, child] : source.fields)
+                {
+                    const auto found = std::find_if(expected.fields.begin(), expected.fields.end(), [&](const auto& field) { return field.first == key && field.second.key_type == child.key_type; });
+                    if (found != expected.fields.end()) self(self, child, found->second, path.empty() ? key : path + "." + key);
+                }
+                return;
+            }
+            const bool color = expected.scalar_type != scalar::boolean && (path.starts_with("colorCustomization.") || path.find("Color") != path.npos);
+            if (color) return;
+            if (source.scalar_type != expected.scalar_type)
+            {
+                bool coerced{};
+                if (expected.scalar_type == scalar::number && source.scalar_type == scalar::string && std::isfinite(source.Number(NAN)))
+                { source.scalar_type = scalar::number; coerced = true; }
+                else if (expected.scalar_type == scalar::boolean &&
+                    ((source.scalar_type == scalar::string && (source.text == "true" || source.text == "false")) ||
+                     (source.scalar_type == scalar::number && (source.Number(NAN) == 0 || source.Number(NAN) == 1))))
+                { source.text = source.text == "true" || source.Number(NAN) == 1 ? "true" : "false"; source.scalar_type = scalar::boolean; coerced = true; }
+                context.Issue(coerced ? lua_import_severity::warning : lua_import_severity::error, path,
+                    coerced ? "Converted a legacy scalar to the expected setting type." : "Setting type does not match the source defaults.");
+            }
+            if (source.scalar_type == scalar::number && std::abs(source.Number()) > INT_MAX)
+                context.Issue(lua_import_severity::error, path, "Number exceeds the supported settings range.");
+        };
+        validate(validate, context.source, schema, "");
+        if (!context.result.Valid()) return std::move(context.result);
+        context.source.MergeDefaults(schema);
         context.result.preferences = nativeDefaults.Preferences("");
         context.defaults = nativeDefaults.Preferences("");
         context.scale = context.Number("globalScale", 1);

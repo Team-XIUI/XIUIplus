@@ -42,6 +42,18 @@ Require unload confirmation before replacement and a separate loaded/status resp
 
 `build_all.ps1` packages/installs standalone by default; `-SkipInstall` leaves its artifact uninstalled only when explicitly requested. It does not perform the AgentLink unload/reload steps itself.
 
+## Installed data
+
+`settings/storage_paths.*` owns `config/xiuinative/`: `settings.ini`, `theme.ini`, `profiles/`, `inventories/`, `sounds/` and optional `diagnostics/`. `PrepareStorage` runs before any runtime settings writer starts. It moves the old `config/xiuinative*` files/directories, the old development plugin notices and `logs/xiui` reports into that root. Existing destinations win; conflicting originals move to `legacy/`. Same-volume moves do not replace destinations. Partial failures abort initialization before settings are loaded and are safe to retry. A per-install mutex serializes migration across clients; linked paths that escape the data root are rejected.
+
+`storage.version` records the completed layout migration and avoids rereading profile sound references on every startup. Only XIUI-generated WAVs move out of shared `config/sounds`; referenced custom WAVs are copied, and unrelated files remain there. Lua setup discovery still reads `config/addons/xiui`. Profile IDs, character associations, saved values and inventory files retain their contents.
+
+The capture script reads `config/xiuinative/settings.ini` and `theme.ini`, with a fallback for older installed layouts or an explicitly selected saved snapshot. Repository preset/theme inputs keep their existing names. Development installers rely on the runtime to migrate and seed data; ordinary binary installation does not publish a theme over user settings.
+
+License notices remain embedded in the DLL. Startup no longer extracts them into the config directory; known generated filenames in the migrated licenses/legacy folders are removed across versions, and unrelated user-added files are preserved.
+
+Focused check: `./scripts/check.ps1 -Name storage-paths`. Standalone packaging also checks the new first-load locations.
+
 ## Optional isolated host/runtime development
 
 The two-DLL pair is only for an explicitly selected isolated development install. `./scripts/build_all.ps1 -Development -InstallPath <isolated-Phoenix-path>` installs it. `./scripts/dev.ps1 -InstallPath <isolated-Phoenix-path>` watches it. Never apply these to the normal active standalone install without selecting that mode.

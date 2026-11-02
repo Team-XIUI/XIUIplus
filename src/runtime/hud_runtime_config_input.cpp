@@ -435,7 +435,7 @@ namespace xiui
             if (this->EditGripAt(x, y) != nullptr) return cursor_shape::resize_diagonal;
             const auto& modules = this->modules_.All();
             for (auto module = modules.rbegin(); module != modules.rend(); ++module)
-                if ((*module)->HasEditableBounds() && this->ModuleDisplayed(**module) && Contains(this->MovementBounds(**module), x, y))
+                if ((*module)->HasEditableBounds() && (*module)->CanMove() && this->ModuleDisplayed(**module) && Contains(this->MovementBounds(**module), x, y))
                     return cursor_shape::move;
             return cursor_shape::arrow;
         };

@@ -1,6 +1,8 @@
 #include "settings_profiles.hpp"
 #include "layout_viewport.hpp"
+#include "storage_paths.hpp"
 #include "chat/chat_encoding.hpp"
+#include "modules/readycheck/ready_check_wav.hpp"
 
 #include <algorithm>
 #include <atomic>
@@ -40,6 +42,11 @@ namespace xiui
             target.WriteInt("target", "distance_color_version", source.ReadInt("target", "distance_color_version", 0));
         if (!source.ReadString("equipment", "background").empty() || !source.ReadString("equipment", "slot_frames").empty())
             target.WriteInt("equipment", "container_version", source.ReadInt("equipment", "container_version", 0));
+        for (const auto* section : {"satchel", "treasure"})
+            if (!source.ReadString(section, "opacity").empty())
+                target.WriteInt(section, "container_opacity_version", source.ReadInt(section, "container_opacity_version", 0));
+        if (!source.ReadString("satchel", "slot_background_opacity").empty())
+            target.WriteInt("satchel", "slot_background_version", source.ReadInt("satchel", "slot_background_version", 0));
         if (!source.ReadString("notifications.group2", "enabled").empty())
             target.WriteInt("notifications", "group2_enabled_version", source.ReadInt("notifications", "group2_enabled_version", 0));
         if (!source.ReadString("target.target_of_target", "placement").empty() || !source.ReadString("target.target_of_target", "arrow").empty())
@@ -125,7 +132,7 @@ namespace xiui
     {
         this->settings_path_ = settingsPath;
         this->entries_.clear(); this->selected_ = 0;
-        const auto directory = std::filesystem::path{settingsPath}.parent_path() / "xiuinative-profiles";
+        const auto directory = storage_paths{std::filesystem::path{settingsPath}.parent_path()}.Profiles();
         this->directory_ = directory.string();
         std::error_code error;
         std::filesystem::create_directories(directory, error);
@@ -228,14 +235,21 @@ namespace xiui
         return true;
     }
 
-    auto settings_profiles::Import(const std::span<const import_entry> profiles, const std::span<const import_file> archive,
-        std::vector<size_t>& created, std::string& reportPath, std::string& error) -> bool
+    settings_profiles::staged_import::~staged_import()
     {
-        created.clear(); reportPath.clear();
-        std::filesystem::path staging;
-        std::vector<std::filesystem::path> staged;
+        if (this->staging.empty()) return;
+        std::error_code ignored;
+        for (const auto& file : this->files) std::filesystem::remove(file, ignored);
+        std::filesystem::remove(this->staging, ignored);
+    }
+
+    auto settings_profiles::StageImport(const std::span<const import_entry> profiles, const std::span<const import_file> archive,
+        const std::span<const import_file> sounds, std::string& error, const std::stop_token stop) const -> std::unique_ptr<staged_import>
+    {
+        auto prepared = std::make_unique<staged_import>();
         try
         {
+            if (stop.stop_requested()) return {};
             if (!this->Ready() || profiles.empty()) throw std::runtime_error{"No profiles are ready to import."};
             std::vector<const import_entry*> pending;
             std::set<std::string> sources;
@@ -246,7 +260,7 @@ namespace xiui
                 });
                 if (!exists && sources.insert(profile.source_id).second) pending.push_back(&profile);
             }
-            if (pending.empty()) { error = "These source profiles have already been imported."; return false; }
+            if (pending.empty()) { error = "These source profiles have already been imported."; return {}; }
             if (this->entries_.size() + pending.size() > 128) throw std::runtime_error{"Import exceeds the 128-profile limit. Select fewer profiles."};
             FILETIME time{}; ::GetSystemTimeAsFileTime(&time);
             static std::atomic<uint32_t> serial{};
@@ -254,24 +268,29 @@ namespace xiui
             std::snprintf(batch, sizeof(batch), "%08X%08X-%08X-%08X", time.dwHighDateTime, time.dwLowDateTime,
                 ::GetCurrentProcessId(), serial.fetch_add(1));
             const auto root = std::filesystem::weakly_canonical(this->directory_);
-            staging = root / (std::string{"pending-lua-"} + batch);
-            const auto destination = root / (std::string{"lua-"} + batch);
+            const auto staging = root / (std::string{"pending-lua-"} + batch);
+            const auto destination = prepared->destination = root / (std::string{"lua-"} + batch);
+            if (std::filesystem::weakly_canonical(staging).parent_path() != root || std::filesystem::weakly_canonical(destination).parent_path() != root)
+                throw std::runtime_error{"Import path is outside the profile directory."};
             if (!std::filesystem::create_directory(staging)) throw std::runtime_error{"Could not stage the import."};
+            prepared->staging = staging;
             const auto write = [&](const std::string& name, const std::string_view bytes) {
+                if (stop.stop_requested()) throw std::runtime_error{"Import cancelled."};
                 if (name.empty() || name.find_first_of("/\\:") != std::string::npos || name == "." || name == "..") throw std::runtime_error{"Invalid archive filename."};
                 const auto path = staging / name;
                 const auto file = ::CreateFileW(path.c_str(), GENERIC_WRITE, 0, nullptr, CREATE_NEW, FILE_ATTRIBUTE_NORMAL, nullptr);
                 if (file == INVALID_HANDLE_VALUE) throw std::runtime_error{"Could not stage an import file."};
-                staged.push_back(path);
+                const std::unique_ptr<void, decltype(&::CloseHandle)> closeFile{file, &::CloseHandle};
+                prepared->files.push_back(path);
                 DWORD count{};
                 const bool success = bytes.size() <= MAXDWORD && ::WriteFile(file, bytes.data(), static_cast<DWORD>(bytes.size()), &count, nullptr) &&
                     count == bytes.size() && ::FlushFileBuffers(file);
-                ::CloseHandle(file);
                 if (!success) throw std::runtime_error{"Could not save the import. Existing profiles are unchanged."};
             };
-            std::vector<entry> entries;
+            auto& entries = prepared->entries;
             for (size_t i = 0; i < pending.size(); ++i)
             {
+                if (stop.stop_requested()) return {};
                 const auto& profile = *pending[i];
                 auto name = this->UniqueName(profile.name);
                 auto original = name;
@@ -298,19 +317,75 @@ namespace xiui
             }
             if (std::filesystem::weakly_canonical(staging).parent_path() != root || std::filesystem::weakly_canonical(destination).parent_path() != root)
                 throw std::runtime_error{"Import path is outside the profile directory."};
-            this->entries_.reserve(this->entries_.size() + entries.size()); created.reserve(entries.size());
-            auto savedReportPath = (destination / "report.txt").string();
-            if (!::MoveFileExW(staging.c_str(), destination.c_str(), MOVEFILE_WRITE_THROUGH)) throw std::runtime_error{"Could not publish the import. Existing profiles are unchanged."};
-            staging.clear();
-            for (auto& entry : entries) { created.push_back(this->entries_.size()); this->entries_.push_back(std::move(entry)); }
+            const auto soundRoot = storage_paths{std::filesystem::path{this->settings_path_}.parent_path()}.Sounds();
+            std::set<std::string> soundNames;
+            for (const auto& sound : sounds)
+            {
+                if (!ReadyCheckWavFilename(sound.name)) throw std::runtime_error{"Invalid custom sound filename."};
+                if (!soundNames.insert(sound.name).second) continue;
+                const auto target = soundRoot / sound.name;
+                if (std::filesystem::exists(target))
+                {
+                    if (std::filesystem::file_size(target) != sound.bytes.size()) throw std::runtime_error{"A sound filename conflicts with an existing file."};
+                    std::ifstream input{target, std::ios::binary};
+                    std::string existing(sound.bytes.size(), '\0');
+                    if (!input.read(existing.data(), static_cast<std::streamsize>(existing.size())) || existing != sound.bytes || input.peek() != std::char_traits<char>::eof())
+                        throw std::runtime_error{"A sound filename conflicts with an existing file."};
+                    continue;
+                }
+                const auto filename = "resource-" + sound.name;
+                write(filename, sound.bytes);
+                prepared->sounds.emplace_back(staging / filename, target);
+            }
+            if (stop.stop_requested()) return {};
+            error.clear(); return prepared;
+        }
+        catch (const std::exception& failure) { error = failure.what(); return {}; }
+    }
+
+    auto settings_profiles::CommitImport(staged_import& prepared, std::vector<size_t>& created, std::string& reportPath, std::string& error) -> bool
+    {
+        created.clear(); reportPath.clear();
+        std::vector<std::filesystem::path> copied;
+        try
+        {
+            if (prepared.staging.empty() || prepared.entries.empty() || this->entries_.size() + prepared.entries.size() > 128)
+                throw std::runtime_error{"The import is unavailable or exceeds the 128-profile limit."};
+            const auto root = std::filesystem::weakly_canonical(this->directory_);
+            if (prepared.staging.parent_path() != root || prepared.destination.parent_path() != root)
+                throw std::runtime_error{"The profile directory changed. Scan again."};
+            for (auto& entry : prepared.entries)
+                if (!this->ValidateName(entry.name, this->entries_.size(), error)) throw std::runtime_error{error};
+            this->entries_.reserve(this->entries_.size() + prepared.entries.size()); created.reserve(prepared.entries.size());
+            copied.reserve(prepared.sounds.size());
+            auto savedReportPath = (prepared.destination / "report.txt").string();
+            for (const auto& [source, destination] : prepared.sounds)
+            {
+                std::filesystem::create_directories(destination.parent_path());
+                if (!::MoveFileExW(source.c_str(), destination.c_str(), MOVEFILE_WRITE_THROUGH))
+                    throw std::runtime_error{"Could not publish a custom sound; import cancelled."};
+                copied.push_back(destination);
+            }
+            if (!::MoveFileExW(prepared.staging.c_str(), prepared.destination.c_str(), MOVEFILE_WRITE_THROUGH))
+                throw std::runtime_error{"Could not publish the import. Existing profiles are unchanged."};
+            prepared.staging.clear();
+            for (auto& entry : prepared.entries) { created.push_back(this->entries_.size()); this->entries_.push_back(std::move(entry)); }
             reportPath = std::move(savedReportPath);
             error.clear(); return true;
         }
         catch (const std::exception& failure)
         {
-            // Only files created in this private staging directory are removed.
-            if (!staging.empty()) { std::error_code ignored; for (const auto& file : staged) std::filesystem::remove(file, ignored); std::filesystem::remove(staging, ignored); }
+            std::error_code ignored;
+            for (const auto& path : copied) std::filesystem::remove(path, ignored);
             error = failure.what(); return false;
         }
+    }
+
+    auto settings_profiles::Import(const std::span<const import_entry> profiles, const std::span<const import_file> archive,
+        std::vector<size_t>& created, std::string& reportPath, std::string& error) -> bool
+    {
+        created.clear(); reportPath.clear();
+        auto prepared = this->StageImport(profiles, archive, {}, error);
+        return prepared && this->CommitImport(*prepared, created, reportPath, error);
     }
 }

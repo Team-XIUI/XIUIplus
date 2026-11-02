@@ -74,6 +74,7 @@ set(XIUI_HUD_SOURCES
     src/runtime/chat/native_chat_filters.hpp
     src/runtime/chat/chat_encoding.cpp
     src/runtime/modules/chat/chat_module.cpp
+    src/runtime/modules/chat/chat_channel_picker.cpp
     src/runtime/modules/minimap/minimap_maps.cpp
     src/runtime/modules/minimap/minimap_module.cpp
     src/runtime/modules/minimap/minimap_source.cpp
@@ -247,6 +248,8 @@ set(XIUI_HUD_SOURCES
     src/runtime/modules/game_hud/game_hud_module.hpp
     src/shared/native_hud_options.hpp
     src/runtime/settings/settings_store.cpp
+    src/runtime/settings/storage_paths.cpp
+    src/runtime/settings/storage_paths.hpp
     src/runtime/settings/lua_data.cpp
     src/runtime/settings/text_style_settings.cpp
     src/runtime/settings/text_style_settings.hpp
@@ -254,6 +257,8 @@ set(XIUI_HUD_SOURCES
     src/runtime/settings/profile_identity.cpp
     src/runtime/settings/profile_file.cpp
     src/runtime/settings/profile_file.hpp
+    src/runtime/settings/profile_transfer.cpp
+    src/runtime/settings/profile_transfer.hpp
     src/runtime/settings/profile_share.cpp
     src/runtime/settings/profile_share.hpp
     src/runtime/settings/profile_share_delta.cpp

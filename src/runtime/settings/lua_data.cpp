@@ -6,6 +6,7 @@
 #include <cctype>
 #include <cstdlib>
 #include <stdexcept>
+#include <map>
 
 namespace xiui::lua_data
 {
@@ -132,7 +133,10 @@ namespace xiui::lua_data
     }
     auto reader::String() -> std::string
     {
+        this->Skip();
+        if (this->at_ == this->input_.size()) this->Fail("Expected a quoted string");
         if (this->input_[this->at_] == '[') return this->LongString();
+        if (this->input_[this->at_] != '\'' && this->input_[this->at_] != '"') this->Fail("Expected a quoted string");
         const char quote = this->input_[this->at_++]; std::string result;
         while (this->at_ < this->input_.size())
         {
@@ -177,10 +181,13 @@ namespace xiui::lua_data
     {
         this->Skip(); if (depth > 48 || ++this->nodes_ > 500000) this->Fail("Literal nesting or record limit exceeded");
         if (this->at_ == this->input_.size()) this->Fail("Unexpected end of data");
-        if (this->Word("T")) this->Skip();
-        if (this->Consume('{'))
+        const bool wrapped = this->Word("T");
+        const bool tableStart = this->Consume('{');
+        if (wrapped && !tableStart) this->Fail("T must wrap a literal table");
+        if (tableStart)
         {
             value table{value::kind::table}; size_t index = 1;
+            std::map<std::pair<scalar_kind, std::string>, size_t> fields;
             while (!this->Consume('}'))
             {
                 this->Skip(); const auto start = this->at_;
@@ -194,8 +201,10 @@ namespace xiui::lua_data
                     if (key.empty() || !this->Consume('=')) { this->at_ = start; key = std::to_string(index++); keyType = scalar_kind::number; }
                 }
                 auto item = this->Value(depth + 1);
-                if (std::any_of(table.fields.begin(), table.fields.end(), [&](const auto& old) { return old.first == key && old.second.key_type == keyType; })) ++this->duplicates;
-                table.Set(std::move(key), std::move(item), keyType);
+                item.key_type = keyType;
+                const auto [found, inserted] = fields.emplace(std::make_pair(keyType, key), table.fields.size());
+                if (inserted) table.fields.emplace_back(std::move(key), std::move(item));
+                else { ++this->duplicates; table.fields[found->second].second = std::move(item); }
                 if (this->Consume(',') || this->Consume(';')) continue;
                 if (!this->Consume('}')) this->Fail("Expected comma or table end");
                 return table;

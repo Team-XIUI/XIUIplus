@@ -70,7 +70,6 @@ $ActivationFailureRuntime = Join-Path $Root 'bin\tests\xiui-activation-failure-r
 $ExitFailureRuntime = Join-Path $Root 'bin\tests\xiui-exit-failure-runtime.dll'
 $RenderFailureRuntime = Join-Path $Root 'bin\tests\xiui-render-failure-runtime.dll'
 $PublishSmoke = Join-Path $Root 'tests\publish_smoke.ps1'
-$ThemeSource = Join-Path $Root 'config\xiuinative-theme.ini'
 
 if (-not (Test-Path $BuiltRuntime)) {
     throw "Expected runtime output was not found: $BuiltRuntime"
@@ -117,17 +116,11 @@ if ($SkipInstall) {
 
 $AshitaRoot = Resolve-XiuiInstallPath -PreferredPath $InstallPath
 $PluginDir = Join-Path $AshitaRoot 'plugins'
-$ConfigDir = Join-Path $AshitaRoot 'config'
 $InstalledHost = Join-Path $PluginDir 'xiuinative.dll'
 if ($RuntimeOnly -and ((-not (Test-Path -LiteralPath $InstalledHost)) -or (Get-Sha256 $InstalledHost) -ne $HostHash)) {
     throw 'The selected install does not contain the matching development host. Use the standalone build, or set up an explicit development install first.'
 }
 $PublishedRuntime = Join-Path $PluginDir 'xiuinative-runtime.dll'
-$InstalledTheme = Join-Path $ConfigDir 'xiuinative-theme.ini'
-$PartyNotices = Join-Path $PluginDir 'xiuinative-licenses'
-New-Item -ItemType Directory -Path $PartyNotices -Force | Out-Null
-Publish-XiuiAtomic -Source (Join-Path $Root 'assets\jobs\LICENSE.txt') -Destination (Join-Path $PartyNotices 'XIVParty.txt')
-
 if (-not $RuntimeOnly) {
     $InstalledHostHash = if (Test-Path $InstalledHost) { Get-Sha256 $InstalledHost } else { '' }
     if ($InstalledHostHash -ne $HostHash) {
@@ -153,8 +146,3 @@ if ($PublishedRuntimeHash -ne $RuntimeHash) {
 }
 Write-Host "Published hot runtime $PublishedRuntime"
 Write-Host "Runtime SHA-256 $PublishedRuntimeHash"
-
-if (-not (Test-Path $InstalledTheme)) {
-    Publish-XiuiAtomic -Source $ThemeSource -Destination $InstalledTheme
-    Write-Host "Installed live theme $InstalledTheme"
-}

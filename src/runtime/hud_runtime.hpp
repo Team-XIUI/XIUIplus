@@ -62,6 +62,7 @@
 #include "settings/settings_writer.hpp"
 #include "settings/settings_profiles.hpp"
 #include "settings/profile_identity.hpp"
+#include "settings/profile_transfer.hpp"
 #include "config/profile_layout.hpp"
 #include "config/share_key_view.hpp"
 #include "config/choice_dropdown.hpp"
@@ -354,10 +355,11 @@ namespace xiui
         bool profile_actions_{}, profile_legacy_import_{};
         size_t profile_source_{};
         std::filesystem::path profile_file_{};
+        profile_transfer profile_transfer_{};
         std::optional<settings_store> profile_import_{};
         bool profile_import_lua_{}, profile_lua_activate_{}, profile_lua_links_{}, profile_lua_controls_{}, profile_lua_done_{};
         ui::text_input profile_lua_path_{};
-        std::optional<lua_setup_preview> profile_lua_preview_{};
+        std::shared_ptr<const lua_setup_preview> profile_lua_preview_{};
         size_t profile_lua_selection_{SIZE_MAX};
         std::string profile_lua_report_text_{}, profile_lua_status_{};
         ui::share_key_view profile_lua_report_{};
@@ -578,7 +580,10 @@ namespace xiui
         auto ApplyConfirmedAction(void) -> bool;
         auto OpenProfileDialog(profile_dialog mode) -> bool;
         auto SetProfileImportSource(bool lua) -> void;
-        auto PreviewLuaProfiles() -> bool;
+        auto PreviewLuaProfiles(bool browse = false) -> bool;
+        static auto PrepareLuaProfiles(const std::filesystem::path& path, const std::string& defaults, std::stop_token stop) -> lua_setup_preview;
+        auto FinishLuaImport(settings_profiles::staged_import& staged) -> bool;
+        auto LuaImportControlAvailable(size_t index) const -> bool;
         auto BrowseLuaProfile() -> void;
         auto CreateLuaProfiles() -> bool;
         auto CycleLuaProfile(int direction) -> void;
@@ -593,6 +598,8 @@ namespace xiui
         auto OpenProfileAction(size_t index) -> bool;
         auto MoveProfileAction(int direction) -> void;
         auto ConfirmingAction(void) const -> bool { return this->profile_dialog_ == profile_dialog::confirm_action || this->profile_dialog_ == profile_dialog::reset_defaults || this->profile_dialog_ == profile_dialog::reset_module; }
+        auto StartProfileTransfer(profile_transfer_request request) -> bool;
+        auto UpdateProfileTransfer() -> void;
         auto ExportProfileFile(const std::filesystem::path& path) -> bool;
         auto BrowseProfileFile(bool save) -> void;
         auto LoadProfileFile(const std::filesystem::path& path) -> bool;

@@ -31,7 +31,8 @@ namespace xiui
         {
             const auto* properties = this->core_ != nullptr ? this->core_->GetProperties() : nullptr;
             const auto window = properties != nullptr ? properties->GetFinalFantasyHwnd() : nullptr;
-            if (window != nullptr && (::GetCapture() != window || (::GetAsyncKeyState(VK_LBUTTON) & 0x8000) == 0))
+            // The pending mouse-up commits the drag; button polling can run ahead of it.
+            if (window != nullptr && ::GetCapture() != window)
                 this->SuspendSatchelInput();
         }
         if (!this->SatchelInputAvailable(true)) this->SuspendSatchelInput();

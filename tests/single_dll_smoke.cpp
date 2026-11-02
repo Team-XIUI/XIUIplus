@@ -2,6 +2,7 @@
 
 #include <cstdio>
 #include <filesystem>
+#include <fstream>
 #include <stdexcept>
 
 namespace
@@ -48,6 +49,9 @@ int main(const int argc, char** argv)
         Check(create != nullptr && state.destroy != nullptr && ::GetProcAddress(state.module, "expGetInterfaceVersion") != nullptr, "standard Ashita exports");
         for (const int id : {101, 201, 202, 203, 204, 301, 302, 303, 304})
             Check(::FindResourceW(state.module, MAKEINTRESOURCEW(id), MAKEINTRESOURCEW(10)) != nullptr, "embedded assets, defaults, theme and notices");
+        const auto oldNotices = root / "config/xiuinative-licenses";
+        std::filesystem::create_directories(oldNotices);
+        { std::ofstream file{oldNotices / "MinHook.txt", std::ios::binary}; file << "Generated notice from an earlier build"; }
         state.plugin = create("");
         Check(state.plugin != nullptr, "create Ashita plugin");
         state.initialized = state.plugin->Initialize(nullptr, nullptr, 0);
@@ -55,13 +59,10 @@ int main(const int argc, char** argv)
         Check(state.plugin->HandleCommand(0, "/xiui save", true), "standalone command routing");
         state.plugin->Release();
         state.initialized = false;
-        Check(std::filesystem::file_size(root / "config" / "xiuinative.ini") > 1000, "save complete embedded profile");
-        Check(std::filesystem::file_size(root / "config" / "xiuinative-theme.ini") > 100, "seed embedded theme");
-        Check(std::filesystem::exists(root / "config" / "xiuinative-licenses" / "MinHook.txt"), "retain embedded notices");
-        Check(std::filesystem::exists(root / "config" / "xiuinative-licenses" / "libwebp.txt") &&
-            std::filesystem::exists(root / "config" / "xiuinative-licenses" / "libwebp-PATENTS.txt") &&
-            std::filesystem::exists(root / "config" / "xiuinative-licenses" / "miniz.txt"), "retain bundled decoder notices");
-        Check(std::filesystem::exists(root / "config" / "xiuinative-licenses" / "XIUI-Notification-Icons.txt"), "retain notification artwork notice");
+        Check(std::filesystem::file_size(root / "config" / "xiuinative" / "settings.ini") > 1000, "save complete embedded profile");
+        Check(std::filesystem::file_size(root / "config" / "xiuinative" / "theme.ini") > 100, "seed embedded theme");
+        Check(!std::filesystem::exists(root / "config" / "xiuinative" / "licenses") && !std::filesystem::exists(oldNotices),
+            "retire extracted notices while keeping their DLL resources embedded");
         std::puts("Single DLL Ashita exports, isolated startup, assets, theme, defaults and saving passed.");
         return 0;
     }

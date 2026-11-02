@@ -2,7 +2,7 @@
 
 Displays the sixteen equipped slots using native item artwork, with independent layout, labels and passive tooltips.
 
-One native outer container surrounds the grid. Inner slots use flat theme-colored backgrounds and thin rounded outlines with three-pixel corner radii and screen-pixel anti-aliasing. Icon padding and hover geometry share the slot bounds. Native quality borders stay in the untouched item bitmap. The old slot-only setup enables the outer container once; later container choices persist.
+One native outer container surrounds the grid. Inner slots share [item slot frames](../../src/runtime/ui/item_slot_frame.hpp) with Satchel: flat theme-colored backgrounds and thin rounded outlines with three-pixel corner radii and screen-pixel anti-aliasing. Icon padding and hover geometry share the slot bounds. Native rarity and HQ borders stay in the complete item bitmap, independently of container opacity. The old slot-only setup enables the outer container once; later container choices persist.
 
 **Start in:** [equipment_source.cpp](../../src/runtime/modules/equipment/equipment_source.cpp), [equipment_module.cpp](../../src/runtime/modules/equipment/equipment_module.cpp), [game_icon_cache.cpp](../../src/runtime/ui/game_icon_cache.cpp).
 

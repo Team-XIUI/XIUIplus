@@ -23,7 +23,10 @@ namespace xiui
     auto lua_setup_preview::Report(const size_t selection) const -> std::string
     {
         std::ostringstream out;
+        out << "Importer: " << lua_import_revision << '\n';
         if (!this->error.empty()) out << "Cannot import: " << this->error << '\n';
+        const auto valid = std::count_if(this->profiles.begin(), this->profiles.end(), [](const auto& profile) { return profile.preview.Valid(); });
+        out << valid << " ready; " << this->profiles.size() - valid << " blocked. Select an individual ready profile if others have errors.\n";
         out << this->profiles.size() << " source profiles; " << this->sources.size() << " captured source files.\n";
         out << "Imports create new profiles. Current settings, Default and existing character links are preserved.\n";
         for (const auto& note : this->notes) out << "\nNote: " << note << '\n';
@@ -32,7 +35,7 @@ namespace xiui
         return out.str();
     }
     auto DiscoverLuaSetup(const std::filesystem::path& source, const settings_store& defaults,
-        const std::function<void(lua_profile_preview&)>& normalize) -> lua_setup_preview
+        const std::function<void(lua_profile_preview&)>& normalize, const std::stop_token stop) -> lua_setup_preview
     {
         lua_setup_preview result;
         try
@@ -40,6 +43,7 @@ namespace xiui
             size_t total{};
             std::map<std::filesystem::path, size_t> captured;
             const auto read = [&](const std::filesystem::path& path) -> std::string {
+                if (stop.stop_requested()) throw std::runtime_error{"Scan cancelled."};
                 const auto canonical = std::filesystem::weakly_canonical(path);
                 if (const auto found = captured.find(canonical); found != captured.end()) return result.sources[found->second].bytes;
                 if (result.sources.size() >= 1024) throw std::runtime_error{"The setup contains too many source files. Select a smaller source folder."};
@@ -47,8 +51,8 @@ namespace xiui
                 if (size > 16 * 1024 * 1024 || total + size > 64 * 1024 * 1024) throw std::runtime_error{"Source data exceeds the import limit."};
                 std::ifstream file{path, std::ios::binary};
                 if (!file) throw std::runtime_error{"Could not read " + ToUtf8(path.wstring())};
-                std::string bytes{std::istreambuf_iterator<char>{file}, {}};
-                if (bytes.size() != size) throw std::runtime_error{"A source file changed while reading. Scan again."};
+                std::string bytes(static_cast<size_t>(size), '\0');
+                if (!file.read(bytes.data(), static_cast<std::streamsize>(bytes.size())) || file.peek() != std::char_traits<char>::eof()) throw std::runtime_error{"A source file changed while reading. Scan again."};
                 total += bytes.size();
                 captured.emplace(canonical, result.sources.size());
                 result.sources.push_back({path, bytes, LuaSourceFingerprint(bytes)});
@@ -127,6 +131,7 @@ namespace xiui
                 std::sort(extra.begin(), extra.end()); files.insert(files.end(), extra.begin(), extra.end());
             }
             const auto convert = [&](const lua_data::value& document, const std::string& name) {
+                if (stop.stop_requested()) throw std::runtime_error{"Scan cancelled."};
                 if (result.profiles.size() >= 128) throw std::runtime_error{"The source contains more than 128 profiles."};
                 auto prepared = lua_data::UserSettings(document);
                 const auto* modern = prepared.Find("windowPositions");
@@ -150,33 +155,53 @@ namespace xiui
                             preview.resources.push_back({resource, destination});
                             preview.preferences.WriteString("readycheck", "sound_file", destination);
                             preview.preferences.WriteInt("readycheck", "sound_choice", 1);
-                            preview.issues.push_back({lua_import_severity::information, "readyCheckSoundFile", "Compatible WAV will be copied to config/sounds/" + destination});
+                            preview.issues.push_back({lua_import_severity::information, "readyCheckSoundFile", "Compatible WAV will be copied to config/xiuinative/sounds/" + destination});
                             copied = true; break;
                         }
                     if (!copied) preview.issues.push_back({lua_import_severity::warning, "readyCheckSoundFile", "Custom sound is missing or unsupported; Native keeps its built-in chime."});
                 }
-                if (normalize) normalize(preview);
+                if (normalize && preview.Valid()) normalize(preview);
                 auto identity = name + "\n" + version + "\n" + lua_data::ToLiteral(prepared);
                 for (const auto& resource : preview.resources) identity += "\n" + resource.destination;
-                const auto id = LuaSourceFingerprint(identity);
+                const auto id = std::string{lua_import_revision} + ":" + LuaSourceFingerprint(identity);
                 if (std::none_of(result.profiles.begin(), result.profiles.end(), [&](const auto& profile) { return profile.source_id == id; }))
                     result.profiles.push_back({std::move(preview), id});
             };
             std::set<std::filesystem::path> visited;
             for (const auto& path : files)
             {
+                if (stop.stop_requested()) throw std::runtime_error{"Scan cancelled."};
                 if (!visited.insert(path).second) continue;
-                if (!std::filesystem::is_regular_file(path)) throw std::runtime_error{"A listed profile is missing: " + ToUtf8(path.wstring())};
-                const auto bytes = read(path);
-                const auto document = lua_data::reader{bytes}.Parse();
-                if (const auto* profiles = document.Find("profiles"))
-                    for (const auto& [name, profile] : profiles->fields) convert(profile, name);
-                else
+                if (result.profiles.size() >= 128) throw std::runtime_error{"The source contains more than 128 profiles."};
+                try
                 {
-                    const auto& settings = lua_data::UserSettings(document);
-                    if (settings.Find("currentProfile") && !settings.Find("showPlayerBar") && !document.Find("userSettings"))
-                        throw std::runtime_error{"This file selects a profile; choose its XIUI folder to discover the profile settings."};
-                    convert(document, ToUtf8(path.stem().wstring()));
+                    if (!std::filesystem::is_regular_file(path)) throw std::runtime_error{"A listed profile is missing."};
+                    const auto bytes = read(path);
+                    lua_data::reader reader{bytes};
+                    const auto document = reader.Parse();
+                    const auto first = result.profiles.size();
+                    if (const auto* profiles = document.Find("profiles"))
+                    {
+                        if (profiles->type != lua_data::value::kind::table || profiles->fields.empty()) throw std::runtime_error{"No profile tables were found in this file."};
+                        for (const auto& [name, profile] : profiles->fields) convert(profile, name);
+                    }
+                    else
+                    {
+                        const auto& settings = lua_data::UserSettings(document);
+                        if (settings.Find("currentProfile") && !settings.Find("showPlayerBar") && !document.Find("userSettings"))
+                            throw std::runtime_error{"This file selects a profile; choose its XIUI folder to discover the profile settings."};
+                        convert(document, ToUtf8(path.stem().wstring()));
+                    }
+                    if (reader.duplicates != 0)
+                        for (size_t i = first; i < result.profiles.size(); ++i)
+                            result.profiles[i].preview.issues.push_back({lua_import_severity::warning, "source", std::to_string(reader.duplicates) + " duplicate table keys; the last saved value is used."});
+                }
+                catch (const std::exception& failure)
+                {
+                    if (stop.stop_requested() || result.profiles.size() >= 128 || result.sources.size() >= 1024 || total >= 64 * 1024 * 1024) throw;
+                    lua_profile_preview failed; failed.name = ToUtf8(path.stem().wstring()); failed.version = version;
+                    failed.issues.push_back({lua_import_severity::error, ToUtf8(path.filename().wstring()), failure.what()});
+                    result.profiles.push_back({std::move(failed), ""});
                 }
             }
             if (!single)

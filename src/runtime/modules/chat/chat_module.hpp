@@ -7,6 +7,7 @@
 #include "chat/chat_alerts.hpp"
 #include "chat/chat_colors.hpp"
 #include "chat/native_chat_input.hpp"
+#include "chat/chat_destination.hpp"
 #include "chat/native_chat_filters.hpp"
 #include "ui/native_ui_sounds.hpp"
 #include "ui/native_window_config.hpp"
@@ -51,6 +52,9 @@ namespace xiui
         auto Receive(IAshitaCore* core, const chat_event& event, bool audible = true) -> void;
         auto ObserveTellPacket(uint16_t id, std::span<const uint8_t> packet) -> void;
         auto SetInputContext(IChatManager* chat) -> void;
+        auto SetNativeDestination(std::optional<std::string> prefix, std::string reply) -> void
+        { this->native_send_prefix_ = std::move(prefix); this->native_reply_recipient_ = std::move(reply); }
+        auto SendChannelLabel(void) const -> std::string { return this->InputDestination().label; }
         auto SetDialogueActive(bool active) -> void;
         auto HandleKey(IAshitaCore* core, WPARAM key, LPARAM flags, bool blocked, bool replaceNative, std::span<const std::string> replyTargets = {}, bool startTyping = false) -> bool;
         auto OpenTell(std::string_view recipient) -> bool;
@@ -65,7 +69,10 @@ namespace xiui
         auto Focus(bool focused, bool preserveExpandedHistory = false) -> void;
         auto Focused(void) const -> bool { return this->focused_ && this->state_.enabled; }
         auto Resizing(void) const -> bool { return this->resizing_; }
-        auto CancelPointer(void) -> void { this->resizing_ = this->pointer_down_ = false; }
+        auto CancelPointer(void) -> void
+        { this->resizing_ = this->pointer_down_ = this->channel_picker_open_ = this->destination_hovered_ = false; this->channel_pointer_press_ = -2; }
+        auto ChannelPickerOpen(void) const -> bool { return this->channel_picker_open_; }
+        auto RenderChannelPicker(const module_render_context& context) const -> void;
         auto Capture(runtime_state& state) const -> void;
         auto Restore(const runtime_state& state) -> void;
         auto Count(void) const -> size_t { return this->History().Lines().size(); }
@@ -101,7 +108,8 @@ namespace xiui
         auto SoundTarget(const ui::design_system& design, float x, float y, bool editing) const -> uint32_t
         { return this->LayoutSoundTarget(design, this->state_.transform.InverseX(x), this->state_.transform.InverseY(y), editing); }
         auto SetSounds(ui::native_ui_sounds* sounds) -> void { this->sounds_ = sounds; }
-        auto SetHovered(bool hovered) -> void { this->hovered_ = hovered; }
+        auto SetHovered(bool hovered, float x = 0, float y = 0) -> void
+        { this->hovered_ = hovered; if (!hovered) this->destination_hovered_ = false; this->hover_point_ = {this->state_.transform.InverseX(x), this->state_.transform.InverseY(y)}; }
         auto SetNativeTimestamps(std::optional<uint8_t> mode) -> void { this->native_timestamp_mode_ = mode.value_or(0); }
         auto SetNativeFilters(native_chat_filters& filters) -> void { this->native_filters_ = &filters; }
         auto HistoryFocused(void) const -> bool { return this->history_view_.focused && this->WindowVisible(); }
@@ -130,8 +138,9 @@ namespace xiui
         struct rendered_row { uint64_t sequence{}; uint32_t mode{}, color{}; std::vector<rendered_span> spans; };
         struct message_entrance { uint64_t sequence{}, started{}; };
         struct message_motion { float opacity{1}, x{}; };
-        struct layout { ui::rect content, log, input, input_text, scrollbar, completion, counter; size_t completion_rows{}; float completion_row_height{}; std::array<ui::rect, static_cast<size_t>(chat_tab::count)> tabs; std::array<ui::rect, 3> controller_actions; };
+        struct layout { ui::rect content, log, input, input_text, scrollbar, completion, counter, destination; size_t completion_rows{}; float completion_row_height{}; std::array<ui::rect, static_cast<size_t>(chat_tab::count)> tabs; std::array<ui::rect, 3> controller_actions; };
         struct history_layout { ui::rect frame, log, scrollbar, footer; std::array<ui::rect, std::size(chat_history_tabs)> tabs; };
+        struct channel_picker_layout { ui::rect bounds; std::array<ui::rect, 10> rows; };
         struct window_settings
         {
             float width{}, height{};
@@ -157,6 +166,7 @@ namespace xiui
         chat_editor editor_{};
         std::vector<std::string> recent_tellers_{};
         std::string reply_recipient_{};
+        std::string reply_destination_{};
         ui::native_ui_sounds* sounds_{};
         native_chat_filters* native_filters_{};
         chat_alerts alerts_{};
@@ -180,7 +190,12 @@ namespace xiui
         bool focused_{}, resizing_{}, pointer_down_{};
         bool dialogue_active_{};
         bool hovered_{};
+        ui::point hover_point_{};
         float input_reveal_{};
+        float destination_reveal_{};
+        bool destination_hovered_{}, channel_picker_open_{};
+        int channel_pointer_press_{-2};
+        ui::rect channel_picker_viewport_{0, 0, 1280, 720};
         uint64_t input_animation_tick_{};
         int message_animation_{1};
         float message_animation_speed_{100};
@@ -197,6 +212,9 @@ namespace xiui
         bool input_counter_{true};
         uint32_t input_limit_{255};
         IChatManager* input_chat_{};
+        std::optional<std::string> native_send_prefix_{};
+        std::string native_reply_recipient_{};
+        auto InputDestination(void) const -> chat_destination;
         auto InputCommand(std::string_view text) const -> std::string;
         auto InputUsage(std::string_view text) const -> std::pair<size_t, size_t>;
         int timestamp_display_{};
@@ -251,6 +269,10 @@ namespace xiui
         auto History(void) const -> const chat_model& { return this->shared_model_ != nullptr ? *this->shared_model_ : this->model_; }
         auto MarkUnread(const chat_event& event, uint32_t previousWindows) -> void;
         auto Layout(const ui::design_system& design) const -> layout;
+        auto InputRowHeight(const ui::design_system& design) const -> float;
+        auto ChannelPickerLayout(const ui::design_system& design) const -> channel_picker_layout;
+        auto HandleChannelMouse(uint32_t message, float x, float y, const ui::design_system& design, bool& save) -> bool;
+        auto ChooseSendChannel(int choice, bool& save) -> bool;
         auto UpdateInputAnimation(uint64_t now) -> void;
         auto TrackMessageEntrance(const chat_event& event, uint32_t previousWindows, uint64_t now) -> void;
         auto MessageMotion(uint64_t sequence, uint64_t now) const -> message_motion;

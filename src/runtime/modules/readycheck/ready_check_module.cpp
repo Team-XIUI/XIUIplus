@@ -110,7 +110,7 @@ namespace xiui
             switch (index - sound_options_start)
             {
             case 0: return module_option::Choice("Sound", "Choose a sound; use Test sound for an explicit preview.", &settings.sound_choice, sounds, 2);
-            case 1: return module_option::Text("Custom WAV filename", "Filename in XIUI config/sounds. PCM 8/16-bit mono/stereo, up to 30 seconds and 8 MiB. Missing or unsupported files use the built-in chime.", &settings.sound_file, 128).VisibleWhen(settings.sound_choice == 1);
+            case 1: return module_option::Text("Custom WAV filename", "Filename in config/xiuinative/sounds. PCM 8/16-bit mono/stereo, up to 30 seconds and 8 MiB. Missing or unsupported files use the built-in chime.", &settings.sound_file, 128).VisibleWhen(settings.sound_choice == 1);
             default: return module_option::Action("Reload custom WAV", this->sound_.Status().c_str(), "Reload").VisibleWhen(settings.sound_choice == 1);
             }
         }

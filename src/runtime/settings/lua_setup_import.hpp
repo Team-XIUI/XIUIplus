@@ -1,9 +1,11 @@
 #pragma once
 #include "lua_profile_import.hpp"
 #include <functional>
+#include <stop_token>
 
 namespace xiui
 {
+    inline constexpr std::string_view lua_import_revision = "native-lua-2";
     struct lua_source_file { std::filesystem::path path; std::string bytes, fingerprint; };
     struct lua_setup_profile { lua_profile_preview preview; std::string source_id; };
     struct lua_character_link { std::string character, profile; };
@@ -20,5 +22,5 @@ namespace xiui
     };
     auto LuaSourceFingerprint(std::string_view bytes) -> std::string;
     auto DiscoverLuaSetup(const std::filesystem::path& source, const settings_store& defaults,
-        const std::function<void(lua_profile_preview&)>& normalize = {}) -> lua_setup_preview;
+        const std::function<void(lua_profile_preview&)>& normalize = {}, std::stop_token stop = {}) -> lua_setup_preview;
 }

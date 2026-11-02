@@ -59,6 +59,45 @@ namespace xiui
                 "unlinking after reload restores saved independent visuals without changing bindings or position");
         }
 
+        static auto GlobalCaption(void) -> void
+        {
+            auto runtime = std::make_unique<hud_runtime>(); auto& module = runtime->actionbars_;
+            module.ResetDefaults(ui::theme::CreateDefault());
+            runtime->editing_ = true; runtime->config_.basic = false;
+            runtime->config_.bounds = {20, 20, 900, 700};
+            module.SelectConfigView(1); module.use_global_[1] = true; module.OnOptionChanged(actionbars_module::use_global);
+            runtime->SelectConfigModule(&module, actionbars_module::global_view); runtime->config_.section = 1;
+            const auto slots = runtime->GroupOptionSlots();
+            const auto found = std::find(slots.begin(), slots.end(), actionbars_module::heading);
+            Check(found != slots.end(), "Global Display exposes the action set caption toggle");
+            const auto row = runtime->ConfigLayout().OptionRow(static_cast<int>(found - slots.begin()));
+            runtime->mouse_x_ = static_cast<int>(row.x + row.width / 2); runtime->mouse_y_ = static_cast<int>(row.y + row.height / 2);
+            const D3DVIEWPORT8 viewport{0, 0, 1280, 900, 0, 1};
+            Check(runtime->ProcessConfigClick(viewport), "mouse activates Global caption setting");
+            Check(!module.global_.heading && !module.bars_[1].heading && module.PaletteBounds(1).width == 0,
+                "Global caption off immediately hides the linked second hotbar caption and hit region");
+            Check(module.bars_[0].heading && module.bars_[action_bar_count].heading, "independent hotbars and crossbar retain their captions");
+            const auto snapshot = runtime->CaptureSettings();
+            auto restored = std::make_unique<hud_runtime>(); auto preferences = restored->CaptureSettings();
+            OverlayProfilePreferences(preferences, snapshot.Preferences("")); restored->LoadSettings(preferences);
+            Check(restored->actionbars_.use_global_[1] && !restored->actionbars_.global_.heading && !restored->actionbars_.bars_[1].heading,
+                "profile save and reload retain the Global caption setting and second hotbar inheritance");
+            module.SelectConfigView(1);
+            Check(!module.Option(actionbars_module::heading).available && !*module.Option(actionbars_module::heading).toggle,
+                "disabled linked caption control reflects the effective Global value");
+            module.use_global_[1] = false; module.OnOptionChanged(actionbars_module::use_global);
+            Check(module.bars_[1].heading, "unlinking restores the saved independent caption");
+            module.use_global_[1] = true; module.OnOptionChanged(actionbars_module::use_global);
+            Check(!module.bars_[1].heading, "relinking reapplies the disabled Global caption");
+            runtime->SelectConfigModule(&module, actionbars_module::global_view); runtime->config_.section = 1;
+            runtime->config_.focus.region = config_controller_region::options;
+            const auto items = runtime->ControllerConfigItems(config_controller_region::options);
+            const auto item = std::find_if(items.begin(), items.end(), [](const auto& value) { return value.index == actionbars_module::heading; });
+            Check(item != items.end() && runtime->ActivateControllerConfigItem(*item, controller_action::confirm, false), "controller activates the same Global caption setting");
+            Check(module.global_.heading && module.bars_[1].heading && module.PaletteBounds(1).width > 0,
+                "controller Global caption on immediately restores the linked caption and hit region");
+        }
+
         static auto SelectedCapabilities(void) -> void
         {
             action_store store; action_executor executor; store.SetContext({15, 0, {}});
@@ -405,7 +444,10 @@ namespace xiui
             Check(module.dialog_ == actionbars_module::dialog::picker, "an empty slot opens the action library even while locked");
             module.results_ = {Command("Direct assignment")};
             Click(module, ControlBounds(module, "Direct assignment"));
-            Check(store.Resolve(action_surface::hotbar, 0, 2).name == "Direct assignment" && !module.DialogOpen() && !module.InputFocused() && !module.PointerDown(), "mouse library selection assigns immediately and returns movement without an intermediate editor");
+            Check(store.Resolve(action_surface::hotbar, 0, 2).name == "Direct assignment" && module.dialog_ == actionbars_module::dialog::picker && !module.PointerDown(),
+                "mouse library selection assigns immediately and keeps the library open");
+            module.CloseDialog();
+            Check(!module.InputFocused() && !module.HandleKey('W', 0), "closing the library after click assignment returns native movement");
         }
         static auto LibraryPlacement(void) -> void
         {
@@ -422,7 +464,9 @@ namespace xiui
             module.HandleControllerAction(controller_action::confirm, true);
             Check(store.Resolve(destination.surface, destination.bar, destination.slot).Empty() && module.placing_, "held Confirm cannot commit a placement");
             module.HandleControllerAction(controller_action::confirm, false);
-            Check(!module.placing_ && !module.library_drag_ && store.Resolve(destination.surface, destination.bar, destination.slot).name == "Controller assignment" && store.Resolve(action_surface::hotbar, 0, 0).Empty(), "fresh Confirm assigns only the chosen destination");
+            Check(!module.placing_ && !module.library_drag_ && module.dialog_ == actionbars_module::dialog::picker &&
+                store.Resolve(destination.surface, destination.bar, destination.slot).name == "Controller assignment" && store.Resolve(action_surface::hotbar, 0, 0).Empty(),
+                "fresh Confirm assigns only the chosen destination and returns to the open library");
             module.SuspendInput();
             module.BeginControllerBrowse(); module.OpenLibrary(false, 0, 3); module.query_ = "cancelled"; module.results_ = {Command("Cancelled assignment")};
             module.ActivateControl(Control(module, "Cancelled assignment"));
@@ -444,6 +488,42 @@ namespace xiui
             module.SuspendInput();
             Check(!module.placing_ && !module.library_drag_ && !module.InputFocused() && !module.PointerDown() && store.Resolve(action_surface::hotbar, 0, 6).Empty(), "suspension cancels library placement and pending pointer assignment");
             Check(module.HandleMouse(WM_LBUTTONUP, 0, target.x + 10, target.y + 10, false) && !module.HandleKey('W', 0), "suspended library drag drains its release before native movement resumes");
+        }
+        static auto LibraryEditorReturn(void) -> void
+        {
+            action_store store; action_executor executor; actionbars_module module;
+            module.Initialize(nullptr, &store, &executor); module.ApplyTextDefaults(ui::theme::CreateDefault()); module.viewport_ = {0, 0, 1280, 900};
+            store.Assign(action_surface::hotbar, 0, 4, Command("Original"));
+            module.OpenLibrary(false, 0, 4);
+            module.query_ = "kept search"; module.category_ = 7; module.result_scroll_ = 2;
+            module.draft_ = Command("Library draft");
+            const auto selected = module.selected_; const auto bounds = module.WindowBounds();
+            const std::pair<const char*, action_kind> creators[]{{"New macro", action_kind::macro}, {"Single command", action_kind::command}, {"Game macro", action_kind::native_macro}};
+            for (size_t index = 0; index < std::size(creators); ++index)
+            {
+                const auto [label, kind] = creators[index];
+                Click(module, ControlBounds(module, label));
+                Check(module.dialog_ == actionbars_module::dialog::editor && module.draft_.kind == kind && module.library_popup_ && module.WindowIndex() == 2,
+                    "each library creator remembers its parent and uses the independent editor window");
+                module.draft_.label = "Unsaved change";
+                if (index == 0) Click(module, ControlBounds(module, "Cancel"));
+                else if (index == 1)
+                { module.HandleKey(VK_ESCAPE, 0); module.HandleKey(VK_ESCAPE, static_cast<LPARAM>(0x80000000u)); }
+                else module.HandleControllerAction(controller_action::cancel, false);
+                Check(module.dialog_ == actionbars_module::dialog::picker && !module.library_popup_ && module.selected_ == selected &&
+                    module.query_ == "kept search" && module.category_ == 7 && module.result_scroll_ == 2 && module.draft_.name == "Library draft" &&
+                    module.WindowBounds().x == bounds.x && module.WindowBounds().y == bounds.y && !module.PointerDown() &&
+                    store.Resolve(action_surface::hotbar, 0, 4).name == "Original" && store.Macros().empty(),
+                    "mouse, keyboard and controller cancellation restore library context without saving or assigning the draft");
+            }
+            module.query_.clear(); module.result_scroll_ = 0;
+            Click(module, ControlBounds(module, "New macro"));
+            module.draft_.name = "Saved macro"; module.draft_.lines = {"/echo saved"};
+            Click(module, ControlBounds(module, "Save"));
+            Check(module.dialog_ == actionbars_module::dialog::picker && !module.library_popup_ && module.selected_ == selected && module.category_ == 7 &&
+                store.ExpandMacro(store.Resolve(action_surface::hotbar, 0, 4)).lines == std::vector<std::string>{"/echo saved"} &&
+                std::any_of(module.results_.begin(), module.results_.end(), [](const auto& action) { return action.name == "Saved macro"; }),
+                "saving returns to the library, assigns the selected slot and refreshes the shared macro results");
         }
         static auto BarControlsAndCrossbarGeometry(void) -> void
         {
@@ -510,6 +590,46 @@ namespace xiui
                         "edit outline wraps every empty slot and its shadow without relying on icons or markers");
                 }
             }
+        }
+        static auto ShiftSlotDragging(void) -> void
+        {
+            action_store store; action_executor executor; actionbars_module module;
+            module.Initialize(nullptr, &store, &executor); module.ApplyTextDefaults(ui::theme::CreateDefault()); module.viewport_ = {0, 0, 1280, 900};
+            module.bars_[0].state.bounds = {100, 80, 900, 100};
+            module.bars_[1].state.enabled = true; module.bars_[1].state.bounds = {100, 240, 900, 100}; module.bars_[1].empty = false;
+            module.bars_[0].keys[0] = {'1', 0}; module.bars_[1].keys[0] = {'2', 0};
+            store.Assign(action_surface::hotbar, 0, 0, Command("First")); store.Assign(action_surface::hotbar, 0, 1, Command("Second"));
+            store.Assign(action_surface::hotbar, 1, 0, Command("Third"));
+            const auto first = module.SlotBounds({action_surface::hotbar, 0, 0}), second = module.SlotBounds({action_surface::hotbar, 0, 1});
+            const auto other = module.SlotBounds({action_surface::hotbar, 1, 0}), empty = module.SlotBounds({action_surface::hotbar, 1, 1});
+            const auto send = [&](uint32_t message, WPARAM buttons, const ui::rect& cell) {
+                return module.HandleMouse(message, buttons, cell.x + 10, cell.y + 10, false);
+            };
+            send(WM_LBUTTONDOWN, MK_LBUTTON, first); send(WM_MOUSEMOVE, MK_LBUTTON, second); send(WM_LBUTTONUP, 0, second);
+            Check(store.Resolve(action_surface::hotbar, 0, 0).name == "First" && store.Resolve(action_surface::hotbar, 0, 1).name == "Second",
+                "locked slots reject ordinary drags");
+            send(WM_LBUTTONDOWN, MK_LBUTTON | MK_SHIFT, first);
+            module.HandleMouse(WM_MOUSEMOVE, MK_LBUTTON | MK_SHIFT, first.x + 12, first.y + 12, false);
+            Check(!module.AssignmentDragging(), "Shift preserves the drag distance threshold");
+            send(WM_MOUSEMOVE, MK_LBUTTON, second); send(WM_LBUTTONUP, 0, second);
+            Check(store.Resolve(action_surface::hotbar, 0, 0).name == "Second" && store.Resolve(action_surface::hotbar, 0, 1).name == "First" && !module.InputFocused(),
+                "Shift at press swaps locked slots even when released before the drag finishes");
+            send(WM_LBUTTONDOWN, MK_LBUTTON | MK_SHIFT, first); send(WM_MOUSEMOVE, MK_LBUTTON, other); send(WM_LBUTTONUP, 0, other);
+            Check(store.Resolve(action_surface::hotbar, 0, 0).name == "Third" && store.Resolve(action_surface::hotbar, 1, 0).name == "Second" &&
+                module.bars_[0].locked && module.bars_[1].locked && module.bars_[0].keys[0].key == '1' && module.bars_[1].keys[0].key == '2',
+                "Shift swaps between locked bars while preserving their locks and slot bindings");
+            Check(!module.HitTest(empty.x + 10, empty.y + 10), "empty locked destinations are normally hidden");
+            send(WM_LBUTTONDOWN, MK_LBUTTON | MK_SHIFT, second); send(WM_MOUSEMOVE, MK_LBUTTON, empty);
+            const auto hit = module.HitTest(empty.x + 10, empty.y + 10);
+            Check(hit && hit->header == 0 && hit->slot == actionbars_module::address{action_surface::hotbar, 1, 1}, "Shift drag exposes empty locked destinations");
+            send(WM_LBUTTONUP, 0, empty);
+            Check(store.Resolve(action_surface::hotbar, 0, 1).Empty() && store.Resolve(action_surface::hotbar, 1, 1).name == "First",
+                "Shift drag moves an assignment into a hidden empty slot");
+            send(WM_LBUTTONDOWN, MK_LBUTTON | MK_SHIFT, first); send(WM_MOUSEMOVE, MK_LBUTTON, other);
+            module.SuspendInput(); send(WM_LBUTTONUP, 0, other);
+            send(WM_LBUTTONDOWN, MK_LBUTTON, first); send(WM_MOUSEMOVE, MK_LBUTTON, other); send(WM_LBUTTONUP, 0, other);
+            Check(store.Resolve(action_surface::hotbar, 0, 0).name == "Third" && store.Resolve(action_surface::hotbar, 1, 0).name == "Second" &&
+                !module.PointerDown() && !module.AssignmentDragging() && !module.shift_drag_, "suspension cancels the swap and clears its temporary lock override");
         }
         static auto Editing(void) -> void
         {
@@ -1885,7 +2005,7 @@ namespace xiui
             Check(legacy.ReadString("session.config", "topic_id") == "keybinds", "topic identity persists independently of its ordinal");
             Check(runtime->config_.section == 2 && !module.DialogOpen(), "new Keybinds topic selections round trip without reopening transient workspaces");
         }
-        static auto Run(void) -> void { ControllerVisuals(); Ownership(); DirectInteraction(); LibraryPlacement(); BarControlsAndCrossbarGeometry(); EmptyBarEditBounds(); Editing(); KeyboardAndCrossbar(); Persistence(); SlotStylePersistence(); SlotStyleCompatibility(); SlotFrameProfileOverlay(); SlotTextDefaults(); SlotStyleActions(); SlotStyleGeometry(); Keybinds(); ControllerSetup(); RuntimeOwnership(); NativeMacroKeyboardOwnership(); EditModeManagement(); DependentSettings(); WorkspaceCursors(); FloatingWorkspaces(); LibraryCategories(); LibraryLayoutAndSearch(); LibraryGridNavigation(); Configuration(); }
+        static auto Run(void) -> void { GlobalSettings(); GlobalCaption(); ControllerVisuals(); Ownership(); DirectInteraction(); LibraryPlacement(); LibraryEditorReturn(); BarControlsAndCrossbarGeometry(); EmptyBarEditBounds(); ShiftSlotDragging(); Editing(); KeyboardAndCrossbar(); Persistence(); SlotStylePersistence(); SlotStyleCompatibility(); SlotFrameProfileOverlay(); SlotTextDefaults(); SlotStyleActions(); SlotStyleGeometry(); Keybinds(); ControllerSetup(); RuntimeOwnership(); NativeMacroKeyboardOwnership(); EditModeManagement(); DependentSettings(); WorkspaceCursors(); FloatingWorkspaces(); LibraryCategories(); LibraryLayoutAndSearch(); LibraryGridNavigation(); Configuration(); }
     };
 }
 
@@ -1898,17 +2018,17 @@ auto main(const int argc, char** argv) -> int
     }
     if (argc == 2 && std::strcmp(argv[1], "--global-only") == 0)
     {
-        try { xiui::actionbars_ui_test::GlobalSettings(); std::puts("Global hotbar inheritance, independent settings and persistence passed."); return 0; }
+        try { xiui::actionbars_ui_test::GlobalSettings(); xiui::actionbars_ui_test::GlobalCaption(); std::puts("Global hotbar inheritance, caption controls, independent settings and persistence passed."); return 0; }
         catch (const std::exception& error) { std::fprintf(stderr, "%s\n", error.what()); return 1; }
     }
     if (argc == 2 && std::strcmp(argv[1], "--library-bars-only") == 0)
     {
-        try { xiui::actionbars_ui_test::LibraryBarManagement(); xiui::actionbars_ui_test::FloatingWorkspaces(); std::puts("Library and exposed hotbar management checks passed."); return 0; }
+        try { xiui::actionbars_ui_test::DirectInteraction(); xiui::actionbars_ui_test::LibraryPlacement(); xiui::actionbars_ui_test::LibraryEditorReturn(); xiui::actionbars_ui_test::LibraryBarManagement(); xiui::actionbars_ui_test::FloatingWorkspaces(); std::puts("Library assignment, editor return and exposed hotbar management checks passed."); return 0; }
         catch (const std::exception& error) { std::fprintf(stderr, "Library/bar check failed: %s\n", error.what()); return 1; }
     }
     if (argc == 2 && std::strcmp(argv[1], "--input-ownership-only") == 0)
     {
-        try { xiui::actionbars_ui_test::WorkspaceChatCapture(); xiui::actionbars_ui_test::RuntimeOwnership(); xiui::actionbars_ui_test::NativeMacroKeyboardOwnership(); xiui::actionbars_ui_test::ConfigurationClose(); xiui::actionbars_ui_test::ClosePointerOwnership(); std::puts("Action bar pointer, menu and keyboard ownership checks passed."); return 0; }
+        try { xiui::actionbars_ui_test::ShiftSlotDragging(); xiui::actionbars_ui_test::WorkspaceChatCapture(); xiui::actionbars_ui_test::RuntimeOwnership(); xiui::actionbars_ui_test::NativeMacroKeyboardOwnership(); xiui::actionbars_ui_test::ConfigurationClose(); xiui::actionbars_ui_test::ClosePointerOwnership(); std::puts("Action bar pointer, menu and keyboard ownership checks passed."); return 0; }
         catch (const std::exception& error) { std::fprintf(stderr, "Action bar input check failed: %s\n", error.what()); return 1; }
     }
     if (argc == 2 && std::strcmp(argv[1], "--custom-icons-only") == 0)

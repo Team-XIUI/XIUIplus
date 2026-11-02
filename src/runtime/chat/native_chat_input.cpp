@@ -1,5 +1,6 @@
 #include "native_chat_input.hpp"
 #include "chat_encoding.hpp"
+#include "chat_destination.hpp"
 #include "Memory.h"
 #include "native_pattern.hpp"
 
@@ -28,6 +29,17 @@ namespace
     {
         using last_teller_fn = const char*(__stdcall*)(void);
         __try { return ReadText(reinterpret_cast<last_teller_fn>(function)(), name, capacity); }
+        __except (EXCEPTION_EXECUTE_HANDLER) { return false; }
+    }
+
+    auto ReadSendPrefix(const uintptr_t slot, char* text, const size_t capacity) noexcept -> bool
+    {
+        if (slot == 0) return false;
+        __try
+        {
+            const auto object = *reinterpret_cast<const uintptr_t*>(slot);
+            return object != 0 && ReadText(reinterpret_cast<const char*>(object + 8), text, capacity);
+        }
         __except (EXCEPTION_EXECUTE_HANDLER) { return false; }
     }
 
@@ -96,6 +108,17 @@ namespace xiui
         const auto size = Ashita::Memory::GetModuleSize("FFXiMain.dll");
         if (base != 0 && size != 0)
         {
+            constexpr char sendPattern[] = "3C2FBE96000000BF????????74??8B0D????????3BCD74??E8????????8BF083C9FF8BFE33C0F2AEF7D14981F996000000";
+            const auto send = FindUniquePattern(base, size, sendPattern);
+            if (send != 0)
+            {
+                uintptr_t slot{}; int32_t relative{};
+                std::memcpy(&slot, reinterpret_cast<const void*>(send + 16), 4);
+                std::memcpy(&relative, reinterpret_cast<const void*>(send + 25), 4);
+                const auto getter = send + 29 + relative;
+                if (slot >= base && slot - base <= size - 4 && getter >= base && getter - base <= size - 4 &&
+                    MatchesOffset(getter, 0xC308418D)) this->send_prefix_slot_ = slot;
+            }
             constexpr char pattern[] = "8B0D????????85C9750333C0C36A00E8????????C3";
             const auto match = FindUniquePattern(base, size, pattern);
             if (match != 0)
@@ -152,6 +175,14 @@ namespace xiui
         std::array<char, 64> name{};
         if (this->last_teller_ == 0 || !ReadLastTeller(this->last_teller_, name.data(), name.size()) || !IsTellRecipient(name.data())) return {};
         return name.data();
+    }
+
+    auto native_chat_input::SendPrefix(void) const -> std::optional<std::string>
+    {
+        std::array<char, 256> text{};
+        if (!ReadSendPrefix(this->send_prefix_slot_, text.data(), text.size())) return std::nullopt;
+        auto prefix = FromGameText(text.data());
+        return DescribeChatDestination(prefix).mode != 0 ? std::optional{std::move(prefix)} : std::nullopt;
     }
 
     auto native_chat_input::ReplyTargets(void) const -> std::vector<std::string>

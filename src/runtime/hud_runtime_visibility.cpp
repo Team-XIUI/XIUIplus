@@ -60,7 +60,7 @@ namespace xiui
 
     auto hud_runtime::ModuleEditControlsVisible(const hud_module& module) const -> bool
     {
-        if (!this->editing_ || !this->ModuleDisplayed(module)) return false;
+        if (!this->editing_ || !this->ModuleDisplayed(module) || (!module.CanMove() && !module.ConfigScaleEditable())) return false;
         if (this->config_.edit_mode || this->ConfigPreview(module) || this->interaction_module_ == &module ||
             (this->config_.focus.moving && this->config_.focus.moving_id == module.Id())) return true;
         const float x = static_cast<float>(this->mouse_x_), y = static_cast<float>(this->mouse_y_);

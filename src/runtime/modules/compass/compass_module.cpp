@@ -78,7 +78,7 @@ namespace xiui
         case 1: return module_option::Slider("Size", "Width of the native tilted compass.", &this->state_.bounds.width, 80, 360, 1, module_option_group::appearance).Ordered(110);
         case 2: return module_option::Toggle("Directions", "Native direction glyphs outside the rim.", &this->labels_visible_);
         case 3: return module_option::Toggle("Heading", "Show facing direction and degrees.", &this->heading_visible_);
-        case 4: return module_option::Toggle("Markers", "Show party, alliance, and your selected target.", &this->markers_);
+        case 4: return module_option::Toggle("Markers", "Show nearby native radar dots, party, alliance, and your selected target. Enemy dots follow the client's radar rules.", &this->markers_);
         case 5: return module_option::Slider("Range", "Marker radius in yalms.", &this->range_, 10, 200, 5).VisibleWhen(this->markers_);
         case 6: return module_option::Slider("Opacity", "Native compass artwork opacity.", &this->opacity_, 0.1f, 1, 0.05f, module_option_group::appearance).Ordered(450);
         default: return TextProfileOption(index - 7, this->heading_text_).VisibleWhen(this->heading_visible_);
