@@ -4,7 +4,7 @@ Run commands from the repository root. Use Visual Studio's x86 C++ tools, CMake/
 
 ## Build and install
 
-Normal installs use one standalone `plugins/XIUIplus.dll`. `./scripts/package.ps1` builds `XIUIplus_release` and its isolated startup/resource/compatibility checks, runs them, then publishes `dist/XIUIplus.dll`. Use `-SkipBuild` only when that same release has already passed those checks. Change root `VERSION` only when cutting a version.
+Normal installs use one standalone `plugins/XIUIplus.dll`. `./scripts/package.ps1` builds `XIUIplus_release` and its isolated startup/resource/compatibility checks, runs them, then publishes `dist/XIUIplus.dll`. Use `-SkipBuild` only when that same release has already passed those checks. Ordinary builds and commit/push requests retain the current `VERSION`. Change or publish a version only when Cody explicitly requests it.
 
 For targeted work:
 

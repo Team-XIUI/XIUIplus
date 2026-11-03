@@ -4,21 +4,13 @@
 
 - Add an independent Minimap theme selector with Follow global theme, Standard and XIV 1.0 (Fading circle), retaining saved shapes, edges and positions.
 
-## 0.1.6-alpha — 2026-11-02
-
-- Allow SDK-compatible hosts such as VanaCore to initialize without Ashita's optional core version exports. Retain the plugin interface advertised to the loader and pass that SDK selection into embedded and hot-reloaded runtimes instead of rejecting version `0.00`.
-- Report unavailable host version metadata separately from the selected SDK interface. Add startup regression coverage for a host with no Ashita version exports and verify explicit legacy/modern runtime routing.
-
-## 0.1.5-alpha — 2026-11-02
-
-- Fix startup rejection on supported Ashita cores when `GetHandle()` is not the core DLL or the core is manually mapped outside Windows' module list. Resolve the actual core image and its version exports, preserving successful loader negotiation and the correct 4.16/4.30 SDK routing.
-- Exercise actual standalone initialization with normal, renamed and manually mapped host fixtures for both interfaces, including misleading handle values.
-- Honor configured global and module fonts throughout the XIV 1.0 theme, including Party/Player/Target names and meter values. Preserve explicit Bahnschrift selections and saved module overrides through reloads.
-
 ## 0.1.4-alpha — 2026-11-02
 
-- Resolve the Ashita core by its version exports before loader negotiation and its supplied module handle at initialization, including renamed cores and discovery after an early miss. Reject unknown SDK layouts instead of silently using 4.30 calls.
-- Preserve separate plain-click and Shift-click histories, add `/xiuiplus mouse clear`, and report the resolved core module and SDK layout. This improves diagnosis of Shift-only config reports; affected-client verification is still needed.
+- Allow SDK-compatible hosts such as VanaCore to initialize without Ashita's optional core version exports. Retain the plugin interface advertised to the loader and pass that SDK selection into embedded and hot-reloaded runtimes instead of rejecting version `0.00`.
+- Resolve available core version exports from normal, renamed and manually mapped images. Keep host version metadata separate from the selected plugin SDK interface.
+- Preserve separate plain-click and Shift-click histories, add `/xiuiplus mouse clear`, and report the resolved provider image and SDK layout.
+- Honor configured global and module fonts throughout the XIV 1.0 theme, including Party/Player/Target names and meter values. Preserve explicit Bahnschrift selections and saved module overrides through reloads.
+- Exercise actual standalone initialization with 4.16/4.30 cores and SDK facades without version exports, and verify the selected SDK reaches hot-reloaded runtimes.
 
 ## 0.1.3-alpha — 2026-11-02
 
