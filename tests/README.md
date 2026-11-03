@@ -18,6 +18,7 @@ The wrapper builds only the selected target, then runs its catalogued arguments.
 
 - Explicit Edit Mode: `edit-mode` (live visibility, selected previews, hover controls, hidden input targets and shared toggle).
 - Full / Compact typing: `xiui_chat_smoke --full-keyboard-only` (first-key composition, native draft handoff, shortcut ownership, numpad movement and editor isolation).
+- Chat accents: `xiui_chat_smoke --encoding-only` (FFXI Western character bytes, mixed Japanese/auto-translate text, received messages and bounded submission).
 - First-load setup and native chat defaults: `setup-wizard` (navigation, exactly-once activation, native fallback, local progress and saved chat preservation).
 - HUD scale and Basic/Advanced: `hud-scaling` (geometry, shared gestures, representative input and preset preservation).
 - Complete captured setups: `hud-presets` (all preferences, Party-only Classic differences, independent reset baseline).

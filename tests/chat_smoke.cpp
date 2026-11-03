@@ -2289,6 +2289,45 @@ namespace xiui
             Check(restored.channel_ == chat_module::game_channel, "native channel following persists normally");
         }
 
+        static auto Encoding(void) -> void
+        {
+            const std::string accents = "éèàçñäöü ÉÈÀÇÑÄÖÜ œŒß";
+            const std::string native = "\x85\xC8\x85\xC7\x85\xBF\x85\xC6\x85\xD0\x85\xC3\x85\xD5\x85\xDB "
+                "\x85\xA8\x85\xA7\x85\x9F\x85\xA6\x85\xB0\x85\xA3\x85\xB5\x85\xBB \x85\x5C\x85\x4C\x85\xBE";
+            std::string encoded;
+            Check(ToGameText(accents, encoded) && encoded == native && FromGameText(native) == accents,
+                "French, Spanish and German accents and ligatures use FFXI's Western character page in both directions");
+            for (wchar_t character = 0xC0; character <= 0xFF; ++character)
+            {
+                if (character == 0xD7 || character == 0xF7) continue;
+                const auto text = ToUtf8({&character, 1});
+                Check(ToGameText(text, encoded) && encoded == std::string{static_cast<char>(0x85), static_cast<char>(character - 0x21)} &&
+                    FromGameText(encoded) == text, "all Latin-1 accented letters round trip without transliteration");
+            }
+            const auto token = ChatToken(0x85C8);
+            const auto mixed = std::string{"\x1E\x85"} + native + " \x82\xB1\x82\xF1 " + token + "\xEF\x27ok\xEF\x28";
+            Check(FromGameText(mixed) == std::string{"\x1E\x85"} + accents + " こん " + token + std::string{chat_cap_open} + "ok" + std::string{chat_cap_close},
+                "accent decoding preserves Japanese, color operands, raw tokens and auto-translate caps");
+            Check(ToGameText(accents + " こん " + token, encoded) && encoded == native + " \x82\xB1\x82\xF1 " + token,
+                "outbound accents coexist with Japanese and opaque auto-translate bytes");
+            Check(ToGameText("é±×÷", encoded) && encoded == "\x85\xC8\x81\x7D\x81\x7E\x81\x80",
+                "existing Shift-JIS symbol encodings remain preferred");
+            Check(!ToGameText("é😀", encoded) && !ToGameText("\xC3", encoded), "unsupported characters and incomplete UTF-8 remain rejected");
+
+            chat_manager chat; chat_module module;
+            chat_event event{}; event.sequence = 1; event.windows = 1; event.mode = 1;
+            strcpy_s(event.text, native.c_str()); module.Receive(nullptr, event, false);
+            std::string received;
+            for (const auto& span : module.model_.Lines().front().spans) received += span.text;
+            Check(received == accents, "received native accents reach the shared chat model as readable UTF-8");
+            chat.input_limit = 10; module.channel_ = 0; module.SetInputContext(&chat);
+            module.editor_.Insert("éèà");
+            Check(module.editor_.Text() == "éè" && module.InputUsage(module.editor_.Text()) == std::pair<size_t, size_t>{4, 5},
+                "accented input respects the native byte budget and retains complete characters");
+            Check(module.Submit(&chat) && chat.count == 1 && chat.sent == "/say \x85\xC8\x85\xC7" && !module.Focused(),
+                "accented drafts submit once through the normal chat command path");
+        }
+
         static auto InputLimits(void) -> void
         {
             chat_manager chat; chat.input_limit = 18;
@@ -2801,6 +2840,11 @@ int main(int argc, char** argv)
             std::puts("Chat native limits, paste, token/Unicode boundaries, completion and counter settings passed.");
             return 0;
         }
+        if (argc == 2 && std::strcmp(argv[1], "--encoding-only") == 0)
+        {
+            xiui::chat_test::Encoding();
+            std::puts("FFXI accent encoding, received text, mixed Japanese/tokens and bounded submission passed."); return 0;
+        }
 
         using namespace xiui;
         if (argc == 2 && std::strcmp(argv[1], "--collapse-only") == 0)
@@ -2905,6 +2949,7 @@ int main(int argc, char** argv)
             std::puts("Reply shortcuts and native CHAT tell handoff checks passed.");
             return 0;
         }
+        chat_test::Encoding();
         Check(ChatTabMatches(chat_tab::all, 1, 1) && ChatTabMatches(chat_tab::window2, 5, 2) && !ChatTabMatches(chat_tab::window1, 5, 2) && !ChatTabMatches(chat_tab::all, 1, 0), "native window routing and rejected messages");
         Check(ChatTabMatches(chat_tab::party, 5, 1) && ChatTabMatches(chat_tab::tell, 12, 1) && ChatTabMatches(chat_tab::linkshell, 213, 1) && ChatTabMatches(chat_tab::chat, 211, 1), "channel classification");
         const auto encoded = std::string{"base\x1e\x54"} + "party\x1e\x01 reset\x1f\x05" + "party mode";
