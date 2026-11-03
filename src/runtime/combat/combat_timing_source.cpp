@@ -1,4 +1,5 @@
 #include "combat_timing_source.hpp"
+#include "ashita_compat.hpp"
 #include "modules/equipment/equipment_source.hpp"
 #include "resources/timing_rules.hpp"
 
@@ -30,7 +31,7 @@ namespace xiui
     auto combat_timing_source::ReadLoadout(IAshitaCore& core) -> void
     {
         const auto* memory = core.GetMemoryManager();
-        const auto* player = memory->GetPlayer();
+        const auto player = xiui::ashita::View(memory->GetPlayer());
         const auto* inventory = memory->GetInventory();
         auto* resourceManager = core.GetResourceManager();
         std::array<int, 1024> mods{};
@@ -104,9 +105,9 @@ namespace xiui
     auto combat_timing_source::Update(IAshitaCore* core, const combat_source& combat, const uint64_t now) -> void
     {
         const auto* memory = core != nullptr ? core->GetMemoryManager() : nullptr;
-        const auto* player = memory != nullptr ? memory->GetPlayer() : nullptr;
-        const auto* party = memory != nullptr ? memory->GetParty() : nullptr;
-        const auto* entities = memory != nullptr ? memory->GetEntity() : nullptr;
+        const auto player = memory != nullptr ? xiui::ashita::View(memory->GetPlayer()) : nullptr;
+        const auto party = memory != nullptr ? xiui::ashita::View(memory->GetParty()) : nullptr;
+        const auto entities = memory != nullptr ? xiui::ashita::View(memory->GetEntity()) : nullptr;
         const auto index = party != nullptr ? party->GetMemberTargetIndex(0) : 0;
         if (player == nullptr || entities == nullptr || index == 0 || index >= entities->GetEntityMapSize() || player->GetIsZoning() ||
             player->GetLoginStatus() != static_cast<uint8_t>(Ashita::FFXI::Enums::LoginStatus::LoggedIn) ||
@@ -175,7 +176,7 @@ namespace xiui
         else
         {
             const auto index = FindEntityIndex(core, action.actor);
-            const auto* entities = core.GetMemoryManager()->GetEntity();
+            const auto entities = xiui::ashita::View(core.GetMemoryManager()->GetEntity());
             if (index == 0 || (entities->GetSpawnFlags(index) & 0x10) == 0) return;
             if (!this->enemies_.contains(action.actor) && this->enemies_.size() >= 64)
             {

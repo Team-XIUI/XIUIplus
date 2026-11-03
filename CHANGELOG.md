@@ -2,6 +2,14 @@
 
 ## Unreleased
 
+## 0.1.2-alpha.1 — 2026-11-02
+
+- Add one-DLL compatibility for Ashita plugin interfaces 4.16 and 4.30, including the different Party, Player, Entity and Target SDK layouts. Keep unavailable legacy party master levels separate from the local player fallback.
+- Normalize mouse press/release state when Ashita callbacks omit held-button flags, preserving plain clicks and drags without Shift. Cancel a confirmed missed release without activating a pending control.
+- Release shared HUD hover capture before opening Configuration so XIUI+'s own mouse block is not saved as an external input owner.
+- Add `/xiuiplus mouse status` with Ashita core/interface versions, raw mouse data, normalized keys and click routing.
+- Add English and Japanese UI localization with language selection in the settings header.
+
 - Keep Replace native macros off in first-load/reset defaults and every bundled HUD setup.
 
 - Add an optional Instant native macro bar setting under Native Menus for the native Ctrl/Alt palettes. It preserves command waits, yields to macro replacement and restores owned code changes on disable or unload.

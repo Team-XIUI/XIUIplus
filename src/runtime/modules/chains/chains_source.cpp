@@ -1,4 +1,5 @@
 #include "chains_source.hpp"
+#include "ashita_compat.hpp"
 #include "chat/chat_encoding.hpp"
 #include "resources/chains_data.hpp"
 #include "resources/skillchain_data.hpp"
@@ -17,7 +18,7 @@ namespace
         __try { std::memcpy(&result, reinterpret_cast<const void*>(address), sizeof(T)); return true; }
         __except (EXCEPTION_EXECUTE_HANDLER) { return false; }
     }
-    auto SpellKnown(const IPlayer& player, const ISpell& spell) -> bool
+    auto SpellKnown(const xiui::ashita::player_view& player, const ISpell& spell) -> bool
     {
         if (!player.HasSpellData() || !player.HasSpell(spell.Index)) return false;
         const auto job = player.GetMainJob();
@@ -99,9 +100,9 @@ namespace xiui
     auto chains_source::Update(IAshitaCore* core, const skillchain_source& source, const uint64_t now) -> void
     {
         const auto* memory = core != nullptr ? core->GetMemoryManager() : nullptr;
-        const auto* player = memory != nullptr ? memory->GetPlayer() : nullptr;
-        const auto* party = memory != nullptr ? memory->GetParty() : nullptr;
-        const auto* entities = memory != nullptr ? memory->GetEntity() : nullptr;
+        const auto player = memory != nullptr ? xiui::ashita::View(memory->GetPlayer()) : nullptr;
+        const auto party = memory != nullptr ? xiui::ashita::View(memory->GetParty()) : nullptr;
+        const auto entities = memory != nullptr ? xiui::ashita::View(memory->GetEntity()) : nullptr;
         const auto* resources = core != nullptr ? core->GetResourceManager() : nullptr;
         if (player == nullptr || party == nullptr || entities == nullptr || resources == nullptr || player->GetIsZoning() ||
             player->GetLoginStatus() != static_cast<uint8_t>(Ashita::FFXI::Enums::LoginStatus::LoggedIn) ||

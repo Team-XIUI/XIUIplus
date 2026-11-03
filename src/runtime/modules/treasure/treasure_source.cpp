@@ -1,4 +1,5 @@
 #include "treasure_source.hpp"
+#include "ashita_compat.hpp"
 #include "chat/chat_encoding.hpp"
 #include <algorithm>
 #include <cstring>
@@ -68,9 +69,9 @@ namespace xiui
         if (!force && now < this->next_update_) return;
         this->next_update_ = now + 150;
         auto* memory = core != nullptr ? core->GetMemoryManager() : nullptr;
-        auto* player = memory != nullptr ? memory->GetPlayer() : nullptr;
+        auto player = memory != nullptr ? xiui::ashita::View(memory->GetPlayer()) : nullptr;
         auto* inventory = memory != nullptr ? memory->GetInventory() : nullptr;
-        auto* party = memory != nullptr ? memory->GetParty() : nullptr;
+        auto party = memory != nullptr ? xiui::ashita::View(memory->GetParty()) : nullptr;
         if (player == nullptr || inventory == nullptr || party == nullptr || player->GetIsZoning() ||
             player->GetLoginStatus() != static_cast<uint8_t>(Ashita::FFXI::Enums::LoginStatus::LoggedIn))
         { this->ready_ = false; return; }
@@ -79,7 +80,7 @@ namespace xiui
         std::array<uint32_t, 18> members{};
         const auto localId = party->GetMemberServerId(0);
         const auto localZone = party->GetMemberZone(0);
-        const auto* entities = memory->GetEntity();
+        const auto entities = xiui::ashita::View(memory->GetEntity());
         if (status == 1)
             for (uint32_t member = 0; member < members.size(); ++member)
             {
@@ -188,8 +189,8 @@ namespace xiui
         this->error_.clear();
         this->Update(core, now, true);
         auto* memory = core != nullptr ? core->GetMemoryManager() : nullptr;
-        auto* player = memory != nullptr ? memory->GetPlayer() : nullptr;
-        auto* target = memory != nullptr ? memory->GetTarget() : nullptr;
+        auto player = memory != nullptr ? xiui::ashita::View(memory->GetPlayer()) : nullptr;
+        auto target = memory != nullptr ? xiui::ashita::View(memory->GetTarget()) : nullptr;
         auto* chat = core != nullptr ? core->GetChatManager() : nullptr;
         auto* packets = core != nullptr ? core->GetPacketManager() : nullptr;
         auto* properties = core != nullptr ? core->GetProperties() : nullptr;

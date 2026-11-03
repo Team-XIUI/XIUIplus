@@ -1,4 +1,5 @@
 #include "hud_runtime.hpp"
+#include "ashita_compat.hpp"
 #include "input/keyboard_policy.hpp"
 #include "native_target.hpp"
 
@@ -28,6 +29,7 @@ namespace xiui
         this->FinishInteraction();
         this->chat_.CancelPointer(); this->chat_second_.CancelPointer(); this->ready_check_.CancelPointer();
         this->chat_pointer_ = nullptr; this->mouse_down_ = false; this->mouse_buttons_ = 0;
+        this->mouse_input_.Reset();
         this->confirmation_key_release_ = 0; this->chat_activation_enter_down_ = false;
         this->setup_.pressed = ui::setup_control::none; this->setup_.pointer_buttons = 0; this->setup_.key_releases.reset();
         this->ReleasePointerCapture(); this->SetChatMouseCapture(false);
@@ -89,7 +91,7 @@ namespace xiui
         const auto* chat = this->core_->GetChatManager();
         if (chat != nullptr && chat->IsInputOpen() != 0) return true;
         const auto* memory = this->core_->GetMemoryManager();
-        const auto* player = memory != nullptr ? memory->GetPlayer() : nullptr;
+        const auto player = memory != nullptr ? xiui::ashita::View(memory->GetPlayer()) : nullptr;
         if (player != nullptr && player->GetLoginStatus() != static_cast<uint8_t>(Ashita::FFXI::Enums::LoginStatus::LoggedIn)) return true;
         return this->visibility_context_.event_active || this->visibility_context_.map_open || this->visibility_context_.interface_hidden ||
             this->visibility_context_.window_focus == native_window_focus::chatlog ||
@@ -99,7 +101,7 @@ namespace xiui
     auto hud_runtime::ControllerNativeMenuOpen(void) const -> bool
     {
         const auto* memory = this->core_ != nullptr ? this->core_->GetMemoryManager() : nullptr;
-        const auto* target = memory != nullptr ? memory->GetTarget() : nullptr;
+        const auto target = memory != nullptr ? xiui::ashita::View(memory->GetTarget()) : nullptr;
         return this->native_ui_.menu_visible || (target != nullptr && target->GetIsMenuOpen() != 0);
     }
 
@@ -322,8 +324,8 @@ namespace xiui
     auto hud_runtime::SelectHudTarget(const uint32_t id, const uint32_t index) -> bool
     {
         const auto* memory = this->core_ != nullptr ? this->core_->GetMemoryManager() : nullptr;
-        const auto* target = memory != nullptr ? memory->GetTarget() : nullptr;
-        const auto* entity = memory != nullptr ? memory->GetEntity() : nullptr;
+        const auto target = memory != nullptr ? xiui::ashita::View(memory->GetTarget()) : nullptr;
+        const auto entity = memory != nullptr ? xiui::ashita::View(memory->GetEntity()) : nullptr;
         if (target == nullptr || entity == nullptr || id == 0 || index == 0 || index >= entity->GetEntityMapSize() ||
             entity->GetServerId(index) != id || (entity->GetRenderFlags0(index) & 0x200) == 0 ||
             (entity->GetRenderFlags0(index) & 0x4000) != 0) return false;

@@ -1,5 +1,7 @@
 #pragma once
 
+#include "ashita_compat.hpp"
+
 #include "modules/module.hpp"
 #include "chat/chat_bubbles.hpp"
 #include "chat/chat_colors.hpp"
@@ -70,7 +72,7 @@ namespace xiui
         IAshitaCore* core_{};
         const chat_color_overrides* colors_{};
         auto FindSpeaker(IAshitaCore* core, std::string_view name, bool npc) const -> uint32_t;
-        auto SpeakerAvailable(const IEntity& entities, uint32_t player, uint32_t index, uint32_t id) const -> bool;
+        auto SpeakerAvailable(const ashita::entity_view& entities, uint32_t player, uint32_t index, uint32_t id) const -> bool;
         auto Add(const chat_line& line, bubble_message message, uint32_t index, uint32_t id, uint64_t now) -> void;
         auto RebuildRows(bubble& value, const ui::design_system& design, float width) const -> void;
     };

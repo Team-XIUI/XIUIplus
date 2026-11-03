@@ -1,4 +1,5 @@
 #include "skillchain_source.hpp"
+#include "ashita_compat.hpp"
 #include "combat_source.hpp"
 #include "modules/actionbars/action_executor.hpp"
 #include "chat/chat_encoding.hpp"
@@ -265,10 +266,10 @@ namespace xiui
     auto skillchain_source::Update(IAshitaCore* core, const uint64_t now) -> void
     {
         const auto* memory = core != nullptr ? core->GetMemoryManager() : nullptr;
-        const auto* player = memory != nullptr ? memory->GetPlayer() : nullptr;
-        const auto* party = memory != nullptr ? memory->GetParty() : nullptr;
-        const auto* entity = memory != nullptr ? memory->GetEntity() : nullptr;
-        const auto* target = memory != nullptr ? memory->GetTarget() : nullptr;
+        const auto player = memory != nullptr ? xiui::ashita::View(memory->GetPlayer()) : nullptr;
+        const auto party = memory != nullptr ? xiui::ashita::View(memory->GetParty()) : nullptr;
+        const auto entity = memory != nullptr ? xiui::ashita::View(memory->GetEntity()) : nullptr;
+        const auto target = memory != nullptr ? xiui::ashita::View(memory->GetTarget()) : nullptr;
         if (player == nullptr || party == nullptr || entity == nullptr || target == nullptr || player->GetIsZoning() ||
             player->GetLoginStatus() != static_cast<uint8_t>(Ashita::FFXI::Enums::LoginStatus::LoggedIn) || party->GetMemberServerId(0) == 0 || party->GetMemberHP(0) == 0)
         { this->Clear(); return; }

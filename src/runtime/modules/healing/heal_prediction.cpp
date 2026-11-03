@@ -1,4 +1,5 @@
 #include "heal_prediction.hpp"
+#include "ashita_compat.hpp"
 
 #include <algorithm>
 #include <cmath>
@@ -67,9 +68,9 @@ namespace xiui
     {
         this->Clear();
         auto* memory = core != nullptr ? core->GetMemoryManager() : nullptr;
-        auto* player = memory != nullptr ? memory->GetPlayer() : nullptr;
-        auto* target = memory != nullptr ? memory->GetTarget() : nullptr;
-        auto* entities = memory != nullptr ? memory->GetEntity() : nullptr;
+        auto player = memory != nullptr ? xiui::ashita::View(memory->GetPlayer()) : nullptr;
+        auto target = memory != nullptr ? xiui::ashita::View(memory->GetTarget()) : nullptr;
+        auto entities = memory != nullptr ? xiui::ashita::View(memory->GetEntity()) : nullptr;
         if (player == nullptr || target == nullptr || entities == nullptr || !party.Available() || party.InCutscene() || player->GetIsZoning() ||
             player->GetLoginStatus() != static_cast<uint8_t>(Ashita::FFXI::Enums::LoginStatus::LoggedIn)) return;
         const auto& members = party.Members();

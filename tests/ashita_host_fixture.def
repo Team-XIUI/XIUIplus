@@ -1,0 +1,4 @@
+LIBRARY Ashita
+EXPORTS
+    GetInterfaceVersion
+    GetAshitaVersion

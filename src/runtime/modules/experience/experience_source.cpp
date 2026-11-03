@@ -1,4 +1,5 @@
 #include "experience_source.hpp"
+#include "ashita_compat.hpp"
 #include "combat/action_packet.hpp"
 #include "Memory.h"
 #include "native_pattern.hpp"
@@ -33,9 +34,9 @@ namespace xiui
     auto experience_source::Update(IAshitaCore* core, const uint64_t now) -> void
     {
         const auto* memory = core != nullptr ? core->GetMemoryManager() : nullptr;
-        const auto* player = memory != nullptr ? memory->GetPlayer() : nullptr;
-        const auto* party = memory != nullptr ? memory->GetParty() : nullptr;
-        const auto* entity = memory != nullptr ? memory->GetEntity() : nullptr;
+        const auto player = memory != nullptr ? xiui::ashita::View(memory->GetPlayer()) : nullptr;
+        const auto party = memory != nullptr ? xiui::ashita::View(memory->GetParty()) : nullptr;
+        const auto entity = memory != nullptr ? xiui::ashita::View(memory->GetEntity()) : nullptr;
         const auto index = party != nullptr ? party->GetMemberTargetIndex(0) : 0;
         const auto id = party != nullptr ? party->GetMemberServerId(0) : 0;
         if (player == nullptr || id == 0 || player->GetIsZoning() || player->GetMainJob() == 0 || player->GetMainJob() > 22 ||
@@ -177,7 +178,7 @@ namespace xiui
         }
         if (!this->ready) this->Update(core, now);
         const auto* memory = core != nullptr ? core->GetMemoryManager() : nullptr;
-        const auto* party = memory != nullptr ? memory->GetParty() : nullptr;
+        const auto party = memory != nullptr ? xiui::ashita::View(memory->GetParty()) : nullptr;
         const auto& sample = this->tracker.Sample();
         if (!this->ready || party == nullptr || party->GetMemberServerId(0) != sample.player) return;
         const auto utc = this->utc_ != 0 ? this->utc_ : static_cast<uint32_t>(std::time(nullptr));

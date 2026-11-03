@@ -1,6 +1,12 @@
 {
   "checks": [
     {
+      "name": "ashita-compat",
+      "target": "xiui_ashita_compat_smoke",
+      "arguments": [],
+      "requires_arguments": false
+    },
+    {
       "name": "localization",
       "target": "xiui_localization_smoke",
       "arguments": [],

@@ -7,6 +7,19 @@ add_executable(xiui_single_dll_smoke tests/single_dll_smoke.cpp)
 configure_xiui_target(xiui_single_dll_smoke)
 set_target_properties(xiui_single_dll_smoke PROPERTIES RUNTIME_OUTPUT_DIRECTORY "${CMAKE_SOURCE_DIR}/bin/tests")
 
+add_executable(xiui_ashita_compat_smoke tests/ashita_compat_smoke.cpp)
+configure_xiui_target(xiui_ashita_compat_smoke)
+set_target_properties(xiui_ashita_compat_smoke PROPERTIES RUNTIME_OUTPUT_DIRECTORY "${CMAKE_SOURCE_DIR}/bin/tests")
+foreach(interface IN ITEMS 4.16 4.30)
+    string(REPLACE "." "_" suffix "${interface}")
+    add_library(xiui_ashita_${suffix}_fixture MODULE tests/ashita_host_fixture.cpp tests/ashita_host_fixture.def)
+    target_compile_definitions(xiui_ashita_${suffix}_fixture PRIVATE XIUI_TEST_ASHITA_INTERFACE=${interface})
+    set_target_properties(xiui_ashita_${suffix}_fixture PROPERTIES OUTPUT_NAME Ashita PREFIX ""
+        RUNTIME_OUTPUT_DIRECTORY "${CMAKE_SOURCE_DIR}/bin/tests/ashita-${interface}"
+        LIBRARY_OUTPUT_DIRECTORY "${CMAKE_SOURCE_DIR}/bin/tests/ashita-${interface}"
+        ARCHIVE_OUTPUT_DIRECTORY "${CMAKE_SOURCE_DIR}/bin/tests/ashita-${interface}")
+endforeach()
+
 add_executable(xiui_storage_paths_smoke tests/storage_paths_smoke.cpp src/runtime/settings/storage_paths.cpp src/runtime/settings/settings_store.cpp)
 configure_xiui_target(xiui_storage_paths_smoke)
 set_target_properties(xiui_storage_paths_smoke PROPERTIES RUNTIME_OUTPUT_DIRECTORY "${CMAKE_SOURCE_DIR}/bin/tests")

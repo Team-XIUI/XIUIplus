@@ -1,4 +1,5 @@
 #include "world_source.hpp"
+#include "ashita_compat.hpp"
 #include "compass_radar.hpp"
 #include "entities/entity_name_colors.hpp"
 #include "Memory.h"
@@ -97,9 +98,9 @@ namespace xiui
             this->state_.weather = this->state_.weather_valid ? weather : -1;
         }
         const auto* memory = core != nullptr ? core->GetMemoryManager() : nullptr;
-        auto* entity = memory != nullptr ? memory->GetEntity() : nullptr;
-        auto* party = memory != nullptr ? memory->GetParty() : nullptr;
-        const auto* target = memory != nullptr ? memory->GetTarget() : nullptr;
+        auto entity = memory != nullptr ? xiui::ashita::View(memory->GetEntity()) : nullptr;
+        auto party = memory != nullptr ? xiui::ashita::View(memory->GetParty()) : nullptr;
+        const auto target = memory != nullptr ? xiui::ashita::View(memory->GetTarget()) : nullptr;
         const auto player = party != nullptr ? party->GetMemberTargetIndex(0) : 0;
         this->state_.heading_valid = entity != nullptr && party != nullptr && player > 0 && player < entity->GetEntityMapSize();
         if (!this->state_.heading_valid) { this->state_.markers.clear(); return; }

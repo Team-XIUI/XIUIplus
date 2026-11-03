@@ -1,4 +1,5 @@
 #include "inventory_source.hpp"
+#include "ashita_compat.hpp"
 
 namespace xiui
 {
@@ -49,8 +50,8 @@ namespace xiui
     auto inventory_source::Update(IAshitaCore* core, const uint64_t now) -> void
     {
         const auto* memory = core != nullptr ? core->GetMemoryManager() : nullptr;
-        const auto* player = memory != nullptr ? memory->GetPlayer() : nullptr;
-        const auto* party = memory != nullptr ? memory->GetParty() : nullptr;
+        const auto player = memory != nullptr ? xiui::ashita::View(memory->GetPlayer()) : nullptr;
+        const auto party = memory != nullptr ? xiui::ashita::View(memory->GetParty()) : nullptr;
         const auto* inventory = memory != nullptr ? memory->GetInventory() : nullptr;
         if (player == nullptr || party == nullptr || inventory == nullptr || player->GetIsZoning() != 0 || player->GetMainJob() == 0 ||
             player->GetLoginStatus() != static_cast<uint8_t>(Ashita::FFXI::Enums::LoginStatus::LoggedIn) || party->GetMemberServerId(0) == 0)
@@ -68,7 +69,7 @@ namespace xiui
             this->zone_ = zone;
             this->next_scan_ = 0;
         }
-        const auto* target = memory->GetTarget();
+        const auto target = xiui::ashita::View(memory->GetTarget());
         this->state_.menu_open = target != nullptr && target->GetIsMenuOpen() != 0;
         if (this->syncing_ || now < this->next_scan_) return;
         this->state_.bags = ReadBags(*inventory);

@@ -1,5 +1,7 @@
 #pragma once
 
+#include "ashita_compat.hpp"
+
 #include "Ashita.h"
 #include "combat/action_packet.hpp"
 #include "entities/entity_name_colors.hpp"
@@ -49,11 +51,11 @@ namespace xiui
         std::unordered_set<uint32_t> group_{};
         uint32_t player_id_{}, zone_id_{};
         uint64_t next_scan_{};
-        auto RefreshGroup(IParty& party, IEntity& entity) -> void;
-        auto RefreshSession(IParty& party, IPlayer& player, IEntity& entity) -> bool;
+        auto RefreshGroup(const ashita::party_view& party, const ashita::entity_view& entity) -> void;
+        auto RefreshSession(const ashita::party_view& party, const ashita::player_view& player, const ashita::entity_view& entity) -> bool;
         auto Find(uint32_t id) -> enemy_entry*;
         auto Add(uint32_t id, uint32_t index, uint64_t now) -> enemy_entry*;
         static auto FindIndex(IAshitaCore& core, uint32_t id) -> uint32_t;
-        static auto IsLiveMonster(IEntity& entity, uint32_t index) -> bool;
+        static auto IsLiveMonster(const ashita::entity_view& entity, uint32_t index) -> bool;
     };
 } // namespace xiui

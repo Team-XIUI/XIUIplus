@@ -1,4 +1,5 @@
 #include "hud_runtime.hpp"
+#include "ashita_compat.hpp"
 
 #include <array>
 
@@ -40,8 +41,8 @@ namespace xiui
                 const auto effect = module.ControllerEffect();
                 auto* resources = this->core_ != nullptr ? this->core_->GetResourceManager() : nullptr;
                 const auto* memory = this->core_ != nullptr ? this->core_->GetMemoryManager() : nullptr;
-                const auto* player = memory != nullptr ? memory->GetPlayer() : nullptr;
-                const auto* party = memory != nullptr ? memory->GetParty() : nullptr;
+                const auto player = memory != nullptr ? xiui::ashita::View(memory->GetPlayer()) : nullptr;
+                const auto party = memory != nullptr ? xiui::ashita::View(memory->GetParty()) : nullptr;
                 const auto* icons = player != nullptr ? player->GetStatusIcons() : nullptr;
                 if (icons == nullptr || !LocalStatusSnapshotReady({icons, 32})) icons = player != nullptr ? player->GetBuffs() : nullptr;
                 const bool requested = effect && resources != nullptr && icons != nullptr && party != nullptr &&

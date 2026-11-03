@@ -1,4 +1,5 @@
 #include "hud_runtime.hpp"
+#include "ashita_compat.hpp"
 #include "config/lua_import_layout.hpp"
 #include "combat/server_rules.hpp"
 #include "input/keyboard_policy.hpp"
@@ -473,8 +474,8 @@ namespace xiui
         }
         if (this->editing_ || blocked || this->chat_.Focused() || (message != WM_LBUTTONDOWN && message != WM_LBUTTONDBLCLK)) return false;
         const auto* memory = this->core_ != nullptr ? this->core_->GetMemoryManager() : nullptr;
-        const auto* target = memory != nullptr ? memory->GetTarget() : nullptr;
-        const auto* entity = memory != nullptr ? memory->GetEntity() : nullptr;
+        const auto target = memory != nullptr ? xiui::ashita::View(memory->GetTarget()) : nullptr;
+        const auto entity = memory != nullptr ? xiui::ashita::View(memory->GetEntity()) : nullptr;
         if (target == nullptr || entity == nullptr || (target->GetIsMenuOpen() != 0 && target->GetActionTargetActive() == 0 && target->GetIsSubTargetActive() == 0)) return false;
         const auto x = static_cast<float>(this->mouse_x_), y = static_cast<float>(this->mouse_y_);
         auto selected = this->ContextVisible(this->enemy_list_) ? this->enemy_list_.HitTarget(x, y, ::GetTickCount64()) : std::pair<uint32_t, uint32_t>{};
@@ -496,13 +497,14 @@ namespace xiui
 
     auto hud_runtime::HandleMouseMessage(const uint32_t message, const WPARAM wParam, const LPARAM lParam, const bool inputBlocked) -> bool
     {
+        const auto keys = this->mouse_input_.Normalize(message, wParam, PhysicalMouseButtons(), PhysicalMouseModifiers());
         const bool button = message == WM_LBUTTONDOWN || message == WM_LBUTTONDBLCLK || message == WM_LBUTTONUP ||
             message == WM_RBUTTONDOWN || message == WM_RBUTTONDBLCLK || message == WM_RBUTTONUP;
-        if (!button) return this->RouteMouseMessage(message, wParam, lParam, inputBlocked);
+        if (!button) return this->RouteMouseMessage(message, keys, lParam, inputBlocked);
         auto& trace = this->mouse_trace_[this->mouse_trace_count_++ % this->mouse_trace_.size()];
-        trace = {message, static_cast<uint32_t>(wParam), signed_low_word(lParam), signed_high_word(lParam), inputBlocked,
-            (wParam & MK_SHIFT) != 0 || (::GetKeyState(VK_SHIFT) & 0x8000) != 0, this->mouse_down_, this->mouse_down_};
-        const bool consumed = this->RouteMouseMessage(message, wParam, lParam, inputBlocked);
+        trace = {message, static_cast<uint32_t>(wParam), static_cast<uint32_t>(keys), signed_low_word(lParam), signed_high_word(lParam), inputBlocked,
+            (keys & MK_SHIFT) != 0, this->mouse_down_, this->mouse_down_};
+        const bool consumed = this->RouteMouseMessage(message, keys, lParam, inputBlocked);
         trace.owner = this->mouse_route_;
         trace.consumed = consumed;
         trace.config_down_after = this->mouse_down_;
@@ -892,8 +894,8 @@ namespace xiui
     auto hud_runtime::SelectedChatRecipient(void) const -> std::string
     {
         const auto* memory = this->core_ != nullptr ? this->core_->GetMemoryManager() : nullptr;
-        const auto* target = memory != nullptr ? memory->GetTarget() : nullptr;
-        const auto* entity = memory != nullptr ? memory->GetEntity() : nullptr;
+        const auto target = memory != nullptr ? xiui::ashita::View(memory->GetTarget()) : nullptr;
+        const auto entity = memory != nullptr ? xiui::ashita::View(memory->GetEntity()) : nullptr;
         const auto index = target != nullptr ? target->GetTargetIndex(0) : 0;
         if (entity == nullptr || index == 0 || index >= entity->GetEntityMapSize() || (entity->GetSpawnFlags(index) & 1) == 0) return {};
         const auto* name = entity->GetName(index);
@@ -1064,7 +1066,7 @@ namespace xiui
         const bool replacement = this->chat_capture_available_ && (this->game_hud_.HiddenMask() & NativeHudBit(native_hud_element::chat1)) != 0;
         auto* manager = this->core_->GetChatManager();
         const auto* memory = this->core_->GetMemoryManager();
-        const auto* target = memory != nullptr ? memory->GetTarget() : nullptr;
+        const auto target = memory != nullptr ? xiui::ashita::View(memory->GetTarget()) : nullptr;
         const bool targeting = target != nullptr && (target->GetIsSubTargetActive() != 0 || target->GetActionTargetActive() != 0);
         if (this->config_.slider_input.Focused() || this->config_.text_input.Focused())
         {
@@ -1271,6 +1273,10 @@ namespace xiui
         {
             auto* chat = this->core_ != nullptr ? this->core_->GetChatManager() : nullptr;
             if (chat == nullptr) return true;
+            const auto version = ashita::HostVersion();
+            chat->Writef(1, false, i18n::Text("[XIUI+] Ashita %u.%u.%u.%u; interface %.2f; XIUI+ SDK %.2f."),
+                unsigned(version.Major), unsigned(version.Minor), unsigned(version.Build), unsigned(version.Revision),
+                ashita::HostInterfaceVersion(), ASHITA_INTERFACE_VERSION);
             chat->Writef(1, false, i18n::Text("[XIUI+] Mouse: config %u; held %u; buttons 0x%X; capture %u; prior block %u; shared capture %u; prior shared block %u; events %zu."),
                 unsigned(this->editing_), unsigned(this->mouse_down_), this->mouse_buttons_, unsigned(this->mouse_captured_),
                 unsigned(this->previous_mouse_blocked_), unsigned(this->chat_mouse_block_saved_), unsigned(this->previous_chat_mouse_blocked_), this->mouse_trace_count_);
@@ -1278,8 +1284,8 @@ namespace xiui
             for (auto index = first; index < this->mouse_trace_count_; ++index)
             {
                 const auto& trace = this->mouse_trace_[index % this->mouse_trace_.size()];
-                chat->Writef(1, false, i18n::Text("[XIUI+] Mouse #%zu: msg 0x%X; keys 0x%X; pos %d,%d; Shift %u; blocked %u; owner %s; handled %u; config held %u -> %u."),
-                    index + 1, trace.message, trace.buttons, trace.x, trace.y, unsigned(trace.shift), unsigned(trace.blocked), trace.owner,
+                chat->Writef(1, false, i18n::Text("[XIUI+] Mouse #%zu: msg 0x%X; data 0x%X; keys 0x%X; pos %d,%d; Shift %u; blocked %u; owner %s; handled %u; config held %u -> %u."),
+                    index + 1, trace.message, trace.data, trace.keys, trace.x, trace.y, unsigned(trace.shift), unsigned(trace.blocked), trace.owner,
                     unsigned(trace.consumed), unsigned(trace.config_down_before), unsigned(trace.config_down_after));
             }
             return true;
@@ -1722,7 +1728,7 @@ namespace xiui
                 const auto* input = this->core_->GetInputManager();
                 const auto* keyboard = input != nullptr ? input->GetKeyboard() : nullptr;
                 const auto* memory = this->core_->GetMemoryManager();
-                const auto* target = memory != nullptr ? memory->GetTarget() : nullptr;
+                const auto target = memory != nullptr ? xiui::ashita::View(memory->GetTarget()) : nullptr;
                 const auto layout = this->window_config_.KeyboardLayout();
                 const char* layoutName = !layout ? "unavailable" : *layout == native_keyboard_layout::full ? "Full" :
                     *layout == native_keyboard_layout::compact1 ? "Compact 1" : "Compact 2";
@@ -2265,7 +2271,7 @@ namespace xiui
                 if (Contains(this->equipment_.State().transform.Map(this->equipment_.SlotBounds(index)), x, y)) return 0x400000000ULL | (index + 1);
         if (this->editing_ || this->chat_.Focused()) return 0;
         const auto* memory = this->core_ != nullptr ? this->core_->GetMemoryManager() : nullptr;
-        const auto* target = memory != nullptr ? memory->GetTarget() : nullptr;
+        const auto target = memory != nullptr ? xiui::ashita::View(memory->GetTarget()) : nullptr;
         if (target == nullptr || (target->GetIsMenuOpen() != 0 && target->GetActionTargetActive() == 0 && target->GetIsSubTargetActive() == 0)) return 0;
         auto selected = this->ContextVisible(this->enemy_list_) ? this->enemy_list_.HitTarget(x, y, ::GetTickCount64()) : std::pair<uint32_t, uint32_t>{};
         for (const auto* party : {&this->alliance_second_, &this->alliance_first_, &this->party_})
@@ -2379,10 +2385,9 @@ namespace xiui
 
     auto hud_runtime::ProcessPointerMessage(const uint32_t message, const uint32_t buttons, const D3DVIEWPORT8& viewport) -> bool
     {
-        if (message == WM_MOUSEMOVE && this->mouse_down_ && (buttons & MK_LBUTTON) == 0 &&
-            (::GetAsyncKeyState(VK_LBUTTON) & 0x8000) == 0)
+        if (message == WM_MOUSEMOVE && this->mouse_down_ && (buttons & MK_LBUTTON) == 0)
         {
-            // Ashita may omit button flags; confirm release before cancelling a gesture.
+            // Normalized input confirms release without activating a pending button.
             this->FinishScale(false);
             this->mouse_down_ = false;
             this->module_menu_pressed_.reset();
@@ -2737,7 +2742,7 @@ namespace xiui
             ::GetForegroundWindow() == properties->GetFinalFantasyHwnd())
         {
             const auto* memory = this->core_->GetMemoryManager();
-            const auto* target = memory != nullptr ? memory->GetTarget() : nullptr;
+            const auto target = memory != nullptr ? xiui::ashita::View(memory->GetTarget()) : nullptr;
             const bool targeting = target != nullptr && (target->GetIsSubTargetActive() != 0 || target->GetActionTargetActive() != 0);
             this->SyncNativeChatInput(this->core_->GetChatManager(), this->native_ui_.menu_visible, targeting);
         }

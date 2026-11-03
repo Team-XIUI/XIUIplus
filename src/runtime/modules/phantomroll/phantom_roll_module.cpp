@@ -1,4 +1,5 @@
 #include "localization/localization.hpp"
+#include "ashita_compat.hpp"
 #include "phantom_roll_module.hpp"
 #include "combat/server_rules.hpp"
 #include "phantom_roll_data.hpp"
@@ -72,8 +73,8 @@ namespace xiui
         if (id == 0xA || id == 0xB) { this->Clear(); return; }
         if (id != 0x28 || this->player_id_ == 0) return;
         auto* memory = core != nullptr ? core->GetMemoryManager() : nullptr;
-        auto* player = memory != nullptr ? memory->GetPlayer() : nullptr;
-        auto* party = memory != nullptr ? memory->GetParty() : nullptr;
+        auto player = memory != nullptr ? xiui::ashita::View(memory->GetPlayer()) : nullptr;
+        auto party = memory != nullptr ? xiui::ashita::View(memory->GetParty()) : nullptr;
         if (player == nullptr || party == nullptr ||
             player->GetLoginStatus() != static_cast<uint8_t>(Ashita::FFXI::Enums::LoginStatus::LoggedIn) ||
             party->GetMemberServerId(0) != this->player_id_ || party->GetMemberZone(0) != this->zone_ ||

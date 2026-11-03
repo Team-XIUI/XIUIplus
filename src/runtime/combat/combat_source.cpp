@@ -1,4 +1,5 @@
 #include "combat_source.hpp"
+#include "ashita_compat.hpp"
 #include "status_durations.hpp"
 #include "chat/chat_encoding.hpp"
 
@@ -64,7 +65,7 @@ namespace xiui
     auto FindEntityIndex(IAshitaCore& core, const uint32_t id) -> uint32_t
     {
         const auto* memory = core.GetMemoryManager();
-        const auto* entity = memory != nullptr ? memory->GetEntity() : nullptr;
+        const auto entity = memory != nullptr ? xiui::ashita::View(memory->GetEntity()) : nullptr;
         auto* resources = core.GetResourceManager();
         if (entity == nullptr || id == 0) return 0;
         const auto index = resources != nullptr ? resources->GetEntityIndexById(id) : 0;
@@ -306,9 +307,9 @@ namespace xiui
     auto combat_source::Update(IAshitaCore* core, const uint64_t now) -> void
     {
         const auto* memory = core != nullptr ? core->GetMemoryManager() : nullptr;
-        const auto* player = memory != nullptr ? memory->GetPlayer() : nullptr;
-        const auto* party = memory != nullptr ? memory->GetParty() : nullptr;
-        const auto* entity = memory != nullptr ? memory->GetEntity() : nullptr;
+        const auto player = memory != nullptr ? xiui::ashita::View(memory->GetPlayer()) : nullptr;
+        const auto party = memory != nullptr ? xiui::ashita::View(memory->GetParty()) : nullptr;
+        const auto entity = memory != nullptr ? xiui::ashita::View(memory->GetEntity()) : nullptr;
         if (player == nullptr || party == nullptr || entity == nullptr || player->GetIsZoning() || player->GetMainJob() == 0 ||
             player->GetLoginStatus() != static_cast<uint8_t>(Ashita::FFXI::Enums::LoginStatus::LoggedIn) || party->GetMemberServerId(0) == 0)
         { this->Clear(); return; }

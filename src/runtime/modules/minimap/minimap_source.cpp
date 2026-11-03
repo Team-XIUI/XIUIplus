@@ -1,4 +1,5 @@
 #include "minimap_source.hpp"
+#include "ashita_compat.hpp"
 
 #include "Memory.h"
 #include "native_pattern.hpp"
@@ -112,9 +113,9 @@ namespace xiui
     auto minimap_source::Update(IAshitaCore* core, const uint64_t now, const bool npcs, const bool distantParty, const bool enemies) -> void
     {
         const auto* memory = core != nullptr ? core->GetMemoryManager() : nullptr;
-        auto* party = memory != nullptr ? memory->GetParty() : nullptr;
-        auto* entity = memory != nullptr ? memory->GetEntity() : nullptr;
-        auto* player = memory != nullptr ? memory->GetPlayer() : nullptr;
+        auto party = memory != nullptr ? xiui::ashita::View(memory->GetParty()) : nullptr;
+        auto entity = memory != nullptr ? xiui::ashita::View(memory->GetEntity()) : nullptr;
+        auto player = memory != nullptr ? xiui::ashita::View(memory->GetPlayer()) : nullptr;
         const auto index = party != nullptr ? party->GetMemberTargetIndex(0) : 0;
         if (player == nullptr || player->GetIsZoning() || player->GetMainJob() == 0 || entity == nullptr || index == 0 ||
             index >= entity->GetEntityMapSize() || party->GetMemberServerId(0) == 0 || entity->GetServerId(index) != party->GetMemberServerId(0))
@@ -203,7 +204,7 @@ namespace xiui
             core->GetPacketManager()->AddOutgoingPacket(0xD2, static_cast<uint32_t>(packet.size()), packet.data());
         }
         add(pet, 0xFFF0C884, minimap_marker_kind::pet);
-        if (const auto* target = memory->GetTarget())
+        if (const auto target = xiui::ashita::View(memory->GetTarget()))
         {
             const auto selected = target->GetTargetIndex(0);
             if (selected > 0 && selected < entity->GetEntityMapSize())

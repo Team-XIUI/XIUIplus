@@ -1,4 +1,5 @@
 #include "profile_identity.hpp"
+#include "ashita_compat.hpp"
 #include "Memory.h"
 #include "native_pattern.hpp"
 #include <cstring>
@@ -43,9 +44,9 @@ namespace xiui
     auto profile_identity_source::Read(IAshitaCore* core) const -> std::optional<std::string>
     {
         const auto* memory = core != nullptr ? core->GetMemoryManager() : nullptr;
-        const auto* player = memory != nullptr ? memory->GetPlayer() : nullptr;
-        const auto* party = memory != nullptr ? memory->GetParty() : nullptr;
-        const auto* entity = memory != nullptr ? memory->GetEntity() : nullptr;
+        const auto player = memory != nullptr ? xiui::ashita::View(memory->GetPlayer()) : nullptr;
+        const auto party = memory != nullptr ? xiui::ashita::View(memory->GetParty()) : nullptr;
+        const auto entity = memory != nullptr ? xiui::ashita::View(memory->GetEntity()) : nullptr;
         if (player == nullptr || party == nullptr || entity == nullptr || player->GetIsZoning() || player->GetMainJob() == 0 ||
             player->GetLoginStatus() != static_cast<uint8_t>(Ashita::FFXI::Enums::LoginStatus::LoggedIn)) return {};
         const auto id = party->GetMemberServerId(0), index = party->GetMemberTargetIndex(0);

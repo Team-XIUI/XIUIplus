@@ -1,4 +1,5 @@
 #include "native_hud_controller.hpp"
+#include "ashita_compat.hpp"
 
 #include "Memory.h"
 #include "native_pattern.hpp"
@@ -372,7 +373,7 @@ namespace xiui
     auto native_hud_controller::LoggedIn(void) const -> bool
     {
         auto* memory = this->core_ != nullptr ? this->core_->GetMemoryManager() : nullptr;
-        auto* player = memory != nullptr ? memory->GetPlayer() : nullptr;
+        auto player = memory != nullptr ? xiui::ashita::View(memory->GetPlayer()) : nullptr;
         return player != nullptr && player->GetLoginStatus() == static_cast<uint8_t>(Ashita::FFXI::Enums::LoginStatus::LoggedIn);
     }
 

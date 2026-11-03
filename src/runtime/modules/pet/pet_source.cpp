@@ -1,4 +1,5 @@
 #include "pet_source.hpp"
+#include "ashita_compat.hpp"
 #include "chat/chat_encoding.hpp"
 #include "pet_lifetimes.hpp"
 #include "modules/equipment/equipment_source.hpp"
@@ -62,8 +63,8 @@ namespace xiui
 
     auto pet_source::HandlePacket(IAshitaCore* core, uint16_t id, std::span<const uint8_t> data, uint64_t now, const combat_action_packet* decoded) -> void
     {
-        auto* memory = core ? core->GetMemoryManager() : nullptr; auto* player = memory ? memory->GetPlayer() : nullptr;
-        const auto* party = memory ? memory->GetParty() : nullptr;
+        auto* memory = core ? core->GetMemoryManager() : nullptr; auto player = memory ? xiui::ashita::View(memory->GetPlayer()) : nullptr;
+        const auto party = memory ? xiui::ashita::View(memory->GetParty()) : nullptr;
         if (!player || !party || !party->GetMemberServerId(0)) return;
         if (id == 0x29 && data.size() >= 26 && this->charm_started_ && now >= this->charm_started_ && now - this->charm_started_ < 30000)
         {
@@ -95,9 +96,9 @@ namespace xiui
         if (now < this->next_update_) return;
         this->next_update_ = now + 100;
         auto* memory = core != nullptr ? core->GetMemoryManager() : nullptr;
-        auto* player = memory != nullptr ? memory->GetPlayer() : nullptr;
-        auto* party = memory != nullptr ? memory->GetParty() : nullptr;
-        auto* entity = memory != nullptr ? memory->GetEntity() : nullptr;
+        auto player = memory != nullptr ? xiui::ashita::View(memory->GetPlayer()) : nullptr;
+        auto party = memory != nullptr ? xiui::ashita::View(memory->GetParty()) : nullptr;
+        auto entity = memory != nullptr ? xiui::ashita::View(memory->GetEntity()) : nullptr;
         this->resources_ = core != nullptr ? core->GetResourceManager() : nullptr;
         if (player == nullptr || party == nullptr || entity == nullptr || player->GetIsZoning() ||
             player->GetLoginStatus() != static_cast<uint8_t>(Ashita::FFXI::Enums::LoginStatus::LoggedIn))

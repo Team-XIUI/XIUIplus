@@ -1,4 +1,5 @@
 #include "target_rings.hpp"
+#include "ashita_compat.hpp"
 #include "world/entity_render_position.hpp"
 #include "Memory.h"
 
@@ -302,10 +303,10 @@ namespace xiui
         this->current_id_=snapshot.target_server_id; this->current_hp_=snapshot.target_hp_percent; this->camera_valid_=snapshot.camera_valid;
         if (!settings.enabled || !core || !device) return;
         auto* memory=core->GetMemoryManager();
-        auto* party=memory ? memory->GetParty() : nullptr;
-        auto* player=memory ? memory->GetPlayer() : nullptr;
-        auto* entity=memory ? memory->GetEntity() : nullptr;
-        auto* target=memory ? memory->GetTarget() : nullptr;
+        auto party=memory ? xiui::ashita::View(memory->GetParty()) : nullptr;
+        auto player=memory ? xiui::ashita::View(memory->GetPlayer()) : nullptr;
+        auto entity=memory ? xiui::ashita::View(memory->GetEntity()) : nullptr;
+        auto target=memory ? xiui::ashita::View(memory->GetTarget()) : nullptr;
         const uint16_t zone=party && player && !player->GetIsZoning() ? party->GetMemberZone(0) : 0;
         this->UpdateGround(zone);
         this->stage_=!zone ? "zoning" : !this->ground_ ? "loading terrain" : !snapshot.camera_valid ? "missing camera" : "no living target";

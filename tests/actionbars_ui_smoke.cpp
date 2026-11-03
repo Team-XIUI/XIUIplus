@@ -1313,8 +1313,12 @@ namespace xiui
                 runtime->config_.bounds = {1100, 40, 680, 700};
                 const auto close = runtime->ConfigLayout().CloseButton();
                 runtime->mouse_x_ = static_cast<int>(close.x + 4); runtime->mouse_y_ = static_cast<int>(close.y + 4);
-                runtime->ProcessPointerMessage(WM_LBUTTONDOWN, MK_LBUTTON, viewport);
-                runtime->ProcessPointerMessage(WM_MOUSEMOVE, 0, viewport);
+                mouse_input pointer;
+                runtime->ProcessPointerMessage(WM_LBUTTONDOWN, static_cast<uint32_t>(pointer.Normalize(WM_LBUTTONDOWN, 0, 0, 0)), viewport);
+                runtime->ProcessPointerMessage(WM_MOUSEMOVE, static_cast<uint32_t>(pointer.Normalize(WM_MOUSEMOVE, 0, MK_LBUTTON, 0)), viewport);
+                Check(runtime->mouse_down_ && runtime->interaction_ == hud_runtime::interaction::close_config && runtime->IsEditing(),
+                    "zero-data callbacks retain Configuration's held gesture without Shift");
+                runtime->ProcessPointerMessage(WM_MOUSEMOVE, static_cast<uint32_t>(pointer.Normalize(WM_MOUSEMOVE, 0, 0, 0)), viewport);
                 Check(runtime->IsEditing() && !runtime->mouse_down_ && runtime->interaction_ == hud_runtime::interaction::none,
                     "an observed released button cancels a missed Configuration release without activating Close");
                 const auto mode = runtime->SettingsModeBounds(); const auto basic = runtime->config_.basic;

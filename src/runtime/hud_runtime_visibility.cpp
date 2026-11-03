@@ -1,4 +1,5 @@
 #include "config/module_visibility.hpp"
+#include "ashita_compat.hpp"
 #include "hud_runtime.hpp"
 #include "Memory.h"
 #include "native_pattern.hpp"
@@ -208,9 +209,9 @@ namespace xiui
         module_visibility_context context{};
         context.menu_open = nativeMenuOpen;
         const auto* memory = core != nullptr ? core->GetMemoryManager() : nullptr;
-        const auto* target = memory != nullptr ? memory->GetTarget() : nullptr;
-        const auto* party = memory != nullptr ? memory->GetParty() : nullptr;
-        const auto* entity = memory != nullptr ? memory->GetEntity() : nullptr;
+        const auto target = memory != nullptr ? xiui::ashita::View(memory->GetTarget()) : nullptr;
+        const auto party = memory != nullptr ? xiui::ashita::View(memory->GetParty()) : nullptr;
+        const auto entity = memory != nullptr ? xiui::ashita::View(memory->GetEntity()) : nullptr;
         context.menu_open = context.menu_open || (target != nullptr && target->GetIsMenuOpen() != 0);
         if (party != nullptr && entity != nullptr)
         {

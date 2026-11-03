@@ -1,4 +1,5 @@
 #include "localization/localization.hpp"
+#include "ashita_compat.hpp"
 #include "chat_module.hpp"
 #include "chat_theme.hpp"
 #include "chat/chat_stack_layout.hpp"
@@ -1131,7 +1132,7 @@ namespace xiui
         for (const auto* text : builtin) values.push_back({text, text, text[0] == '/' ? chat_completion_kind::command : chat_completion_kind::text});
         if (core == nullptr) return values;
         const auto* memory = core->GetMemoryManager();
-        const auto* entity = memory != nullptr ? memory->GetEntity() : nullptr;
+        const auto entity = memory != nullptr ? xiui::ashita::View(memory->GetEntity()) : nullptr;
         if (entity != nullptr)
             for (uint32_t index = 0; index < entity->GetEntityMapSize(); ++index)
                 if (const auto* name = entity->GetName(index); name != nullptr && name[0] != '\0')

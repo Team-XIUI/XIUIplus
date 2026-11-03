@@ -1,4 +1,5 @@
 #include "satchel_actions.hpp"
+#include "ashita_compat.hpp"
 #include "Ashita.h"
 
 #include <algorithm>
@@ -30,10 +31,10 @@ namespace
     auto LiveGuard(IAshitaCore* core, const xiui::satchel_snapshot& snapshot) -> std::string
     {
         const auto* memory = core != nullptr ? core->GetMemoryManager() : nullptr;
-        const auto* player = memory != nullptr ? memory->GetPlayer() : nullptr;
-        const auto* party = memory != nullptr ? memory->GetParty() : nullptr;
-        const auto* entity = memory != nullptr ? memory->GetEntity() : nullptr;
-        const auto* target = memory != nullptr ? memory->GetTarget() : nullptr;
+        const auto player = memory != nullptr ? xiui::ashita::View(memory->GetPlayer()) : nullptr;
+        const auto party = memory != nullptr ? xiui::ashita::View(memory->GetParty()) : nullptr;
+        const auto entity = memory != nullptr ? xiui::ashita::View(memory->GetEntity()) : nullptr;
+        const auto target = memory != nullptr ? xiui::ashita::View(memory->GetTarget()) : nullptr;
         if (player == nullptr || party == nullptr || entity == nullptr || target == nullptr ||
             memory->GetInventory() == nullptr || core->GetPacketManager() == nullptr)
             return "Inventory services are unavailable.";
@@ -245,7 +246,7 @@ namespace xiui
             if (native == nullptr) return "Item information is unavailable.";
             item.type = native->Type; item.flags = native->Flags; item.stack = std::max<uint16_t>(1, native->StackSize);
             item.slots = native->Slots; item.targets = native->Targets; item.level = native->Level; item.jobs = native->Jobs;
-            item.charges = native->MaxCharges; item.job = memory->GetPlayer()->GetMainJob(); item.job_level = memory->GetPlayer()->GetMainJobLevel();
+            item.charges = native->MaxCharges; item.job = xiui::ashita::View(memory->GetPlayer())->GetMainJob(); item.job_level = xiui::ashita::View(memory->GetPlayer())->GetMainJobLevel();
         }
         return Plan(live, request, item, result);
     }
@@ -272,7 +273,7 @@ namespace xiui
             return false;
         }
         if (request.action == satchel_action::split) request.destination = request.item.bag;
-        Dispatch(*core->GetPacketManager(), request, result, snapshot.character_id, core->GetMemoryManager()->GetParty()->GetMemberTargetIndex(0));
+        Dispatch(*core->GetPacketManager(), request, result, snapshot.character_id, xiui::ashita::View(core->GetMemoryManager()->GetParty())->GetMemberTargetIndex(0));
         if (request.action == satchel_action::sort) this->next_sort_[request.item.bag] = now + 1500;
         this->before_ = std::move(live);
         this->pending_ = std::move(request);

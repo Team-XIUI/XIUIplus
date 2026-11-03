@@ -1,4 +1,5 @@
 #include "chat_bubbles_module.hpp"
+#include "ashita_compat.hpp"
 #include "chat_theme.hpp"
 #include "chat/chat_encoding.hpp"
 #include "chat/chat_text.hpp"
@@ -155,7 +156,7 @@ namespace xiui
         this->dialogue_active_ = false;
     }
 
-    auto chat_bubbles_module::SpeakerAvailable(const IEntity& entities, const uint32_t player, const uint32_t index, const uint32_t id) const -> bool
+    auto chat_bubbles_module::SpeakerAvailable(const ashita::entity_view& entities, const uint32_t player, const uint32_t index, const uint32_t id) const -> bool
     {
         const auto limit = entities.GetEntityMapSize();
         if (player == 0 || player >= limit || index == 0 || index >= limit || id == 0 || entities.GetServerId(index) != id) return false;
@@ -170,9 +171,9 @@ namespace xiui
     auto chat_bubbles_module::FindSpeaker(IAshitaCore* core, const std::string_view name, const bool npc) const -> uint32_t
     {
         const auto* memory = core != nullptr ? core->GetMemoryManager() : nullptr;
-        const auto* entities = memory != nullptr ? memory->GetEntity() : nullptr;
-        const auto* party = memory != nullptr ? memory->GetParty() : nullptr;
-        const auto* target = memory != nullptr ? memory->GetTarget() : nullptr;
+        const auto entities = memory != nullptr ? xiui::ashita::View(memory->GetEntity()) : nullptr;
+        const auto party = memory != nullptr ? xiui::ashita::View(memory->GetParty()) : nullptr;
+        const auto target = memory != nullptr ? xiui::ashita::View(memory->GetTarget()) : nullptr;
         if (entities == nullptr || party == nullptr || name.empty()) return 0;
         const auto player = party->GetMemberTargetIndex(0);
         std::string encoded;
@@ -203,9 +204,9 @@ namespace xiui
         auto message = ParseBubbleMessage(line);
         if (!message || !this->channels_[static_cast<size_t>(message->channel)]) return;
         const auto* memory = core != nullptr ? core->GetMemoryManager() : nullptr;
-        const auto* entities = memory != nullptr ? memory->GetEntity() : nullptr;
-        const auto* party = memory != nullptr ? memory->GetParty() : nullptr;
-        const auto* player = memory != nullptr ? memory->GetPlayer() : nullptr;
+        const auto entities = memory != nullptr ? xiui::ashita::View(memory->GetEntity()) : nullptr;
+        const auto party = memory != nullptr ? xiui::ashita::View(memory->GetParty()) : nullptr;
+        const auto player = memory != nullptr ? xiui::ashita::View(memory->GetPlayer()) : nullptr;
         if (entities == nullptr || party == nullptr || player == nullptr || player->GetIsZoning()) return;
         const auto zone = party->GetMemberZone(0);
         if (zone != this->zone_) { this->Clear(); this->zone_ = zone; this->last_sequence_ = line.sequence; }
@@ -254,9 +255,9 @@ namespace xiui
         this->dialogue_active_ = dialogueActive;
         if (!dialogueActive) this->npc_id_ = this->npc_index_ = 0;
         const auto* memory = core != nullptr ? core->GetMemoryManager() : nullptr;
-        const auto* entities = memory != nullptr ? memory->GetEntity() : nullptr;
-        const auto* party = memory != nullptr ? memory->GetParty() : nullptr;
-        const auto* player = memory != nullptr ? memory->GetPlayer() : nullptr;
+        const auto entities = memory != nullptr ? xiui::ashita::View(memory->GetEntity()) : nullptr;
+        const auto party = memory != nullptr ? xiui::ashita::View(memory->GetParty()) : nullptr;
+        const auto player = memory != nullptr ? xiui::ashita::View(memory->GetPlayer()) : nullptr;
         if (!this->state_.enabled || entities == nullptr || party == nullptr || player == nullptr || player->GetIsZoning() ||
             player->GetMainJob() == 0 || party->GetMemberZone(0) != this->zone_)
         { this->Clear(); return; }
@@ -321,7 +322,7 @@ namespace xiui
         const auto screen = context.Design().Transform({});
         if (!this->ShouldRender(snapshot) || !this->text_.visible || this->core_ == nullptr) return;
         const auto* memory = this->core_->GetMemoryManager();
-        const auto* entities = memory != nullptr ? memory->GetEntity() : nullptr;
+        const auto entities = memory != nullptr ? xiui::ashita::View(memory->GetEntity()) : nullptr;
         if (entities == nullptr) return;
         const auto& viewport = context.Viewport();
         D3DVIEWPORT8 projectionViewport{static_cast<DWORD>(viewport.x), static_cast<DWORD>(viewport.y), static_cast<DWORD>(viewport.width), static_cast<DWORD>(viewport.height), 0, 1};

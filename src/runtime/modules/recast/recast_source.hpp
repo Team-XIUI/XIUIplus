@@ -1,5 +1,7 @@
 #pragma once
 
+#include "ashita_compat.hpp"
+
 #include "Ashita.h"
 #include "recast_tracker.hpp"
 #include <array>
@@ -29,6 +31,6 @@ namespace xiui
         uint32_t player_{}, zone_{};
         uint8_t job_{}, subjob_{}, level_{}, sublevel_{};
         bool available_{};
-        auto AbilityName(IResourceManager* resources, IPlayer* player, uint32_t timer) const -> std::string;
+        auto AbilityName(IResourceManager* resources, ashita::player_view player, uint32_t timer) const -> std::string;
     };
 }

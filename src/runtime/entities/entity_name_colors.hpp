@@ -1,5 +1,7 @@
 #pragma once
 
+#include "ashita_compat.hpp"
+
 #include "Ashita.h"
 
 #include <algorithm>
@@ -78,7 +80,7 @@ namespace xiui
 
     struct entity_name_state { entity_class kind{entity_class::other}; D3DCOLOR color{0xFFFFFFFF}; };
 
-    inline auto ReadEntityNameState(const IParty& party, const IEntity& entity, uint32_t index) -> entity_name_state
+    inline auto ReadEntityNameState(const xiui::ashita::party_view& party, const xiui::ashita::entity_view& entity, uint32_t index) -> entity_name_state
     {
         if (index == 0 || index >= entity.GetEntityMapSize())
             return {};
@@ -96,6 +98,6 @@ namespace xiui
         const auto groupClaim = IsGroupClaim(claim, group);
         return {ClassifyEntity(flags, claim, groupClaim, groupMember), EntityNameColor(flags, claim, groupClaim, groupMember, entity.GetNameColor(index))};
     }
-    inline auto ReadEntityNameColor(const IParty& party, const IEntity& entity, const uint32_t index) -> D3DCOLOR
+    inline auto ReadEntityNameColor(const xiui::ashita::party_view& party, const xiui::ashita::entity_view& entity, const uint32_t index) -> D3DCOLOR
     { return ReadEntityNameState(party, entity, index).color; }
 } // namespace xiui

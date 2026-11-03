@@ -4,7 +4,7 @@ Run commands from the repository root. Use Visual Studio's x86 C++ tools, CMake/
 
 ## Build and install
 
-Normal installs use one standalone `plugins/XIUIplus.dll`. `./scripts/package.ps1` builds `XIUIplus_release` and its isolated startup/resource checks, runs them, then publishes `dist/XIUIplus.dll`. Use `-SkipBuild` only when that same release has already passed those checks. Change root `VERSION` only when cutting a version.
+Normal installs use one standalone `plugins/XIUIplus.dll`. `./scripts/package.ps1` builds `XIUIplus_release` and its isolated startup/resource/compatibility checks, runs them, then publishes `dist/XIUIplus.dll`. Use `-SkipBuild` only when that same release has already passed those checks. Change root `VERSION` only when cutting a version.
 
 For targeted work:
 
@@ -89,7 +89,7 @@ The November 1, 2026 live XIV1.0 setup is captured in both reset defaults and th
 
 DLL releases live in the public [xiuiplus-releases repository](https://github.com/Team-XIUI/xiuiplus-releases/releases). Its independent `main` contains public download instructions only; development source and history remain in private `Shuu-37/XIUIplus`. The development checkout's `origin` stays private. Use `--repo Team-XIUI/xiuiplus-releases` explicitly for every GitHub release command.
 
-Keep root `VERSION` numeric for CMake/Windows; alpha tags append the channel, such as `v0.1.1-alpha.1`. Preserve the shipped defaults unless a capture was requested. Run `./scripts/package.ps1` and require both packaging checks to pass. Commit and push the intended source on private `main`, then create and push an annotated source tag at that commit. Never push that source tag or private branch into the public repository.
+Keep root `VERSION` numeric for CMake/Windows; alpha tags append the channel, such as `v0.1.1-alpha.1`. Preserve the shipped defaults unless a capture was requested. Run `./scripts/package.ps1` and require all packaging checks to pass. Commit and push the intended source on private `main`, then create and push an annotated source tag at that commit. Never push that source tag or private branch into the public repository.
 
 Upload only `dist/XIUIplus.dll` and the generated `dist/SHA256SUMS.txt`; no companion runtime or external assets are needed. With the private source tag pushed and public release notes written:
 

@@ -1,6 +1,7 @@
 #pragma once
 
 #include "Ashita.h"
+#include "mouse_input.hpp"
 #include "localization/localization.hpp"
 #include "ui/native_ui_assets.hpp"
 #include "ui/game_icon_cache.hpp"
@@ -421,9 +422,10 @@ namespace xiui
         bool previous_mouse_blocked_{false};
         bool mouse_captured_{false};
         uint32_t mouse_buttons_{};
+        mouse_input mouse_input_{};
         struct mouse_trace_entry
         {
-            uint32_t message{}, buttons{};
+            uint32_t message{}, data{}, keys{};
             int x{}, y{};
             bool blocked{}, shift{}, config_down_before{}, config_down_after{};
             const char* owner{"pending"};

@@ -1,4 +1,5 @@
 #include "recast_source.hpp"
+#include "ashita_compat.hpp"
 #include "chat/chat_encoding.hpp"
 #include "combat/ability_recast.hpp"
 
@@ -8,7 +9,7 @@
 
 namespace xiui
 {
-    auto recast_source::AbilityName(IResourceManager* resources, IPlayer* player, const uint32_t timer) const -> std::string
+    auto recast_source::AbilityName(IResourceManager* resources, ashita::player_view player, const uint32_t timer) const -> std::string
     {
         static constexpr const char* primary[]{"Job ability", "Mighty Strikes", "Hundred Fists", "Benediction", "Manafont", "Chainspell",
             "Perfect Dodge", "Invincible", "Blood Weapon", "Familiar", "Soul Voice", "Eagle Eye Shot", "Meikyo Shisui", "Mijin Gakure",
@@ -44,8 +45,8 @@ namespace xiui
         if (now < this->next_update_) return;
         this->next_update_ = now + 250;
         auto* memory = core != nullptr ? core->GetMemoryManager() : nullptr;
-        auto* player = memory != nullptr ? memory->GetPlayer() : nullptr;
-        auto* party = memory != nullptr ? memory->GetParty() : nullptr;
+        auto player = memory != nullptr ? xiui::ashita::View(memory->GetPlayer()) : nullptr;
+        auto party = memory != nullptr ? xiui::ashita::View(memory->GetParty()) : nullptr;
         auto* recast = memory != nullptr ? memory->GetRecast() : nullptr;
         auto* resources = core != nullptr ? core->GetResourceManager() : nullptr;
         if (player == nullptr || party == nullptr || recast == nullptr || resources == nullptr ||

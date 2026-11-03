@@ -1,4 +1,5 @@
 #include "localization/localization.hpp"
+#include "ashita_compat.hpp"
 #include "target_module.hpp"
 #include "modules/bar_config.hpp"
 #include "chat/chat_encoding.hpp"
@@ -314,9 +315,9 @@ namespace xiui
         this->name_color_ = unclaimed_name_color;
         this->has_health_ = true;
         auto* memory = core != nullptr ? core->GetMemoryManager() : nullptr;
-        auto* party = memory != nullptr ? memory->GetParty() : nullptr;
-        auto* entity = memory != nullptr ? memory->GetEntity() : nullptr;
-        auto* target = memory != nullptr ? memory->GetTarget() : nullptr;
+        auto party = memory != nullptr ? xiui::ashita::View(memory->GetParty()) : nullptr;
+        auto entity = memory != nullptr ? xiui::ashita::View(memory->GetEntity()) : nullptr;
+        auto target = memory != nullptr ? xiui::ashita::View(memory->GetTarget()) : nullptr;
         if (party != nullptr && entity != nullptr && target != nullptr)
         {
             const auto index = target->GetTargetIndex(0);
@@ -330,8 +331,8 @@ namespace xiui
     auto target_module::ReadView(IAshitaCore& core, const uint32_t index, const combat_source& combat, const party_source& party, target_view& view) -> void
     {
         const auto* memory = core.GetMemoryManager();
-        const auto* entities = memory->GetEntity();
-        const auto* group = memory->GetParty();
+        const auto entities = xiui::ashita::View(memory->GetEntity());
+        const auto group = xiui::ashita::View(memory->GetParty());
         if (index == 0 || index >= entities->GetEntityMapSize() || entities->GetServerId(index) == 0)
         { view = {}; return; }
         const auto id = entities->GetServerId(index);
@@ -370,10 +371,10 @@ namespace xiui
     auto target_module::UpdateDetails(IAshitaCore* core, const combat_source& combat, const party_source& party, const uint64_t) -> void
     {
         const auto* memory = core != nullptr ? core->GetMemoryManager() : nullptr;
-        const auto* target = memory != nullptr ? memory->GetTarget() : nullptr;
-        const auto* entities = memory != nullptr ? memory->GetEntity() : nullptr;
-        const auto* player = memory != nullptr ? memory->GetPlayer() : nullptr;
-        this->details_ready_ = target != nullptr && entities != nullptr && memory->GetParty() != nullptr && player != nullptr;
+        const auto target = memory != nullptr ? xiui::ashita::View(memory->GetTarget()) : nullptr;
+        const auto entities = memory != nullptr ? xiui::ashita::View(memory->GetEntity()) : nullptr;
+        const auto player = memory != nullptr ? xiui::ashita::View(memory->GetPlayer()) : nullptr;
+        this->details_ready_ = target != nullptr && entities != nullptr && xiui::ashita::View(memory->GetParty()) != nullptr && player != nullptr;
         if (!this->details_ready_ || player->GetIsZoning() || player->GetLoginStatus() != static_cast<uint8_t>(Ashita::FFXI::Enums::LoginStatus::LoggedIn))
         { this->views_ = {}; this->detail_animations_ = {}; return; }
         const auto main = target->GetTargetIndex(0);

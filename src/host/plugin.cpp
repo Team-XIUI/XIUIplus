@@ -1,4 +1,5 @@
 #include "plugin.hpp"
+#include "ashita_compat.hpp"
 #include "world_projection.hpp"
 #include "xiui_version.hpp"
 #include "entities/entity_name_colors.hpp"
@@ -79,7 +80,7 @@ namespace xiui
 
     auto plugin::GetInterfaceVersion(void) const -> double
     {
-        return ASHITA_INTERFACE_VERSION;
+        return ashita::PluginInterfaceVersion();
     }
 
     auto plugin::GetPriority(void) const -> int32_t
@@ -835,8 +836,8 @@ namespace xiui
     auto plugin::ReadRingTargetPosition(std::array<float,3>& position) const -> uint32_t
     {
         auto* memory=this->core_ ? this->core_->GetMemoryManager() : nullptr;
-        auto* target=memory ? memory->GetTarget() : nullptr;
-        auto* entity=memory ? memory->GetEntity() : nullptr;
+        auto target=memory ? xiui::ashita::View(memory->GetTarget()) : nullptr;
+        auto entity=memory ? xiui::ashita::View(memory->GetEntity()) : nullptr;
         if (!target || !entity) return 0;
         const auto index=target->GetTargetIndex(0);
         if (!index || index>=entity->GetEntityMapSize()) return 0;
@@ -891,7 +892,7 @@ namespace xiui
         if (this->core_ == nullptr)
             return false;
         auto* memory = this->core_->GetMemoryManager();
-        auto* player = memory != nullptr ? memory->GetPlayer() : nullptr;
+        auto player = memory != nullptr ? xiui::ashita::View(memory->GetPlayer()) : nullptr;
         return player != nullptr && player->GetLoginStatus() == static_cast<uint8_t>(Ashita::FFXI::Enums::LoginStatus::LoggedIn);
     }
 
@@ -911,10 +912,10 @@ namespace xiui
         if (memory == nullptr)
             return false;
 
-        auto* party = memory->GetParty();
-        auto* player = memory->GetPlayer();
-        auto* target = memory->GetTarget();
-        auto* entity = memory->GetEntity();
+        auto party = xiui::ashita::View(memory->GetParty());
+        auto player = xiui::ashita::View(memory->GetPlayer());
+        auto target = xiui::ashita::View(memory->GetTarget());
+        auto entity = xiui::ashita::View(memory->GetEntity());
         if (party == nullptr || player == nullptr || target == nullptr || entity == nullptr)
             return false;
 
@@ -1002,5 +1003,5 @@ __declspec(dllexport) auto __stdcall expDestroyPlugin(void* instance) -> void
 
 __declspec(dllexport) auto __stdcall expGetInterfaceVersion(void) -> double
 {
-    return ASHITA_INTERFACE_VERSION;
+    return xiui::ashita::PluginInterfaceVersion();
 }

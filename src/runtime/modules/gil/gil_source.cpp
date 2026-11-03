@@ -1,4 +1,5 @@
 #include "gil_source.hpp"
+#include "ashita_compat.hpp"
 
 #include <algorithm>
 #include <cmath>
@@ -67,8 +68,8 @@ namespace xiui
     auto gil_source::Update(IAshitaCore* core, const uint64_t now) -> void
     {
         const auto* memory = core != nullptr ? core->GetMemoryManager() : nullptr;
-        const auto* player = memory != nullptr ? memory->GetPlayer() : nullptr;
-        const auto* party = memory != nullptr ? memory->GetParty() : nullptr;
+        const auto player = memory != nullptr ? xiui::ashita::View(memory->GetPlayer()) : nullptr;
+        const auto party = memory != nullptr ? xiui::ashita::View(memory->GetParty()) : nullptr;
         const auto* inventory = memory != nullptr ? memory->GetInventory() : nullptr;
         if (player != nullptr && player->GetLoginStatus() == static_cast<uint8_t>(Ashita::FFXI::Enums::LoginStatus::LoginScreen) && !player->GetIsZoning())
             this->session_ = {};
@@ -79,7 +80,7 @@ namespace xiui
             this->next_scan_ = 0;
             return;
         }
-        const auto* target = memory->GetTarget();
+        const auto target = xiui::ashita::View(memory->GetTarget());
         this->menu_open_ = target != nullptr && target->GetIsMenuOpen() != 0;
         if (this->session_.player != party->GetMemberServerId(0)) { this->session_.ready = false; this->next_scan_ = 0; }
         if (this->syncing_ || now < this->next_scan_) return;

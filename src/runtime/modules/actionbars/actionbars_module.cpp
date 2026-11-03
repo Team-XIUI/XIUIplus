@@ -1,4 +1,5 @@
 #include "localization/localization.hpp"
+#include "ashita_compat.hpp"
 #include "ui/text_fit.hpp"
 #include "actionbars_module.hpp"
 #include "combat/server_rules.hpp"
@@ -645,8 +646,8 @@ namespace xiui
         const auto elapsed = this->visibility_updated_ && now >= this->visibility_updated_ ? (now - this->visibility_updated_) / 1000.0f : 0.0f;
         this->visibility_updated_ = now; this->now_ = now;
         const auto* memory = this->core_ ? this->core_->GetMemoryManager() : nullptr;
-        const auto* party = memory ? memory->GetParty() : nullptr;
-        const auto* entity = memory ? memory->GetEntity() : nullptr;
+        const auto party = memory ? xiui::ashita::View(memory->GetParty()) : nullptr;
+        const auto entity = memory ? xiui::ashita::View(memory->GetEntity()) : nullptr;
         const auto index = party ? party->GetMemberTargetIndex(0) : 0;
         this->engaged_ = entity && index && index < entity->GetEntityMapSize() && entity->GetStatus(index) == 1;
         if (this->triggers_ != 0) this->last_trigger_ = now;

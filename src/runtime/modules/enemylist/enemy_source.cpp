@@ -1,4 +1,5 @@
 #include "enemy_source.hpp"
+#include "ashita_compat.hpp"
 
 #include <algorithm>
 #include <cmath>
@@ -13,7 +14,7 @@ namespace xiui
         this->player_id_ = this->zone_id_ = 0;
     }
 
-    auto enemy_source::RefreshGroup(IParty& party, IEntity& entity) -> void
+    auto enemy_source::RefreshGroup(const ashita::party_view& party, const ashita::entity_view& entity) -> void
     {
         this->group_.clear();
         for (uint32_t member = 0; member < 18; ++member)
@@ -32,7 +33,7 @@ namespace xiui
         }
     }
 
-    auto enemy_source::IsLiveMonster(IEntity& entity, const uint32_t index) -> bool
+    auto enemy_source::IsLiveMonster(const ashita::entity_view& entity, const uint32_t index) -> bool
     {
         if (index == 0 || index >= entity.GetEntityMapSize() || (entity.GetSpawnFlags(index) & 0x110) != 0x10)
             return false;
@@ -42,7 +43,7 @@ namespace xiui
 
     auto enemy_source::FindIndex(IAshitaCore& core, const uint32_t id) -> uint32_t
     {
-        auto* entity = core.GetMemoryManager()->GetEntity();
+        auto entity = xiui::ashita::View(core.GetMemoryManager()->GetEntity());
         if (id == 0 || entity == nullptr) return 0;
         auto* resources = core.GetResourceManager();
         const auto index = resources != nullptr ? resources->GetEntityIndexById(id) : 0;
@@ -67,7 +68,7 @@ namespace xiui
         return &entry;
     }
 
-    auto enemy_source::RefreshSession(IParty& party, IPlayer& player, IEntity& entity) -> bool
+    auto enemy_source::RefreshSession(const ashita::party_view& party, const ashita::player_view& player, const ashita::entity_view& entity) -> bool
     {
         const auto index = party.GetMemberTargetIndex(0);
         if (player.GetLoginStatus() != static_cast<uint8_t>(Ashita::FFXI::Enums::LoginStatus::LoggedIn) ||
@@ -88,10 +89,10 @@ namespace xiui
     auto enemy_source::Update(IAshitaCore* core, const uint64_t now, const bool includeSelected) -> void
     {
         auto* memory = core != nullptr ? core->GetMemoryManager() : nullptr;
-        auto* party = memory != nullptr ? memory->GetParty() : nullptr;
-        auto* player = memory != nullptr ? memory->GetPlayer() : nullptr;
-        auto* entity = memory != nullptr ? memory->GetEntity() : nullptr;
-        auto* target = memory != nullptr ? memory->GetTarget() : nullptr;
+        auto party = memory != nullptr ? xiui::ashita::View(memory->GetParty()) : nullptr;
+        auto player = memory != nullptr ? xiui::ashita::View(memory->GetPlayer()) : nullptr;
+        auto entity = memory != nullptr ? xiui::ashita::View(memory->GetEntity()) : nullptr;
+        auto target = memory != nullptr ? xiui::ashita::View(memory->GetTarget()) : nullptr;
         if (party == nullptr || player == nullptr || entity == nullptr)
         {
             this->Clear();
@@ -145,9 +146,9 @@ namespace xiui
         const auto& action = (decoded != nullptr ? *decoded : local).Action();
         if (!action) return;
         auto* memory = core->GetMemoryManager();
-        auto* entity = memory != nullptr ? memory->GetEntity() : nullptr;
-        auto* party = memory != nullptr ? memory->GetParty() : nullptr;
-        auto* player = memory != nullptr ? memory->GetPlayer() : nullptr;
+        auto entity = memory != nullptr ? xiui::ashita::View(memory->GetEntity()) : nullptr;
+        auto party = memory != nullptr ? xiui::ashita::View(memory->GetParty()) : nullptr;
+        auto player = memory != nullptr ? xiui::ashita::View(memory->GetPlayer()) : nullptr;
         if (entity == nullptr || party == nullptr || player == nullptr || !this->RefreshSession(*party, *player, *entity)) return;
         if (action->category != 1 && action->category != 2 && action->category != 3 && action->category != 4 &&
             action->category != 6 && action->category != 7 && action->category != 8 && action->category != 11 && action->category != 12) return;

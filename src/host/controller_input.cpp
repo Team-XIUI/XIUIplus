@@ -1,4 +1,5 @@
 #include "controller_input.hpp"
+#include "ashita_compat.hpp"
 #include "native_target.hpp"
 #include "runtime_host.hpp"
 
@@ -161,7 +162,7 @@ namespace xiui
         const auto* chat = this->core_ != nullptr ? this->core_->GetChatManager() : nullptr;
         if (chat != nullptr && chat->IsInputOpen() != 0) return true;
         const auto* memory = this->core_ != nullptr ? this->core_->GetMemoryManager() : nullptr;
-        const auto* player = memory != nullptr ? memory->GetPlayer() : nullptr;
+        const auto player = memory != nullptr ? xiui::ashita::View(memory->GetPlayer()) : nullptr;
         if (player != nullptr && player->GetLoginStatus() != static_cast<uint8_t>(Ashita::FFXI::Enums::LoginStatus::LoggedIn)) return true;
         return NativeTargetSelectionActive(memory);
     }
@@ -169,7 +170,7 @@ namespace xiui
     auto controller_input::NativeMenuOpen(void) const -> bool
     {
         const auto* memory = this->core_ != nullptr ? this->core_->GetMemoryManager() : nullptr;
-        const auto* target = memory != nullptr ? memory->GetTarget() : nullptr;
+        const auto target = memory != nullptr ? xiui::ashita::View(memory->GetTarget()) : nullptr;
         return target != nullptr && target->GetIsMenuOpen() != 0;
     }
 

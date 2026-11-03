@@ -1,4 +1,5 @@
 #include "party_source.hpp"
+#include "ashita_compat.hpp"
 #include "chat/chat_encoding.hpp"
 
 #include <algorithm>
@@ -152,10 +153,10 @@ namespace xiui
     {
         this->resources_ = core != nullptr ? core->GetResourceManager() : nullptr;
         auto* memory = core != nullptr ? core->GetMemoryManager() : nullptr;
-        auto* party = memory != nullptr ? memory->GetParty() : nullptr;
-        auto* player = memory != nullptr ? memory->GetPlayer() : nullptr;
-        auto* entity = memory != nullptr ? memory->GetEntity() : nullptr;
-        auto* target = memory != nullptr ? memory->GetTarget() : nullptr;
+        auto party = memory != nullptr ? xiui::ashita::View(memory->GetParty()) : nullptr;
+        auto player = memory != nullptr ? xiui::ashita::View(memory->GetPlayer()) : nullptr;
+        auto entity = memory != nullptr ? xiui::ashita::View(memory->GetEntity()) : nullptr;
+        auto target = memory != nullptr ? xiui::ashita::View(memory->GetTarget()) : nullptr;
         if (party == nullptr || player == nullptr || entity == nullptr ||
             player->GetIsZoning() || player->GetMainJob() == 0 ||
             player->GetLoginStatus() != static_cast<uint8_t>(Ashita::FFXI::Enums::LoginStatus::LoggedIn))
@@ -241,6 +242,8 @@ namespace xiui
                 { member.mp_max = maximum; member.mp_max_exact = true; }
                 member.main_job = player->GetMainJob(); member.main_level = player->GetMainJobLevel();
                 member.sub_job = player->GetSubJob(); member.sub_level = player->GetSubJobLevel();
+                if (ashita::LegacyInterface())
+                    member.master_level = player->GetMasteryJob() == member.main_job ? player->GetMasteryJobLevel() : 0;
                 std::array<int16_t, 32> icons{};
                 std::array<uint32_t, 32> timers{};
                 bool timed = Read(reinterpret_cast<uintptr_t>(player->GetStatusIcons()), icons) && LocalStatusSnapshotReady(icons);

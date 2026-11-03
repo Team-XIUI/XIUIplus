@@ -1,4 +1,5 @@
 #include "hud_runtime.hpp"
+#include "ashita_compat.hpp"
 #include "input/keyboard_policy.hpp"
 #include "native_target.hpp"
 
@@ -69,7 +70,7 @@ namespace xiui
     auto hud_runtime::ActionBarsExecutionAvailable(const bool keyboardReplacement) const -> bool
     {
         const auto* memory = this->core_ != nullptr ? this->core_->GetMemoryManager() : nullptr;
-        const auto* player = memory != nullptr ? memory->GetPlayer() : nullptr;
+        const auto player = memory != nullptr ? xiui::ashita::View(memory->GetPlayer()) : nullptr;
         const auto* chat = this->core_ != nullptr ? this->core_->GetChatManager() : nullptr;
         return this->visible_ && !this->editing_ && this->GameWindowFocused() && player != nullptr &&
             player->GetLoginStatus() == static_cast<uint8_t>(Ashita::FFXI::Enums::LoginStatus::LoggedIn) && !player->GetIsZoning() &&
@@ -121,7 +122,7 @@ namespace xiui
     {
         this->action_executor_.SetUtc(this->experience_.Utc());
         const auto* memory = this->core_ != nullptr ? this->core_->GetMemoryManager() : nullptr;
-        const auto* player = memory != nullptr ? memory->GetPlayer() : nullptr;
+        const auto player = memory != nullptr ? xiui::ashita::View(memory->GetPlayer()) : nullptr;
         const auto& pet = this->pet_source_.State();
         std::string petName = pet.ready ? pet.pet.name : std::string{};
         if (!petName.empty())
@@ -209,8 +210,8 @@ namespace xiui
             if (this->core_ != nullptr && this->core_->GetChatManager() != nullptr)
             {
                 const auto* memory = this->core_->GetMemoryManager();
-                const auto* party = memory != nullptr ? memory->GetParty() : nullptr;
-                const auto* target = memory != nullptr ? memory->GetTarget() : nullptr;
+                const auto party = memory != nullptr ? xiui::ashita::View(memory->GetParty()) : nullptr;
+                const auto target = memory != nullptr ? xiui::ashita::View(memory->GetTarget()) : nullptr;
                 this->core_->GetChatManager()->Writef(1, false, "[XIUI+] Action Bars: %zu palettes, %zu shared actions, 7 stored crossbar banks; crossbar %s; native macro replacement %s. %s",
                     this->action_store_.AllPalettes().size(), this->action_store_.Macros().size(),
                     crossbarState, this->actionbars_.ReplaceNativeMacros() ? "on" : "off", this->action_executor_.Status().c_str());

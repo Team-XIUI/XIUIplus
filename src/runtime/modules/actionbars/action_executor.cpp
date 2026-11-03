@@ -1,4 +1,5 @@
 #include "action_executor.hpp"
+#include "ashita_compat.hpp"
 #include "chat/chat_encoding.hpp"
 #include "combat/ability_recast.hpp"
 #include "native_target.hpp"
@@ -18,10 +19,10 @@ namespace
     auto Guard(IAshitaCore* core, const bool presentation = false, const bool allowNativeMenu = false) -> std::string
     {
         auto* memory = core != nullptr ? core->GetMemoryManager() : nullptr;
-        auto* player = memory != nullptr ? memory->GetPlayer() : nullptr;
-        auto* party = memory != nullptr ? memory->GetParty() : nullptr;
-        auto* target = memory != nullptr ? memory->GetTarget() : nullptr;
-        auto* entity = memory != nullptr ? memory->GetEntity() : nullptr;
+        auto player = memory != nullptr ? xiui::ashita::View(memory->GetPlayer()) : nullptr;
+        auto party = memory != nullptr ? xiui::ashita::View(memory->GetParty()) : nullptr;
+        auto target = memory != nullptr ? xiui::ashita::View(memory->GetTarget()) : nullptr;
+        auto entity = memory != nullptr ? xiui::ashita::View(memory->GetEntity()) : nullptr;
         xiui::action_guard_state state{};
         state.services = player != nullptr && party != nullptr && target != nullptr && entity != nullptr && core->GetResourceManager() != nullptr && core->GetChatManager() != nullptr;
         if (!state.services) return xiui::ActionGuardReason(state, presentation, allowNativeMenu);
@@ -35,7 +36,7 @@ namespace
         state.menu_open = target->GetIsMenuOpen() != 0; state.action_target = xiui::NativeTargetSelectionActive(memory);
         return xiui::ActionGuardReason(state, presentation, allowNativeMenu);
     }
-    auto SpellKnown(IPlayer* player, const ISpell& spell) -> bool
+    auto SpellKnown(xiui::ashita::player_view player, const ISpell& spell) -> bool
     {
         if (!player->HasSpellData() || !player->HasSpell(spell.Index)) return false;
         const auto usable = [&](uint8_t job, uint8_t level, bool main) {
@@ -144,8 +145,8 @@ namespace xiui
     auto action_executor::Catalog(IAshitaCore* core) -> std::span<const action_catalog_entry>
     {
         auto* memory = core != nullptr ? core->GetMemoryManager() : nullptr;
-        auto* player = memory != nullptr ? memory->GetPlayer() : nullptr;
-        auto* party = memory != nullptr ? memory->GetParty() : nullptr;
+        auto player = memory != nullptr ? xiui::ashita::View(memory->GetPlayer()) : nullptr;
+        auto party = memory != nullptr ? xiui::ashita::View(memory->GetParty()) : nullptr;
         auto* resources = core != nullptr ? core->GetResourceManager() : nullptr;
         if (player == nullptr || party == nullptr || resources == nullptr || player->GetIsZoning() || player->GetMainJob() == 0) { this->catalog_.clear(); return this->catalog_; }
         const auto now = GetTickCount64();
@@ -202,7 +203,7 @@ namespace xiui
         result.reason = ValidateAction(slot); if (!result.reason.empty() || slot.Empty()) return result;
         if (!presentation && this->restricted_) { result.reason = "Close the editor or finish typing first."; return result; }
         result.reason = Guard(core, presentation, this->native_menu_allowed_); if (!result.reason.empty()) return result;
-        auto* memory = core->GetMemoryManager(); auto* player = memory->GetPlayer(); auto* resources = core->GetResourceManager(); auto* party = memory->GetParty(); auto* recast = memory->GetRecast();
+        auto* memory = core->GetMemoryManager(); auto player = xiui::ashita::View(memory->GetPlayer()); auto* resources = core->GetResourceManager(); auto party = xiui::ashita::View(memory->GetParty()); auto* recast = memory->GetRecast();
         const auto index = party->GetMemberTargetIndex(0); uint32_t timer{}, chargeCost{}; float base{};
         if (slot.kind == action_kind::macro || slot.kind == action_kind::command)
         {
@@ -248,7 +249,7 @@ namespace xiui
             {
                 result.tp = static_cast<uint32_t>(std::clamp<int>(ability->TPCost, 0, 3000)); timer = ability->RecastTimerId;
                 if (timer == 102 || timer == 195 || timer == 231) chargeCost = std::clamp<uint32_t>(ability->ManaCost, 1, 3); else result.mp = ability->ManaCost;
-                if (slot.kind == action_kind::pet && memory->GetEntity()->GetPetTargetIndex(index) == 0) { result.reason = "An active pet is required."; return result; }
+                if (slot.kind == action_kind::pet && xiui::ashita::View(memory->GetEntity())->GetPetTargetIndex(index) == 0) { result.reason = "An active pet is required."; return result; }
                 if (recast != nullptr)
                 {
                     result.recast_known = true;
@@ -454,14 +455,14 @@ namespace xiui
             for (auto step = steps.rbegin(); step != steps.rend(); ++step) if (!step->command.empty()) core->GetChatManager()->QueueCommand(slot.kind == action_kind::macro ? 2 : QueueMode(step->command), step->command.c_str());
             return true;
         }
-        auto* memory = core->GetMemoryManager(); auto* party = memory->GetParty(); auto* player = memory->GetPlayer();
+        auto* memory = core->GetMemoryManager(); auto party = xiui::ashita::View(memory->GetParty()); auto player = xiui::ashita::View(memory->GetPlayer());
         this->macro_player_ = party->GetMemberServerId(0); this->macro_zone_ = party->GetMemberZone(0); this->macro_job_ = player->GetMainJob(); this->macro_subjob_ = player->GetSubJob();
         this->pending_ = std::move(steps); this->due_ = now; this->Update(core, now); return true;
     }
     auto action_executor::Update(IAshitaCore* core, uint64_t now) -> void
     {
         if (this->pending_.empty()) return;
-        auto* memory = core != nullptr ? core->GetMemoryManager() : nullptr; auto* party = memory != nullptr ? memory->GetParty() : nullptr; auto* player = memory != nullptr ? memory->GetPlayer() : nullptr; auto* target = memory != nullptr ? memory->GetTarget() : nullptr;
+        auto* memory = core != nullptr ? core->GetMemoryManager() : nullptr; auto party = memory != nullptr ? xiui::ashita::View(memory->GetParty()) : nullptr; auto player = memory != nullptr ? xiui::ashita::View(memory->GetPlayer()) : nullptr; auto target = memory != nullptr ? xiui::ashita::View(memory->GetTarget()) : nullptr;
         if (this->restricted_ || party == nullptr || player == nullptr || target == nullptr || player->GetIsZoning() || party->GetMemberServerId(0) != this->macro_player_ || party->GetMemberZone(0) != this->macro_zone_ || player->GetMainJob() != this->macro_job_ || player->GetSubJob() != this->macro_subjob_)
         { this->Cancel(); this->status_ = "Macro cancelled because the input or character context changed."; return; }
         if (this->waiting_subtarget_)

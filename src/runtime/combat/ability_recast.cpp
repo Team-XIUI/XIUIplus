@@ -1,4 +1,5 @@
 #include "ability_recast.hpp"
+#include "ashita_compat.hpp"
 
 #include <algorithm>
 #include <cmath>
@@ -8,7 +9,7 @@ namespace xiui
     auto AbilityChargePool(IAshitaCore* core, const uint32_t timer) -> ability_charge_pool
     {
         auto* memory = core != nullptr ? core->GetMemoryManager() : nullptr;
-        auto* player = memory != nullptr ? memory->GetPlayer() : nullptr;
+        auto player = memory != nullptr ? xiui::ashita::View(memory->GetPlayer()) : nullptr;
         auto* resources = core != nullptr ? core->GetResourceManager() : nullptr;
         if (player == nullptr) return {};
         if (timer == 102)

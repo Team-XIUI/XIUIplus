@@ -1,5 +1,7 @@
 #pragma once
 
+#include "ashita_compat.hpp"
+
 #include <cstdint>
 
 namespace xiui
@@ -19,7 +21,7 @@ namespace xiui
     template<typename Memory>
     inline auto NativeTargetSelectionActive(const Memory* memory) -> bool
     {
-        const auto* target = memory != nullptr ? memory->GetTarget() : nullptr;
+        const auto target = memory != nullptr ? xiui::ashita::View(memory->GetTarget()) : nullptr;
         if (target == nullptr) return false;
         return NativeTargetSelectionActive(native_target_selection{target->GetIsSubTargetActive() != 0,
             target->GetActionCallback(), target->GetCancelCallback()});

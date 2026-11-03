@@ -7,6 +7,7 @@ Start with the [module index](modules/README.md) and read only the note for the 
 - [Foundations](foundations.md): HUD text, containers, bars, configuration, input and persistence contracts.
 - [Development](development.md): build/install, AgentLink, defaults capture and documentation generation.
 - [Input ownership](reference/input.md): current mouse, keyboard and controller rules; remaining hardware/software-keyboard acceptance.
+- [Ashita compatibility](reference/ashita-compatibility.md): supported 4.16/4.30 interfaces, SDK access and mouse normalization.
 - [Controller support](reference/controller-support.md): interaction design, native ownership and focused validation requirements.
 - [Configuration](reference/configuration.md) and [settings](reference/settings.md): shared controls, navigation and preference organization.
 - [Focused checks](../tests/README.md): validation routes.
