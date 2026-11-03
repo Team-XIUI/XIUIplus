@@ -89,7 +89,9 @@ The November 1, 2026 live XIV1.0 setup is captured in both reset defaults and th
 
 DLL releases live in the public [xiuiplus-releases repository](https://github.com/Team-XIUI/xiuiplus-releases/releases). Its independent `main` contains public download instructions only; development source and history remain in private `Shuu-37/XIUIplus`. The development checkout's `origin` stays private. Use `--repo Team-XIUI/xiuiplus-releases` explicitly for every GitHub release command.
 
-Keep root `VERSION` numeric for CMake/Windows; alpha tags append `-alpha`, such as `v0.1.2-alpha`. Preserve the shipped defaults unless a capture was requested. Run `./scripts/package.ps1` and require all packaging checks to pass. Commit and push the intended source on private `main`, then create and push an annotated source tag at that commit. Never push that source tag or private branch into the public repository.
+For every new release, increment the furthest-right numeric component in root `VERSION`: `0.1.2` → `0.1.3` (and `0.1.9` → `0.1.10`). Keep `VERSION` numeric for CMake/Windows. Alpha tags use the fixed `-alpha` suffix: `v0.1.2-alpha` → `v0.1.3-alpha`. Do not add or increment an alpha counter such as `-alpha.1`.
+
+Preserve the shipped defaults unless a capture was requested. Run `./scripts/package.ps1` and require all packaging checks to pass. Commit and push the intended source on private `main`, then create and push an annotated source tag at that commit. Never push that source tag or private branch into the public repository.
 
 Upload only `dist/XIUIplus.dll` and the generated `dist/SHA256SUMS.txt`; no companion runtime or external assets are needed. With the private source tag pushed and public release notes written:
 
