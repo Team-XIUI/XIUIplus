@@ -178,6 +178,7 @@ namespace xiui
         if (now < this->next_update_) return;
         this->next_update_ = now + 100;
         const std::array leaders{party->GetAlliancePartyLeaderServerId1(), party->GetAlliancePartyLeaderServerId2(), party->GetAlliancePartyLeaderServerId3()};
+        const bool grouped = party->GetAlliancePartyMemberCount1() > 1 || party->GetAlliancePartyMemberCount2() > 0 || party->GetAlliancePartyMemberCount3() > 0;
         auto* resources = core->GetResourceManager();
         for (uint32_t slot = 0; slot < this->members_.size(); ++slot)
         {
@@ -201,7 +202,7 @@ namespace xiui
             member.alliance_leader = party->GetAllianceLeaderServerId() != 0 && party->GetAllianceLeaderServerId() == id;
             member.index = member.in_zone ? party->GetMemberTargetIndex(slot) : 0;
             member.entity_valid = member.index > 0 && member.index < mapSize && entity->GetServerId(member.index) == id;
-            member.seeking = member.entity_valid && (entity->GetRenderFlags1(member.index) & 0x800u) != 0;
+            member.seeking = member.entity_valid && PartySeeking(entity->GetRenderFlags1(member.index), grouped);
             member.status_known = member.entity_valid && (entity->GetRenderFlags0(member.index) & 0x200) != 0;
             member.status = member.status_known ? entity->GetStatus(member.index) : 0;
             member.distance_known = false;

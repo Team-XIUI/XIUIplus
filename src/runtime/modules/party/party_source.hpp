@@ -45,6 +45,11 @@ namespace xiui
     auto FormatPartyResource(uint32_t value, uint32_t percent, uint32_t maximum, bool exact, int mode) -> std::string;
     auto PartyJobName(uint32_t job) -> const char*;
     auto PartyJobHasMP(uint32_t job) -> bool;
+    inline constexpr auto PartySeeking(const uint32_t nameFlags, const bool grouped) -> bool
+    {
+        // The client rearranges the network packet's name flags.
+        return !grouped && (nameFlags & 0x00100000u) != 0;
+    }
     auto ReadNativePartyCursor(uintptr_t root) -> int;
     inline auto NativeStatusDeadline(const uint32_t timer, const uint32_t utc, const uint64_t now) -> uint64_t
     {

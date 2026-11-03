@@ -285,7 +285,11 @@ namespace xiui
         {
             party_module badges; badges.icon_follow_name_ = true;
             party_member member; member.active = member.in_zone = member.entity_valid = true;
-            member.seeking = member.selected = true;
+            const uint32_t seekingOn = 0x0A900800, seekingOff = 0x0A800800;
+            if (!check(PartySeeking(seekingOn, false) && !PartySeeking(seekingOff, false) &&
+                !PartySeeking(seekingOn, true) && !PartySeeking(0, false),
+                "captured client flags clear seeking on /invite off and party membership suppresses a delayed name flag")) return false;
+            member.seeking = PartySeeking(seekingOn, false); member.selected = true;
             const auto plain = badges.LayoutEntry({0, 0, 300, 0}, true, {});
             for (const bool xiv1 : {false, true})
             {
@@ -306,10 +310,14 @@ namespace xiui
                     }
                 }
             }
-            member.seeking = member.leader = member.selected = false;
+            member.leader = member.selected = false;
             badges.xiv1_theme_ = false;
-            if (!check(badges.NameBadgeSpace(member) == 0 && badges.LayoutEntry({0, 0, 300, 0}, true, {}).height == plain.height,
-                "clearing seeking removes its name gap without changing party-row height")) return false;
+            for (const auto state : {std::pair{seekingOff, false}, std::pair{seekingOn, true}})
+            {
+                member.seeking = PartySeeking(state.first, state.second);
+                if (!check(badges.NameBadgeSpace(member) == 0 && badges.LayoutEntry({0, 0, 300, 0}, true, {}).height == plain.height,
+                    "stopping seeking or joining a party removes its name gap without changing party-row height")) return false;
+            }
         }
         {
             party_source source;

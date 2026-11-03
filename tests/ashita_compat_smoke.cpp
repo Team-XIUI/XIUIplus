@@ -88,6 +88,12 @@ namespace
         {
             native_fixture native;
             const xiui::ashita::party_view party{reinterpret_cast<const IParty*>(&native), legacy};
+            for (size_t slot = 8; slot <= 10; ++slot)
+            {
+                native.Bind(slot, &native_fixture::Flag);
+                Check((slot == 8 ? party->GetAlliancePartyMemberCount1() : slot == 9 ? party->GetAlliancePartyMemberCount2() : party->GetAlliancePartyMemberCount3()) == 1,
+                    "party membership counts retain their getters in both SDK layouts");
+            }
             native.Bind(legacy ? 18 : 19, &native_fixture::Indexed);
             Check(party->GetMemberHP(7) == 1007, "party getter follows the selected SDK layout");
             native.Bind(legacy ? 38 : 41, &native_fixture::Byte);
