@@ -1,3 +1,4 @@
+#include "localization/localization.hpp"
 #include "recast_module.hpp"
 #include "ui/game_icon_cache.hpp"
 #include "modules/bar_config.hpp"
@@ -296,7 +297,7 @@ namespace xiui
         this->state_.bounds.height = this->state_.minimum_height = height;
         const auto& bounds = this->state_.bounds;
         const auto content = this->background_ ? context.DrawContainer(bounds) : bounds;
-        if (this->heading_) context.DrawText("Recast", {content.x, content.y, content.width, headingHeight - 4}, content, this->text_[2]);
+        if (this->heading_) context.DrawText(i18n::Text("Recast"), {content.x, content.y, content.width, headingHeight - 4}, content, this->text_[2]);
         for (size_t i = 0; i < count; ++i)
             this->DrawRow(*rows[i], {content.x, content.y + headingHeight + i * (rowHeight + this->spacing_), content.width, rowHeight}, now, context);
     }

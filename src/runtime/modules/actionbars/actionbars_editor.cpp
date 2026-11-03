@@ -110,7 +110,7 @@ namespace xiui
             choice(command_available, y, "Availability", this->draft_.always_available ? "Always available" : "Follow action"); y += 36;
             if (this->selected_.surface == action_surface::hotbar && !this->library_edit_)
             {
-                button(command_binding, {left, y, width - 100, 28}, this->binding_capture_ ? "Press a key..." : "Binding: " + this->BindingLabel(this->Binding(this->selected_)));
+                button(command_binding, {left, y, width - 100, 28}, this->binding_capture_ ? "Press a key..." : i18n::Format("Binding: %s", this->BindingLabel(this->Binding(this->selected_)).c_str()));
                 button(command_unbind, {right - 92, y, 92, 28}, "Unbind", this->Binding(this->selected_).key != 0); y += 36;
             }
             if (this->store_ && this->store_->PetAware(this->selected_.surface, this->selected_.bar) && !this->store_->Context().pet.empty())

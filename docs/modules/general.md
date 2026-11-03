@@ -1,12 +1,14 @@
 # Global settings
 
+The top-right globe opens the shared language menu in Basic and Advanced settings. English and Japanese apply immediately and persist locally across profiles, presets and resets. Mouse, keyboard and controller share the header menu actions. [Localization](../../locales/README.md) owns the UTF-8 catalogs, presentation boundary and English fallback; client chat/resources and user content remain verbatim. Builds check shared UI message coverage and consistent numbered Hotbar captions. Focused check: `localization`.
+
 Basic's Theme control and Global → Appearance → Theme select XI Theme or XIV 1.0 Theme. `/xiuiplus theme xiv1` and `/xiuiplus theme xi` use the same persisted preference (`appearance.theme`); `theme native` remains an alias. XIV 1.0 Theme applies embedded navy fabric and aged-metal frames, copper gauges, serif HUD text, transparent chat, feathered minimap and resource/target layout overlays. Switching themes keeps native Window Type, positions, scales and per-module styles intact. Native menus outside XIUI+ retain the game's Window Type. Focused check: `xiv1-theme`.
 
 [First-load setup](../reference/setup.md) lives in `hud_runtime_setup.cpp`, with copy and shared state in `config/setup_wizard.hpp`. It previews modules through their normal renderer, saves choices through the current profile, and keeps completion/progress local to the installation. Existing installs enter only with `/xiuiplus setup`. Focused check: `setup-wizard`.
 
 [Basic/Advanced and HUD scaling](../reference/hud-scaling.md) use `hud_runtime_basic.cpp`, `hud_runtime_scale.cpp` and the shared module scale controls. General remains the internal ID; Global is the visible category.
 
-Basic settings compose the existing native panel, buttons, slider, percentage editor and profile controls. `config/basic_settings_layout.hpp` owns its responsive geometry; preset samples use the same theme and meter renderer as the applied styles. The compact scale row shares drawing and input geometry; controller focus targets only its visible controls. The minus button collapses the panel; plus restores it.
+Basic settings compose the existing native panel, buttons, slider, percentage editor and profile controls. `config/basic_settings_layout.hpp` owns its responsive geometry; preset samples use the same theme and meter renderer as the applied styles. The compact scale row shares drawing and input geometry; controller focus targets only its visible controls. Attribution sits to the left of minimize in both settings headers. The minus button collapses the panel; plus restores it.
 
 Settings start with Edit Mode OFF. `ConfigPreview` and `ModuleDisplayed` in `hud_runtime_visibility.cpp` separate explicit previews from live visibility across rendering, pointer controls and controller movement. The shared footer has an ON/OFF dot toggle; selecting Advanced settings previews the selected element. Hover editing remains available on visible modules. Preview state is transient. Focused check: `edit-mode`.
 
@@ -21,6 +23,8 @@ Configuration hover help resets before either settings view draws. Modal overlay
 Configuration dragging follows the search control's visible width, including its animation. Closing search releases the expanded field's former area; a collapsed title bar reserves only its visible header buttons.
 
 Global uses the shared second navigation column for Appearance, Global Text, Config Text, Enabled Modules, Grid, Input and Visibility. Appearance opens window styling without another submenu. Controller Focus, HP Feedback and Native Menus live under Extras. Native Menus retains the `gamehud` module ID and saved visibility preferences. Attribution opens only from the top-right button and keeps its credit-page tabs. Preserve original topic IDs, appearance-tab selection, pointer/controller actions and preview space. Pages reserve top space only for visible tabs, category controls or previews.
+
+Native Menus includes **Instant native macro bar**, off by default, saved as `game_hud.instant_macro_bar`. It removes the native Ctrl/Alt palette opening delay while native macros are enabled, even with every XIUI+ action bar disabled. Replace native macros pauses it without changing the saved choice. Visibility controls remain independent. The host verifies both delay branches before changing code, restores only owned bytes on disable/unload and preserves existing macrofix patches. Unsupported or changed code disables the setting. Focused checks: `xiui_native_hud_target_smoke --macros-only` and `xiui_actionbars_ui_smoke --input-ownership-only`.
 
 Owns shared appearance, global/config typography, visibility preferences, input presentation and common focus styling.
 

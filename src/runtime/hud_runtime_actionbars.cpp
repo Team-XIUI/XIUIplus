@@ -41,7 +41,8 @@ namespace xiui
             mask &= ~(NativeHudBit(native_hud_element::chat1) | NativeHudBit(native_hud_element::chat2) | NativeHudBit(native_hud_element::chatlog));
         if (this->visible_ && this->visibility_context_.window_focus == native_window_focus::chatlog)
             mask &= ~NativeHudBit(native_hud_element::chatlog);
-        return mask | (this->actionbars_.ReplaceNativeMacros() ? native_keyboard_macro_palette : 0);
+        return mask | (this->actionbars_.ReplaceNativeMacros() ? native_keyboard_macro_palette :
+            this->game_hud_.InstantMacroBar() ? native_instant_macro_palette : 0);
     }
 
     auto hud_runtime::ActionBarsInputAvailable(const bool keyboardReplacement, const bool pointer) const -> bool
@@ -57,7 +58,7 @@ namespace xiui
         if (!this->ActionBarsInputAvailable(false, true)) return false;
         if (this->actionbar_pointer_release_ != 0 || this->actionbars_.PointerDown()) return true;
         if (this->editing_ && (this->mouse_down_ || this->interaction_ != interaction::none || this->profile_name_.Focused() || this->profile_dropdown_ ||
-            this->profile_actions_ || this->config_.choice_input.Opened() || this->config_.search_open || this->config_.input_mode_menu || this->config_.active_color != nullptr)) return false;
+            this->profile_actions_ || this->config_.choice_input.Opened() || this->config_.search_open || this->config_.header_menu_open || this->config_.active_color != nullptr)) return false;
         if (this->actionbars_.ModalDialogOpen()) return this->actionbars_.InputFocused();
         if (!this->actionbars_.FloatingWindowOpen())
             return this->actionbars_.InputFocused() || (!this->editing_ && this->actionbars_.PointerOwns(x, y));
@@ -217,9 +218,10 @@ namespace xiui
                     reinterpret_cast<const char*>(&this->visibility_context_.window_focus_name), this->ActionBarsNativeMenuAllowed() ? "allowed" : "blocked",
                     NativeTargetSelectionActive(memory) ? "active" : "idle", this->ActionBarsExecutionAvailable() ? "ready" : "paused");
                 if (target != nullptr)
-                    this->core_->GetChatManager()->Writef(1, false, "[XIUI+] Native targeting: action %u; subtarget %u; type %u; id %u. Pointer held %s; drag %s.",
+                    this->core_->GetChatManager()->Writef(1, false, "[XIUI+] Native targeting: action %u; subtarget %u; type %u; id %u; action callback %s; cancel callback %s. Pointer held %s; drag %s.",
                         static_cast<unsigned>(target->GetActionTargetActive()), static_cast<unsigned>(target->GetIsSubTargetActive()),
-                        static_cast<unsigned>(target->GetActionType()), target->GetActionId(), this->actionbars_.PointerDown() ? "yes" : "no",
+                        static_cast<unsigned>(target->GetActionType()), target->GetActionId(), target->GetActionCallback() != 0 ? "pending" : "none",
+                        target->GetCancelCallback() != 0 ? "pending" : "none", this->actionbars_.PointerDown() ? "yes" : "no",
                         this->actionbars_.AssignmentDragging() ? "yes" : "no");
                 this->core_->GetChatManager()->Writef(1, false, "[XIUI+] Current TP: %u. %s", party != nullptr ? party->GetMemberTP(0) : 0,
                     this->action_executor_.Diagnostics(::GetTickCount64()).c_str());
@@ -307,7 +309,7 @@ namespace xiui
         const bool floating = this->actionbars_.FloatingWindowOpen() && !this->actionbars_.ModalDialogOpen();
         if (!this->actionbars_.PointerDown() && this->editing_ &&
             (this->mouse_down_ || this->interaction_ != interaction::none || this->profile_name_.Focused() || this->profile_dropdown_ ||
-                this->profile_actions_ || this->config_.choice_input.Opened() || this->config_.search_open || this->config_.input_mode_menu || this->config_.active_color != nullptr))
+                this->profile_actions_ || this->config_.choice_input.Opened() || this->config_.search_open || this->config_.header_menu_open || this->config_.active_color != nullptr))
         {
             if (press && floating) this->actionbars_.SetWindowFocused(false);
             this->actionbars_.SetHover(-1, -1);
@@ -322,7 +324,7 @@ namespace xiui
         }
         if (this->editing_ && !this->actionbars_.InputFocused() && !this->actionbars_.PointerDown() &&
             (this->mouse_down_ || this->interaction_ != interaction::none || this->profile_name_.Focused() || this->profile_dropdown_ ||
-                this->profile_actions_ || this->config_.choice_input.Opened() || this->config_.search_open || this->config_.input_mode_menu ||
+                this->profile_actions_ || this->config_.choice_input.Opened() || this->config_.search_open || this->config_.header_menu_open ||
                 this->config_.active_color != nullptr || Contains(this->ConfigVisibleBounds(), x, y)))
         { this->actionbars_.SetHover(-1, -1); return false; }
         if (release == MK_LBUTTON && this->actionbars_.AssignmentDragging() && this->editing_ &&

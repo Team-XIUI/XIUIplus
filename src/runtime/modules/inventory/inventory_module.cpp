@@ -289,7 +289,7 @@ namespace xiui
             if (this->label_)
             {
                 const ui::rect at{left, textTop, this->count_ ? std::max(0.0f, contentWidth - countWidth - 8) : contentWidth, textHeight};
-                context.DrawText(panel.name, at, at, this->text_[0]);
+                context.DrawText(i18n::Text(panel.name), at, at, this->text_[0]);
             }
             if (this->count_)
             {

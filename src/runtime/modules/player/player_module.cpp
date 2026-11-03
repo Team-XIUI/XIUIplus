@@ -1,3 +1,4 @@
+#include "localization/localization.hpp"
 #include "player_module.hpp"
 #include "ui/health_colors.hpp"
 #include "modules/bar_config.hpp"
@@ -512,7 +513,7 @@ namespace xiui
             TintTextProfile(this->settings_.tp_value_text, this->settings_.tp_ready_color) : this->settings_.tp_value_text;
         this->hp_animation_.Bind((uint64_t{snapshot.hp_max} << 32) | (this->source_ != nullptr ? this->source_->Members()[0].id : 0));
         const auto healRanges = this->settings_.heal_preview.Ranges(this->heal_prediction_, this->source_ != nullptr ? this->source_->Members()[0].id : 0, ::GetTickCount64(), hp.ratio);
-        context.DrawMeter(meterBounds(rows[0], hpStyle), !xiv1 && this->settings_.show_labels ? "HP" : "", xiv1 ? "" : hpValue.c_str(), hp.ratio, hpTop, hpBottom, hpStyle, this->hp_animation_, true, &this->settings_.label_text, &hpText,
+        context.DrawMeter(meterBounds(rows[0], hpStyle), !xiv1 && this->settings_.show_labels ? i18n::Text("HP") : "", xiv1 ? "" : hpValue.c_str(), hp.ratio, hpTop, hpBottom, hpStyle, this->hp_animation_, true, &this->settings_.label_text, &hpText,
             ui::meter_text_anchor::automatic, ui::meter_text_anchor::automatic, meter_fill_mode::health, {}, healRanges, nullptr, !this->settings_.hp_state_colors);
         if (this->ShowsMP(snapshot))
         {
@@ -523,12 +524,12 @@ namespace xiui
                 const auto preview = this->mp_preview_->MPPreview(sampledAt);
                 ranges = MPPreviewRanges(preview, mp.current, mp.maximum, preview.player_id, sampledAt, context.Design().GetTheme());
             }
-            context.DrawMeter(meterBounds(rows[1], mpStyle), !xiv1 && this->settings_.show_labels ? "MP" : "", xiv1 ? "" : mpValue.c_str(),
+            context.DrawMeter(meterBounds(rows[1], mpStyle), !xiv1 && this->settings_.show_labels ? i18n::Text("MP") : "", xiv1 ? "" : mpValue.c_str(),
                 mp.ratio, xiv1 ? 0xFFD5DDB0 : this->settings_.mp_color_top, xiv1 ? 0xFF9FAE58 : this->settings_.mp_color, mpStyle,
                 this->mp_animation_, true, &this->settings_.mp_label_text, &this->settings_.mp_value_text,
                 ui::meter_text_anchor::automatic, ui::meter_text_anchor::automatic, meter_fill_mode::single, {}, ranges);
         }
-        context.DrawMeter(meterBounds(rows[2], tpStyle), !xiv1 && this->settings_.show_labels ? "TP" : "", xiv1 ? "" : tpValue.c_str(),
+        context.DrawMeter(meterBounds(rows[2], tpStyle), !xiv1 && this->settings_.show_labels ? i18n::Text("TP") : "", xiv1 ? "" : tpValue.c_str(),
             module_render_context::Ratio(snapshot.tp, 3000), this->settings_.tp_color_top, this->settings_.tp_color, tpStyle,
             this->tp_animation_, true, &this->settings_.tp_label_text, &tpText,
             ui::meter_text_anchor::automatic, ui::meter_text_anchor::automatic, this->settings_.tp_ready_blink ? meter_fill_mode::tp_blink : meter_fill_mode::tp,
@@ -541,7 +542,7 @@ namespace xiui
             footprint.x = std::min(footprint.x, at.x); footprint.y = std::min(footprint.y, at.y);
             footprint.width = right - footprint.x; footprint.height = bottom - footprint.y;
         };
-        const std::array<const char*, 3> captions{"HP", "MP", "TP"};
+        const std::array captions{i18n::Text("HP"), i18n::Text("MP"), i18n::Text("TP")};
         const std::array numbers{hpValue, mpValue, tpValue};
         for (size_t i = 0; i < styles.size(); ++i)
         {

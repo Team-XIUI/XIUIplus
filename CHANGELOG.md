@@ -2,6 +2,15 @@
 
 ## Unreleased
 
+- Keep Replace native macros off in first-load/reset defaults and every bundled HUD setup.
+
+- Add an optional Instant native macro bar setting under Native Menus for the native Ctrl/Alt palettes. It preserves command waits, yields to macro replacement and restores owned code changes on disable or unload.
+
+- Keep action bars usable after targeted macros such as `/ra <t>` by tracking pending native selection callbacks instead of retained action flags and IDs. Real target selection still owns its controls.
+
+- Drive observed spell effects from the full retained database, covering Dia/Bio/Diaga, Helix, Blue Magic secondaries, compound effects and Sleep II/Repose variants. Mark unconfirmed secondaries and preserve failed-cast, overwrite, removal and death behavior.
+- Keep Target countdowns at a consistent configured size by reserving text width and row height instead of shrinking longer labels to icon width.
+
 - Keep expanded chat history on screen after moving or scaling compact chat, with matching channel-tab clicks and controller focus.
 
 ## 0.1.1-alpha — 2026-11-02

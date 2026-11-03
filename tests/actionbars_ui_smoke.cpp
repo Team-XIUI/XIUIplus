@@ -1528,6 +1528,34 @@ namespace xiui
         }
         static auto NativeMacroKeyboardOwnership(void) -> void
         {
+            {
+                game_hud_module native;
+                native.SetAvailable(native_instant_macro_palette);
+                auto option = native.Option(game_hud_module::instant_macro_option);
+                Check(!native.InstantMacroBar() && option.available && option.toggle != nullptr &&
+                    std::strcmp(option.label, "Instant native macro bar") == 0, "instant native macros are an independent shared toggle, off by default");
+                *option.toggle = true;
+                auto saved = settings_store::FromIniText(""); native.Save(saved);
+                game_hud_module restored; restored.Load(settings_store::FromIniText(saved.ToIniText()));
+                Check(restored.InstantMacroBar() && saved.ReadBool("game_hud", "instant_macro_bar", false), "instant native macro preference survives saving and loading");
+                restored.ResetDefaults(ui::theme::CreateDefault());
+                Check(!restored.InstantMacroBar(), "native timing reset restores the default opt-out");
+                restored.SetAvailable(0);
+                Check(!restored.Option(game_hud_module::instant_macro_option).available, "unsupported clients disable the native timing control");
+                auto runtime = std::make_unique<hud_runtime>();
+                runtime->game_hud_.Load(saved);
+                for (size_t bar = 0; bar <= action_bar_count; ++bar) runtime->actionbars_.BarState(bar).enabled = false;
+                Check((runtime->NativeHudHiddenMask() & native_instant_macro_palette) != 0 && !runtime->actionbars_.ReplaceNativeMacros(),
+                    "native timing remains available with every XIUI+ action bar disabled");
+                runtime->actionbars_.allow_native_keys_ = true;
+                Check((runtime->NativeHudHiddenMask() & native_instant_macro_palette) == 0 &&
+                    (runtime->NativeHudHiddenMask() & native_keyboard_macro_palette) != 0 && runtime->game_hud_.InstantMacroBar(),
+                    "replacement pauses native timing without overwriting its saved preference");
+                runtime->actionbars_.allow_native_keys_ = false;
+                Check((runtime->NativeHudHiddenMask() & native_instant_macro_palette) != 0, "restoring native macros resumes their saved instant-bar preference");
+                runtime->game_hud_.HideAll(); runtime->game_hud_.ShowAll();
+                Check(runtime->game_hud_.InstantMacroBar(), "native visibility actions do not change timing preferences");
+            }
             actionbars_module preferences; const auto theme = ui::theme::CreateDefault(); preferences.ApplyTextDefaults(theme);
             Check(!preferences.ReplaceNativeMacros() && std::string{preferences.Option(actionbars_module::native_keys).label} == "Replace native macros",
                 "native macro replacement defaults off and has a global settings label");

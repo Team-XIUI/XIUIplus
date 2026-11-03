@@ -19,7 +19,10 @@ namespace
         try
         {
             if (auto* runtime = as_runtime(instance); runtime != nullptr)
+            {
+                const xiui::i18n::scope locale{runtime->Language()};
                 action(*runtime);
+            }
         }
         catch (...)
         {
@@ -32,7 +35,10 @@ namespace
         try
         {
             if (auto* runtime = as_runtime(instance); runtime != nullptr)
+            {
+                const xiui::i18n::scope locale{runtime->Language()};
                 return action(*runtime) ? TRUE : FALSE;
+            }
         }
         catch (...)
         {

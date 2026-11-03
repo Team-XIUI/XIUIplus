@@ -243,16 +243,45 @@ return settings;)lua");
         Check(ActionGuardReason(denied, true, true).empty(), "descriptive presentation retains metadata while native targeting is active");
         denied = ready; denied.subtarget = true;
         Check(!ActionGuardReason(denied, false, true).empty(), "native subtarget ownership remains exclusive");
-        denied = ready; denied.action_target = NativeTargetSelectionActive(native_target_selection{true, false, UINT32_MAX});
-        Check(!denied.action_target && ActionGuardReason(denied, false, true).empty(),
-            "a retained action flag with no pending action does not block idle or engaged hotbars");
-        for (const auto state : {native_target_selection{true, true, UINT32_MAX}, {true, false, 0},
-            {true, false, 16}, {false, true, 0}})
+        struct target_state
         {
-            denied = ready; denied.action_target = NativeTargetSelectionActive(state);
-            Check(denied.action_target && !ActionGuardReason(denied, false, true).empty(),
-                "explicit subtargets and pending actions retain their guards");
+            bool action_target{}, subtarget{};
+            uint32_t action_id{};
+            uintptr_t action_callback{}, cancel_callback{};
+            auto GetActionTargetActive() const { return this->action_target; }
+            auto GetIsSubTargetActive() const { return this->subtarget; }
+            auto GetActionId() const { return this->action_id; }
+            auto GetActionCallback() const { return this->action_callback; }
+            auto GetCancelCallback() const { return this->cancel_callback; }
+        };
+        struct memory_state
+        {
+            target_state target{};
+            auto GetTarget() const { return &this->target; }
+        } memory;
+        for (const auto id : {0u, 1u, 16u, UINT32_MAX})
+        {
+            memory.target = {true, false, id};
+            for (int activation = 0; activation < 3; ++activation)
+            {
+                denied = ready; denied.action_target = NativeTargetSelectionActive(&memory);
+                Check(!denied.action_target && ActionGuardReason(denied, false, true).empty(),
+                    "completed targeted macros permit repeated activation and other slots despite retained action flags and IDs");
+            }
         }
+        for (const auto state : {native_target_selection{true, 0, 0}, {false, 0x100, 0},
+            {false, 0, 0x200}, {false, 0x100, 0x200}})
+        {
+            memory.target = {false, state.subtarget, UINT32_MAX, state.action_callback, state.cancel_callback};
+            denied = ready; denied.action_target = NativeTargetSelectionActive(&memory);
+            Check(denied.action_target && !ActionGuardReason(denied, false, true).empty(),
+                "subtargets and either pending selection callback retain native input even before an action flag or ID is set");
+        }
+        memory.target = {true, false, 0, 0x100, 0x200};
+        Check(NativeTargetSelectionActive(&memory), "a zero-ID action can still own native target selection");
+        memory.target.action_callback = memory.target.cancel_callback = 0;
+        Check(!NativeTargetSelectionActive(&memory), "completing selection releases its guard without clearing the hard target");
+        Check(!NativeTargetSelectionActive(static_cast<const memory_state*>(nullptr)), "missing native target services never invent selection ownership");
         denied = ready; denied.dead = true;
         Check(!ActionGuardReason(denied, false, true).empty() && !ActionGuardReason(denied, true, true).empty(), "execution and presentation remain unavailable while KO'd");
         denied = ready; denied.identity_valid = false;

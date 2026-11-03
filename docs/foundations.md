@@ -22,6 +22,14 @@ Shared buttons reveal overflowing labels with a clipped bounce marquee on hover 
 
 `ui/font_catalog`, `text_rasterizer` and `glyph_atlas` own bundled faces, native-size metrics, Unicode fallback and bounded glyph caches. Flush batches before texture upload/page reuse; release GDI/device resources on shutdown. Do not add per-frame rasterization or duplicate measurement rules.
 
+## Localization
+
+Every new feature and every change to player-facing XIUI+ copy must include English and Japanese catalog entries in the same change. This includes HUD captions, settings labels/descriptions/choices, tooltips, dialogs, errors, placeholders and keyboard/controller help. Follow the [localization contract](../locales/README.md); English fallback protects compatibility and is not a substitute for translating new copy.
+
+Use the shared localized configuration controls or resolve explicit XIUI+ messages with `i18n::Text` / `i18n::Format` before measurement, fitting, wrapping and drawing. Translate complete format templates before inserting values. Keep stable option IDs, INI keys, command syntax and selection logic independent of translated text. Preserve incoming chat, client resources, names and user-authored content verbatim.
+
+Update both UTF-8 catalogs and run `python scripts/build-locales.py` when adding or editing localized text. Preserve the active language across profiles, presets and resets, and keep translated settings discoverable through the shared search path. Use existing Unicode font fallback and UTF-8-aware layout helpers.
+
 ## Containers
 
 Use `ui::container_renderer` through the render context. It reads the installed native Window Type DATs, caches textures per device and preserves patch geometry, colors and blends. Theme changes select cached skins; rendering performs no file reads or uploads.

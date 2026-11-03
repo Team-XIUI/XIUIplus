@@ -88,7 +88,7 @@ namespace xiui
             switch (index)
             {
             case 0: return module_option::Choice("Recast presentation", "Choose a separate presentation for this pet type.", &this->display, displays, 4);
-            case 1: return module_option::Element("Ability", "Select an ability's visibility and ready/cooldown colors.", &this->selected, choices[static_cast<size_t>(kind)].data(), indices.size());
+            case 1: return module_option::Element("Ability", "Select an ability's visibility and ready/cooldown colors.", &this->selected, choices[static_cast<size_t>(kind)].data(), indices.size()).VerbatimChoices();
             case 2: return module_option::Toggle("Show ability", "Keep this ability in the pet recast display.", &style.enabled);
             case 3: return module_option::Color("Ready top", "Upper ready gradient.", &style.ready_top).Ordered(500, true);
             case 4: return module_option::Color("Ready bottom", "Lower ready gradient.", &style.ready_bottom).Ordered(501);

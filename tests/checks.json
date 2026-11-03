@@ -1,6 +1,12 @@
 {
   "checks": [
     {
+      "name": "localization",
+      "target": "xiui_localization_smoke",
+      "arguments": [],
+      "requires_arguments": false
+    },
+    {
       "name": "storage-paths",
       "target": "xiui_storage_paths_smoke",
       "arguments": [],

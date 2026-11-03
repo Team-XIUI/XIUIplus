@@ -1,3 +1,4 @@
+#include "localization/localization.hpp"
 #include "target_module.hpp"
 #include "modules/bar_config.hpp"
 #include "chat/chat_encoding.hpp"
@@ -500,7 +501,7 @@ namespace xiui
                 !recipient && this->settings_.display.custom_cast_fill ? this->settings_.display.cast_bottom : color, 0, castStyle);
             auto text = recipient ? profiles[3] : this->settings_.display.cast_text; text.style.alignment = ui::text_alignment::center;
             const ui::rect line{cast.x, cast.y + cast.height + 2, cast.width, std::max(16.0f, context.Design().TextHeight(text.style))};
-            context.DrawText(view.cast.interrupted ? "Interrupted" : view.cast.name.c_str(), line, line, text);
+            context.DrawText(view.cast.interrupted ? i18n::Text("Interrupted") : view.cast.name.c_str(), line, line, text);
             bottom = line.y + line.height + 2;
         }
         if (this->timers_.enabled && (!recipient || options.attack))
@@ -520,8 +521,8 @@ namespace xiui
         }
         const auto statuses = std::span<const combat_status>{view.statuses}.first(!recipient || options.statuses ? view.status_count : 0);
         const ui::rect strip{panel.x + 7, bottom + 2, panel.width - 14, 0};
-        const auto layout = ui::LayoutStatusStrip(statuses.size(), strip, statusSettings);
-        ui::DrawStatusStrip(statuses, strip, now, statusText, context, statusSettings);
+        const auto layout = ui::LayoutStatusStrip(statuses, strip, now, statusText, context.Design(), statusSettings);
+        ui::DrawStatusStrip(statuses, strip, now, statusText, context, statusSettings, &layout);
         if (statusSettings.tooltips)
             for (size_t i = 0; i < layout.count; ++i) this->status_hits_.push_back({statuses[i], context.Design().Transform().Map(layout.Icon(i)), view.id});
         if (nameAbove || castHeader)
@@ -566,7 +567,7 @@ namespace xiui
         {
             context.DrawText(distance, distanceBounds, captionDistance ? distanceBounds : panel, distanceText);
         }
-        bottom += ui::StatusStripHeight(statuses.size(), panel.width - 14, statusSettings);
+        bottom += ui::StatusStripHeight(layout, statusSettings);
         return bottom - panel.y;
     }
 
@@ -620,7 +621,7 @@ namespace xiui
         text.style.alignment = ui::text_alignment::center;
         const float height = std::max(bounds.height, context.Design().TextHeight(text.style));
         const ui::rect line{bounds.x, bounds.y + (bounds.height - height) * 0.5f, bounds.width, height};
-        context.DrawText(cast.Active(now) ? (cast.interrupted ? "Interrupted" : cast.name.c_str()) : "Stone IV", line, line, text);
+        context.DrawText(cast.Active(now) ? (cast.interrupted ? i18n::Text("Interrupted") : cast.name.c_str()) : i18n::Text("Stone IV"), line, line, text);
     }
 
     auto target_module::CastHeight(const ui::design_system& design) const -> float

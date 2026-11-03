@@ -1,3 +1,4 @@
+#include "localization/localization.hpp"
 #include "equipment_module.hpp"
 #include "ui/game_icon_cache.hpp"
 #include "ui/item_slot_frame.hpp"
@@ -149,7 +150,7 @@ namespace xiui
         {
             const ui::rect at{this->state_.bounds.x + this->OuterInset(), this->state_.bounds.y + this->OuterInset(),
                 this->state_.bounds.width - this->OuterInset() * 2, this->HeadingHeight() - 4};
-            context.DrawText("Equipment", at, at, this->text_[0]);
+            context.DrawText(i18n::Text("Equipment"), at, at, this->text_[0]);
         }
         const auto& design = context.Design();
         const ui::item_slot_frame slotFrame{design, this->CellSize(), this->container_.opacity};
@@ -190,8 +191,8 @@ namespace xiui
             if (x < at.x || y < at.y || x >= at.x + at.width || y >= at.y + at.height) continue;
             const auto slot = equipment_grid_order[cell];
             const auto* item = this->source_ != nullptr && this->source_->Available() ? &this->source_->Items()[slot] : nullptr;
-            const char* name = item == nullptr || !item->ready ? "Loading..." : item->id == 0 ? "Empty slot" : item->name.c_str();
-            const std::string details = std::string{equipment_slot_names[slot]} + (item != nullptr && item->id != 0 ? std::string{" | "} + bags[item->bag] : "");
+            const char* name = item == nullptr || !item->ready ? i18n::Text("Loading...") : item->id == 0 ? i18n::Text("Empty slot") : item->name.c_str();
+            const std::string details = std::string{equipment_slot_names[slot]} + (item != nullptr && item->id != 0 ? std::string{" | "} + i18n::Text(bags[item->bag]) : "");
             const auto& viewport = context.Viewport();
             const float inset = 13;
             const float lineHeight = std::max(18.0f, context.Design().TextHeight(this->text_[3].style) + 4);

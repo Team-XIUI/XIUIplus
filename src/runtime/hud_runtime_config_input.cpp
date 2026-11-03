@@ -17,6 +17,7 @@ namespace xiui
     auto hud_runtime::ConfigSoundTarget(const D3DVIEWPORT8& viewport) -> uint64_t
     {
         if (!this->visible_ || !this->editing_) return 0;
+        if (const auto target = this->HeaderControlTarget(viewport); target != 0 || this->config_.header_menu_open) return target;
         if (const auto target = this->SettingsSearchTarget(viewport); target != 0 || this->config_.search_open) return target;
         this->NormalizeConfigSelection();
         if (this->config_.choice_input.Opened()) return this->ChoiceSoundTarget(viewport);
@@ -40,7 +41,7 @@ namespace xiui
         if (Contains(layout.HeaderAction(), x, y)) return 3;
         if (Contains(layout.HeaderAction(1), x, y)) return 4;
         if (this->ConfigResizeEdges(x, y) != 0) return 5;
-        if (const auto input = this->InputModeControlTarget(viewport); input != 0) return input;
+        if (const auto input = this->HeaderControlTarget(viewport); input != 0) return input;
         if (this->config_.basic) return 0;
         if (Contains(layout.SidebarToggle(), x, y)) return 6;
         if (this->config_.collapsed) return 0;
@@ -99,7 +100,7 @@ namespace xiui
 
     auto hud_runtime::ProcessConfigClick(const D3DVIEWPORT8& viewport) -> bool
     {
-        if (this->ProcessInputModeClick(viewport)) return true;
+        if (this->ProcessHeaderControlClick(viewport)) return true;
         if (this->ProcessProfileClick(viewport)) return true;
         if (!this->config_.collapsed && Contains(this->ConfigLayout().EditModeButton(), this->mouse_x_, this->mouse_y_))
         { this->ToggleLayoutEditMode(); return true; }
@@ -150,7 +151,7 @@ namespace xiui
 
         if (const auto edges = this->ConfigResizeEdges(x, y); edges != 0)
         {
-            this->CloseProfileControls(); this->CloseChoiceInput(); this->config_.input_mode_menu = false;
+            this->CloseProfileControls(); this->CloseChoiceInput(); this->config_.header_menu_open = false;
             this->config_.active_color = nullptr; this->config_.active_slider = nullptr;
             this->interaction_ = interaction::resize_config;
             this->config_resize_edges_ = edges;
@@ -393,7 +394,8 @@ namespace xiui
             return this->actionbars_.PointerCursor(static_cast<float>(this->mouse_x_), static_cast<float>(this->mouse_y_));
         if (this->SettingsSearchTarget(viewport) != 0) return cursor_shape::hand;
         if (this->config_.search_open) return cursor_shape::arrow;
-        if (this->InputModeControlTarget(viewport) != 0) return cursor_shape::hand;
+        if (this->HeaderControlTarget(viewport) != 0) return cursor_shape::hand;
+        if (this->config_.header_menu_open) return cursor_shape::arrow;
         if (this->config_.choice_input.Opened())
             return this->config_.choice_input.IndexAt(static_cast<float>(this->mouse_x_), static_cast<float>(this->mouse_y_), viewport) ? cursor_shape::hand : cursor_shape::arrow;
         if (this->profile_name_.Focused())

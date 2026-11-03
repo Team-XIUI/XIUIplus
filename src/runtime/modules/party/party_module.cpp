@@ -1,3 +1,4 @@
+#include "localization/localization.hpp"
 #include "ui/text_fit.hpp"
 #include "ui/game_icon_cache.hpp"
 #include "party_module.hpp"
@@ -1352,6 +1353,7 @@ namespace xiui
                 valueStyle = TintTextProfile(valueStyle, (alpha << 24) | 0xFFFFFF);
             }
             auto caption = this->text_[2];
+            const char* resourceLabel = index == 2 ? "" : i18n::Text(index == 0 ? "HP" : "MP");
             if (this->xiv1_theme_)
             {
                 caption = ui::Xiv1ResourceLabel(caption);
@@ -1359,7 +1361,7 @@ namespace xiui
             }
             const auto drawThemeText = [&](const ui::rect& track) {
                 const auto text = ui::LayoutXiv1ResourceText(track, design.TextHeight(caption.style), design.TextHeight(valueStyle.style));
-                if (index != 2 && this->ResourceLabels()) context.DrawText(index == 0 ? "HP" : "MP", text.label, text.label, caption);
+                if (index != 2 && this->ResourceLabels()) context.DrawText(resourceLabel, text.label, text.label, caption);
                 const auto number = xiui::ui::FitText(design, value, text.value.width, valueStyle.style);
                 context.DrawText(number.c_str(), text.value, text.value, valueStyle);
             };
@@ -1394,7 +1396,7 @@ namespace xiui
             if (this->xiv1_theme_) { meterStyle.height = ui::Xiv1ResourceHeight(index); meterStyle.bookends = true; }
             const float textWidth = context.MeterTextBounds(bounds, meterStyle).width;
             const auto fitted = xiui::ui::FitText(design, value, textWidth, valueStyle.style);
-            const auto label = xiui::ui::FitText(design, !this->labels_ || index == 2 ? "" : index == 0 ? "HP" : "MP", textWidth, this->text_[2].style);
+            const auto label = xiui::ui::FitText(design, this->labels_ ? resourceLabel : "", textWidth, this->text_[2].style);
             std::array<ui::meter_strip, 2> strips{};
             size_t stripCount{};
             if (index == 0)
@@ -1760,7 +1762,7 @@ namespace xiui
         if (heading > 0)
         {
             const auto& profile = this->text_[heading_text];
-            const auto title = std::string{this->DisplayName()} + "  " + std::to_string(count) + "/6" + (statusPreview ? " | Status preview" : "");
+            const auto title = std::string{i18n::Text(this->DisplayName())} + "  " + std::to_string(count) + "/6" + (statusPreview ? i18n::Text(" | Status preview") : "");
             context.DrawText(title.c_str(), {content.x, y, content.width, heading}, {content.x, y, content.width, heading}, profile);
             y += heading;
         }

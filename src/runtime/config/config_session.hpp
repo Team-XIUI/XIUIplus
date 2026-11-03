@@ -27,8 +27,8 @@ namespace xiui
         bool collapsed{};
         bool sidebar_collapsed{};
         config_controller_focus focus{};
-        bool input_mode_menu{};
-        size_t input_mode_selection{};
+        bool header_menu_open{}, language_menu{};
+        size_t header_menu_selection{};
         D3DCOLOR* active_color{};
         ui::color_picker color_picker{};
         float* active_slider{};

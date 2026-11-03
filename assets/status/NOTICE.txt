@@ -10,10 +10,11 @@ Copyright: the XIUI contributors. Distributed under XIUI's GNU General
 Public License version 3; the upstream license is retained in LICENSE.txt.
 The upstream database credits existing XIUI tables and LandSandBoat scripts.
 
-Native imports fixed literal durations, including per-effect overrides.
-TP formulas, gear/merit/job-point duration models, server overlays and
-unconfirmed secondary-effect inference are not included. Database values
-are displayed as estimates and clear on observed removal or estimated expiry.
+Native imports fixed literal durations, per-effect overrides and spell
+application/display metadata. Secondary effects inferred from damage are
+marked unconfirmed until explicit evidence arrives. TP formulas, full
+gear/merit/job-point duration models and server overlays are not imported.
+Database values remain estimates and clear on observed removal or estimated expiry.
 
 Regenerate:
 python scripts/build-status-rules.py assets/status/debuff_retail.lua src/runtime/resources/xiui_status_durations.hpp

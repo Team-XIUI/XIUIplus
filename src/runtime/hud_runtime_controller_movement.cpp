@@ -103,7 +103,7 @@ namespace xiui
         {
             const controller_movement_layout bounds{this->config_.bounds, viewport, modules.size()};
             this->config_controls_.Panel(bounds.bounds);
-            this->config_controls_.Text("MOVEMENT PREVIEW", {bounds.bounds.x + 10, bounds.bounds.y + 5, bounds.bounds.width - 20, 24}, text);
+            this->config_controls_.Text(i18n::Text("MOVEMENT PREVIEW"), {bounds.bounds.x + 10, bounds.bounds.y + 5, bounds.bounds.width - 20, 24}, text);
             for (int row = 0; row < bounds.rows; ++row)
             {
                 const auto index = static_cast<size_t>(focus.movement_scroll + row);
@@ -112,7 +112,7 @@ namespace xiui
                 this->config_controls_.NavigationItem(bounds.Row(row), module->DisplayName(), focus.id == module->Id(), false);
             }
             auto caption = text; caption.scale = 0.65f;
-            this->config_controls_.Text("Confirm: move / scale   Actions: reset options", {bounds.bounds.x + 10, bounds.bounds.y + bounds.bounds.height - 30, bounds.bounds.width - 20, 22}, caption);
+            this->config_controls_.Text(i18n::Text("Confirm: move / scale   Actions: reset options"), {bounds.bounds.x + 10, bounds.bounds.y + bounds.bounds.height - 30, bounds.bounds.width - 20, 22}, caption);
             return;
         }
         const auto found = std::find_if(modules.begin(), modules.end(), [&](const auto* module) { return focus.moving_id == module->Id(); });
@@ -130,8 +130,8 @@ namespace xiui
             focus.fine ? 1.0f : std::clamp(std::round(this->general_.Grid().amount), 1.0f, 20.0f), focus.fine ? " (fine)" : "");
         this->config_controls_.Text(heading, {panel.x + 12, panel.y + 7, panel.width - 24, 22}, text);
         auto caption = text; caption.scale = 0.66f;
-        this->config_controls_.Text("D-pad: move   Actions: fine step   Next tab: Center X   Previous tab: Center Y", {panel.x + 12, panel.y + 32, panel.width - 24, 20}, caption);
-        this->config_controls_.Text("Confirm: save position   Cancel: restore position", {panel.x + 12, panel.y + 55, panel.width - 24, 20}, caption);
+        this->config_controls_.Text(i18n::Text("D-pad: move   Actions: fine step   Next tab: Center X   Previous tab: Center Y"), {panel.x + 12, panel.y + 32, panel.width - 24, 20}, caption);
+        this->config_controls_.Text(i18n::Text("Confirm: save position   Cancel: restore position"), {panel.x + 12, panel.y + 55, panel.width - 24, 20}, caption);
         this->config_.tooltip.clear();
         this->design_system_.DrawFocusFrame(visual, this->general_.FocusStyle());
     }

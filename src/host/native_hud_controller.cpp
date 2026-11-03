@@ -4,6 +4,7 @@
 #include "native_pattern.hpp"
 #include <MinHook.h>
 
+#include <algorithm>
 #include <bit>
 #include <cstdio>
 #include <cstring>
@@ -38,6 +39,18 @@ namespace
         ::FlushInstructionCache(::GetCurrentProcess(), reinterpret_cast<void*>(address), 1);
         DWORD ignored{};
         return ::VirtualProtect(reinterpret_cast<void*>(address), 1, previous, &ignored) && written;
+    }
+
+    auto WriteCode(const uintptr_t address, const uint8_t* bytes, const size_t size) noexcept -> bool
+    {
+        DWORD previous{};
+        if (!::VirtualProtect(reinterpret_cast<void*>(address), size, PAGE_EXECUTE_READWRITE, &previous)) return false;
+        bool written{};
+        __try { std::memcpy(reinterpret_cast<void*>(address), bytes, size); written = true; }
+        __except (EXCEPTION_EXECUTE_HANDLER) {}
+        ::FlushInstructionCache(::GetCurrentProcess(), reinterpret_cast<void*>(address), size);
+        DWORD ignored{};
+        return ::VirtualProtect(reinterpret_cast<void*>(address), size, previous, &ignored) && written;
     }
 
     template<typename T>
@@ -129,6 +142,7 @@ namespace xiui
             return;
         this->native_macros_.Initialize();
         this->macro_entry_ = this->native_macros_.Entry();
+        this->FindMacroDelay();
 
         for (size_t index = 0; index < native_hud_options.size(); ++index)
             if (native_hud_options[index].resource != nullptr)
@@ -185,6 +199,80 @@ namespace xiui
             this->available_ &= ~NativeHudBit(native_hud_element::connection);
         this->available_ |= NativeHudBit(native_hud_element::clock);
         if (this->hook_site_ != 0) this->menus_.Initialize(this->module_, this->module_size_);
+    }
+
+    auto native_hud_controller::FindMacroDelay(void) -> void
+    {
+        constexpr const char* patterns[]{
+            "2B46103BC3????????????68????????B9????????C6461800885E0C",
+            "2B46103BC3????68????????B9????????C6461800C6460C02"};
+        std::array<macro_delay_patch, 2> patches{};
+        std::array<uintptr_t, 2> destinations{};
+        for (size_t index = 0; index < patches.size(); ++index)
+        {
+            const auto match = this->Find(patterns[index]);
+            if (match == 0) return;
+            auto& patch = patches[index];
+            patch.address = match + 5; patch.size = index == 0 ? 6 : 2;
+            if (!this->InModule(patch.address, patch.original.size()) || !Read(patch.address, patch.original)) return;
+            if (std::all_of(patch.original.begin(), patch.original.begin() + patch.size, [](uint8_t byte) { return byte == 0x90; })) continue;
+            int32_t displacement{};
+            if (index == 0)
+            {
+                if (patch.original[0] != 0x0F || patch.original[1] != 0x82) return;
+                std::memcpy(&displacement, patch.original.data() + 2, 4);
+            }
+            else
+            {
+                if (patch.original[0] != 0x72) return;
+                displacement = static_cast<int8_t>(patch.original[1]);
+            }
+            if (displacement <= 0 || !this->InModule(patch.address + patch.size, static_cast<size_t>(displacement) + 1)) return;
+            destinations[index] = patch.address + patch.size + displacement;
+        }
+        if (destinations[0] != 0 && destinations[1] != 0 && destinations[0] != destinations[1]) return;
+        this->macro_delay_ = patches;
+        this->macro_delay_available_ = true;
+    }
+
+    auto native_hud_controller::SetInstantMacroBar(const bool enabled) -> void
+    {
+        const auto nops = [](const auto& bytes, const auto size) {
+            return std::all_of(bytes.begin(), bytes.begin() + size, [](uint8_t byte) { return byte == 0x90; });
+        };
+        if (!enabled || !this->macro_delay_available_)
+        {
+            this->macro_delay_enabled_ = false;
+            for (auto& patch : this->macro_delay_)
+            {
+                std::array<uint8_t, 6> current{};
+                if (!patch.owned || !Read(patch.address, current)) continue;
+                if (!nops(current, patch.size) || WriteCode(patch.address, patch.original.data(), patch.size)) patch.owned = false;
+            }
+            return;
+        }
+        // Validate both sites before changing either; leave existing addon patches unowned.
+        for (const auto& patch : this->macro_delay_)
+        {
+            std::array<uint8_t, 6> current{};
+            if (!Read(patch.address, current) || (!nops(current, patch.size) &&
+                std::memcmp(current.data(), patch.original.data(), patch.size) != 0))
+            {
+                this->macro_delay_available_ = false; this->SetInstantMacroBar(false); return;
+            }
+        }
+        for (auto& patch : this->macro_delay_)
+        {
+            std::array<uint8_t, 6> current{};
+            if (!Read(patch.address, current))
+            { this->macro_delay_available_ = false; this->SetInstantMacroBar(false); return; }
+            if (nops(current, patch.size)) continue;
+            std::fill_n(current.begin(), patch.size, uint8_t{0x90});
+            patch.owned = true;
+            if (!WriteCode(patch.address, current.data(), patch.size))
+            { this->macro_delay_available_ = false; this->SetInstantMacroBar(false); return; }
+        }
+        this->macro_delay_enabled_ = true;
     }
 
     auto native_hud_controller::InitializeHooks(void) -> bool
@@ -300,6 +388,8 @@ namespace xiui
     auto native_hud_controller::Update(uint32_t hiddenMask, const native_menu_layout& layout) -> void
     {
         this->SetMacroHook((hiddenMask & native_keyboard_macro_palette) != 0);
+        this->SetInstantMacroBar((hiddenMask & native_instant_macro_palette) != 0 && (hiddenMask & native_keyboard_macro_palette) == 0);
+        hiddenMask &= ~native_instant_macro_palette;
         const auto transientMask = this->macro_palette_available_ ? native_keyboard_macro_palette : 0;
         hiddenMask = this->LoggedIn() ? hiddenMask & (this->available_ | transientMask) : 0;
         auto menuLayout = layout;
@@ -440,15 +530,17 @@ namespace xiui
     auto native_hud_controller::Status(void) const -> std::string
     {
         char text[256]{};
-        std::snprintf(text, sizeof(text), "[XIUI+] Game HUD: %u/%u controls supported; %u hidden; draw guard %s; macro guard %s; %llu draws suppressed.",
+        std::snprintf(text, sizeof(text), "[XIUI+] Game HUD: %u/%u controls supported; %u hidden; draw guard %s; macro guard %s; instant macros %s; %llu draws suppressed.",
             std::popcount(this->available_), static_cast<unsigned>(native_hud_options.size()), std::popcount(this->hidden_.load() & ~native_keyboard_macro_palette),
-            this->hook_enabled_ ? "active" : "idle", this->macro_hook_enabled_ ? "active" : this->macro_entry_ != 0 ? "available" : "unavailable", static_cast<unsigned long long>(this->skipped_.load()));
+            this->hook_enabled_ ? "active" : "idle", this->macro_hook_enabled_ ? "active" : this->macro_entry_ != 0 ? "available" : "unavailable",
+            this->macro_delay_enabled_ ? "active" : this->macro_delay_available_ ? "available" : "unavailable", static_cast<unsigned long long>(this->skipped_.load()));
         return text;
     }
 
     auto native_hud_controller::Shutdown(void) -> void
     {
         this->hidden_.store(0, std::memory_order_release);
+        this->SetInstantMacroBar(false);
         const bool macroDetached = this->SetMacroHook(false);
         macro_suppressed_.store(false, std::memory_order_release);
         const bool detached = this->SetHook(false);
@@ -477,6 +569,7 @@ namespace xiui
         this->slots_.fill(0);
         this->macro_palette_slots_.fill(0);
         this->macro_palette_available_ = false;
+        this->macro_delay_ = {}; this->macro_delay_available_ = this->macro_delay_enabled_ = false;
         this->native_macros_ = {}; this->macro_entry_ = 0;
         this->macro_hook_created_ = this->macro_hook_enabled_ = this->minhook_initialized_ = false;
         this->chat_input_slot_ = 0;

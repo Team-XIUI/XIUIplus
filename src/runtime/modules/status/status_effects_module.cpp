@@ -1,3 +1,4 @@
+#include "localization/localization.hpp"
 #include "status_effects_module.hpp"
 #include "ui/status_classification.hpp"
 
@@ -201,7 +202,7 @@ namespace xiui
         {
             const ui::rect heading{this->state_.bounds.x + inset, this->state_.bounds.y + inset,
                 this->state_.bounds.width - inset * 2, this->HeadingHeight() - 4};
-            const auto title = std::string{this->DisplayName()} + (context.IsEditing() && this->preview_ ? " (Preview)" : "");
+            const auto title = std::string{i18n::Text(this->DisplayName())} + (context.IsEditing() && this->preview_ ? i18n::Text(" (Preview)") : "");
             context.DrawText(title.c_str(), heading, heading, style.text_[0]);
         }
         ui::DrawStatusStrip(effects.Effects(), this->StripBounds(), ::GetTickCount64(), style.text_[1], context, style.settings_);
@@ -209,7 +210,7 @@ namespace xiui
         {
             const auto at = this->StripBounds();
             const ui::rect empty{at.x, at.y, at.width, emptyHeight};
-            context.DrawText(this->debuffs_ ? "No active debuffs" : "No active buffs", empty, empty, style.text_[1]);
+            context.DrawText(this->debuffs_ ? i18n::Text("No active debuffs") : i18n::Text("No active buffs"), empty, empty, style.text_[1]);
         }
         auto measured = this->state_.bounds;
         if (strip.count > 0)

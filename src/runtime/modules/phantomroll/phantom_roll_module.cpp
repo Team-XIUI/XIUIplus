@@ -1,3 +1,4 @@
+#include "localization/localization.hpp"
 #include "phantom_roll_module.hpp"
 #include "combat/server_rules.hpp"
 #include "phantom_roll_data.hpp"
@@ -226,7 +227,7 @@ namespace xiui
                 y += rowHeight(2) + 4 * this->scale_;
             }
             const auto ratio = seat.expires > this->now_ && seat.duration > 0 ? std::clamp(static_cast<float>(seat.expires - this->now_) / seat.duration, 0.0f, 1.0f) : 0;
-            context.DrawMeter({x, y + meterHeight / 2, columnWidth, meter.height}, "Remaining", Remaining(seat.expires, this->now_, !seat.observed).c_str(),
+            context.DrawMeter({x, y + meterHeight / 2, columnWidth, meter.height}, i18n::Text("Remaining"), Remaining(seat.expires, this->now_, !seat.observed).c_str(),
                 ratio, this->top_, this->bottom_, meter, this->animation_[i], true, &text[3], &text[3], ui::meter_text_anchor::center);
         }
         if (showWindow)
@@ -235,7 +236,7 @@ namespace xiui
             const auto* latest = sample ? &samples[1] : this->tracker_.LatestOpen();
             const auto chance = latest != nullptr && latest->total != 0 ? std::to_string(static_cast<int>(std::round(PhantomBustChance(latest->total) * 100))) + "%" : "unknown";
             drawLine("Base bust chance: " + chance + " (ordinary die)", {content.x, y, content.width, rowHeight(1)}, 1);
-            context.DrawMeter({content.x, y + rowHeight(1) + meterHeight / 2, content.width, meter.height}, "Double-Up", Remaining(until, this->now_).c_str(),
+            context.DrawMeter({content.x, y + rowHeight(1) + meterHeight / 2, content.width, meter.height}, i18n::Text("Double-Up"), Remaining(until, this->now_).c_str(),
                 std::clamp(static_cast<float>(until - this->now_) / 45000, 0.0f, 1.0f), this->top_, this->bottom_, meter, this->animation_[2], true,
                 &text[3], &text[3], ui::meter_text_anchor::center);
         }

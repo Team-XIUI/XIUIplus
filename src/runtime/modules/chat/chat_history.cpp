@@ -1,3 +1,4 @@
+#include "localization/localization.hpp"
 #include "chat_module.hpp"
 #include "chat_theme.hpp"
 
@@ -278,6 +279,6 @@ namespace xiui
         this->DrawLog(snapshot, context, layout.log, layout.scrollbar);
         auto help = ChatThemeProfile(context.Design(), this->chrome_); help.style.scale *= 0.85f; help.style.alignment = ui::text_alignment::left;
         context.DrawText(this->controller_history_ ? this->controller_expanded_prompt_.c_str() :
-            "F: next tab   Shift+F: previous   Left/Right: page   Up/Down: message   Enter: close   Esc: back", layout.footer, layout.footer, help);
+            i18n::Text("F: next tab   Shift+F: previous   Left/Right: page   Up/Down: message   Enter: close   Esc: back"), layout.footer, layout.footer, help);
     }
 }

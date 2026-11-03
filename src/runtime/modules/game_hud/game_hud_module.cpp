@@ -7,11 +7,13 @@ namespace xiui
     auto game_hud_module::ResetDefaults(const ui::theme&) -> void
     {
         this->preferences_ = this->defaults_;
+        this->instant_macro_bar_ = this->default_instant_macro_bar_;
     }
 
     auto game_hud_module::SetDefaults(const settings_store& store) -> void
     {
         this->defaults_.enabled = store.ReadBool("game_hud", "enabled", true);
+        this->default_instant_macro_bar_ = store.ReadBool("game_hud", "instant_macro_bar", false);
         for (size_t index = 0; index < native_hud_options.size(); ++index)
         {
             const auto key = std::string{"show_"} + native_hud_options[index].key;
@@ -22,6 +24,7 @@ namespace xiui
     auto game_hud_module::Load(const settings_store& store) -> void
     {
         this->preferences_.enabled = store.ReadBool("game_hud", "enabled", this->defaults_.enabled);
+        this->instant_macro_bar_ = store.ReadBool("game_hud", "instant_macro_bar", this->default_instant_macro_bar_);
         for (size_t index = 0; index < native_hud_options.size(); ++index)
         {
             const auto key = std::string{"show_"} + native_hud_options[index].key;
@@ -32,6 +35,7 @@ namespace xiui
     auto game_hud_module::Save(const settings_store& store) const -> void
     {
         store.WriteBool("game_hud", "enabled", this->preferences_.enabled);
+        store.WriteBool("game_hud", "instant_macro_bar", this->instant_macro_bar_);
         for (size_t index = 0; index < native_hud_options.size(); ++index)
         {
             const auto key = std::string{"show_"} + native_hud_options[index].key;
@@ -43,6 +47,15 @@ namespace xiui
     {
         if (index == 0)
             return module_option::Toggle("Native menu controls", "Apply the native HUD visibility choices below.", &this->preferences_.enabled).Ordered(-100);
+        if (index == instant_macro_option)
+        {
+            const bool available = (this->available_ & native_instant_macro_palette) != 0;
+            auto result = module_option::Toggle("Instant native macro bar", available ?
+                "Open the native Ctrl/Alt macro bar immediately. Applies while Replace native macros is off; command waits and cooldowns stay unchanged." :
+                "Unavailable on this client or another addon changed the macro bar code.", &this->instant_macro_bar_).Ordered(-80);
+            result.available = available;
+            return result;
+        }
         if (index == hide_all_option || index == show_all_option)
         {
             auto result = index == hide_all_option ?

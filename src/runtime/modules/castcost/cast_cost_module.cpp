@@ -1,3 +1,4 @@
+#include "localization/localization.hpp"
 #include "cast_cost_module.hpp"
 #include "modules/bar_config.hpp"
 
@@ -173,7 +174,7 @@ namespace xiui
                 !action.EnoughResources() ? TintTextProfile(this->text_[4], this->unavailable_) : this->text_[4];
             const float ratio = !action.recast_known ? 0 : action.remaining <= 0 ? 1 : action.total > 0 ? std::clamp(1 - action.remaining / action.total, 0.0f, 1.0f) : 0;
             const ui::rect row{content.x, y + 2, content.width, std::max(12.0f, this->meter_.height) + 2};
-            context.DrawMeter(row, action.max_charges > 0 ? "Next charge" : "Recast", status.c_str(), ratio, this->top_, this->bottom_, this->meter_, this->animation_, true,
+            context.DrawMeter(row, action.max_charges > 0 ? i18n::Text("Next charge") : i18n::Text("Recast"), status.c_str(), ratio, this->top_, this->bottom_, this->meter_, this->animation_, true,
                 &this->text_[3], &valueText, ui::meter_text_anchor::bottom);
         }
     }

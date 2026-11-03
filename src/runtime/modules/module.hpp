@@ -1,6 +1,7 @@
 #pragma once
 
 #include "design_system.hpp"
+#include "localization/localization.hpp"
 #include "ui/container_renderer.hpp"
 #include "ui/button_renderer.hpp"
 #include "ui/meter_text_layout.hpp"
@@ -65,6 +66,12 @@ namespace xiui
         int* choice{};
         const char* const* choices{};
         size_t choice_count{};
+        bool translate_choices{true};
+        auto ChoiceText(size_t index) const -> const char*
+        { return this->translate_choices ? i18n::Text(this->choices[index]) : this->choices[index]; }
+        auto VerbatimChoices() const -> module_option
+        { auto result = *this; result.translate_choices = false; return result; }
+
         uint32_t choice_status_mask{}, choice_status_enabled{};
         const char* action_text{};
         const char* confirmation{};

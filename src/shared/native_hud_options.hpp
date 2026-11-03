@@ -8,6 +8,7 @@ namespace xiui
 {
     // Macro replacement policy; separate from native HUD visibility preferences.
     inline constexpr uint32_t native_keyboard_macro_palette = uint32_t{1} << 31;
+    inline constexpr uint32_t native_instant_macro_palette = uint32_t{1} << 30;
 
     enum class native_hud_element : uint8_t
     {

@@ -90,7 +90,7 @@ namespace xiui
         const auto edit = this->ConfigLayout().EditModeButton();
         const bool editHovered = Contains(edit, this->mouse_x_, this->mouse_y_);
         this->config_controls_.Button(edit, "", style, editHovered);
-        this->config_controls_.ButtonText(this->config_.edit_mode ? "Edit Mode  ON" : "Edit Mode  OFF",
+        this->config_controls_.ButtonText(this->config_.edit_mode ? i18n::Text("Edit Mode  ON") : i18n::Text("Edit Mode  OFF"),
             {edit.x + 14, edit.y, edit.width - 14, edit.height}, style, editHovered);
         const ui::slot_dot dot{{edit.x + 10, edit.y + (edit.height - 7) * .5f, 7, 7}, this->config_.edit_mode ? 0xFF8FD16A : 0xFF161616};
         this->design_system_.DrawSlotDots(std::span{&dot, 1});
@@ -110,7 +110,7 @@ namespace xiui
         this->FinishScale(false); this->FinishControllerMove(false); this->FinishConfigResize(false);
         this->FinishConfigInput(false); this->CloseChoiceInput(); this->CloseSettingsSearch(); this->CloseProfileControls();
         this->config_.active_color = nullptr; this->config_.active_slider = nullptr;
-        this->config_.input_mode_menu = false;
+        this->config_.header_menu_open = false;
         if (basic)
         {
             PrepareBasicPresetSamples(this->basic_preset_samples_, this->basic_preset_samples_ready_);
@@ -154,7 +154,7 @@ namespace xiui
             const auto panel = this->ConfigVisibleBounds();
             this->container_renderer_.DrawXiv1TitleSeparator(this->design_system_, {panel.x + 7, band.y + band.height - 3, panel.width - 14, 4}, .65f);
         }
-        this->config_controls_.Text("Basic settings", layout.HeaderTitle(), header);
+        this->config_controls_.Text(i18n::Text("Basic settings"), layout.HeaderTitle(), header);
         this->config_controls_.IconButton(layout.CloseButton(), ui::icon_glyph::close, hovered(layout.CloseButton()));
         this->config_controls_.IconButton(layout.HeaderAction(1), this->config_.collapsed ? ui::icon_glyph::add : ui::icon_glyph::minus,
             hovered(layout.HeaderAction(1)) || this->config_.collapsed);
@@ -167,8 +167,8 @@ namespace xiui
         if (this->config_.collapsed) return;
 
         auto heading = title; heading.scale = 1.05f;
-        this->config_controls_.Text("Choose your look", basic.Heading(), heading);
-        if (basic.Expanded()) this->config_controls_.Text("Choose a preset, theme and HUD size.", basic.Description(), detail);
+        this->config_controls_.Text(i18n::Text("Choose your look"), basic.Heading(), heading);
+        if (basic.Expanded()) this->config_controls_.Text(i18n::Text("Choose a preset, theme and HUD size."), basic.Description(), detail);
         const module_render_context previewContext{this->design_system_, &this->container_renderer_, false, &this->game_icons_,
             {static_cast<float>(viewport.X), static_cast<float>(viewport.Y), static_cast<float>(viewport.Width), static_cast<float>(viewport.Height)}, &this->native_assets_};
         party_member sample;
@@ -186,7 +186,7 @@ namespace xiui
                 const preset_preview_theme appearance{this->design_system_, this->container_renderer_, ui::hud_presets[preset].appearance};
                 this->basic_preset_samples_[preset].RenderSample(sample, preview, previewContext);
             }
-            const auto apply = std::string{"Apply "} + ui::hud_presets[preset].name;
+            const auto apply = i18n::Format("Apply %s", ui::hud_presets[preset].name);
             this->config_controls_.Button(action, apply.c_str(), button, hovered(action));
             tooltip("Restore this complete HUD preset, including positions and enabled modules.", action);
         }
@@ -194,7 +194,7 @@ namespace xiui
         const auto themeOption = this->general_.Option(this->general_.AppearanceThemeOption());
         const auto themeRow = basic.ThemeRow();
         auto themeLabel = button; themeLabel.alignment = ui::text_alignment::left;
-        this->config_controls_.Text(themeOption.label, {themeRow.x, themeRow.y, ui::basic_settings_layout::scale_label_width, themeRow.height}, themeLabel);
+        this->config_controls_.Text(i18n::Text(themeOption.label), {themeRow.x, themeRow.y, ui::basic_settings_layout::scale_label_width, themeRow.height}, themeLabel);
         this->config_controls_.Segmented(basic.ThemeChoices(), {themeOption.choices, themeOption.choice_count},
             static_cast<size_t>(std::max(0, *themeOption.choice)), static_cast<float>(this->mouse_x_), static_cast<float>(this->mouse_y_));
         tooltip("Change window, bar and text styling while keeping your HUD layout.", basic.ThemeChoices());
@@ -208,7 +208,7 @@ namespace xiui
         if (this->interaction_ == interaction::option_slider && this->config_.active_slider == scale.slider) this->config_.slider_row = scaleRow;
         this->config_controls_.Slider(scaleRow, scale, hovered(scaleRow), editing ? &this->config_.slider_input : nullptr,
             ui::basic_settings_layout::scale_label_width, true, "%");
-        this->config_controls_.Button(basic.ResetButton(), "Reset", button, hovered(basic.ResetButton()));
+        this->config_controls_.Button(basic.ResetButton(), i18n::Text("Reset"), button, hovered(basic.ResetButton()));
         tooltip("Restore Global Scale to 100%", basic.ResetButton());
         tooltip("Scale all enabled HUD elements uniformly", scaleRow);
         tooltip("Click to type a percentage. Enter applies; Escape cancels.", basic.ScaleValue());

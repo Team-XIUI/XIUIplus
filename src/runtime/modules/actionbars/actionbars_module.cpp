@@ -1,3 +1,4 @@
+#include "localization/localization.hpp"
 #include "ui/text_fit.hpp"
 #include "actionbars_module.hpp"
 #include "combat/server_rules.hpp"
@@ -1143,7 +1144,7 @@ namespace xiui
                 entry(command_picker, "Change action..."); entry(menu_edit, "Edit action...");
                 if (this->selected_.surface == action_surface::hotbar)
                 {
-                    entry(command_binding, this->binding_capture_ ? "Press a key..." : "Key: " + this->BindingLabel(this->Binding(this->selected_)));
+                    entry(command_binding, this->binding_capture_ ? "Press a key..." : i18n::Format("Key: %s", this->BindingLabel(this->Binding(this->selected_)).c_str()));
                     entry(command_unbind, "Remove key binding", this->Binding(this->selected_).key != 0);
                 }
                 entry(command_clear, "Clear slot", true, true);
@@ -1837,9 +1838,10 @@ namespace xiui
             const auto focus = this->ScreenSlotBounds(this->selected_); design.DrawFocusFrame(focus, this->focus_style_);
             const ui::rect instructions{this->viewport_.x + (this->viewport_.width - 480) / 2, this->viewport_.y + 32, 480, 68};
             context.DrawTooltip(instructions);
-            const auto text = "Place " + this->draft_.name + "  /  " + (this->selected_.surface == action_surface::crossbar ? std::string{bank_names[this->selected_.bar]} : std::string{bar_names[this->selected_.bar]}) + " / " + std::to_string(this->selected_.slot + 1);
+            const auto text = i18n::Format("Place %s  /  %s / %zu", this->draft_.name.c_str(),
+                i18n::Text(this->selected_.surface == action_surface::crossbar ? bank_names[this->selected_.bar] : bar_names[this->selected_.bar]), this->selected_.slot + 1);
             context.DrawText(text.c_str(), {instructions.x + 12, instructions.y + 8, instructions.width - 24, 24}, instructions, this->text_[4]);
-            context.DrawText("Directions: slot   Tabs: bar / bank   Confirm: assign   Cancel: back", {instructions.x + 12, instructions.y + 34, instructions.width - 24, 24}, instructions, this->text_[2]);
+            context.DrawText(i18n::Text("Directions: slot   Tabs: bar / bank   Confirm: assign   Cancel: back"), {instructions.x + 12, instructions.y + 34, instructions.width - 24, 24}, instructions, this->text_[2]);
             return;
         }
         if (this->dialog_ == dialog::none)
@@ -1858,8 +1860,8 @@ namespace xiui
                     const auto viewport = context.Viewport(); const float width = std::min(344.0f, viewport.width - 16);
                     const ui::rect tooltip{std::clamp(hit->bounds.x, viewport.x + 8, std::max(viewport.x + 8, viewport.x + viewport.width - width - 8)), std::max(viewport.y + 8, hit->bounds.y - 68), width, 60};
                     context.DrawTooltip(tooltip);
-                    context.DrawText("Bar options", {tooltip.x + 12, tooltip.y + 6, width - 24, 22}, tooltip, this->text_[0]);
-                    const auto help = xiui::ui::FitText(design, "Actions & Macros, Action Sets and settings", width - 24, this->text_[4].style);
+                    context.DrawText(i18n::Text("Bar options"), {tooltip.x + 12, tooltip.y + 6, width - 24, 22}, tooltip, this->text_[0]);
+                    const auto help = xiui::ui::FitText(design, i18n::Text("Actions & Macros, Action Sets and settings"), width - 24, this->text_[4].style);
                     context.DrawText(help.c_str(), {tooltip.x + 12, tooltip.y + 30, width - 24, 22}, tooltip, this->text_[4]);
                 }
             }
@@ -1868,7 +1870,7 @@ namespace xiui
             {
                 const auto anchor = this->ScreenSlotBounds(this->selected_); const auto viewport = context.Viewport();
                 const ui::rect bounds{std::clamp(anchor.x, viewport.x + 8, std::max(viewport.x + 8, viewport.x + viewport.width - 376)), std::max(viewport.y + 8, anchor.y - 48), 368, 40};
-                context.DrawTooltip(bounds); context.DrawText(this->message_.c_str(), {bounds.x + 12, bounds.y + 8, bounds.width - 24, 24}, bounds, this->text_[4]);
+                context.DrawTooltip(bounds); context.DrawText(i18n::Text(this->message_.c_str()), {bounds.x + 12, bounds.y + 8, bounds.width - 24, 24}, bounds, this->text_[4]);
             }
             return;
         }
@@ -1887,7 +1889,7 @@ namespace xiui
         }
         const auto bounds = this->DialogBounds();
         if (floating) this->DrawWindowChrome(context); else context.DrawTooltip(bounds);
-        ui::config_controls controls{design, nullptr, context.NativeAssets()};
+        ui::config_controls controls{design, context.Containers(), context.NativeAssets()};
         if (this->config_text_) controls.SetTextSettings(*this->config_text_);
         auto managementText = theme.body_text; managementText.scale = 0.76f; managementText.alignment = ui::text_alignment::left;
         auto captionText = theme.caption_text; captionText.scale = 0.64f; captionText.alignment = ui::text_alignment::left;
@@ -1913,17 +1915,17 @@ namespace xiui
             {
                 const auto clip = design.Clip(this->WindowTitleBounds());
                 auto style = theme.accent_text; style.scale = 0.82f;
-                controls.Text(title.c_str(), this->WindowTitleBounds(), style);
+                controls.Text(i18n::Text(title.c_str()), this->WindowTitleBounds(), style);
             }
-            else { auto style = theme.accent_text; style.scale = 0.82f; controls.Text(title.c_str(), {bounds.x + 16, bounds.y + 12, bounds.width - 32, 26}, style); }
+            else { auto style = theme.accent_text; style.scale = 0.82f; controls.Text(i18n::Text(title.c_str()), {bounds.x + 16, bounds.y + 12, bounds.width - 32, 26}, style); }
         }
         if (this->dialog_ == dialog::picker && this->results_.empty())
         {
             const auto layout = this->LibraryLayout(); const auto clip = design.Clip(layout.list);
-            controls.Text("No matching actions.", {layout.list.x + 6, layout.list.y + 6, layout.list.width - 12, layout.name_height + 8}, captionText);
+            controls.Text(i18n::Text("No matching actions."), {layout.list.x + 6, layout.list.y + 6, layout.list.width - 12, layout.name_height + 8}, captionText);
         }
         if (this->dialog_ == dialog::editor && bounds.height >= 500 && this->message_.empty() && !this->draft_.macro_id.empty())
-            controls.Text("Shared action: edits update every slot using it.", {bounds.x + 16, bounds.y + bounds.height - 68, bounds.width - 32, 16}, captionText);
+            controls.Text(i18n::Text("Shared action: edits update every slot using it."), {bounds.x + 16, bounds.y + bounds.height - 68, bounds.width - 32, 16}, captionText);
         if (this->dialog_ == dialog::editor)
         {
             const auto editor = this->EditorLayout(); this->DrawLibraryIcon(this->draft_, editor.icon, context);
@@ -1954,7 +1956,7 @@ namespace xiui
                 for (const auto& warning : this->import_preview_.warnings)
                 { if (y > bounds.y + bounds.height - 106) break; controls.Text(warning.c_str(), {bounds.x + 16, y, bounds.width - 32, 24}, captionText); y += 24; }
             }
-            else controls.Text("Choose a Lua XIUI+, tHotBar or tCrossBar data file.\nThe preview reads assignments without running Lua.\nImport always creates new palettes.", {bounds.x + 16, y, bounds.width - 32, 88}, managementText);
+            else controls.Text(i18n::Text("Choose a Lua XIUI+, tHotBar or tCrossBar data file.\nThe preview reads assignments without running Lua.\nImport always creates new palettes."), {bounds.x + 16, y, bounds.width - 32, 88}, managementText);
         }
         const auto controlList = this->Controls();
         const auto library = this->dialog_ == dialog::picker ? this->LibraryLayout() : library_layout{};
@@ -1977,12 +1979,12 @@ namespace xiui
                 if (this->dialog_ == dialog::editor)
                 {
                     auto caption = controls.Style(theme.accent_text); caption.scale = std::max(caption.scale, 13 / ui::text_base_pixels);
-                    design.DrawText(control.text.c_str(), control.bounds, caption);
+                    design.DrawText(i18n::Text(control.text.c_str()), control.bounds, caption);
                 }
-                else controls.Text(control.text.c_str(), control.bounds, captionText);
+                else controls.Text(i18n::Text(control.text.c_str()), control.bounds, captionText);
             }
             else if (control.kind == control_kind::dropdown)
-                controls.Dropdown(control.bounds, control.text.c_str(), this->setup_choice_input_.Opened() && this->setup_control_ == control.id, hovered);
+                controls.Dropdown(control.bounds, i18n::Text(control.text.c_str()), this->setup_choice_input_.Opened() && this->setup_control_ == control.id, hovered);
             else if (control.kind == control_kind::slider)
             {
                 float value = control.value;
@@ -1996,15 +1998,15 @@ namespace xiui
                 if (!control.hint.empty())
                 {
                     if (this->dialog_ == dialog::editor)
-                    { auto number = controls.Style(captionText); number.scale = std::max(number.scale, 12 / ui::text_base_pixels); design.DrawText(control.hint.c_str(), caption, number); }
-                    else controls.Text(control.hint.c_str(), caption, captionText);
+                    { auto number = controls.Style(captionText); number.scale = std::max(number.scale, 12 / ui::text_base_pixels); design.DrawText(i18n::Text(control.hint.c_str()), caption, number); }
+                    else controls.Text(i18n::Text(control.hint.c_str()), caption, captionText);
                 }
                 const char* placeholder = control.id == field_icon_query ? "Search icons by name, job or magic type..." : control.id == field_query ? "Search actions and macros..." : control.id == field_icon ? "Default artwork" : control.id == field_label ? "Use action name" : "";
                 const char* shortcut = control.id == field_icon_query || (control.id == field_query && control.bounds.width >= this->library_metrics_.search_with_shortcut_width) ? "Ctrl+F" : nullptr;
                 const ui::text_input_appearance editorInput{14, this->editing_field_ == control.id && this->input_.Focused() ? 0xFF292A40 : 0xFF121520, 0xFFF4F4F8};
                 const auto* appearance = this->dialog_ == dialog::editor ? &editorInput : nullptr;
-                if (this->input_.Focused() && this->editing_field_ == control.id) controls.TextInput(control.bounds, this->input_, false, placeholder, shortcut, appearance);
-                else { ui::text_input display; display.Open(control.text, 2048); display.Cancel(); controls.TextInput(control.bounds, display, false, placeholder, shortcut, appearance); }
+                if (this->input_.Focused() && this->editing_field_ == control.id) controls.TextInput(control.bounds, this->input_, false, i18n::Text(placeholder), shortcut, appearance);
+                else { ui::text_input display; display.Open(control.text, 2048); display.Cancel(); controls.TextInput(control.bounds, display, false, i18n::Text(placeholder), shortcut, appearance); }
             }
             else if (control.kind == control_kind::icon)
             {
@@ -2022,17 +2024,17 @@ namespace xiui
                     const float textHeight = library.name_height + library.caption_height + (library.caption_height > 0 ? 2 : 0);
                     const float textY = control.bounds.y + (control.bounds.height - textHeight) / 2;
                     controls.Text(control.text.c_str(), {control.bounds.x + 46, textY, control.bounds.width - 52, library.name_height}, managementText);
-                    if (!control.hint.empty()) controls.Text(control.hint.c_str(), {control.bounds.x + 46, textY + library.name_height + 2, control.bounds.width - 52, library.caption_height}, captionText);
+                    if (!control.hint.empty()) controls.Text(i18n::Text(control.hint.c_str()), {control.bounds.x + 46, textY + library.name_height + 2, control.bounds.width - 52, library.caption_height}, captionText);
                 }
-                else if (this->dialog_ == dialog::picker) controls.NavigationItem(control.bounds, control.text.c_str(), control.selected, hovered, control.enabled);
-                else controls.ListItem(control.bounds, control.text.c_str(), control.hint.empty() ? nullptr : control.hint.c_str(), control.selected, hovered);
+                else if (this->dialog_ == dialog::picker) controls.NavigationItem(control.bounds, i18n::Text(control.text.c_str()), control.selected, hovered, control.enabled, false);
+                else controls.ListItem(control.bounds, control.text.c_str(), control.hint.empty() ? nullptr : i18n::Text(control.hint.c_str()), control.selected, hovered);
             }
             else if (control.kind == control_kind::choice)
             {
-                if (!control.hint.empty()) controls.Text(control.hint.c_str(), {bounds.x + 16, control.bounds.y, control.bounds.x - bounds.x - 24, control.bounds.height}, captionText);
-                const auto label = "< " + control.text + " >"; controls.Button(control.bounds, label.c_str(), style, hovered);
+                if (!control.hint.empty()) controls.Text(i18n::Text(control.hint.c_str()), {bounds.x + 16, control.bounds.y, control.bounds.x - bounds.x - 24, control.bounds.height}, captionText);
+                const auto label = std::string{"< "} + i18n::Text(control.text.c_str()) + " >"; controls.Button(control.bounds, label.c_str(), style, hovered);
             }
-            else controls.Button(control.bounds, control.text.c_str(), style, hovered || control.selected,
+            else controls.Button(control.bounds, i18n::Text(control.text.c_str()), style, hovered || control.selected,
                 control.danger ? ui::button_tone::danger : (this->dialog_ == dialog::editor && control.id == command_save) ||
                     (this->dialog_ == dialog::picker && control.id == new_macro) ? ui::button_tone::positive : ui::button_tone::normal);
         }
@@ -2051,22 +2053,16 @@ namespace xiui
             });
             if (help != controlList.end())
             {
-                const auto resolved = controls.Style(captionText);
-                const float width = std::min(this->viewport_.width - 16, std::ceil(design.MeasureText(help->hint.c_str(), resolved)) + 24);
-                const float height = std::ceil(design.TextHeight(resolved)) + 16;
-                const ui::rect tooltip{std::clamp(help->bounds.x, this->viewport_.x + 8, std::max(this->viewport_.x + 8, this->viewport_.x + this->viewport_.width - width - 8)),
-                    std::min(help->bounds.y + help->bounds.height + 6, this->viewport_.y + this->viewport_.height - height - 8), width, height};
-                context.DrawTooltip(tooltip); const auto clip = design.Clip(tooltip);
-                controls.Text(help->hint.c_str(), {tooltip.x + 12, tooltip.y + 8, tooltip.width - 24, tooltip.height - 16}, captionText);
+                controls.Tooltip(help->hint.c_str(), help->bounds, this->SetupViewport());
             }
         }
         if (floating && this->window_gesture_ != window_gesture::none && !this->pointer_down_)
         {
             const auto help = this->WindowDragging() ? "Directions: move window   Confirm: save   Cancel: restore" : "Directions: resize window   Confirm: save   Cancel: restore";
             design.FillRect({bounds.x + 10, bounds.y + bounds.height - 28, bounds.width - 36, 22}, theme.colors.surface);
-            controls.Text(help, {bounds.x + 16, bounds.y + bounds.height - 24, bounds.width - 48, 20}, captionText);
+            controls.Text(i18n::Text(help), {bounds.x + 16, bounds.y + bounds.height - 24, bounds.width - 48, 20}, captionText);
         }
-        else if (!this->message_.empty()) controls.Text(this->message_.c_str(), {bounds.x + 16, bounds.y + bounds.height - (this->dialog_ == dialog::editor ? 68 : 24), bounds.width - 32, 20}, captionText);
+        else if (!this->message_.empty()) controls.Text(i18n::Text(this->message_.c_str()), {bounds.x + 16, bounds.y + bounds.height - (this->dialog_ == dialog::editor ? 68 : 24), bounds.width - 32, 20}, captionText);
         this->DrawSlotDrag(context);
         if (this->library_drag_)
         {

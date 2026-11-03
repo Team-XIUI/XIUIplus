@@ -16,11 +16,13 @@ Verified native Attack/command menus permit assigned action-bar shortcuts, click
 
 An active native macro palette can sit above a still-visible command menu. Identify ownership from the verified focused palette, not the presence of a background menu; holding Ctrl/Alt must not cancel delayed macro lines.
 
-`shared/native_target.hpp` distinguishes a retained action flag with a cleared (`UINT32_MAX`) pending action ID from actual target selection, both idle and engaged. Host/controller input, action execution and macro waits share this check so clicking an action does not disable later hotbar input. Explicit subtargets and pending action IDs retain their guards; a previous action type is not reliable evidence of an open selector.
+`shared/native_target.hpp` identifies actual target selection from an explicit subtarget or pending native action/cancel callbacks. Action flags, types and IDs can remain after dispatch, including a zero ID from ranged attacks; they do not establish input ownership. Host/controller input, action execution and macro waits share this check so completed targeted macros do not disable later hotbar input. Real selectors remain guarded even for zero-ID actions. `xiui_actionbars_data_smoke` covers retained flags/IDs, callback completion and native selection ownership.
 
 `/xiuiplus actionbars status` reports current TP, pending macro line/wait and the last queued timed line. Input suspension records its cancellation reason instead of silently discarding the remaining sequence.
 
 Replace native macros defaults off in code, resets and bundled setups. Preserve explicit saved choices.
+
+Users keeping native macros can enable **Instant native macro bar** in Extras → Native Menus. It changes the native Ctrl/Alt palette delay and preserves command waits and action cooldowns. It remains independent of hotbar visibility and pauses while Replace native macros is enabled; see [General](general.md).
 
 The Action Bars sidebar page follows the enabled state of all ten hotbars and the crossbar. Hide it only when all bars are disabled; global visual settings do not count as an enabled bar.
 

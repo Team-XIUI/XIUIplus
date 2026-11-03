@@ -1,8 +1,8 @@
 #include "hud_runtime.hpp"
+#include "ui/text_wrap.hpp"
 
 #include <algorithm>
 #include <limits>
-#include <sstream>
 
 namespace xiui
 {
@@ -344,22 +344,16 @@ namespace xiui
         auto body = theme.body_text; body.scale = .88f; body.alignment = ui::text_alignment::left;
         auto button = theme.body_text; button.scale = .82f; button.alignment = ui::text_alignment::center;
         const auto& page = ui::setup_pages[this->setup_.step];
-        const std::string progress = "XIUI+ Setup  " + std::to_string(this->setup_.step + 1) + " / " + std::to_string(ui::setup_pages.size());
+        const auto progress = i18n::Format("XIUI+ Setup  %zu / %zu", this->setup_.step + 1, ui::setup_pages.size());
         this->config_controls_.Text(progress.c_str(), {bounds.x + 20, bounds.y + 16, bounds.width - 144, 24}, caption);
-        this->config_controls_.Text(page.title, {bounds.x + 20, bounds.y + 52, bounds.width - 40, 32}, title);
+        this->config_controls_.Text(i18n::Text(page.title), {bounds.x + 20, bounds.y + 52, bounds.width - 40, 32}, title);
         const auto paragraph = [&](const char* text, float y, const ui::text_style& style) {
-            std::istringstream words{text}; std::string word, line;
             const auto measured = this->config_controls_.Style(style);
             const float height = this->design_system_.TextHeight(measured) + 5;
-            const float textWidth = bounds.width - 44; // Shared labels inset two pixels on each side.
-            while (words >> word)
-            {
-                const auto next = line.empty() ? word : line + " " + word;
-                if (!line.empty() && this->design_system_.MeasureText(next.c_str(), measured) > textWidth)
-                { this->config_controls_.Text(line.c_str(), {bounds.x + 20, y, bounds.width - 40, height}, style); y += height; line = word; }
-                else line = next;
-            }
-            if (!line.empty()) { this->config_controls_.Text(line.c_str(), {bounds.x + 20, y, bounds.width - 40, height}, style); y += height; }
+            const auto lines = ui::WrapText(i18n::Text(text), bounds.width - 44,
+                [&](const char* value) { return this->design_system_.MeasureText(value, measured); });
+            for (const auto& line : lines)
+            { this->config_controls_.Text(line.c_str(), {bounds.x + 20, y, bounds.width - 40, height}, style); y += height; }
             return y;
         };
         const float after = paragraph(page.description, bounds.y + 96, body);
@@ -367,12 +361,12 @@ namespace xiui
         paragraph(this->setup_.step == 3 && !chatLayout ? "The game's chat windows stay in use." : page.tip,
             this->setup_.step == 8 ? bounds.y + 276 : chatLayout ? bounds.y + 294 : this->setup_.step >= 2 ? bounds.y + 250 : after + 18, caption);
         if (auto* module = this->SetupModule())
-            this->config_controls_.Text(module->State().enabled ? "Preview - enabled in your HUD" : this->setup_.step <= 5 ? "Using game HUD" : "Off",
+            this->config_controls_.Text(module->State().enabled ? i18n::Text("Preview - enabled in your HUD") : this->setup_.step <= 5 ? i18n::Text("Using game HUD") : i18n::Text("Off"),
                 {bounds.x + 20, bounds.y + 174, bounds.width - 40, 22}, caption);
         for (const auto& item : this->SetupItems(viewport))
         {
             const bool hover = this->GameWindowFocused() && Contains(item.bounds, static_cast<float>(this->mouse_x_), static_cast<float>(this->mouse_y_));
-            const auto label = std::string{item.label} + (item.id >= ui::setup_control::castbar && item.id <= ui::setup_control::hotbars ? (item.selected ? " - On" : " - Off") : "");
+            const auto label = std::string{i18n::Text(item.label)} + (item.id >= ui::setup_control::castbar && item.id <= ui::setup_control::hotbars ? (item.selected ? std::string{" - "} + i18n::Text("On") : std::string{" - "} + i18n::Text("Off")) : "");
             auto labelStyle = button;
             if (this->setup_.step == 0 && item.id == ui::setup_control::next) labelStyle.scale = 1.0f;
             this->config_controls_.Button(item.bounds, label.c_str(), labelStyle, item.selected || hover);
@@ -381,7 +375,7 @@ namespace xiui
                 this->design_system_.DrawFocusFrame(item.bounds, this->general_.FocusStyle());
         }
         auto hint = caption; hint.scale = .65f; hint.alignment = ui::text_alignment::center;
-        this->config_controls_.Text(this->ControllerPresented() ? "Directions: choose   Confirm: select   Cancel: back" : "Tab / arrows: choose   Enter: select   Esc: back",
+        this->config_controls_.Text(this->ControllerPresented() ? i18n::Text("Directions: choose   Confirm: select   Cancel: back") : i18n::Text("Tab / arrows: choose   Enter: select   Esc: back"),
             {bounds.x + 20, bounds.y + bounds.height - 22, bounds.width - 40, 18}, hint);
     }
 }

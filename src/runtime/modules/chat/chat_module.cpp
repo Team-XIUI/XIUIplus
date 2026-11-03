@@ -1,3 +1,4 @@
+#include "localization/localization.hpp"
 #include "chat_module.hpp"
 #include "chat_theme.hpp"
 #include "chat/chat_stack_layout.hpp"
@@ -1724,7 +1725,7 @@ namespace xiui
         }
         auto help = text; help.style.scale *= 0.78f;
         const ui::rect footer{bounds.x + 9, bounds.y + bounds.height - 20, bounds.width - 18, 16};
-        context.DrawText("Tab / arrows: browse   Enter: choose   Esc: cancel", footer, footer, help);
+        context.DrawText(i18n::Text("Tab / arrows: browse   Enter: choose   Esc: cancel"), footer, footer, help);
     }
 
     auto chat_module::SpanColor(const rendered_row& row, const rendered_span& span, const chat_palette& palette, const bool xiv1) const -> D3DCOLOR
@@ -1858,7 +1859,7 @@ namespace xiui
         {
             auto help = ChatThemeProfile(context.Design(), this->chrome_); help.style.alignment = ui::text_alignment::right;
             const ui::rect hint{frame.x, frame.y - 24, frame.width, 20};
-            context.DrawText(this->controller_history_ ? this->controller_compact_prompt_.c_str() : "F: cycle focus   Enter: expand chat   Esc: back", hint, hint, help);
+            context.DrawText(this->controller_history_ ? this->controller_compact_prompt_.c_str() : i18n::Text("F: cycle focus   Enter: expand chat   Esc: back"), hint, hint, help);
         }
         if (!this->secondary_ && this->input_reveal_ > 0)
         {
@@ -1878,7 +1879,7 @@ namespace xiui
                 const auto right = MeasureChatText(context.Design(), this->DisplayDraft(text.substr(start, selectionEnd - start)), profile.style);
                 context.Design().FillRect({input.x + std::min(left, input.width), input.y, std::max(0.0f, std::min(right, input.width) - left), input.height}, FadeColor(theme.colors.selected, reveal));
             }
-            if (text.empty()) context.DrawText(this->channel_ == 7 ? "Player message" : "Message", input, input, FadeText(profile, 0.4f));
+            if (text.empty()) context.DrawText(this->channel_ == 7 ? i18n::Text("Player message") : i18n::Text("Message"), input, input, FadeText(profile, 0.4f));
             else
             {
                 const auto commandEnd = text.find(' ');
@@ -1976,7 +1977,7 @@ namespace xiui
             const auto content = context.DrawTooltip({x, y, width, height});
             const auto label = ui::FitText(context.Design(), destination.label, content.width, profile.style);
             context.DrawText(label.c_str(), {content.x, content.y, content.width, lineHeight}, content, profile);
-            context.DrawText("Click to change channel", {content.x, content.y + lineHeight, content.width, lineHeight}, content, FadeText(profile, 0.7f));
+            context.DrawText(i18n::Text("Click to change channel"), {content.x, content.y + lineHeight, content.width, lineHeight}, content, FadeText(profile, 0.7f));
         }
     }
 }

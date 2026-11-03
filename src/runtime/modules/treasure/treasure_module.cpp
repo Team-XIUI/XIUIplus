@@ -266,7 +266,7 @@ namespace xiui
         const auto& entries = !preview && this->source_ != nullptr ? this->source_->Entries() : previewEntries;
         const auto count = static_cast<size_t>(std::count_if(entries.begin(), entries.end(), [](const auto& item) { return item.item != 0; }));
         const auto& design = context.Design(); const auto now = ::GetTickCount64();
-        const auto title = "Treasure Pool (" + std::to_string(count) + ")";
+        const auto title = i18n::Format("Treasure Pool (%zu)", count);
         const float titleHeight = this->text_[0].visible ? std::max(20.0f, design.TextHeight(this->text_[0].style) + 4) : 0;
         const bool details = this->text_[2].visible, timers = this->text_[4].visible;
         const bool secondary = this->expanded_ && (details || timers);
@@ -275,7 +275,7 @@ namespace xiui
         const float buttonHeight = std::max(24.0f, design.TextHeight(this->text_[3].style) + 8);
         const float inset = this->container_.padding + this->container_.edge_size;
         const float contentWidth = std::max(1.0f, this->state_.bounds.width - inset * 2);
-        const char* headerLabels[]{"Lot all", "Pass all", this->expanded_ ? "Collapse" : "Expand", count == 0 ? "Close" : "Details"};
+        const char* headerLabels[]{i18n::Text("Lot all"), i18n::Text("Pass all"), i18n::Text(this->expanded_ ? "Collapse" : "Expand"), i18n::Text(count == 0 ? "Close" : "Details")};
         std::array<float, 4> headerWidths{};
         float toolbarWidth = 18;
         for (size_t i = 0; i < headerWidths.size(); ++i)
@@ -298,7 +298,7 @@ namespace xiui
         const ui::rect titleBounds{this->state_.bounds.x + inset,
             this->state_.bounds.y + inset + (inlineHeader ? std::max(0.0f, (buttonHeight - titleHeight) * 0.5f) : 0),
             inlineHeader ? std::max(0.0f, contentWidth - toolbarWidth - 8) : contentWidth, titleHeight};
-        const float actionWidth = std::max(48.0f, design.MeasureText("Pass", this->text_[3].style) + 18);
+        const float actionWidth = std::max(48.0f, design.MeasureText(i18n::Text("Pass"), this->text_[3].style) + 18);
         const float actionGap = 6, actionsWidth = actionWidth * 2 + actionGap;
         const float line = std::max({26.0f, buttonHeight, design.TextHeight(this->text_[1].style) + 2});
         const float rowHeight = line + (secondary ? detailLine : 0) + 6;
@@ -333,11 +333,11 @@ namespace xiui
                     kind == action::close ? ui::icon_glyph::close : ui::icon_glyph::eye;
                 ui::config_controls{design, nullptr, context.NativeAssets()}.IconButton(bounds, icon, hovered || (kind == action::details && this->details_));
             }
-            else context.DrawButton(bounds, label, hovered, profile, tone);
+            else context.DrawButton(bounds, i18n::Text(label), hovered, profile, tone);
             this->controls_.push_back({bounds, kind, slot, generation, available});
         };
         float y = content.y + headerHeight + headerGap;
-        if (count == 0) draw("The treasure pool is empty.", {content.x, y, content.width, rowHeight}, 2);
+        if (count == 0) draw(i18n::Text("The treasure pool is empty."), {content.x, y, content.width, rowHeight}, 2);
         bool lotAll{}, passAll{};
         for (size_t slot = 0; slot < entries.size(); ++slot)
         {

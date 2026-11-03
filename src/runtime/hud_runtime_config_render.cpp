@@ -47,7 +47,7 @@ namespace xiui
             const auto header = layout.HeaderBackground();
             this->container_renderer_.DrawXiv1TitleSeparator(this->design_system_, {panel.x + 7, header.y + header.height - 3, panel.width - 14, 4}, .65f);
         }
-        this->config_controls_.Text("CONFIGURATION", layout.HeaderTitle(), headerStyle);
+        this->config_controls_.Text(i18n::Text("CONFIGURATION"), layout.HeaderTitle(), headerStyle);
         const auto sidebarToggle = layout.SidebarToggle();
         const bool sidebarHovered = Contains(sidebarToggle, static_cast<float>(this->mouse_x_), static_cast<float>(this->mouse_y_));
         this->config_controls_.IconButton(sidebarToggle, this->config_.sidebar_collapsed ? ui::icon_glyph::arrow_right : ui::icon_glyph::arrow_left, sidebarHovered);
@@ -120,7 +120,7 @@ namespace xiui
                 auto style = active ? theme.accent_text : theme.caption_text;
                 style.scale = 0.72f;
                 style.alignment = ui::text_alignment::center;
-                this->config_controls_.Button(bounds, categoryNames[static_cast<size_t>(group)], style, active || hovered, ui::button_tone::normal, hovered);
+                this->config_controls_.Button(bounds, i18n::Text(categoryNames[static_cast<size_t>(group)]), style, active || hovered, ui::button_tone::normal, hovered);
             }
         }
 
@@ -198,13 +198,13 @@ namespace xiui
                     const auto& sample = this->general_.GlobalTextStyle();
                     auto area = layout.ContentTabs();
                     area.height = 48;
-                    this->design_system_.DrawText("Aa Bb Cc 0123456789 - XIUI+", area, sample);
+                    this->design_system_.DrawText(i18n::Text("Aa Bb Cc 0123456789 - XIUI+"), area, sample);
                 }
                 else if (this->IsGeneralAppearance() && this->general_.AppearanceTab() == 3)
                 {
                     const auto area = layout.ContentTabs();
                     const rect sample{area.x + 16, area.y + 10, std::min(220.0f, area.width - 32), 28};
-                    this->config_controls_.Button(sample, "Controller focus", theme.body_text, false);
+                    this->config_controls_.Button(sample, i18n::Text("Controller focus"), theme.body_text, false);
                     this->design_system_.DrawFocusFrame(sample, this->general_.FocusStyle());
                 }
                 if (totalOptions > visibleOptions)
@@ -252,7 +252,7 @@ namespace xiui
         for (size_t group = 0; group < std::size(ui::contributor_groups); ++group)
         {
             const auto header = layout.Header(group);
-            if (layout.Visible(header)) this->config_controls_.Text(ui::contributor_groups[group], header, heading);
+            if (layout.Visible(header)) this->config_controls_.Text(i18n::Text(ui::contributor_groups[group]), header, heading);
         }
         const float x = static_cast<float>(this->mouse_x_), y = static_cast<float>(this->mouse_y_);
         const auto hovered = layout.MemberAt(x, y);
@@ -272,13 +272,13 @@ namespace xiui
         {
             auto style = theme.caption_text;
             style.scale = 0.68f; style.alignment = ui::text_alignment::center;
-            this->config_controls_.Text("Scroll for more contributors", this->ConfigLayout().Footer(), style);
+            this->config_controls_.Text(i18n::Text("Scroll for more contributors"), this->ConfigLayout().Footer(), style);
         }
     }
 
     auto hud_runtime::DrawConfigTooltip(const D3DVIEWPORT8& viewport) -> void
     {
-        if (!this->GameWindowFocused() || this->config_.search_open || this->config_.input_mode_menu || this->config_.choice_input.Opened() ||
+        if (!this->GameWindowFocused() || this->config_.search_open || this->config_.header_menu_open || this->config_.choice_input.Opened() ||
             this->profile_name_.Focused() || this->profile_dropdown_ || this->profile_actions_) return;
         if (!this->config_.tooltip.empty() && this->interaction_ == interaction::none)
             this->config_controls_.Tooltip(this->config_.tooltip.c_str(), this->config_.tooltip_anchor, viewport);

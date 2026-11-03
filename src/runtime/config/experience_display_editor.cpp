@@ -1,3 +1,4 @@
+#include "localization/localization.hpp"
 #include "experience_display_editor.hpp"
 
 #include <algorithm>
@@ -226,8 +227,8 @@ namespace xiui::ui
         controls.Text(text, bounds.available_title, title);
         if (!bounds.stacked)
         {
-            controls.Text("Select a row to move or remove it.", {bounds.shown_title.x, bounds.shown_title.y + 22, bounds.shown_title.width, 18}, caption);
-            controls.Text("Click a row to add it to the HUD.", {bounds.available_title.x, bounds.available_title.y + 22, bounds.available_title.width, 18}, caption);
+            controls.Text(i18n::Text("Select a row to move or remove it."), {bounds.shown_title.x, bounds.shown_title.y + 22, bounds.shown_title.width, 18}, caption);
+            controls.Text(i18n::Text("Click a row to add it to the HUD."), {bounds.available_title.x, bounds.available_title.y + 22, bounds.available_title.width, 18}, caption);
         }
         constexpr const char* actions[]{"Move up", "Move down", "Remove"};
         for (size_t index = 0; index < std::size(actions); ++index)
@@ -255,8 +256,8 @@ namespace xiui::ui
                 controls.ListItem(bounds.Row(false, row), experience_readouts[id].name, module.ReadoutRepeatsBar(id) ? "Bar +" : "+", false, target == 0x200 + id);
             }
         }
-        if (shown.count == 0) controls.Text("No readouts enabled", bounds.Row(true, 0), caption);
-        if (available.count == 0) controls.Text("All items in this group are shown", bounds.Row(false, 0), caption);
+        if (shown.count == 0) controls.Text(i18n::Text("No readouts enabled"), bounds.Row(true, 0), caption);
+        if (available.count == 0) controls.Text(i18n::Text("All items in this group are shown"), bounds.Row(false, 0), caption);
         size_t described = selected;
         if (target >= 0x100) described = target >= 0x200 ? target - 0x200 : target - 0x100;
         if (described < experience_readout_count)
@@ -267,13 +268,13 @@ namespace xiui::ui
         const bool movesBarInfo = described == static_cast<size_t>(experience_readout::current_required) ||
             described == static_cast<size_t>(experience_readout::remaining) || described == static_cast<size_t>(experience_readout::percent);
         if (!bounds.stacked) controls.Text(described < experience_readout_count && module.ReadoutRepeatsBar(described) ? movesBarInfo ?
-            "Bar = currently in bar info. Adding this readout moves it into the list." :
-            "Bar = already shown by your current bar-info settings. Adding it is optional." :
-            "Rows follow HUD order. Unknown values show --; hidden items leave no gaps.",
+            i18n::Text("Bar = currently in bar info. Adding this readout moves it into the list.") :
+            i18n::Text("Bar = already shown by your current bar-info settings. Adding it is optional.") :
+            i18n::Text("Rows follow HUD order. Unknown values show --; hidden items leave no gaps."),
             {bounds.details.x, bounds.details.y + 36, bounds.details.width, 18}, caption);
         auto button = title; button.scale = 0.68f; button.alignment = text_alignment::center;
-        controls.Button({bounds.presets.x, bounds.presets.y, 132, 26}, "Recommended", button, target == 30);
-        controls.Button({bounds.presets.x + 138, bounds.presets.y, 72, 26}, "Clear", shown.count != 0 ? button : caption, target == 31);
+        controls.Button({bounds.presets.x, bounds.presets.y, 132, 26}, i18n::Text("Recommended"), button, target == 30);
+        controls.Button({bounds.presets.x + 138, bounds.presets.y, 72, 26}, i18n::Text("Clear"), shown.count != 0 ? button : caption, target == 31);
         std::snprintf(text, sizeof(text), bounds.stacked ? "%zu / %zu" : "%zu shown / %zu available - wheel to scroll", shown.count, available.count);
         caption.alignment = text_alignment::right;
         controls.Text(text, {bounds.presets.x + 220, bounds.presets.y, std::max(1.0f, bounds.presets.width - 220), 26}, caption);

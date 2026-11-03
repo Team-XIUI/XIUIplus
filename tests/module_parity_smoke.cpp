@@ -15,6 +15,7 @@ namespace xiui
     auto RunVisibilityChecks(void) -> void;
     auto RunStatusDisplayChecks(void) -> void;
     auto RunXIUIStatusTimerChecks(void) -> void;
+    auto RunAllSpellStatusChecks(void) -> void;
     auto RunPartyStatusPreviewChecks(void) -> void;
     auto RunPartyTextChecks(void) -> void;
     auto RunStatusModuleChecks(void) -> bool;
@@ -477,6 +478,9 @@ int main(int argc, char** argv)
         if (argc > 1 && std::string_view{argv[1]} == "--status-module-only") {
             Check(xiui::RunStatusModuleChecks(), "Native Status Effects module checks failed");
             std::puts("Status module configuration, inheritance and persistence checks passed.");
+        } else if (argc > 1 && std::string_view{argv[1]} == "--spell-statuses-only") {
+            xiui::RunAllSpellStatusChecks();
+            std::puts("All imported spell applications, secondary confidence, message variants and removal checks passed.");
         } else if (argc > 1 && std::string_view{argv[1]} == "--status-timers-only") {
             Combat();
             xiui::RunXIUIStatusTimerChecks();

@@ -1,3 +1,4 @@
+#include "localization/localization.hpp"
 #include "command_menu_module.hpp"
 
 #include <algorithm>
@@ -89,7 +90,7 @@ namespace xiui
             context.DrawContainer(bounds);
             auto text = this->text_;
             text.style.alignment = ui::text_alignment::center;
-            context.DrawText("COMMAND MENU", bounds, bounds, text);
+            context.DrawText(i18n::Text("COMMAND MENU"), bounds, bounds, text);
         }
         // Native draws precede the runtime; retain the whole panel as its edit hit area.
         this->state_.content_bounds = {};

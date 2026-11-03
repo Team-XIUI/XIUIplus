@@ -1,3 +1,4 @@
+#include "localization/localization.hpp"
 #include "blue_magic_module.hpp"
 #include "ui/game_icon_cache.hpp"
 
@@ -146,6 +147,6 @@ namespace xiui
             context.Design().DrawTexture(texture, left, alpha | 0xFFFFFF);
             context.Design().DrawTexture(texture, right, (static_cast<uint32_t>(frame.alpha * 150) << 24) | 0xFFFFFF);
         }
-        else context.DrawText("Blue Magic Learned", art, art, TintTextProfile(this->fallback_, alpha | 0xFFFFFF));
+        else context.DrawText(i18n::Text("Blue Magic Learned"), art, art, TintTextProfile(this->fallback_, alpha | 0xFFFFFF));
     }
 }

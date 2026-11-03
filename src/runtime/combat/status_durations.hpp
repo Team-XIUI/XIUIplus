@@ -7,6 +7,24 @@
 
 namespace xiui
 {
+    inline auto SpellStatusRules(const uint32_t spell) -> std::span<const resources::spell_status_rule>
+    {
+        const auto& rules = resources::xiui_spell_status_rules;
+        const auto first = std::lower_bound(rules.begin(), rules.end(), spell,
+            [](const auto& rule, const uint32_t id) { return rule.spell < id; });
+        const auto last = std::upper_bound(first, rules.end(), spell,
+            [](const uint32_t id, const auto& rule) { return id < rule.spell; });
+        return {first, last};
+    }
+
+    inline auto SpellStatusRule(const uint32_t spell, const uint32_t status) -> const resources::spell_status_rule*
+    {
+        const auto rules = SpellStatusRules(spell);
+        for (const auto& rule : rules)
+            if (rule.status == status || rule.display == status || rule.status == 0) return &rule;
+        return nullptr;
+    }
+
     inline auto FindStatusDuration(const std::span<const resources::status_duration_rule> rules,
         const uint32_t action, const uint32_t status) -> uint32_t
     {

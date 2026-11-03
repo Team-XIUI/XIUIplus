@@ -82,7 +82,7 @@ namespace xiui
             const auto scrollbar = side ? this->ConfigSidebarScrollbar() : this->ConfigScrollbar();
             const bool dragging = this->interaction_ == interaction::option_scrollbar && this->config_.sidebar_scrolling == side;
             const bool hovered = this->interaction_ == interaction::none && !this->config_.choice_input.Opened() && !this->profile_name_.Focused() &&
-                !this->profile_dropdown_ && !this->profile_actions_ && !this->config_.input_mode_menu &&
+                !this->profile_dropdown_ && !this->profile_actions_ && !this->config_.header_menu_open &&
                 Contains(scrollbar.track, static_cast<float>(this->mouse_x_), static_cast<float>(this->mouse_y_));
             this->config_controls_.Scrollbar(scrollbar, hovered, dragging);
         }
@@ -216,13 +216,13 @@ namespace xiui
                 (this->config_.active_color == nullptr || !Contains(this->ConfigLayout().ColorEditor(viewport), static_cast<float>(this->mouse_x_), static_cast<float>(this->mouse_y_))) &&
                 Contains(button, static_cast<float>(this->mouse_x_), static_cast<float>(this->mouse_y_));
             const bool resize = this->MovementSelectionModule()->EditGrip() == edit_grip_kind::resize;
-            if (index == 2) this->config_controls_.Button(button, resize ? "Resize" : "Scale", style, hovered);
+            if (index == 2) this->config_controls_.Button(button, resize ? i18n::Text("Resize") : i18n::Text("Scale"), style, hovered);
             else this->config_controls_.IconButton(button, index == 0 ? ui::icon_glyph::center_x : ui::icon_glyph::center_y, hovered);
             if (hovered) { tooltip = index == 0 ? "Center horizontally" : index == 1 ? "Center vertically" : resize ? "Resize viewport (Alt+F9). Arrows adjust width/height without changing fonts; Enter saves; Escape restores." : "Scale (Alt+F9). Arrows adjust; Enter saves; Escape restores."; tooltipAnchor = button; }
         }
         const auto* module = this->MovementSelectionModule();
         auto name = style; name.alignment = ui::text_alignment::left;
-        this->config_controls_.Text(module->DisplayName(), toolbar->Label(), name);
+        this->config_controls_.Text(i18n::Text(module->DisplayName()), toolbar->Label(), name);
         const auto& bounds = module->State().bounds;
         char coordinates[64]{}; std::snprintf(coordinates, sizeof(coordinates), "X %.0f  Y %.0f", bounds.x, bounds.y);
         this->config_controls_.Text(coordinates, toolbar->Coordinates(), style);

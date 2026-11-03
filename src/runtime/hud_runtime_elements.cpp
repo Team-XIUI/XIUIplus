@@ -17,9 +17,9 @@ namespace xiui
         }
         if (result.element.choice == nullptr) return result;
         result.combined = result.scope.choice != nullptr && result.scope.choice_count == 2;
-        if (result.combined) result.labels[result.count++] = result.scope.choices[0];
+        if (result.combined) result.labels[result.count++] = result.scope.ChoiceText(0);
         for (size_t i = 0; i < result.element.choice_count && result.count < result.labels.size(); ++i)
-            result.labels[result.count++] = result.element.choices[i];
+            result.labels[result.count++] = result.element.ChoiceText(i);
         const auto selected = static_cast<size_t>(std::clamp(*result.element.choice, 0, static_cast<int>(result.element.choice_count) - 1));
         result.selected = result.combined ? (*result.scope.choice == 0 ? 0 : selected + 1) : selected;
         return result;

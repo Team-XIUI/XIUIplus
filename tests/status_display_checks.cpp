@@ -18,8 +18,218 @@ namespace xiui
 {
     struct status_display_test
     {
+        static auto AllSpells(void) -> void
+        {
+            using resources::spell_damage_kind;
+            constexpr uint32_t gainMessages[]{82, 127, 141, 160, 164, 166, 186, 194, 203, 205, 230, 236, 237, 242, 243, 266, 267,
+                268, 269, 270, 271, 272, 277, 278, 279, 280, 319, 320, 374, 375, 412, 645, 754, 755, 804};
+            const auto hit = [](combat_source& source, uint32_t spell, uint32_t message, uint32_t parameter, uint64_t now,
+                uint32_t additional = 0, uint32_t additionalMessage = 0) {
+                combat_action action{}; action.actor = 1; action.category = 4; action.parameter = spell; action.target_count = 1;
+                action.targets[0].id = 2; action.targets[0].result_count = 1;
+                action.targets[0].results[0] = {parameter, message, additional, additionalMessage}; source.Observe(action, nullptr, now);
+            };
+            const auto effect = [](const combat_source& source, uint32_t status) -> const combat_status* {
+                const auto* actor = source.Find(2); if (actor == nullptr) return nullptr;
+                for (const auto& value : actor->statuses) if (value.id == status) return &value;
+                return nullptr;
+            };
+            std::set<uint32_t> spells;
+            size_t guaranteed{}, possible{};
+            for (const auto& entry : resources::xiui_spell_status_rules)
+            {
+                if (!spells.insert(entry.spell).second) continue;
+                const auto rules = SpellStatusRules(entry.spell);
+                Check(std::count_if(rules.begin(), rules.end(), [](const auto& rule) { return rule.primary; }) == 1,
+                    "every spell has exactly one primary effect or packet-supplied effect slot");
+                const auto& primary = *std::find_if(rules.begin(), rules.end(), [](const auto& rule) { return rule.primary; });
+                const uint32_t packet = primary.status != 0 ? primary.status : primary.display != 0 ? 2 : 7;
+                const uint32_t display = primary.display != 0 ? primary.display : packet;
+                combat_source confirmed;
+                hit(confirmed, entry.spell, 236, packet, 1000);
+                const auto* tracked = effect(confirmed, display);
+                Check(tracked != nullptr && tracked->spell == entry.spell && tracked->expires == 1000 + uint64_t{primary.seconds} * 1000 &&
+                    tracked->estimated && !tracked->unconfirmed, "every configured spell accepts explicit application with its mapped display and base duration");
+                for (const auto message : gainMessages)
+                {
+                    combat_source variant; hit(variant, entry.spell, message, packet, 1000);
+                    const auto* applied = effect(variant, display);
+                    Check(applied != nullptr && applied->expires == 1000 + uint64_t{primary.seconds} * 1000 && !applied->unconfirmed,
+                        "every spell keeps its mapped duration across application variants, including additional-effect messages");
+                }
+                if (rules.size() > 1 && primary.damage != spell_damage_kind::possible)
+                    for (const auto& rule : rules) Check(effect(confirmed, rule.display) != nullptr, "confirmed compound enfeebles retain every mapped effect");
+                for (const auto message : {75u, 85u, 655u})
+                {
+                    hit(confirmed, entry.spell, message, 0, 2000);
+                    tracked = effect(confirmed, display);
+                    Check(tracked != nullptr && tracked->observed == 1000 && tracked->expires == 1000 + uint64_t{primary.seconds} * 1000,
+                        "failed reapplications do not refresh or erase a confirmed active effect");
+                    combat_source failed; hit(failed, entry.spell, message, 0, 2000);
+                    Check(failed.Find(2) == nullptr, "resist, no-effect and immunity messages never invent a status");
+                }
+                for (const auto& rule : rules)
+                {
+                    const uint32_t native = rule.status != 0 ? rule.status : rule.display != 0 ? 2 : 7;
+                    const uint32_t shown = rule.display != 0 ? rule.display : native;
+                    combat_source landed; hit(landed, rule.spell, 269, native, 1000);
+                    Check(effect(landed, shown) != nullptr && effect(landed, shown)->expires == 1000 + uint64_t{rule.seconds} * 1000,
+                        "each spell effect handles burst/AoE message variants with its own duration");
+                    landed.ApplyStatus(2, native, 0, 206, 2000);
+                    Check(effect(landed, shown) == nullptr, "every mapped display effect clears on its native wear-off ID");
+                }
+                if (primary.damage == spell_damage_kind::none)
+                {
+                    combat_source damage; hit(damage, entry.spell, 2, packet, 1000);
+                    Check(damage.Find(2) == nullptr, "ordinary debuff spells require a status message rather than a damage-number coincidence");
+                    continue;
+                }
+                if (primary.damage == spell_damage_kind::guaranteed) ++guaranteed; else ++possible;
+                for (const auto message : {2u, 252u, 264u, 265u})
+                {
+                    combat_source damage; hit(damage, entry.spell | 0x10000, message, 17, 1000);
+                    tracked = effect(damage, display);
+                    Check(tracked != nullptr && tracked->spell == entry.spell && tracked->expires == 1000 + uint64_t{primary.seconds} * 1000 &&
+                        tracked->unconfirmed == (primary.damage == spell_damage_kind::possible),
+                        "every damage-applying spell handles ordinary, burst and additional-target results with explicit confidence");
+                    Check(damage.Find(2)->statuses.size() == 1, "damage inference never creates damage-number icons or unreported compound effects");
+                }
+                combat_source zero; hit(zero, entry.spell, 2, 0, 1000);
+                Check((effect(zero, display) != nullptr) == (primary.damage == spell_damage_kind::guaranteed),
+                    "guaranteed effects allow zero damage; resistible secondaries require a connecting hit");
+                if (primary.damage == spell_damage_kind::possible)
+                {
+                    combat_source candidate; hit(candidate, entry.spell, 2, 17, 1000);
+                    ui::status_strip_settings settings;
+                    Check(ui::StatusTimerText(*effect(candidate, display), 1000, settings).starts_with("?"), "unconfirmed secondary effects carry a visible uncertainty marker");
+                    hit(candidate, entry.spell, 75, 0, 2000);
+                    Check(effect(candidate, display) != nullptr && !effect(candidate, display)->unconfirmed && effect(candidate, display)->observed == 1000,
+                        "no-effect evidence confirms an existing candidate without restarting its timer");
+                    combat_source immune; hit(immune, entry.spell, 2, 17, 1000); hit(immune, entry.spell, 655, 0, 2000);
+                    Check(effect(immune, display) == nullptr, "complete resistance removes only unconfirmed candidates");
+                    combat_source explicitEffect; hit(explicitEffect, entry.spell, 2, 17, 1000, primary.status, 160);
+                    Check(effect(explicitEffect, display) != nullptr && !effect(explicitEffect, display)->unconfirmed &&
+                        effect(explicitEffect, display)->expires == 1000 + uint64_t{primary.seconds} * 1000,
+                        "explicit additional effects confirm their spell-specific duration instead of using a generic proc timer");
+                }
+            }
+            Check(spells.size() == resources::xiui_spell_count && spells.size() > 100, "packet checks cover every imported spell, not a hand-picked list");
+            for (const auto message : {64u, 83u, 123u, 159u, 168u, 204u, 206u, 321u, 322u, 341u, 342u, 343u, 344u, 350u, 378u, 453u, 531u, 647u, 805u, 806u})
+            {
+                combat_source source; source.ApplyStatus(2, 4, 58, 236, 1000); source.ApplyStatus(2, 4, 0, message, 2000);
+                Check(effect(source, 4) == nullptr, "all native removal variants clear the exact observed status");
+            }
+            for (const auto message : gainMessages)
+            {
+                combat_source source; source.ApplyStatus(2, 4, 58, message, 1000);
+                Check(effect(source, 4) != nullptr, "all verified status-application message variants are accepted");
+            }
+            for (const auto spell : {98u, 259u, 274u})
+            {
+                combat_source source; source.ApplyStatus(2, 2, 253, 236, 1000); hit(source, spell, 236, 2, 2000);
+                Check(effect(source, 19) != nullptr && effect(source, 2) == nullptr, "higher sleep variants replace the old icon without duplicate sleep entries");
+                hit(source, 144, 2, 0, 3000); Check(effect(source, 19) != nullptr, "zero spell damage does not wake Sleep");
+                hit(source, 144, 7, 20, 3000); Check(effect(source, 19) != nullptr, "healing is not mistaken for damage that wakes Sleep");
+                hit(source, 144, 2, 20, 4000); Check(effect(source, 19) == nullptr, "positive spell damage removes stale sleep variants immediately");
+            }
+            {
+                combat_source source; hit(source, 536, 236, 3, 1000); hit(source, 536, 2, 17, 2000);
+                Check(effect(source, 3) != nullptr && !effect(source, 3)->unconfirmed && effect(source, 3)->observed == 1000,
+                    "a possible secondary never downgrades or extends a confirmed active effect");
+                combat_source phoenix; phoenix.SetRules(server_rules::phoenix); hit(phoenix, 536, 2, 17, 1000); phoenix.Prune(62000);
+                Check(effect(phoenix, 3) == nullptr, "expired unconfirmed candidates do not persist as unknown effects on Phoenix");
+            }
+            for (const auto message : {6u, 20u, 97u, 113u, 406u, 605u, 646u})
+            {
+                combat_source source; source.ApplyStatus(2, 4, 58, 236, 1000); hit(source, 144, message, 0, 2000);
+                Check(source.Find(2) == nullptr, "death variants clear all target spell observations");
+            }
+            {
+                combat_source source; hit(source, 58, 236, 4, 1000); hit(source, 58, 546, 4, 2000); source.Prune(200000);
+                Check(effect(source, 4) != nullptr && effect(source, 4)->expires == 0 && effect(source, 4)->uncertain,
+                    "an observed extension with no deadline does not retain an obsolete expiry time");
+                hit(source, 58, 453, 4, 210000);
+                Check(effect(source, 4) == nullptr && source.Find(1) != nullptr && source.Find(1)->statuses.size() == 1 && source.Find(1)->statuses.front().id == 4,
+                    "effect theft removes the target's effect and records the recipient's observed gain");
+                combat_source full;
+                for (uint32_t id = 300; id < 332; ++id) full.ApplyStatus(2, id, 0, 236, 1000);
+                hit(full, 536, 2, 17, 2000);
+                Check(full.Find(2)->statuses.size() == 32 && effect(full, 300) != nullptr && effect(full, 3) == nullptr,
+                    "inferred secondary effects cannot evict confirmed effects from a full status cache");
+            }
+            std::printf("Spell audit: %zu spells; %zu guaranteed damage applications; %zu possible secondary effects.\n", spells.size(), guaranteed, possible);
+        }
+
         static auto Timers(void) -> void
         {
+            {
+                combat_source effects;
+                combat_action action{}; action.actor = 99; action.category = 4; action.target_count = 1;
+                action.targets[0].id = 100; action.targets[0].result_count = 1;
+                const auto cast = [&](uint32_t spell, uint32_t message, uint32_t damage, uint64_t now) {
+                    action.parameter = spell; action.targets[0].results[0] = {damage, message}; effects.Observe(action, nullptr, now);
+                };
+                effects.ApplyStatus(100, 128, 235, 236, 1000);
+                cast(23, 2, 8, 1000);
+                Check(effects.Find(100)->statuses.size() == 2 && effects.Find(100)->statuses.back().id == 134 &&
+                    effects.Find(100)->statuses.back().expires == 61000 && effects.Find(100)->statuses.back().estimated,
+                    "Dia damage infers its own debuff and duration rather than treating damage as a status ID");
+                for (const auto message : {75u, 85u, 655u}) cast(23, message, 134, 2000);
+                Check(effects.Find(100)->statuses.back().observed == 1000, "failed and no-effect casts do not refresh Dia");
+                cast(230, 252, 24, 3000);
+                Check(effects.Find(100)->statuses.size() == 2 && effects.Find(100)->statuses.back().id == 135 &&
+                    effects.Find(100)->statuses.back().expires == 63000 && effects.Find(100)->statuses.front().id == 128,
+                    "Bio's damage result replaces Dia while retaining unrelated debuffs");
+                cast(23, 2, 0, 4000);
+                Check(effects.Find(100)->statuses.back().id == 135 && effects.Find(100)->statuses.back().observed == 3000,
+                    "a lower-priority Dia hit cannot replace a known active Bio");
+                cast(24, 264, 12, 5000); cast(231, 265, 0, 6000);
+                Check(effects.Find(100)->statuses.back().id == 135 && effects.Find(100)->statuses.back().spell == 231 &&
+                    effects.Find(100)->statuses.back().expires == 126000, "higher Dia/Bio tiers replace each other in priority order, including zero damage");
+                effects.ApplyStatus(100, 135, 0, 206, 7000);
+                Check(effects.Find(100)->statuses.size() == 1, "Bio wear-off removes only Bio");
+                cast(144, 2, 134, 8000);
+                Check(effects.Find(100)->statuses.size() == 1, "unrelated spell damage never creates Dia or arbitrary damage-number icons");
+                action.category = 3; cast(23, 2, 134, 9000);
+                Check(effects.Find(100)->statuses.size() == 1, "non-spell actions cannot infer a damage-over-time spell status");
+                action.category = 4; action.target_count = 3; action.parameter = 0x10000 | 33;
+                for (size_t i = 0; i < 3; ++i) { action.targets[i].id = 200 + static_cast<uint32_t>(i); action.targets[i].result_count = 1; action.targets[i].results[0] = {0, i == 2 ? 85u : 2u}; }
+                effects.Observe(action, nullptr, 10000);
+                Check(effects.Find(200)->statuses.front().id == 134 && effects.Find(201)->statuses.front().spell == 33 && effects.Find(202) == nullptr,
+                    "Diaga tracks each successful recipient while skipping resisted recipients and masking packet flags");
+            }
+            {
+                ui::design_system design;
+                module_text_profile profile{ui::theme::CreateDefault().caption_text}; profile.style.scale = 38 / ui::text_base_pixels;
+                profile.style.glow.enabled = profile.style.shadow.enabled = true;
+                ui::status_strip_settings settings;
+                const std::array<combat_status, 5> effects{{{128, 235, 1000, 12000, false, true}, {3, 0, 1000, 66000, false, true},
+                    {41, 0, 1000, 3721000, false, true}, {4, 58, 1000, 92000, false, true, 2000}, {1000, 0, 1000, 0, true}}};
+                const auto caption = ui::StatusTimerProfile(profile, settings);
+                Check(caption.style.scale == profile.style.scale * settings.timer_scale && caption.style.glow.enabled && caption.style.shadow.enabled &&
+                    caption.style.top_color == profile.style.top_color && caption.style.bottom_color == profile.style.bottom_color,
+                    "large countdown text retains its requested scale, gradient and normal effects");
+                for (const int placement : {0, 1, 2})
+                {
+                    settings.timer_placement = placement;
+                    const auto layout = ui::LayoutStatusStrip(effects, {10, 20, 220, 0}, 1000, profile, design, settings);
+                    Check(layout.cell_width > settings.size && layout.columns < effects.size(), "large timer labels reserve wider cells and wrap the icon strip");
+                    for (size_t i = 0; i < effects.size(); ++i)
+                    {
+                        const auto icon = layout.Icon(i), timer = ui::StatusTimerBounds(icon, settings, profile, layout.cell_width, layout.timer_height);
+                        const auto text = ui::StatusTimerText(effects[i], 1000, settings);
+                        Check(design.MeasureText(text.c_str(), caption.style) <= timer.width && design.TextHeight(caption.style) <= timer.height,
+                            "seconds, minutes, hours, duration ranges and unknown markers fit without per-label font shrinking");
+                        Check(timer.y >= layout.bounds.y && timer.y + timer.height <= layout.bounds.y + layout.height && icon.width == settings.size,
+                            "every timer placement reserves enough row height without resizing its icon");
+                        if ((i + 1) % layout.columns != 0 && i + 1 < effects.size())
+                        {
+                            const auto next = ui::StatusTimerBounds(layout.Icon(i + 1), settings, profile, layout.cell_width, layout.timer_height);
+                            Check(next.x >= timer.x + timer.width, "neighboring large countdowns do not overlap");
+                        }
+                    }
+                }
+            }
             Check(XIUIStatusSeconds(4, 58, 4, 236) == 120 && XIUIStatusSeconds(4, 254, 5, 236) == 180 &&
                 XIUIStatusSeconds(4, 249, 34, 230) == 180, "XIUI+ supplies Paralyze, Blind and Blaze Spikes durations");
             Check(XIUIStatusSeconds(6, 682, 149, 127) == 30 && XIUIStatusSeconds(3, 170, 148, 242) == 120 &&
@@ -387,6 +597,7 @@ namespace xiui
 namespace xiui
 {
     auto RunXIUIStatusTimerChecks(void) -> void { status_display_test::Timers(); }
+    auto RunAllSpellStatusChecks(void) -> void { status_display_test::AllSpells(); }
     auto RunStatusDisplayChecks(void) -> void { status_display_test::Run(); }
     auto RunPartyStatusPreviewChecks(void) -> void { status_display_test::Preview(); }
     auto RunPartyTextChecks(void) -> void { status_display_test::PartyText(); }

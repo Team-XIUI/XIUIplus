@@ -18,7 +18,7 @@ namespace xiui
         auto Update(uint32_t hiddenMask, const native_menu_layout& layout = {}) -> void;
         auto UiState(void) const -> const native_ui_state& { return this->menus_.State(); }
         auto Shutdown(void) -> void;
-        auto AvailableMask(void) const -> uint32_t { return this->available_; }
+        auto AvailableMask(void) const -> uint32_t { return this->available_ | (this->macro_delay_available_ ? native_instant_macro_palette : 0); }
         auto Status(void) const -> std::string;
         auto ShouldHide(uintptr_t primitive) -> bool;
         auto FishingStaminaPercent(void) const -> int16_t;
@@ -43,6 +43,14 @@ namespace xiui
             uint8_t frame_visible{};
         };
 
+        struct macro_delay_patch
+        {
+            uintptr_t address{};
+            std::array<uint8_t, 6> original{};
+            uint8_t size{};
+            bool owned{};
+        };
+
         IAshitaCore* core_{};
         uintptr_t module_{};
         size_t module_size_{};
@@ -64,6 +72,8 @@ namespace xiui
         bool minhook_owned_{};
         bool clock_hidden_{};
         bool macro_palette_available_{};
+        std::array<macro_delay_patch, 2> macro_delay_{};
+        bool macro_delay_available_{}, macro_delay_enabled_{};
         native_macros native_macros_{};
         uintptr_t macro_entry_{};
         bool macro_hook_created_{}, macro_hook_enabled_{}, minhook_initialized_{};
@@ -74,6 +84,8 @@ namespace xiui
         static auto __fastcall MacroRunGuard(void* self, void*, uint8_t mode, uint8_t slot) -> void;
         auto InitializeHooks(void) -> bool;
         auto SetMacroHook(bool enabled) -> bool;
+        auto FindMacroDelay(void) -> void;
+        auto SetInstantMacroBar(bool enabled) -> void;
         auto Find(const char* pattern) const -> uintptr_t;
         auto FindMenu(const char* name) const -> uintptr_t;
         auto InModule(uintptr_t address, size_t size) const -> bool;

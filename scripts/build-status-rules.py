@@ -1,4 +1,4 @@
-"""Import fixed durations from the retained XIUI Lua database; no Lua runtime needed."""
+"""Import spell behavior and fixed durations from retained XIUI data without executing Lua."""
 
 import argparse
 import hashlib
@@ -40,6 +40,7 @@ def main():
     parser = argparse.ArgumentParser(description=__doc__)
     parser.add_argument("source", type=Path)
     parser.add_argument("output", type=Path)
+    parser.add_argument("--check", action="store_true", help="Verify the generated header without rewriting it.")
     args = parser.parse_args()
     data = tables(args.source.read_text(encoding="utf-8-sig"))
     assert {"spells", "weaponSkills", "ja", "jaPhysical", "pet", "additionalEffect", "mobBuff"} <= data.keys()
@@ -70,13 +71,47 @@ def main():
              "    // Generated from assets/status/debuff_retail.lua by scripts/build-status-rules.py.",
              f"    // XIUI database SHA-256: {digest}",
              "    struct status_duration_rule { uint16_t action, status, seconds; };"]
+    spell_rules = []
+    for spell, row in sorted(data["spells"].items()):
+        statuses = set(row.get("buffIds", {}).values())
+        if "buffId" in row:
+            statuses.add(row["buffId"])
+        statuses = sorted(statuses or {0})
+        primary = row.get("buffId", statuses[0])
+        mode = "guaranteed" if row.get("applyOnDamage") == "true" else "possible" if row.get("onDamage") == "true" else "none"
+        clears = list(row.get("clearsBuffs", {}).values())
+        assert len(clears) <= 1, f"Spell {spell} needs multiple clear-effect fields"
+        for status in statuses:
+            display = row.get("displayBuffId", status)
+            seconds = row.get("buffDurations", {}).get(status, row["duration"])
+            assert 0 <= status <= 1023 and 0 <= display <= 1023 and 0 < seconds <= 65535
+            assert mode == "none" or status != 0, f"Spell {spell} needs an effect ID for damage inference"
+            spell_rules.append((spell, status, display, seconds, clears[0] if clears else 0, mode, status == primary))
+    lines += ["    enum class spell_damage_kind : uint8_t { none, guaranteed, possible };",
+              "    struct spell_status_rule",
+              "    {",
+              "        uint16_t spell, status, display, seconds, clears;",
+              "        spell_damage_kind damage;",
+              "        bool primary;",
+              "    };",
+              f"    inline constexpr uint32_t xiui_spell_count = {len(data['spells'])};",
+              f"    inline constexpr std::array<spell_status_rule, {len(spell_rules)}> xiui_spell_status_rules{{{{"]
+    lines.extend(f"        {{{spell}, {status}, {display}, {seconds}, {clears}, spell_damage_kind::{mode}, {str(primary).lower()}}},"
+                 for spell, status, display, seconds, clears, mode, primary in spell_rules)
+    lines.append("    }};")
     for name, entries in rows.items():
         lines.append(f"    inline constexpr std::array<status_duration_rule, {len(entries)}> xiui_{name}_durations{{{{")
         lines.extend(f"        {{{action}, {status}, {seconds}}}," for (action, status), seconds in sorted(entries.items()))
         lines.append("    }};")
     lines += ["}", ""]
-    args.output.write_text("\n".join(lines), encoding="utf-8")
-    print("Imported XIUI fixed durations: " + ", ".join(f"{name}={len(entries)}" for name, entries in rows.items()))
+    generated = "\n".join(lines)
+    if args.check:
+        if not args.output.exists() or args.output.read_text(encoding="utf-8-sig") != generated:
+            parser.error(f"{args.output} does not match the retained spell database")
+    else:
+        args.output.write_text(generated, encoding="utf-8")
+    print(f"XIUI spell behavior: {len(data['spells'])} spells, {len(spell_rules)} effect rules. Fixed durations: " +
+          ", ".join(f"{name}={len(entries)}" for name, entries in rows.items()))
 
 
 if __name__ == "__main__":

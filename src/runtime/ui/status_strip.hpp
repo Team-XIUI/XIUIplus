@@ -4,6 +4,7 @@
 #include "ui/game_icon_cache.hpp"
 #include "combat/combat_source.hpp"
 #include "chat/chat_encoding.hpp"
+#include "ui/text_wrap.hpp"
 
 #include <algorithm>
 #include <cmath>
@@ -66,7 +67,7 @@ namespace xiui::ui
             case 6: return module_option::Slider("Status Y offset", "Vertical offset in pixels.", &this->offset_y, -100, 100, 1).Ordered(211).VisibleWhen(this->enabled);
             case 7: return module_option::Toggle("Status timers", "Show countdowns. Tooltips identify XIUI+ duration estimates; local effects use native expiry times.", &this->timers).Ordered(850).VisibleWhen(this->enabled);
             case 8: return module_option::Toggle("Crowd-control timers only", "Limit countdown labels to sleep, petrification, stun, charm and terror.", &this->crowd_control_only).Ordered(851).VisibleWhen(this->enabled && this->timers);
-            case 9: return module_option::Toggle("Unknown timer markers", "Show ? when neither a native timer nor an XIUI+ duration is available.", &this->uncertainty).Ordered(852).VisibleWhen(this->enabled && this->timers);
+            case 9: return module_option::Toggle("Unknown timer markers", "Show ? for unknown durations or unconfirmed secondary effects.", &this->uncertainty).Ordered(852).VisibleWhen(this->enabled && this->timers);
             case 10: return module_option::Toggle("Status tooltips", "Show game effect names and descriptions on hover or deliberate controller inspection.", &this->tooltips).Ordered(870).VisibleWhen(this->enabled);
             case 11: return module_option::Toggle("Status overflow count", "Show how many effects are hidden by the icon limit.", &this->overflow).Ordered(870).VisibleWhen(this->enabled);
             case 12: return module_option::Slider("Status timer scale", "Scale countdown text while retaining its normal effects.", &this->timer_scale, 0.5f, 1.5f, 0.05f).Ordered(861).VisibleWhen(this->enabled && this->timers);
@@ -84,27 +85,34 @@ namespace xiui::ui
         rect bounds{};
         size_t count{}, overflow{}, columns{};
         float height{}, size{}, spacing{}, pitch{}, icon_offset_y{};
+        float cell_width{}, timer_height{};
         auto Icon(const size_t index) const -> rect
-        { return {this->bounds.x + static_cast<float>(index % this->columns) * (this->size + this->spacing),
+        { return {this->bounds.x + static_cast<float>(index % this->columns) * (this->cell_width + this->spacing) + (this->cell_width - this->size) * .5f,
             this->bounds.y + this->icon_offset_y + static_cast<float>(index / this->columns) * this->pitch, this->size, this->size}; }
     };
 
-    inline auto LayoutStatusStrip(const size_t count, const rect& bounds, const status_strip_settings& settings) -> status_strip_layout
+    struct status_timer_metrics { float width{}, height{}; };
+
+    inline auto LayoutStatusStrip(const size_t count, const rect& bounds, const status_strip_settings& settings,
+        const status_timer_metrics& timer = {}) -> status_strip_layout
     {
         status_strip_layout result{};
         if (!settings.enabled || count == 0) return result;
         result.count = std::min(count, static_cast<size_t>(std::clamp(settings.limit, 1.0f, 32.0f)));
         result.overflow = settings.overflow ? count - result.count : 0;
         result.size = settings.size; result.spacing = settings.spacing;
+        result.cell_width = std::max(settings.size, timer.width);
+        result.timer_height = settings.timers ? std::max({14.0f, settings.size * settings.timer_scale, timer.height}) : 0;
         const auto slots = result.count + (result.overflow != 0 ? 1 : 0);
-        result.columns = std::min(slots, static_cast<size_t>(std::max(1.0f, std::floor((bounds.width + settings.spacing) / (settings.size + settings.spacing)))));
+        result.columns = std::min(slots, static_cast<size_t>(std::max(1.0f, std::floor((bounds.width + settings.spacing) / (result.cell_width + settings.spacing)))));
         if (settings.columns >= 1) result.columns = std::min(result.columns, static_cast<size_t>(settings.columns));
         const auto rows = (slots + result.columns - 1) / result.columns;
-        const float caption = settings.timers && settings.timer_placement != 2 ? std::max(14.0f, settings.size * settings.timer_scale) : 0;
-        result.icon_offset_y = settings.timer_placement == 1 ? caption : 0;
-        result.pitch = settings.size + caption + settings.row_spacing;
+        const float caption = settings.timer_placement != 2 ? result.timer_height : 0;
+        const float rowHeight = settings.timer_placement == 2 ? std::max(settings.size, result.timer_height) : settings.size + caption;
+        result.icon_offset_y = settings.timer_placement == 1 ? caption : settings.timer_placement == 2 ? (rowHeight - settings.size) * .5f : 0;
+        result.pitch = rowHeight + settings.row_spacing;
         result.height = static_cast<float>(rows) * result.pitch - settings.row_spacing + 2;
-        const auto width = static_cast<float>(result.columns) * (settings.size + settings.spacing) - settings.spacing;
+        const auto width = static_cast<float>(result.columns) * (result.cell_width + settings.spacing) - settings.spacing;
         const auto alignment = settings.placement == 1 ? 0.5f : settings.placement == 2 ? 1.0f : 0.0f;
         result.bounds = {bounds.x + settings.offset_x + std::max(0.0f, bounds.width - width) * alignment, bounds.y + settings.offset_y, width, result.height};
         return result;
@@ -112,8 +120,11 @@ namespace xiui::ui
 
     inline auto StatusStripColumns(const float width) -> size_t { return static_cast<size_t>(std::max(1.0f, std::floor((width + 2) / 22))); }
 
+    inline auto StatusStripHeight(const status_strip_layout& layout, const status_strip_settings& settings) -> float
+    { return layout.height == 0 ? 0 : std::max(0.0f, settings.offset_y) + layout.height; }
+
     inline auto StatusStripHeight(const size_t count, const float width, const status_strip_settings& settings = {}) -> float
-    { const auto layout = LayoutStatusStrip(count, {0, 0, width, 0}, settings); return layout.height == 0 ? 0 : std::max(0.0f, settings.offset_y) + layout.height; }
+    { return StatusStripHeight(LayoutStatusStrip(count, {0, 0, width, 0}, settings), settings); }
 
     inline auto CrowdControlStatus(const uint16_t id) -> bool
     { return id == 2 || id == 7 || id == 10 || id == 14 || id == 17 || id == 18 || id == 19 || id == 28 || id == 193; }
@@ -128,26 +139,26 @@ namespace xiui::ui
         {
             if (status.earliest > now) std::snprintf(text, sizeof(text), "%u-%u", static_cast<unsigned>((status.earliest - now + 999) / 1000), seconds);
             else std::snprintf(text, sizeof(text), "<%u", seconds);
-            return text;
+            return status.unconfirmed && settings.uncertainty ? "?" + std::string{text} : std::string{text};
         }
         if (seconds >= 3600) std::snprintf(text, sizeof(text), "%uh%02um", seconds / 3600, seconds / 60 % 60);
         else if (seconds >= 60) std::snprintf(text, sizeof(text), "%u:%02u", seconds / 60, seconds % 60);
         else std::snprintf(text, sizeof(text), "%u", seconds);
-        return text;
+        return status.unconfirmed && settings.uncertainty ? "?" + std::string{text} : std::string{text};
     }
 
-    inline auto StatusTimerBounds(const rect& icon, const status_strip_settings& settings, const module_text_profile& profile) -> rect
+    inline auto StatusTimerBounds(const rect& icon, const status_strip_settings& settings, const module_text_profile& profile,
+        const float cellWidth = 0, const float timerHeight = 0) -> rect
     {
-        const float height = std::max(14.0f, settings.size * settings.timer_scale);
+        const float height = std::max({14.0f, settings.size * settings.timer_scale, timerHeight});
+        const float width = std::max(icon.width + 4, cellWidth);
         const float y = settings.timer_placement == 1 ? icon.y - height :
             settings.timer_placement == 2 ? icon.y + (icon.height - height) * 0.5f : icon.y + icon.height;
-        return {icon.x - 2 + profile.offset_x, y + profile.offset_y, icon.width + 4, height};
+        return {icon.x + (icon.width - width) * .5f + profile.offset_x, y + profile.offset_y, width, height};
     }
 
-    inline auto DrawStatusStrip(const std::span<const combat_status> statuses, const rect& bounds, const uint64_t now,
-        const module_text_profile& profile, const module_render_context& context, const status_strip_settings& settings = {}) -> void
+    inline auto StatusTimerProfile(const module_text_profile& profile, const status_strip_settings& settings) -> module_text_profile
     {
-        const auto layout = LayoutStatusStrip(statuses.size(), bounds, settings);
         auto caption = profile;
         const auto fade = [opacity = settings.opacity](const D3DCOLOR color) {
             return (color & 0xFFFFFF) | (static_cast<uint32_t>((color >> 24) * opacity) << 24);
@@ -157,7 +168,38 @@ namespace xiui::ui
         caption.style.glow.color = fade(caption.style.glow.color); caption.style.sheen.color = fade(caption.style.sheen.color);
         caption.placement = 0; caption.offset_x = caption.offset_y = 0;
         caption.style.alignment = text_alignment::center;
+        caption.style.tabular_numbers = true;
         caption.style.scale = std::clamp(caption.style.scale * settings.timer_scale, text_min_scale, text_max_scale);
+        return caption;
+    }
+
+    inline auto LayoutStatusStrip(const std::span<const combat_status> statuses, const rect& bounds, const uint64_t now,
+        const module_text_profile& profile, const design_system& design, const status_strip_settings& settings = {}) -> status_strip_layout
+    {
+        if (!settings.enabled || statuses.empty()) return {};
+        status_timer_metrics metrics{};
+        if (settings.timers && profile.visible)
+        {
+            const auto caption = StatusTimerProfile(profile, settings);
+            const auto count = std::min(statuses.size(), static_cast<size_t>(std::clamp(settings.limit, 1.0f, 32.0f)));
+            for (size_t i = 0; i < count; ++i)
+            {
+                const auto text = StatusTimerText(statuses[i], now, settings);
+                if (text.empty()) continue;
+                metrics.width = std::max(metrics.width, design.MeasureText(text.c_str(), caption.style) + 4);
+                metrics.height = std::max(metrics.height, design.TextHeight(caption.style) + 2);
+            }
+            if (metrics.width > 0) metrics.width = std::max(metrics.width, design.MeasureText("0:00", caption.style) + 4);
+        }
+        return LayoutStatusStrip(statuses.size(), bounds, settings, metrics);
+    }
+
+    inline auto DrawStatusStrip(const std::span<const combat_status> statuses, const rect& bounds, const uint64_t now,
+        const module_text_profile& profile, const module_render_context& context, const status_strip_settings& settings = {},
+        const status_strip_layout* measured = nullptr) -> void
+    {
+        const auto layout = measured != nullptr ? *measured : LayoutStatusStrip(statuses.size(), bounds, settings);
+        const auto caption = StatusTimerProfile(profile, settings);
         for (size_t i = 0; i < layout.count; ++i)
         {
             const auto& status = statuses[i];
@@ -172,7 +214,7 @@ namespace xiui::ui
             const auto timer = StatusTimerText(status, now, settings);
             if (!timer.empty())
             {
-                const auto text = StatusTimerBounds(icon, settings, profile);
+                const auto text = StatusTimerBounds(icon, settings, profile, layout.cell_width, layout.timer_height);
                 auto fitted = caption;
                 while (fitted.style.scale > text_min_scale && context.Design().MeasureText(timer.c_str(), fitted.style) > text.width)
                     fitted.style.scale = std::max(text_min_scale, fitted.style.scale - 1 / text_base_pixels);
@@ -222,8 +264,8 @@ namespace xiui::ui
         const auto* nativeName = resources != nullptr ? resources->GetString("buffs.names", id) : nullptr;
         const auto* icon = resources != nullptr ? resources->GetStatusIconByIndex(id) : nullptr;
         const auto* nativeDescription = icon != nullptr ? (icon->Description[2] != nullptr ? icon->Description[2] : icon->Description[0]) : nullptr;
-        auto title = nativeName != nullptr ? FromGameText(nativeName) : std::string{"Status"};
-        if (title.empty()) title = "Status";
+        auto title = nativeName != nullptr ? FromGameText(nativeName) : std::string{i18n::Text("Status")};
+        if (title.empty()) title = i18n::Text("Status");
         bool capitalize = true;
         for (auto& character : title)
         {
@@ -247,31 +289,21 @@ namespace xiui::ui
         const auto appendWrapped = [&](const std::string& value, const module_text_profile& style)
         {
             const float lineHeight = context.Design().TextHeight(style.style) + 4;
-            const auto append = [&](const std::string& line) { lines.push_back({line, &style, lineHeight}); };
-            std::string line;
-            for (size_t start = 0; start < value.size();)
-            {
-                const auto end = value.find_first_of(" \r\n", start);
-                const auto word = value.substr(start, end == std::string::npos ? std::string::npos : end - start);
-                if (!word.empty())
-                {
-                    const auto candidate = line.empty() ? word : line + " " + word;
-                    if (!line.empty() && context.Design().MeasureText(candidate.c_str(), style.style) > contentWidth)
-                    { append(line); line = word; }
-                    else line = candidate;
-                }
-                if (end == std::string::npos) break;
-                if (value[end] == '\n' && !line.empty()) { append(line); line.clear(); }
-                start = end + 1;
-            }
-            if (!line.empty()) append(line);
+            for (const auto& line : WrapText(value, contentWidth,
+                [&](const char* candidate) { return context.Design().MeasureText(candidate, style.style); }))
+                lines.push_back({line, &style, lineHeight});
         };
         appendWrapped(title, titleText);
         if (!description.empty()) { lines.back().height += 3; appendWrapped(description, descriptionText); }
+        if (tooltip.status.unconfirmed)
+        {
+            lines.back().height += 3;
+            appendWrapped(i18n::Text("Possible secondary effect; application is unconfirmed."), estimateText);
+        }
         if (tooltip.status.estimated)
         {
             lines.back().height += 3;
-            appendWrapped(tooltip.status.earliest != 0 ? "Base duration range: modifiers and resistance can change the result." : "Estimate: Effects may end early", estimateText);
+            appendWrapped(i18n::Text(tooltip.status.earliest != 0 ? "Base duration range: modifiers and resistance can change the result." : "Estimate: Effects may end early"), estimateText);
         }
         float textWidth{}, height{26};
         for (const auto& line : lines)

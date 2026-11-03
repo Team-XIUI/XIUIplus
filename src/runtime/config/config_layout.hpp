@@ -36,11 +36,11 @@ namespace xiui::ui
         auto SidebarCollapsed(void) const -> bool { return this->compact_sidebar_; }
         auto SidebarWidth(void) const -> float { return this->compact_sidebar_ ? compact_sidebar_width : sidebar_width; }
         auto SidebarToggle(void) const -> rect { return {this->bounds_.x + 8, this->bounds_.y + 3, 24, 22}; }
-        auto HeaderTitle(void) const -> rect { return {this->bounds_.x + (this->basic_ ? 16 : 40), this->bounds_.y + 2, std::max(0.0f, this->bounds_.width - 416), 24}; }
+        auto HeaderTitle(void) const -> rect { return {this->bounds_.x + (this->basic_ ? 16 : 40), this->bounds_.y + 2, std::max(0.0f, this->bounds_.width - 444), 24}; }
         auto SearchInput(const float expansion = 1) const -> rect
         {
             const float width = 24 + 224 * std::clamp(expansion, 0.0f, 1.0f);
-            return {this->bounds_.x + this->bounds_.width - 120 - width, this->bounds_.y + 3, width, 22};
+            return {this->bounds_.x + this->bounds_.width - 148 - width, this->bounds_.y + 3, width, 22};
         }
 
         auto ModuleTab(size_t index) const -> rect
@@ -58,17 +58,21 @@ namespace xiui::ui
 
         auto HeaderAction(size_t index = 0) const -> rect
         {
-            return {this->bounds_.x + this->bounds_.width - 56.0f - index * 28.0f, this->bounds_.y + 3.0f, 24.0f, 22.0f};
+            const size_t position = index < 2 ? 1 - index : index;
+            return {this->bounds_.x + this->bounds_.width - 56.0f - position * 28.0f, this->bounds_.y + 3.0f, 24.0f, 22.0f};
         }
 
         auto InputMode(void) const -> rect
         { return {this->bounds_.x + this->bounds_.width - 112, this->bounds_.y + 3, 24, 22}; }
 
-        auto InputModeMenu(void) const -> rect
-        { const auto at = this->InputMode(); return {at.x + at.width - 184, at.y + at.height + 4, 184, 86}; }
+        auto Language(void) const -> rect
+        { return {this->bounds_.x + this->bounds_.width - 140, this->bounds_.y + 3, 24, 22}; }
 
-        auto InputModeRow(size_t index) const -> rect
-        { const auto at = this->InputModeMenu(); return {at.x + 4, at.y + 4 + index * 26, at.width - 8, 26}; }
+        auto HeaderMenu(bool language) const -> rect
+        { const auto at = language ? this->Language() : this->InputMode(); return {at.x + at.width - 224, at.y + at.height + 4, 224, language ? 60.0f : 86.0f}; }
+
+        auto HeaderMenuRow(size_t index, bool language) const -> rect
+        { const auto at = this->HeaderMenu(language); return {at.x + 4, at.y + 4 + index * 26, at.width - 8, 26}; }
 
         auto HeaderBackground(void) const -> rect
         {
@@ -144,8 +148,8 @@ namespace xiui::ui
 
         auto HeaderDragArea(const float searchWidth = 24) const -> rect
         {
-            if (this->basic_) return {this->bounds_.x + 16, this->bounds_.y, std::max(0.0f, this->bounds_.width - 136), 28};
-            return {this->bounds_.x + 38, this->bounds_.y, std::max(0.0f, this->bounds_.width - 158 - searchWidth), 28};
+            if (this->basic_) return {this->bounds_.x + 16, this->bounds_.y, std::max(0.0f, this->bounds_.width - 164), 28};
+            return {this->bounds_.x + 38, this->bounds_.y, std::max(0.0f, this->bounds_.width - 186 - searchWidth), 28};
         }
 
         auto ProfileSelector(void) const -> rect
@@ -274,9 +278,9 @@ namespace xiui::ui
 
         static auto Description(const rect& row) -> rect { return {row.x + 3, row.y + 31, row.width - 8, 16}; }
 
-        static auto Tooltip(const rect& anchor, const float requestedWidth, const D3DVIEWPORT8& viewport) -> rect
+        static auto Tooltip(const rect& anchor, const float requestedWidth, const D3DVIEWPORT8& viewport, const float height = 28) -> rect
         {
-            constexpr float margin = 8, height = 28;
+            constexpr float margin = 8;
             const float left = static_cast<float>(viewport.X) + margin, top = static_cast<float>(viewport.Y) + margin;
             const float right = static_cast<float>(viewport.X + viewport.Width) - margin;
             const float bottom = static_cast<float>(viewport.Y + viewport.Height) - margin;

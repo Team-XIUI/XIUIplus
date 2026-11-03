@@ -398,6 +398,73 @@ namespace xiui
                 "explicitly shown native party windows retain their own visibility choice");
         }
 
+        static auto MacroDelay(void) -> bool
+        {
+            auto* image = static_cast<uint8_t*>(::VirtualAlloc(nullptr, 0x1000, MEM_RESERVE | MEM_COMMIT, PAGE_READWRITE));
+            if (!check(image != nullptr, "allocate native macro delay fixture")) return false;
+            constexpr uint8_t ctrl[]{0x2B,0x46,0x10,0x3B,0xC3,0x0F,0x82,0x75,0x01,0,0,0x68,1,0,0,0,0xB9,2,0,0,0,0xC6,0x46,0x18,0,0x88,0x5E,0x0C};
+            constexpr uint8_t alt[]{0x2B,0x46,0x10,0x3B,0xC3,0x72,0x79,0x68,3,0,0,0,0xB9,2,0,0,0,0xC6,0x46,0x18,0,0xC6,0x46,0x0C,2};
+            const auto reset = [&] {
+                std::memset(image, 0xCC, 0x1000);
+                std::memcpy(image + 0x80, ctrl, sizeof(ctrl)); std::memcpy(image + 0x180, alt, sizeof(alt));
+            };
+            const auto original = [&] { return std::memcmp(image + 0x80, ctrl, sizeof(ctrl)) == 0 && std::memcmp(image + 0x180, alt, sizeof(alt)) == 0; };
+            const auto patched = [&] {
+                for (size_t i = 0; i < 6; ++i) if (image[0x85 + i] != 0x90) return false;
+                return image[0x185] == 0x90 && image[0x186] == 0x90;
+            };
+            bool passed = true;
+            {
+                reset(); native_hud_controller host;
+                host.module_ = reinterpret_cast<uintptr_t>(image); host.module_size_ = 0x1000; host.FindMacroDelay();
+                host.Update(0);
+                passed = check((host.AvailableMask() & native_instant_macro_palette) != 0 && original(), "both verified macro delays are available without changing default timing") && passed;
+                host.Update(native_instant_macro_palette); host.Update(native_instant_macro_palette);
+                passed = check(patched() && host.macro_delay_enabled_ && host.hidden_.load() == 0 && !host.macro_hook_enabled_,
+                    "instant macro requests remove both delay branches without hiding or suppressing native macros") && passed;
+                host.Update(0);
+                passed = check(original() && !host.macro_delay_enabled_, "turning instant macros off restores both exact branches and leaves adjacent code intact") && passed;
+                host.Update(native_instant_macro_palette); host.Update(native_instant_macro_palette | native_keyboard_macro_palette);
+                passed = check(original() && !host.macro_delay_enabled_, "native macro replacement takes priority and restores the optional delay change") && passed;
+                host.Update(native_instant_macro_palette); host.Shutdown();
+                passed = check(original() && host.AvailableMask() == 0, "shutdown restores delay branches and clears discovery") && passed;
+            }
+            for (const bool both : {false, true})
+            {
+                reset(); std::memset(image + 0x85, 0x90, 6); if (both) std::memset(image + 0x185, 0x90, 2);
+                native_hud_controller host;
+                host.module_ = reinterpret_cast<uintptr_t>(image); host.module_size_ = 0x1000; host.FindMacroDelay();
+                host.Update(native_instant_macro_palette);
+                passed = check(patched() && !host.macro_delay_[0].owned && host.macro_delay_[1].owned == !both,
+                    "existing macrofix patches remain unowned while only missing delay patches are applied") && passed;
+                host.Shutdown();
+                passed = check(image[0x85] == 0x90 && image[0x8A] == 0x90 && image[0x185] == (both ? 0x90 : 0x72),
+                    "unload preserves external macrofix bytes and restores only XIUI+ changes") && passed;
+            }
+            for (int invalid = 0; invalid < 4; ++invalid)
+            {
+                reset();
+                if (invalid == 0) std::memset(image + 0x180, 0xCC, sizeof(alt));
+                if (invalid == 1) std::memcpy(image + 0x280, ctrl, sizeof(ctrl));
+                if (invalid == 2) image[0x185] = 0xEB;
+                if (invalid == 3) image[0x89] = 0x70;
+                native_hud_controller host;
+                host.module_ = reinterpret_cast<uintptr_t>(image); host.module_size_ = 0x1000; host.FindMacroDelay();
+                host.Update(native_instant_macro_palette);
+                passed = check((host.AvailableMask() & native_instant_macro_palette) == 0 && image[0x85] == 0x0F,
+                    "missing, ambiguous, changed and out-of-bounds code leaves both native delay sites untouched") && passed;
+            }
+            {
+                reset(); native_hud_controller host;
+                host.module_ = reinterpret_cast<uintptr_t>(image); host.module_size_ = 0x1000; host.FindMacroDelay();
+                host.Update(native_instant_macro_palette); image[0x85] = 0xCC; host.Update(native_instant_macro_palette);
+                passed = check(!host.macro_delay_available_ && !host.macro_delay_enabled_ && image[0x85] == 0xCC && image[0x185] == 0x72,
+                    "a later external code change disables instant macros, restores the other owned site and preserves foreign bytes") && passed;
+            }
+            ::VirtualFree(image, 0, MEM_RELEASE);
+            return passed;
+        }
+
         static auto Macros(void) -> bool
         {
             uint32_t calls{};
@@ -540,6 +607,11 @@ namespace xiui
 
 int main(int argc, char** argv)
 {
+    if (argc > 1 && std::strcmp(argv[1], "--macros-only") == 0)
+    {
+        if (!xiui::native_hud_target_test::Macros() || !xiui::native_hud_target_test::MacroDelay()) return 1;
+        std::puts("Native macro suppression, instant palette timing, patch ownership and restoration passed."); return 0;
+    }
     if (argc > 1 && std::strcmp(argv[1], "--fishing-only") == 0)
     {
         if (!xiui::native_hud_target_test::Fishing()) return 1;
@@ -551,7 +623,7 @@ int main(int argc, char** argv)
         std::puts("Native command-menu movement, top/bottom anchors, resizing and restoration passed.");
         return 0;
     }
-    if (!xiui::native_hud_target_test::Run() || !xiui::native_hud_target_test::Macros() || !xiui::native_menu_test::Run() || !xiui::native_menu_test::Anchors()) return 1;
+    if (!xiui::native_hud_target_test::Run() || !xiui::native_hud_target_test::Macros() || !xiui::native_hud_target_test::MacroDelay() || !xiui::native_menu_test::Run() || !xiui::native_menu_test::Anchors()) return 1;
     std::puts("Native target preservation and chat log/input suppression checks passed.");
     return 0;
 }

@@ -1,3 +1,4 @@
+#include "localization/localization.hpp"
 #include "ui/text_fit.hpp"
 #include "ui/game_icon_cache.hpp"
 #include "actionbars_module.hpp"
@@ -264,7 +265,7 @@ namespace xiui
                     if (prediction.burst)
                     {
                         const auto label = TintTextProfile(profiles[5], Alpha(color, intensity));
-                        context.DrawText("MB", {bounds.x + 1, bounds.y + 1, bounds.width - 2, design.TextHeight(label.style)}, bounds, label);
+                        context.DrawText(i18n::Text("MB"), {bounds.x + 1, bounds.y + 1, bounds.width - 2, design.TextHeight(label.style)}, bounds, label);
                     }
                 }
             }
@@ -556,22 +557,22 @@ namespace xiui
         if (slot.Empty()) return;
         const auto& info = this->Inspect(value); const auto& design = context.Design();
         std::vector<std::string> lines{slot.label.empty() ? info.name.empty() ? slot.name : info.name : slot.label};
-        lines.push_back(std::string{ActionKindName(slot.kind)} + (slot.target.empty() || slot.kind == action_kind::equip || slot.kind == action_kind::macro || slot.kind == action_kind::command ? "" : "  " + slot.target));
+        lines.push_back(std::string{i18n::Text(ActionKindName(slot.kind))} + (slot.target.empty() || slot.kind == action_kind::equip || slot.kind == action_kind::macro || slot.kind == action_kind::command ? "" : "  " + slot.target));
         std::string resources;
         if (info.mp) resources += std::to_string(info.mp) + " MP  ";
         if (info.tp) resources += std::to_string(info.tp) + " TP  ";
-        if (info.maximum_charges > 1) resources += std::to_string(info.charges) + "/" + std::to_string(info.maximum_charges) + " charges";
-        if (slot.kind == action_kind::item) resources += std::to_string(info.item_count) + " in inventory";
+        if (info.maximum_charges > 1) resources += i18n::Format("%u/%u charges", info.charges, info.maximum_charges);
+        if (slot.kind == action_kind::item) resources += i18n::Format("%u in inventory", info.item_count);
         if (!resources.empty()) lines.push_back(resources);
-        if (!info.reason.empty()) lines.push_back(info.reason);
+        if (!info.reason.empty()) lines.emplace_back(i18n::Text(info.reason.c_str()));
         if (slot.kind == action_kind::macro || slot.kind == action_kind::command)
         {
             for (size_t index = 0; index < std::min(size_t{3}, slot.lines.size()); ++index) lines.push_back(slot.lines[index]);
-            if (slot.lines.size() > 3) lines.push_back("+ " + std::to_string(slot.lines.size() - 3) + " more lines");
+            if (slot.lines.size() > 3) lines.push_back(i18n::Format("+ %zu more lines", slot.lines.size() - 3));
         }
-        if (slot.kind == action_kind::native_macro) lines.push_back("Book " + std::to_string(slot.native.book) + ", set " + std::to_string(slot.native.set) + ", " + (slot.native.alt ? "Alt " : "Ctrl ") + std::to_string(slot.native.slot));
+        if (slot.kind == action_kind::native_macro) lines.push_back(i18n::Format("Book %u, set %u, %s %u", static_cast<unsigned>(slot.native.book), static_cast<unsigned>(slot.native.set), slot.native.alt ? "Alt" : "Ctrl", static_cast<unsigned>(slot.native.slot)));
         const auto binding = this->Binding(value); if (binding.key) lines.push_back(this->BindingLabel(binding));
-        lines.push_back(this->Presentation(value).locked ? "Click to activate  |  Shift-drag to rearrange" : "Click to activate  |  Drag to rearrange");
+        lines.emplace_back(i18n::Text(this->Presentation(value).locked ? "Click to activate  |  Shift-drag to rearrange" : "Click to activate  |  Drag to rearrange"));
         float width = 220;
         for (const auto& line : lines) width = std::max(width, design.MeasureText(line.c_str(), profiles[4].style) + 24);
         const auto viewport = context.Viewport().width > 0 ? context.Viewport() : ui::rect{0, 0, 1280, 720};

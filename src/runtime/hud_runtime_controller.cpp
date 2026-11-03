@@ -194,7 +194,7 @@ namespace xiui
         this->controller_notification_id_ = 0;
         this->controller_hint_.clear();
         this->ResetControllerConfigFocus();
-        this->config_.input_mode_menu = false;
+        this->config_.header_menu_open = false;
     }
 
     auto hud_runtime::ControllerSurfaces(void) const -> std::vector<controller_surface>
@@ -639,14 +639,14 @@ namespace xiui
             const auto bounds = this->ControllerPickerBounds(viewport);
             this->config_controls_.Panel(bounds);
             auto style = theme.body_text; style.scale = 0.78f;
-            this->config_controls_.Text("XIUI+ focus", {bounds.x + 14, bounds.y + 8, bounds.width - 28, 28}, style);
+            this->config_controls_.Text(i18n::Text("XIUI+ focus"), {bounds.x + 14, bounds.y + 8, bounds.width - 28, 28}, style);
             const auto surfaces = this->ControllerSurfaces();
             this->controller_picker_index_ = std::min(this->controller_picker_index_, surfaces.size() - 1);
             for (size_t i = 0; i < surfaces.size(); ++i)
                 this->config_controls_.NavigationItem({bounds.x + 12, bounds.y + 42 + i * 32, bounds.width - 24, 30},
                     this->ControllerSurfaceName(surfaces[i]), i == this->controller_picker_index_, false);
             style.scale = 0.65f;
-            this->config_controls_.Text("Up/Down: choose   Confirm: open   Cancel: back", {bounds.x + 12, bounds.y + bounds.height - 30, bounds.width - 24, 24}, style);
+            this->config_controls_.Text(i18n::Text("Up/Down: choose   Confirm: open   Cancel: back"), {bounds.x + 12, bounds.y + bounds.height - 30, bounds.width - 24, 24}, style);
             this->design_system_.DrawFocusFrame({bounds.x + 12, bounds.y + 42 + this->controller_picker_index_ * 32, bounds.width - 24, 30}, this->general_.FocusStyle());
             return;
         }

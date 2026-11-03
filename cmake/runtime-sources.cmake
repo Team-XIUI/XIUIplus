@@ -1,3 +1,11 @@
+execute_process(COMMAND "${Python3_EXECUTABLE}" "${CMAKE_SOURCE_DIR}/scripts/build-locales.py"
+    --output "${CMAKE_BINARY_DIR}/generated/locale_catalog.hpp" COMMAND_ERROR_IS_FATAL ANY)
+set_property(DIRECTORY APPEND PROPERTY CMAKE_CONFIGURE_DEPENDS
+    scripts/build-locales.py scripts/localization_sources.py locales/en.json locales/ja.json)
+file(GLOB_RECURSE XIUI_LOCALIZATION_SOURCES CONFIGURE_DEPENDS
+    "${CMAKE_SOURCE_DIR}/src/runtime/*.cpp" "${CMAKE_SOURCE_DIR}/src/runtime/*.hpp")
+set_property(DIRECTORY APPEND PROPERTY CMAKE_CONFIGURE_DEPENDS ${XIUI_LOCALIZATION_SOURCES})
+
 execute_process(COMMAND "${Python3_EXECUTABLE}" "${CMAKE_SOURCE_DIR}/scripts/build-lua-profile-schema.py"
     --output "${CMAKE_BINARY_DIR}/generated/lua_profile_schema.hpp" COMMAND_ERROR_IS_FATAL ANY)
 set_property(DIRECTORY APPEND PROPERTY CMAKE_CONFIGURE_DEPENDS

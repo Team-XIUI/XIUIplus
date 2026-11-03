@@ -619,7 +619,7 @@ namespace xiui
             !Contains(this->config_.text_bounds, static_cast<float>(cursor.x), static_cast<float>(cursor.y))) this->FinishConfigInput(true, false);
         if (!this->editing_ && this->hud_target_pressed_) return this->HandleTargetMouse(message, blocked);
         auto* chat = this->chat_pointer_ != nullptr ? this->chat_pointer_ : this->ChatAt(static_cast<float>(cursor.x), static_cast<float>(cursor.y));
-        const bool overConfig = this->editing_ && (this->ProfileSurface(viewport) || this->config_.choice_input.Opened() || this->config_.input_mode_menu || this->config_.search_open ||
+        const bool overConfig = this->editing_ && (this->ProfileSurface(viewport) || this->config_.choice_input.Opened() || this->config_.header_menu_open || this->config_.search_open ||
             (this->mouse_captured_ && this->mouse_buttons_ != 0) || Contains(this->ConfigVisibleBounds(), static_cast<float>(cursor.x), static_cast<float>(cursor.y)) ||
             (this->config_.active_color != nullptr && Contains(this->ConfigLayout().ColorEditor(viewport), static_cast<float>(cursor.x), static_cast<float>(cursor.y))));
         if ((message == WM_LBUTTONDOWN || message == WM_LBUTTONDBLCLK) &&
@@ -929,6 +929,20 @@ namespace xiui
         {
             if ((static_cast<uint32_t>(flags) & 0x80000000u) != 0) { this->scale_key_release_[key] = false; return true; }
             if (this->scale_gesture_.module == nullptr) return true;
+        }
+        if (this->editing_ && this->config_.header_menu_open && !blocked)
+        {
+            const auto action = key == VK_UP ? controller_action::up : key == VK_DOWN ? controller_action::down :
+                key == VK_RETURN ? controller_action::confirm : key == VK_ESCAPE || key == VK_TAB ? controller_action::cancel : controller_action::none;
+            if (action != controller_action::none)
+            {
+                if ((static_cast<uint32_t>(flags) & 0x80000000u) == 0)
+                {
+                    this->HandleControllerConfig(action, (static_cast<uint32_t>(flags) & 0x40000000u) != 0);
+                    if (key < this->scale_key_release_.size()) this->scale_key_release_[key] = true;
+                }
+                return true;
+            }
         }
         if (this->editing_ && this->scale_gesture_.module != nullptr && !blocked)
         {
@@ -1856,7 +1870,7 @@ namespace xiui
         this->config_.collapsed = false;
         this->config_.edit_mode = false;
         this->config_.preview_selected = false;
-        this->config_.input_mode_menu = false;
+        this->config_.header_menu_open = false;
         this->config_.bounds = {-1.0f, 20.0f, ui::config_layout::default_width, ui::config_layout::default_height};
         this->config_.sidebar_collapsed = false;
         this->config_.active_color = nullptr;
@@ -1956,7 +1970,9 @@ namespace xiui
         const auto attributes = ::GetFileAttributesA(this->settings_path_.c_str());
         const auto error = attributes == INVALID_FILE_ATTRIBUTES ? ::GetLastError() : ERROR_SUCCESS;
         this->config_.basic = error == ERROR_FILE_NOT_FOUND || error == ERROR_PATH_NOT_FOUND;
-        this->LoadSetup(settings_store::CachedFile(this->settings_path_), this->config_.basic);
+        const auto local = settings_store::CachedFile(this->settings_path_);
+        this->language_ = i18n::ParseLanguage(local.ReadString("session.localization", "language", "en"));
+        this->LoadSetup(local, this->config_.basic);
         if (!this->default_settings_text_.empty() && (error == ERROR_FILE_NOT_FOUND || error == ERROR_PATH_NOT_FOUND))
         {
             this->LoadSettings(settings_store::FromIniText(this->default_settings_text_));
@@ -2038,6 +2054,7 @@ namespace xiui
         store.WriteInt("layout.config", "width_version", 1);
         store.WriteInt("layout.config", "height_version", 1);
         this->SaveConfigSelection(store);
+        store.WriteString("session.localization", "language", i18n::language_codes[static_cast<size_t>(this->language_)]);
         store.WriteBool("session.setup", "pending", this->setup_.pending);
         store.WriteInt("session.setup", "step", static_cast<int>(this->setup_.step));
         store.WriteInt("session.setup", "revealed", static_cast<int>(this->setup_.revealed));
@@ -2286,7 +2303,7 @@ namespace xiui
         if (gameWindow == nullptr || ::GetForegroundWindow() != gameWindow ||
             (this->mouse_capture_window_ != nullptr && ::GetCapture() != this->mouse_capture_window_))
         {
-            this->config_.input_mode_menu = false;
+            this->config_.header_menu_open = false;
             this->FinishConfigInput(false);
             this->FinishInteraction();
             this->mouse_down_ = false;
@@ -2420,7 +2437,7 @@ namespace xiui
             const float x = static_cast<float>(this->mouse_x_);
             const float y = static_cast<float>(this->mouse_y_);
             this->mouse_captured_ = this->satchel_pointer_release_ != 0 || this->actionbar_pointer_release_ != 0 || this->ActionBarsPointerOwns(x, y) ||
-                this->ProfileSurface(viewport) || this->config_.choice_input.Opened() || this->config_.input_mode_menu || this->config_.search_open || this->interaction_ != interaction::none || Contains(this->ConfigVisibleBounds(), x, y) ||
+                this->ProfileSurface(viewport) || this->config_.choice_input.Opened() || this->config_.header_menu_open || this->config_.search_open || this->interaction_ != interaction::none || Contains(this->ConfigVisibleBounds(), x, y) ||
                 (this->config_.active_color != nullptr && Contains(this->ConfigLayout().ColorEditor(viewport), x, y));
             if (const auto toolbar = this->MovementToolbar(viewport); toolbar && Contains(toolbar->bounds, x, y)) this->mouse_captured_ = true;
             if (this->EditGripAt(x, y) != nullptr) this->mouse_captured_ = true;
@@ -2746,7 +2763,7 @@ namespace xiui
             this->DrawColorEditor(viewport);
             this->DrawProfileOverlay(viewport);
             this->DrawChoiceInput(viewport);
-            this->DrawInputModeControl(viewport);
+            this->DrawHeaderControls(viewport);
             this->DrawSettingsSearch(viewport);
         }
         if (this->ContextVisible(this->equipment_) && this->equipment_.ShouldRender(snapshot) && !this->ProfileSurface(viewport) && properties != nullptr && ::GetForegroundWindow() == properties->GetFinalFantasyHwnd() &&

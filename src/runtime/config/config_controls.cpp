@@ -1,5 +1,7 @@
+#include "localization/localization.hpp"
 #include "config_controls.hpp"
 #include "ui/control_chrome.hpp"
+#include "ui/text_wrap.hpp"
 
 #include <algorithm>
 #include <cmath>
@@ -58,11 +60,12 @@ namespace xiui::ui
         auto style = selected ? theme.accent_text : theme.body_text;
         style.scale = 0.72f;
         style.alignment = text_alignment::left;
-        this->ButtonText(label, config_layout::NavigationLabel(bounds), style, selected || hovered, hovered);
+        this->ButtonText(i18n::Text(label), config_layout::NavigationLabel(bounds), style, selected || hovered, hovered);
     }
 
-    auto config_controls::NavigationItem(const rect& bounds, const char* label, const bool selected, const bool hovered, const bool enabled) const -> void
+    auto config_controls::NavigationItem(const rect& bounds, const char* label, const bool selected, const bool hovered, const bool enabled, const bool translate) const -> void
     {
+        if (translate) label = i18n::Text(label);
         this->NavigationHighlight(bounds, enabled && selected, enabled && hovered);
         auto style = this->design_.GetTheme().body_text;
         style.scale = 0.72f;
@@ -92,7 +95,7 @@ namespace xiui::ui
         {
             const auto button = Segment(bounds, index, labels.size());
             const bool hovered = mouseX >= button.x && mouseY >= button.y && mouseX < button.x + button.width && mouseY < button.y + button.height;
-            this->Button(button, labels[index], style, selected == index || hovered, button_tone::normal, hovered);
+            this->Button(button, i18n::Text(labels[index]), style, selected == index || hovered, button_tone::normal, hovered);
         }
     }
 
@@ -234,16 +237,26 @@ namespace xiui::ui
         this->design_.DrawIcon({bounds.x + (bounds.width - size) * 0.5f, bounds.y + (bounds.height - size) * 0.5f, size, size}, IconId(id), color);
     }
 
-    auto config_controls::Tooltip(const char* text, const rect& anchor, const D3DVIEWPORT8& viewport) const -> void
+    auto config_controls::Tooltip(const char* message, const rect& anchor, const D3DVIEWPORT8& viewport) const -> void
     {
         const auto& theme = this->design_.GetTheme();
         auto style = theme.body_text;
         style.scale = 0.78f;
         style = this->Style(style);
-        const auto bounds = config_layout::Tooltip(anchor, std::ceil(this->design_.MeasureText(text, style)) + 26, viewport);
+        const auto* text = i18n::Text(message);
+        if (text == nullptr || *text == '\0') return;
+        const float width = std::max(1.0f, std::min(640.0f, static_cast<float>(viewport.Width) - 42));
+        const auto lines = WrapText(text, width, [&](const char* line) { return this->design_.MeasureText(line, style); });
+        float measured{};
+        for (const auto& line : lines) measured = std::max(measured, this->design_.MeasureText(line.c_str(), style));
+        const float lineHeight = std::ceil(this->design_.TextHeight(style)) + 3;
+        const auto bounds = config_layout::Tooltip(anchor, std::ceil(measured) + 26, viewport,
+            std::max(28.0f, static_cast<float>(lines.size()) * lineHeight + 8));
         if (this->containers_ != nullptr) this->containers_->DrawTooltip(this->design_, bounds);
         else this->design_.FillRect(bounds, 0xFF000000);
-        this->design_.DrawText(text, {bounds.x + 13.0f, bounds.y, std::max(0.0f, bounds.width - 26.0f), bounds.height}, style);
+        for (size_t index = 0; index < lines.size(); ++index)
+            this->design_.DrawText(lines[index].c_str(), {bounds.x + 13, bounds.y + 4 + index * lineHeight,
+                std::max(0.0f, bounds.width - 26), lineHeight}, style);
     }
 
     auto config_controls::Option(const rect& row, const module_option& option, const bool hovered, const bool activeColor, const slider_value_input* input, const text_input* textInput, const bool dropdownOpen, const int hoveredButton) const -> void
@@ -256,9 +269,9 @@ namespace xiui::ui
             this->design_.FillRect(card, hovered ? theme.colors.selected : theme.colors.chrome);
             this->design_.BorderRect(card, ControlBorderColor(this->design_, hovered && option.available));
             auto title = theme.body_text; title.scale = .92f;
-            this->ButtonText(option.label, {card.x + 14, card.y + 7, card.width - 92, 25}, title, hovered);
+            this->ButtonText(i18n::Text(option.label), {card.x + 14, card.y + 7, card.width - 92, 25}, title, hovered);
             auto detail = theme.caption_text; detail.scale = .70f;
-            const std::string_view description = option.description != nullptr ? option.description : "";
+            const std::string_view description = option.description != nullptr ? i18n::Text(option.description) : "";
             const auto newline = description.find('\n');
             const std::string first{description.substr(0, newline)};
             this->Text(first.c_str(), {card.x + 14, card.y + 38, card.width - 28, 21}, detail);
@@ -268,7 +281,7 @@ namespace xiui::ui
                 this->Text(second.c_str(), {card.x + 14, card.y + 60, card.width - 28, 21}, detail);
             }
             auto action = theme.accent_text; action.scale = .70f; action.alignment = text_alignment::right;
-            this->ButtonText(option.action_text, {card.x + card.width - 72, card.y + 8, 58, 24}, action, hovered);
+            this->ButtonText(i18n::Text(option.action_text), {card.x + card.width - 72, card.y + 8, 58, 24}, action, hovered);
             return;
         }
         if (!option.available)
@@ -284,7 +297,7 @@ namespace xiui::ui
             for (size_t index = 0; index < option.choice_count; ++index)
             {
                 const bool enabled = option.button_toggles[index];
-                const std::string label = std::string{option.choices[index]} + (enabled ? " ON" : " OFF");
+                const std::string label = std::string{option.ChoiceText(index)} + (enabled ? std::string{" "} + i18n::Text("ON") : std::string{" "} + i18n::Text("OFF"));
                 this->Button(config_layout::ToggleButton(row, index, option.choice_count), label.c_str(), style,
                     enabled || hoveredButton == static_cast<int>(index), button_tone::normal, hoveredButton == static_cast<int>(index));
             }
@@ -304,7 +317,7 @@ namespace xiui::ui
             const auto source = config_layout::OverrideSource(row), swatch = config_layout::OverrideSwatch(row);
             this->Row(row, option.label, option.description, source.x - row.x - 6, hovered, this->design_.GetTheme().body_text);
             auto style = this->design_.GetTheme().caption_text; style.scale = 0.65f; style.alignment = text_alignment::center;
-            this->Button(source, *option.toggle ? "XIUI+" : "Game", style, *option.toggle || hovered);
+            this->Button(source, *option.toggle ? i18n::Text("XIUI+") : i18n::Text("Game"), style, *option.toggle || hovered);
             this->design_.FillRect(swatch, *option.color);
             this->design_.BorderRect(swatch, *option.toggle || activeColor ? this->design_.GetTheme().colors.control_selected : this->design_.GetTheme().colors.border);
         }
@@ -317,7 +330,7 @@ namespace xiui::ui
             {
                 this->buttons_.Face(field, hovered);
                 auto style = this->design_.GetTheme().body_text; style.scale = 0.74f; style.alignment = text_alignment::left;
-                this->Text(option.text->empty() ? "Click to edit" : option.text->c_str(), {field.x + 4, field.y, field.width - 8, field.height}, style);
+                this->Text(option.text->empty() ? i18n::Text("Click to edit") : option.text->c_str(), {field.x + 4, field.y, field.width - 8, field.height}, style);
             }
         }
         else if (option.kind == module_option_kind::action)
@@ -335,9 +348,9 @@ namespace xiui::ui
                 const auto color = option.available ? this->design_.GetTheme().colors.text : this->design_.GetTheme().colors.muted;
                 this->design_.DrawIcon({button.x + 5, button.y + (button.height - 16) * 0.5f, 16, 16}, option.action_icon, color);
                 style.top_color = style.bottom_color = color;
-                this->ButtonText(option.action_text, {button.x + 24, button.y, button.width - 27, button.height}, style, hovered && option.available);
+                this->ButtonText(i18n::Text(option.action_text), {button.x + 24, button.y, button.width - 27, button.height}, style, hovered && option.available);
             }
-            else this->Button(button, option.action_text != nullptr ? option.action_text : "Run", style, hovered, option.warning ? button_tone::danger : button_tone::normal);
+            else this->Button(button, option.action_text != nullptr ? i18n::Text(option.action_text) : i18n::Text("Run"), style, hovered, option.warning ? button_tone::danger : button_tone::normal);
         }
     }
 
@@ -347,10 +360,10 @@ namespace xiui::ui
         if (hovered)
             this->design_.FillRect(bounds, theme.colors.selected);
         labelStyle.scale = 0.78f;
-        this->Text(label, {bounds.x + 2, bounds.y + 3, std::max(0.0f, labelWidth - 6), 24}, labelStyle);
+        this->Text(i18n::Text(label), {bounds.x + 2, bounds.y + 3, std::max(0.0f, labelWidth - 6), 24}, labelStyle);
         auto descriptionStyle = theme.caption_text;
         descriptionStyle.scale = 0.68f;
-        this->Text(description, config_layout::Description(bounds), descriptionStyle);
+        this->Text(i18n::Text(description), config_layout::Description(bounds), descriptionStyle);
     }
 
     auto config_controls::ToggleRow(const rect& row, const char* label, const char* description, const bool enabled, const bool hovered) const -> void
@@ -361,7 +374,7 @@ namespace xiui::ui
         auto style = theme.caption_text;
         style.alignment = text_alignment::center;
         style.scale = 0.62f;
-        this->Button(control, enabled ? "ON" : "OFF", style, enabled || hovered);
+        this->Button(control, enabled ? i18n::Text("ON") : i18n::Text("OFF"), style, enabled || hovered);
     }
 
     auto config_controls::ToggleGroupRow(const rect& row, const module_option& option, const bool hovered) const -> void
@@ -372,9 +385,9 @@ namespace xiui::ui
         style.scale = 0.62f;
         this->design_.FillRect({row.x + 6, row.y + 27, 1, 7}, theme.colors.muted);
         this->design_.FillRect({row.x + 6, row.y + 33, 6, 1}, theme.colors.muted);
-        this->Text(option.submodules, {row.x + 16, row.y + 25, row.width - 20, 14}, style);
+        this->Text(i18n::Text(option.submodules), {row.x + 16, row.y + 25, row.width - 20, 14}, style);
         style.scale = 0.58f;
-        this->Text(option.description, {row.x + 16, row.y + 40, row.width - 20, 13}, style);
+        this->Text(i18n::Text(option.description), {row.x + 16, row.y + 40, row.width - 20, 13}, style);
     }
 
     auto config_controls::ColorRow(const rect& row, const char* label, const char* description, const D3DCOLOR color, const bool active, const bool hovered) const -> void
@@ -396,7 +409,7 @@ namespace xiui::ui
         {
             auto row = input.Row(index, viewport);
             if (input.Option().choice_preview) row.width -= 30;
-            this->NavigationItem(row, input.Option().choices[index], index == input.Highlighted(), hovered && *hovered == index);
+            this->NavigationItem(row, input.Option().ChoiceText(index), index == input.Highlighted(), hovered && *hovered == index, true, false);
             if (input.Option().choice_preview && static_cast<size_t>(index) >= input.Option().preview_first)
             {
                 const auto button = input.PreviewButton(index, viewport);
@@ -410,7 +423,7 @@ namespace xiui::ui
         {
             const auto bounds = input.Bounds(viewport);
             auto style = this->design_.GetTheme().caption_text; style.scale = 0.62f; style.alignment = text_alignment::left;
-            this->Text("Scroll / Space: preview", {bounds.x + 10, bounds.y + bounds.height - 22, bounds.width - 20, 18}, style);
+            this->Text(i18n::Text("Scroll / Space: preview"), {bounds.x + 10, bounds.y + bounds.height - 22, bounds.width - 20, 18}, style);
         }
     }
 
@@ -424,7 +437,7 @@ namespace xiui::ui
         if (compact)
         {
             labelStyle.scale = .78f; labelStyle.alignment = text_alignment::left;
-            this->Text(option.label, {row.x, row.y, controlX - row.x - 12, row.height}, labelStyle);
+            this->Text(i18n::Text(option.label), {row.x, row.y, controlX - row.x - 12, row.height}, labelStyle);
         }
         else this->Row(row, option.label, option.description, controlX - row.x - 5.0f, hovered && option.available, labelStyle);
 
@@ -477,7 +490,7 @@ namespace xiui::ui
         this->Row(row, option.label, option.description, button.x - row.x - 6, hovered, theme.body_text);
 
         const int selected = option.choice_count > 0 ? std::clamp(*option.choice, 0, static_cast<int>(option.choice_count) - 1) : 0;
-        const char* value = option.choice_count > 0 && option.choices != nullptr ? option.choices[selected] : "";
+        const char* value = option.choice_count > 0 && option.choices != nullptr ? option.ChoiceText(selected) : "";
         auto valueStyle = theme.accent_text;
         valueStyle.scale = 0.76f;
         valueStyle.alignment = text_alignment::center;

@@ -16,7 +16,7 @@ namespace xiui
         if (!this->ModuleMenuAvailable(module)) return false;
         this->FinishScale(false); this->FinishControllerMove(false); this->FinishConfigResize(false);
         this->FinishInteraction(); this->FinishConfigInput(true, false); this->CloseProfileControls(); this->ReleaseChatInput();
-        this->config_.active_color = nullptr; this->config_.input_mode_menu = false;
+        this->config_.active_color = nullptr; this->config_.header_menu_open = false;
         this->FocusModuleConfig(module);
         static constexpr const char* actions[]{"Reset position", "Reset scale", "Reset settings"};
         static constexpr const char* nativeActions[]{"Reset position", "Reset settings"};
@@ -30,7 +30,7 @@ namespace xiui
     auto hud_runtime::TryOpenModuleMenu(const D3DVIEWPORT8& viewport) -> bool
     {
         if (!this->editing_ || this->mouse_buttons_ != 0 || this->interaction_ != interaction::none || this->ChatResizing() ||
-            this->config_.choice_input.Opened() || this->ProfileSurface(viewport) || this->config_.input_mode_menu || this->config_.search_open) return false;
+            this->config_.choice_input.Opened() || this->ProfileSurface(viewport) || this->config_.header_menu_open || this->config_.search_open) return false;
         const auto x = static_cast<float>(this->mouse_x_), y = static_cast<float>(this->mouse_y_);
         if (Contains(this->ConfigVisibleBounds(), x, y) ||
             (this->config_.active_color != nullptr && Contains(this->ConfigLayout().ColorEditor(viewport), x, y))) return false;

@@ -18,6 +18,7 @@ namespace xiui
         bool uncertain{};
         bool estimated{};
         uint64_t earliest{};
+        bool unconfirmed{};
     };
 
     struct combat_cast
@@ -68,5 +69,6 @@ namespace xiui
         server_rules rules_{};
         song_bonuses songs_{};
         auto Actor(uint32_t id, uint64_t now) -> combat_actor&;
+        auto ApplySpellResult(uint32_t target, uint32_t spell, const action_result& result, uint64_t now, bool ownActor) -> void;
     };
 }

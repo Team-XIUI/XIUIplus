@@ -1,3 +1,4 @@
+#include "localization/localization.hpp"
 #include "fishing_module.hpp"
 #include "modules/bar_config.hpp"
 
@@ -101,7 +102,7 @@ namespace xiui
         const auto& bounds = this->state_.bounds;
         const ui::rect row{bounds.x, bounds.y + 4, bounds.width, std::max(18.0f, this->meter_.height) + 2};
         if (::GetTickCount64() - this->animation_.last_tick > 250) this->animation_ = {};
-        context.DrawMeter(row, this->show_name_ ? "Fish stamina" : "", percentage, stamina / 100.0f,
+        context.DrawMeter(row, this->show_name_ ? i18n::Text("Fish stamina") : "", percentage, stamina / 100.0f,
             this->top_, this->bottom_, this->meter_, this->animation_, true, &this->text_[0], &this->text_[1], ui::meter_text_anchor::bottom);
     }
 }

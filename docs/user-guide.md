@@ -46,6 +46,10 @@ Installation and build instructions are in [Development](development.md). For so
 - Per-element native game HUD visibility controls, independent of XIUI+ module visibility
 - Explicit Direct3D8 state capture and restoration
 
+## Language
+
+Open `/xiuiplus edit` and select the globe icon in the top-right corner. Choose **English** or **日本語**. The choice applies immediately and stays selected when switching profiles or presets. Incoming chat and game-supplied names retain the game client's language; custom labels and profile names keep their original text.
+
 ## Files and backups
 
 XIUI+ keeps its data in your Ashita install's `config/XIUIplus/` folder: `settings.ini`, `theme.ini`, `profiles/`, `inventories/`, `sounds/` and optional `diagnostics/`. Back up this folder to preserve your setup, character links, imported profiles and saved inventories.

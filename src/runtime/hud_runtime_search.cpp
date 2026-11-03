@@ -50,13 +50,13 @@ namespace xiui
                     {
                         if (catalog->IsGeneralAppearance()) catalog->general_.SelectAppearanceTab(tab);
                         if (catalog->IsExperienceDisplay()) catalog->experience_display_.SelectView(static_cast<experience_display_view>(tab));
-                        std::string location = page.name;
-                        if (std::strcmp(module->DisplayName(), page.name) != 0) location += std::string{" / "} + module->DisplayName();
-                        if (!module->ConfigViews().empty()) location += std::string{" / "} + module->ConfigViews()[view];
-                        if (catalog->IsGeneralAppearance()) location += std::string{" / "} + (tab == 0 ? "Appearance" : general_module::appearance_tabs[tab]);
-                        else location += std::string{" / "} + (sections.empty() ? groups[section] : ui::SettingsTopicPath(sections, section, module != &catalog->general_));
-                        if (catalog->IsGeneralAppearance() && tab >= 3) location = std::string{"Extras / "} + general_module::appearance_tabs[tab];
-                        if (catalog->IsExperienceDisplay()) location += std::string{" / "} + displays[tab];
+                        std::string location = i18n::Text(page.name);
+                        if (std::strcmp(module->DisplayName(), page.name) != 0) location += std::string{" / "} + i18n::Text(module->DisplayName());
+                        if (!module->ConfigViews().empty()) location += std::string{" / "} + i18n::Text(module->ConfigViews()[view]);
+                        if (catalog->IsGeneralAppearance()) location += std::string{" / "} + i18n::Text(tab == 0 ? "Appearance" : general_module::appearance_tabs[tab]);
+                        else location += std::string{" / "} + (sections.empty() ? i18n::Text(groups[section]) : ui::SettingsTopicPath(sections, section, module != &catalog->general_));
+                        if (catalog->IsGeneralAppearance() && tab >= 3) location = std::string{i18n::Text("Extras")} + " / " + i18n::Text(general_module::appearance_tabs[tab]);
+                        if (catalog->IsExperienceDisplay()) location += std::string{" / "} + i18n::Text(displays[tab]);
                         std::vector<std::pair<size_t, int>> selectors;
                         std::vector<std::string> labels;
                         std::set<size_t> visiting;
@@ -71,7 +71,7 @@ namespace xiui
                                 for (size_t choice = 0; choice < option.choice_count; ++choice)
                                 {
                                     *option.choice = static_cast<int>(choice);
-                                    selectors.emplace_back(index, static_cast<int>(choice)); labels.emplace_back(option.choices[choice]);
+                                    selectors.emplace_back(index, static_cast<int>(choice)); labels.emplace_back(option.ChoiceText(choice));
                                     collect();
                                     labels.pop_back(); selectors.pop_back();
                                 }
@@ -86,14 +86,14 @@ namespace xiui
                                 const auto option = module->Option(index);
                                 if (NavigationSelector(option) || option.label == nullptr || *option.label == '\0') continue;
                                 ui::settings_search_entry entry;
-                                entry.module = module->Id(); entry.label = option.label; entry.path = path;
-                                entry.description = option.description != nullptr ? option.description : "";
+                                entry.module = module->Id(); entry.label = i18n::Text(option.label); entry.path = path;
+                                entry.description = option.description != nullptr ? i18n::Text(option.description) : "";
                                 entry.view = view; entry.section = catalog->config_.section; entry.option = index;
                                 entry.group = catalog->config_.group; entry.selectors = selectors;
                                 entry.appearance_tab = tab; entry.display_view = static_cast<int>(tab);
-                                entry.label_terms = ui::SettingsSearchText(entry.label);
+                                entry.label_terms = ui::SettingsSearchText(entry.label) + " " + ui::SettingsSearchText(option.label);
                                 entry.path_terms = ui::SettingsSearchText(entry.path);
-                                entry.description_terms = ui::SettingsSearchText(entry.description);
+                                entry.description_terms = ui::SettingsSearchText(entry.description) + " " + ui::SettingsSearchText(option.description != nullptr ? option.description : "");
                                 this->config_.search_entries.push_back(std::move(entry));
                             }
                         };
@@ -110,7 +110,7 @@ namespace xiui
         if (this->config_.search_open) { this->config_.search_input.SelectAll(); return; }
         this->FinishConfigInput(true, false); this->CloseProfileControls(); this->ReleaseChatInput();
         this->FinishConfigResize(false); this->FinishControllerMove(false);
-        this->config_.active_color = nullptr; this->config_.active_slider = nullptr; this->config_.input_mode_menu = false;
+        this->config_.active_color = nullptr; this->config_.active_slider = nullptr; this->config_.header_menu_open = false;
         this->config_.collapsed = false;
         this->BuildSettingsSearch();
         this->config_.search_input.Open(this->config_.search_input.Editor().Text(), 128);
@@ -280,7 +280,7 @@ namespace xiui
             if (field.width >= 24)
             {
                 const auto fieldClip = this->design_system_.Clip(field);
-                this->config_controls_.TextInput(field, this->config_.search_input, false, "Search settings...", "Ctrl+F");
+                this->config_controls_.TextInput(field, this->config_.search_input, false, i18n::Text("Search settings..."), i18n::Text("Ctrl+F"));
             }
             if (clear)
             {
@@ -309,7 +309,7 @@ namespace xiui
         this->config_controls_.Panel(layout.panel, {&shade, 1});
         auto caption = theme.caption_text; caption.scale = 0.64f; caption.alignment = ui::text_alignment::left;
         if (this->config_.search_matches.empty())
-            this->config_controls_.Text(this->config_.search_input.Editor().Text().empty() ? "Search by setting, category or feature. Try: party hp" : "No matching settings.", layout.Row(0), caption);
+            this->config_controls_.Text(this->config_.search_input.Editor().Text().empty() ? i18n::Text("Search by setting, category or feature. Try: party hp") : i18n::Text("No matching settings."), layout.Row(0), caption);
         for (size_t row = 0; row < layout.rows && row + this->config_.search_scroll < this->config_.search_matches.size(); ++row)
         {
             const auto index = row + this->config_.search_scroll;
@@ -321,10 +321,9 @@ namespace xiui
             this->config_controls_.Text(entry.path.c_str(), {bounds.x + 8, bounds.y + 23, bounds.width - 16, 17}, caption);
         }
         const auto total = this->config_.search_matches.size();
-        const auto range = total == 0 ? std::string{"0 results"} : std::to_string(this->config_.search_scroll + 1) + "-" +
-            std::to_string(std::min(total, this->config_.search_scroll + layout.rows)) + " of " + std::to_string(total);
-        const auto footer = range + (this->ControllerPresented() ? " | Directions: select | Confirm: open | Actions: clear | Cancel: close" :
-            " | Up/Down: select | Enter: open | Esc: close");
+        const auto range = total == 0 ? std::string{i18n::Text("0 results")} : i18n::Format("%zu-%zu of %zu", this->config_.search_scroll + 1, std::min(total, this->config_.search_scroll + layout.rows), total);
+        const auto footer = range + (this->ControllerPresented() ? i18n::Text(" | Directions: select | Confirm: open | Actions: clear | Cancel: close") :
+            i18n::Text(" | Up/Down: select | Enter: open | Esc: close"));
         this->config_controls_.Text(footer.c_str(), layout.footer, caption);
     }
 }

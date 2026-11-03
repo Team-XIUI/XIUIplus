@@ -45,7 +45,7 @@ namespace xiui
     auto hud_runtime::ConfigResizeEdges(const float x, const float y) const -> uint8_t
     {
         if (!this->editing_ || this->config_.collapsed || this->profile_name_.Focused() || this->profile_dropdown_ ||
-            this->profile_actions_ || this->config_.choice_input.Opened() || this->config_.input_mode_menu) return 0;
+            this->profile_actions_ || this->config_.choice_input.Opened() || this->config_.header_menu_open) return 0;
         const auto& bounds = this->config_.bounds;
         if (!Contains(bounds, x, y)) return 0;
         if (this->config_.active_color != nullptr && Contains(this->ConfigLayout().ColorEditor(this->config_.focus.viewport), x, y)) return 0;

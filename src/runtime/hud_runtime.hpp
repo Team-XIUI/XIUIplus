@@ -1,6 +1,7 @@
 #pragma once
 
 #include "Ashita.h"
+#include "localization/localization.hpp"
 #include "ui/native_ui_assets.hpp"
 #include "ui/game_icon_cache.hpp"
 #include "design_system.hpp"
@@ -83,6 +84,8 @@ namespace xiui
     public:
         hud_runtime(void);
         ~hud_runtime(void);
+
+        auto Language() const -> i18n::language { return this->language_; }
 
         auto Initialize(IAshitaCore* core, const char* installPath = nullptr) -> void;
         auto SetNativeMacroRunner(native_macro_runner runner, void* context) -> void { this->native_macros_.SetRunner(runner, context); }
@@ -339,6 +342,7 @@ namespace xiui
             if (this->config_.collapsed) bounds.height = 32;
             return bounds;
         }
+        i18n::language language_{i18n::language::english};
         std::string settings_path_{};
         std::string default_settings_text_{};
         mutable settings_writer settings_writer_{};
@@ -476,9 +480,11 @@ namespace xiui
         auto ControllerNativeMenuOpen(void) const -> bool;
         auto HandleControllerConfig(controller_action action, bool repeated) -> bool;
         auto DrawControllerConfig(const D3DVIEWPORT8& viewport) -> void;
-        auto DrawInputModeControl(const D3DVIEWPORT8& viewport) -> void;
-        auto ProcessInputModeClick(const D3DVIEWPORT8& viewport) -> bool;
-        auto InputModeControlTarget(const D3DVIEWPORT8& viewport) const -> uint64_t;
+        auto OpenHeaderMenu(bool language) -> void;
+        auto ApplyHeaderSelection() -> void;
+        auto DrawHeaderControls(const D3DVIEWPORT8& viewport) -> void;
+        auto ProcessHeaderControlClick(const D3DVIEWPORT8& viewport) -> bool;
+        auto HeaderControlTarget(const D3DVIEWPORT8& viewport) const -> uint64_t;
         auto ResetControllerConfigFocus(void) -> void;
         auto ControllerConfigItems(config_controller_region region) -> std::vector<config_controller_item>;
         auto ActivateControllerConfigItem(const config_controller_item& item, controller_action action, bool repeated) -> bool;

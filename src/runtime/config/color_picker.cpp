@@ -1,3 +1,4 @@
+#include "localization/localization.hpp"
 #include "color_picker.hpp"
 #include "config_controls.hpp"
 
@@ -197,9 +198,9 @@ namespace xiui::ui
         const float scale = layout.Scale();
         controls.Panel(panel);
         auto title = theme.title_text; title.scale = 0.9f * scale;
-        controls.Text("Color", layout.Place({16, 10, 180, 24}), title);
+        controls.Text(i18n::Text("Color"), layout.Place({16, 10, 180, 24}), title);
         auto label = theme.caption_text; label.scale = 0.65f * scale;
-        controls.Text("Hue & saturation", layout.Place({16, 33, 170, 16}), label);
+        controls.Text(i18n::Text("Hue & saturation"), layout.Place({16, 33, 170, 16}), label);
         controls.IconButton(layout.Close(), icon_glyph::close, hovered == part::close);
         const auto wheel = layout.Wheel();
         design.FillRoundedRect({wheel.x - scale * 2, wheel.y - scale * 2, wheel.width + scale * 4, wheel.height + scale * 4}, theme.colors.border, wheel.width * 0.5f + scale * 2);
@@ -222,7 +223,7 @@ namespace xiui::ui
         auto centered = label; centered.alignment = text_alignment::center;
         controls.Text(number, layout.Place({242, 33, 46, 16}), centered);
 
-        controls.Text("OPACITY", layout.Place({16, 288, 130, 18}), label);
+        controls.Text(i18n::Text("OPACITY"), layout.Place({16, 288, 130, 18}), label);
         std::snprintf(number, sizeof(number), "%d%%", static_cast<int>(std::lround(this->color_.alpha * 100)));
         auto right = label; right.alignment = text_alignment::right;
         controls.Text(number, layout.Place({210, 288, 64, 18}), right);
@@ -235,9 +236,9 @@ namespace xiui::ui
         design.FillRoundedRect({alphaX - 3 * scale, alpha.y - 3 * scale, 6 * scale, alpha.height + 6 * scale}, 0xFF000000, 2 * scale);
         design.FillRoundedRect({alphaX - scale, alpha.y - 2 * scale, 2 * scale, alpha.height + 4 * scale}, 0xFFFFFFFF, scale);
 
-        controls.Text("Current", layout.Place({16, 340, 50, 16}), label);
-        controls.Text("Original", layout.Place({74, 340, 50, 16}), label);
-        controls.Text("HEX", layout.Place({134, 338, 140, 16}), label);
+        controls.Text(i18n::Text("Current"), layout.Place({16, 340, 50, 16}), label);
+        controls.Text(i18n::Text("Original"), layout.Place({74, 340, 50, 16}), label);
+        controls.Text(i18n::Text("HEX"), layout.Place({134, 338, 140, 16}), label);
         const auto swatch = [&](const rect& bounds, const D3DCOLOR color, const bool active) {
             this->Checker(design, bounds); design.FillRect(bounds, color);
             design.BorderRect(bounds, active ? theme.colors.control_selected : theme.colors.border);
@@ -246,6 +247,6 @@ namespace xiui::ui
         swatch(layout.Original(), this->original_, hovered == part::restore);
         controls.TextInput(layout.Hex(), this->hex_, this->invalid_hex_);
         auto copy = theme.body_text; copy.scale = .65f * scale; copy.alignment = text_alignment::center;
-        controls.Button(layout.Copy(), "Copy", copy, hovered == part::copy);
+        controls.Button(layout.Copy(), i18n::Text("Copy"), copy, hovered == part::copy);
     }
 }

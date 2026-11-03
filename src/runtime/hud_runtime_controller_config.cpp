@@ -28,13 +28,13 @@ namespace xiui
         this->FinishControllerMove(false);
         this->FinishConfigResize(false);
         this->config_.focus = {};
-        this->config_.input_mode_menu = false;
+        this->config_.header_menu_open = false;
     }
 
     auto hud_runtime::BeginConfigResize(const bool keyboard) -> void
     {
         this->FinishConfigInput(true, false);
-        this->CloseProfileControls(); this->CloseChoiceInput(); this->config_.input_mode_menu = false;
+        this->CloseProfileControls(); this->CloseChoiceInput(); this->config_.header_menu_open = false;
         this->config_.active_color = nullptr; this->config_.active_slider = nullptr;
         this->config_.collapsed = false;
         auto& focus = this->config_.focus;
@@ -86,6 +86,7 @@ namespace xiui
                 add("settings-mode", this->SettingsModeBounds(), 8, this->config_.basic ? "Advanced Settings" : "Basic Settings");
             if (!this->config_.collapsed)
                 add("edit-mode", layout.EditModeButton(), 9, this->config_.edit_mode ? "Edit Mode ON: show all enabled modules. Confirm turns previews off." : "Edit Mode OFF: show live modules and the selected preview. Confirm previews all enabled modules.");
+            add("language", layout.Language(), 10, "Language / \xE6\x97\xA5\xE6\x9C\xAC\xE8\xAA\x9E");
             add("input", layout.InputMode(), 0, "Input mode: Auto, Keyboard & Mouse, or Controller. Both devices remain available.");
             add("attribution", layout.HeaderAction(), 1, "Attribution");
             add("collapse", layout.HeaderAction(1), 2, this->config_.collapsed ? "Expand configuration" : "Collapse to title bar");
@@ -180,7 +181,7 @@ namespace xiui
                 {
                     for (size_t part = 0; part < option.choice_count; ++part)
                     {
-                        const std::string help = std::string{option.choices[part]} + (option.button_toggles[part] ? ": ON. " : ": OFF. ") + option.description;
+                        const auto help = i18n::Format("%s: %s. %s", option.ChoiceText(part), i18n::Text(option.button_toggles[part] ? "ON" : "OFF"), i18n::Text(option.description));
                         add(part == 0 ? id : id + "/" + std::to_string(part), ui::config_layout::ToggleButton(row, part, option.choice_count), index, help.c_str(), part);
                     }
                 }
@@ -391,7 +392,8 @@ namespace xiui
         }
         else if (area == region::utilities)
         {
-            if (item.index == 0) { this->config_.input_mode_menu = true; this->config_.input_mode_selection = this->general_.InputMode(); }
+            if (item.index == 0) this->OpenHeaderMenu(false);
+            else if (item.index == 10) this->OpenHeaderMenu(true);
             else if (item.index == 1)
             { this->SetBasicSettings(false); this->config_.collapsed = false; this->SelectConfigModule(&this->general_); this->config_.section = general_module::attribution_section; }
             else if (item.index == 2) { this->config_.collapsed = !this->config_.collapsed; this->CloseProfileControls(); }
@@ -421,16 +423,16 @@ namespace xiui
         const auto modal = this->profile_name_.Focused() ? "profile/" + std::to_string(static_cast<int>(this->profile_dialog_)) :
             this->config_.active_color != nullptr ? std::string{"color"} : std::string{};
         if (focus.modal_id != modal) { focus.modal_id = modal; focus.modal_item = 0; }
-        if (this->config_.input_mode_menu)
+        if (this->config_.header_menu_open)
         {
-            if (value == action::cancel) this->config_.input_mode_menu = false;
+            if (value == action::cancel) this->config_.header_menu_open = false;
             else if (value == action::up || value == action::down)
             {
-                const auto previous = this->config_.input_mode_selection;
-                this->config_.input_mode_selection = static_cast<size_t>(std::clamp(static_cast<int>(this->config_.input_mode_selection) + Direction(value), 0, 2));
-                if (previous != this->config_.input_mode_selection) this->ui_sounds_.Play(ui::native_ui_sound::hover);
+                const auto previous = this->config_.header_menu_selection;
+                this->config_.header_menu_selection = static_cast<size_t>(std::clamp(static_cast<int>(this->config_.header_menu_selection) + Direction(value), 0, this->config_.language_menu ? 1 : 2));
+                if (previous != this->config_.header_menu_selection) this->ui_sounds_.Play(ui::native_ui_sound::hover);
             }
-            else if (value == action::confirm) { this->general_.SetInputMode(static_cast<int>(this->config_.input_mode_selection)); this->SaveSettings(); this->config_.input_mode_menu = false; }
+            else if (value == action::confirm) this->ApplyHeaderSelection();
             return true;
         }
         if (this->config_.choice_input.Opened())
@@ -595,52 +597,85 @@ namespace xiui
         return true;
     }
 
-    auto hud_runtime::InputModeControlTarget(const D3DVIEWPORT8& viewport) const -> uint64_t
+    auto hud_runtime::OpenHeaderMenu(const bool language) -> void
+    {
+        const bool close = this->config_.header_menu_open && this->config_.language_menu == language;
+        this->FinishConfigInput(true, false); this->CloseSettingsSearch();
+        this->CloseProfileControls(); this->CloseChoiceInput();
+        this->config_.active_color = nullptr; this->config_.active_slider = nullptr;
+        this->config_.language_menu = language;
+        this->config_.header_menu_open = !close;
+        this->config_.header_menu_selection = language ? static_cast<size_t>(this->language_) : this->general_.InputMode();
+    }
+
+    auto hud_runtime::ApplyHeaderSelection() -> void
+    {
+        const auto selected = this->config_.header_menu_selection;
+        if (this->config_.language_menu && selected < std::size(i18n::language_codes))
+        {
+            this->language_ = static_cast<i18n::language>(selected);
+            this->config_.search_entries.clear(); this->config_.search_matches.clear();
+            this->config_.tooltip.clear();
+        }
+        else if (!this->config_.language_menu && selected < std::size(general_module::input_modes))
+            this->general_.SetInputMode(static_cast<int>(selected));
+        this->config_.header_menu_open = false;
+        this->SaveSettings();
+    }
+
+    auto hud_runtime::HeaderControlTarget(const D3DVIEWPORT8& viewport) const -> uint64_t
     {
         UNREFERENCED_PARAMETER(viewport);
         if (!this->visible_ || !this->editing_) return 0;
         const auto layout = this->ConfigLayout();
-        if (Contains(layout.InputMode(), static_cast<float>(this->mouse_x_), static_cast<float>(this->mouse_y_))) return 0xD100000000000001ULL;
-        if (this->config_.input_mode_menu)
-            for (size_t index = 0; index < 3; ++index)
-                if (Contains(layout.InputModeRow(index), static_cast<float>(this->mouse_x_), static_cast<float>(this->mouse_y_))) return 0xD100000000000010ULL + index;
+        const float x = static_cast<float>(this->mouse_x_), y = static_cast<float>(this->mouse_y_);
+        if (Contains(layout.InputMode(), x, y)) return 0xD100000000000001ULL;
+        if (Contains(layout.Language(), x, y)) return 0xD100000000000002ULL;
+        if (this->config_.header_menu_open)
+            for (size_t index = 0; index < (this->config_.language_menu ? 2u : 3u); ++index)
+                if (Contains(layout.HeaderMenuRow(index, this->config_.language_menu), x, y)) return 0xD100000000000010ULL + index;
         return 0;
     }
 
-    auto hud_runtime::ProcessInputModeClick(const D3DVIEWPORT8& viewport) -> bool
+    auto hud_runtime::ProcessHeaderControlClick(const D3DVIEWPORT8& viewport) -> bool
     {
-        const auto target = this->InputModeControlTarget(viewport);
-        if (target == 0xD100000000000001ULL)
-        {
-            this->FinishConfigInput(true, false); this->CloseProfileControls(); this->CloseChoiceInput();
-            this->config_.active_color = nullptr; this->config_.input_mode_menu = !this->config_.input_mode_menu;
-            this->config_.input_mode_selection = this->general_.InputMode(); return true;
-        }
-        if (!this->config_.input_mode_menu) return false;
-        if (target >= 0xD100000000000010ULL && target <= 0xD100000000000012ULL)
-        { this->general_.SetInputMode(static_cast<int>(target - 0xD100000000000010ULL)); this->SaveSettings(); }
-        this->config_.input_mode_menu = false;
+        const auto target = this->HeaderControlTarget(viewport);
+        if (target == 0xD100000000000001ULL || target == 0xD100000000000002ULL)
+        { this->OpenHeaderMenu(target == 0xD100000000000002ULL); return true; }
+        if (!this->config_.header_menu_open) return false;
+        if (target >= 0xD100000000000010ULL && target < 0xD100000000000010ULL + (this->config_.language_menu ? 2u : 3u))
+        { this->config_.header_menu_selection = static_cast<size_t>(target - 0xD100000000000010ULL); this->ApplyHeaderSelection(); }
+        else this->config_.header_menu_open = false;
         return true;
     }
 
-    auto hud_runtime::DrawInputModeControl(const D3DVIEWPORT8& viewport) -> void
+    auto hud_runtime::DrawHeaderControls(const D3DVIEWPORT8& viewport) -> void
     {
         const auto layout = this->ConfigLayout();
-        const auto target = this->InputModeControlTarget(viewport);
+        const auto target = this->HeaderControlTarget(viewport);
         const int mode = this->general_.InputMode();
         const char* label = mode == 0 ? (this->ControllerPresented() ? "Auto: Controller" : "Auto: Keyboard") : general_module::input_modes[mode];
         this->config_controls_.IconButton(layout.InputMode(), this->ControllerPresented() ? ui::icon_glyph::controller : ui::icon_glyph::keyboard,
-            this->config_.input_mode_menu || target == 0xD100000000000001ULL);
-        if (target == 0xD100000000000001ULL && !this->config_.input_mode_menu)
+            (this->config_.header_menu_open && !this->config_.language_menu) || target == 0xD100000000000001ULL);
+        this->config_controls_.IconButton(layout.Language(), ui::icon_glyph::language,
+            (this->config_.header_menu_open && this->config_.language_menu) || target == 0xD100000000000002ULL);
+        if (target == 0xD100000000000001ULL && !this->config_.header_menu_open)
         {
-            this->config_.tooltip = std::string{"Input mode: "} + label;
+            this->config_.tooltip = std::string{i18n::Text("Input mode: ")} + i18n::Text(label);
             this->config_.tooltip_anchor = layout.InputMode();
         }
-        if (!this->config_.input_mode_menu) return;
-        this->config_controls_.Panel(layout.InputModeMenu());
-        for (size_t index = 0; index < 3; ++index)
-            this->config_controls_.NavigationItem(layout.InputModeRow(index), general_module::input_modes[index], static_cast<size_t>(mode) == index,
-                target == 0xD100000000000010ULL + index || (this->config_.focus.active && this->config_.input_mode_selection == index));
+        if (target == 0xD100000000000002ULL && !this->config_.header_menu_open)
+        {
+            this->config_.tooltip = i18n::Text("Language / \xE6\x97\xA5\xE6\x9C\xAC\xE8\xAA\x9E");
+            this->config_.tooltip_anchor = layout.Language();
+        }
+        if (!this->config_.header_menu_open) return;
+        this->config_controls_.Panel(layout.HeaderMenu(this->config_.language_menu));
+        const size_t selected = this->config_.language_menu ? static_cast<size_t>(this->language_) : static_cast<size_t>(mode);
+        for (size_t index = 0; index < (this->config_.language_menu ? 2u : 3u); ++index)
+            this->config_controls_.NavigationItem(layout.HeaderMenuRow(index, this->config_.language_menu),
+                this->config_.language_menu ? i18n::language_names[index] : i18n::Text(general_module::input_modes[index]), selected == index,
+                target == 0xD100000000000010ULL + index || (this->config_.focus.active && this->config_.header_menu_selection == index));
     }
 
     auto hud_runtime::DrawControllerInputStatus(void) -> void
@@ -657,9 +692,9 @@ namespace xiui
             status.connection_known && !status.connected ? "Runtime ready. Connect a controller to test navigation." :
             !status.bindings_known ? "Runtime ready. Waiting for a verified controller mapping; use /xiuiplus focus config to enter." :
             "XIUI+ controller runtime ready. Enter with /xiuiplus focus config.";
-        this->config_controls_.Text(readiness, {area.x + 4, y, area.width - 8, 20}, style);
-        this->config_controls_.Text("Change region: Next / Previous tab. Navigate: D-pad. Activate: Confirm. Back: Cancel.", {area.x + 4, y + 22, area.width - 8, 20}, style);
-        this->config_controls_.Text("Text and profile names accept keyboard input. Controller-only typing is still pending.", {area.x + 4, y + 44, area.width - 8, 20}, style);
+        this->config_controls_.Text(i18n::Text(readiness), {area.x + 4, y, area.width - 8, 20}, style);
+        this->config_controls_.Text(i18n::Text("Change region: Next / Previous tab. Navigate: D-pad. Activate: Confirm. Back: Cancel."), {area.x + 4, y + 22, area.width - 8, 20}, style);
+        this->config_controls_.Text(i18n::Text("Text and profile names accept keyboard input. Controller-only typing is still pending."), {area.x + 4, y + 44, area.width - 8, 20}, style);
     }
 
     auto hud_runtime::DrawControllerConfig(const D3DVIEWPORT8& viewport) -> void
@@ -726,7 +761,7 @@ namespace xiui
             bounds = this->config_.search_matches.empty() || this->config_.search_expansion < 1 ? this->SettingsSearchBounds() : search.Row(this->config_.search_selection - this->config_.search_scroll);
             legend = "Keyboard: type search   Directions: results   Confirm: open   Actions: clear   Cancel: close";
         }
-        else if (this->config_.input_mode_menu) bounds = this->ConfigLayout().InputModeRow(this->config_.input_mode_selection);
+        else if (this->config_.header_menu_open) bounds = this->ConfigLayout().HeaderMenuRow(this->config_.header_menu_selection, this->config_.language_menu);
         else
         {
             const auto items = this->ControllerConfigItems(focus.region);
@@ -744,7 +779,7 @@ namespace xiui
             if (footer.width < 500) legend = focus.adjusting ? "Left/Right: adjust   Confirm: done" : "Confirm: select   Cancel: back";
             this->FillRect(footer, this->design_system_.GetTheme().colors.surface);
             const auto clip = this->design_system_.Clip(footer);
-            this->config_controls_.Text(legend, footer, style);
+            this->config_controls_.Text(i18n::Text(legend), footer, style);
         }
         if (bounds.width > 0 && bounds.height > 0) this->design_system_.DrawFocusFrame(bounds, this->general_.FocusStyle());
     }

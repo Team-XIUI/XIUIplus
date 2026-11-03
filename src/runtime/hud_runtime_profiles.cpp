@@ -645,8 +645,8 @@ namespace xiui
                 const auto row = this->ConfigLayout().ProfileActionRow(i);
                 const bool available = this->ProfileActionAvailable(i);
                 this->config_controls_.NavigationItem(row, ui::profile_actions[i], i == this->profile_keyboard_selection_, Contains(row, x, y), available);
-                if (!available && Contains(row, x, y)) this->config_controls_.Tooltip(!this->profiles_.Ready() ? "Profiles are unavailable." :
-                    i == ui::profile_rename_action ? "Default cannot be renamed." : "Default cannot be deleted.", row, viewport);
+                if (!available && Contains(row, x, y)) this->config_controls_.Tooltip(!this->profiles_.Ready() ? i18n::Text("Profiles are unavailable.") :
+                    i == ui::profile_rename_action ? i18n::Text("Default cannot be renamed.") : i18n::Text("Default cannot be deleted."), row, viewport);
             }
         }
         if (this->profile_dropdown_)
@@ -658,7 +658,7 @@ namespace xiui
                 if (index >= this->profiles_.Entries().size()) break;
                 const auto bounds = this->ConfigLayout().ProfileRow(row, this->profiles_.Entries().size());
                 this->config_controls_.NavigationItem(bounds, this->profiles_.Entries()[index].name.c_str(), index == this->profiles_.Selected(),
-                    Contains(bounds, x, y) || index == this->profile_keyboard_selection_);
+                    Contains(bounds, x, y) || index == this->profile_keyboard_selection_, true, false);
             }
         }
         if (!this->profile_name_.Focused())
@@ -689,13 +689,13 @@ namespace xiui
         const auto warningColor = ui::button_renderer::FaceColor(theme, true, ui::button_tone::danger);
         if (warning) title.top_color = title.bottom_color = warningColor;
         const auto warningTitle = warning ? this->profile_name_.Editor().Text() + "?" : std::string{};
-        this->config_controls_.Text(moduleReset ? "THIS WILL RESET ALL SETTINGS!" : warning ? warningTitle.c_str() : resetting ? "Reset to defaults?" : confirming ? "Apply changes?" : deleting ? "Delete profile?" : sharing ? "Share profile" : importing ? "Import profile" : duplicate ? "Duplicate profile" : renaming ? "Rename profile" : "Create profile",
+        this->config_controls_.Text(moduleReset ? i18n::Text("THIS WILL RESET ALL SETTINGS!") : warning ? warningTitle.c_str() : resetting ? i18n::Text("Reset to defaults?") : confirming ? i18n::Text("Apply changes?") : deleting ? i18n::Text("Delete profile?") : sharing ? i18n::Text("Share profile") : importing ? i18n::Text("Import profile") : duplicate ? i18n::Text("Duplicate profile") : renaming ? i18n::Text("Rename profile") : i18n::Text("Create profile"),
             dialog.Title(), title);
         const char* help = confirming ? this->confirmation_message_.c_str() : deleting ? "Delete this profile and switch to Default?" : sharing ? "Save a profile file, then attach it to your message." : importing ? "Choose a profile file or an XIUI Lua setup to import." :
             duplicate ? "Copy the selected profile into a separate setup." : renaming ? "Choose a new name for this profile." : "Start with your current layout and module settings.";
         if (warning)
         {
-            std::string_view remaining{help};
+            std::string_view remaining{i18n::Text(help)};
             auto line = dialog.Help();
             while (!remaining.empty())
             {
@@ -711,8 +711,8 @@ namespace xiui
         }
         else
         {
-            this->config_controls_.Text(help, dialog.Help(), caption);
-            this->config_controls_.Text(resetting ? "Scope" : confirming ? "Selection" : "Profile name", dialog.NameLabel(), extended ? caption : body);
+            this->config_controls_.Text(i18n::Text(help), dialog.Help(), caption);
+            this->config_controls_.Text(resetting ? i18n::Text("Scope") : confirming ? i18n::Text("Selection") : i18n::Text("Profile name"), dialog.NameLabel(), extended ? caption : body);
         }
         if (!warning && (sharing || deleting || confirming))
         {
@@ -728,10 +728,10 @@ namespace xiui
             {
                 auto sourceStyle = caption; sourceStyle.alignment = ui::text_alignment::center;
                 if (busy) sourceStyle.top_color = sourceStyle.bottom_color = (sourceStyle.top_color & 0x00FFFFFF) | 0x80000000;
-                this->config_controls_.Button(dialog.ImportSource(0), "Profile file", sourceStyle, !busy);
-                this->config_controls_.Button(dialog.ImportSource(1), "XIUI Lua", sourceStyle, !busy && Contains(dialog.ImportSource(1), x, y));
+                this->config_controls_.Button(dialog.ImportSource(0), i18n::Text("Profile file"), sourceStyle, !busy);
+                this->config_controls_.Button(dialog.ImportSource(1), i18n::Text("XIUI Lua"), sourceStyle, !busy && Contains(dialog.ImportSource(1), x, y));
             }
-            else this->config_controls_.Text("Profile file", dialog.SourceLabel(), caption);
+            else this->config_controls_.Text(i18n::Text("Profile file"), dialog.SourceLabel(), caption);
             const auto source = dialog.Source();
             this->design_system_.FillRoundedRect(source, (theme.colors.chrome & 0x00FFFFFF) | 0xE0000000, 4);
             const float inset = importing ? 136.0f : 12.0f;
@@ -740,31 +740,31 @@ namespace xiui
                 this->profile_legacy_import_ ? std::string{"Legacy share key"} : sharing ? std::string{"Ready to export as .xiui"} : std::string{"No file selected"};
             const auto fitted = ui::FitText(this->design_system_, filename, fileBounds.width, this->config_controls_.Style(body));
             this->config_controls_.Text(fitted.c_str(), fileBounds, body);
-            this->config_controls_.Text(sharing ? "Includes your layout and module settings." : "Imports as a separate profile; existing profiles are kept.",
+            this->config_controls_.Text(sharing ? i18n::Text("Includes your layout and module settings.") : i18n::Text("Imports as a separate profile; existing profiles are kept."),
                 {source.x + 12, source.y + 50, source.width - 24, 24}, caption);
             const char* status = busy ? (this->profile_transfer_.Selecting() ? "Choose a file in Windows, or Cancel here." : sharing ? "Saving profile..." : "Reading profile...") : sharing ? (this->profile_file_.empty() ? "Choose Save file to export your profile." : "File saved. Attach it to share your profile.") :
                 this->profile_import_ ? "Profile ready. Choose a name above, then Import." : "Choose a .xiui file, or press Ctrl+O.";
-            this->config_controls_.Text(status, dialog.Status(), caption);
+            this->config_controls_.Text(i18n::Text(status), dialog.Status(), caption);
             auto action = body; action.alignment = ui::text_alignment::center;
             if (importing)
             {
                 if (busy) action.top_color = action.bottom_color = (action.top_color & 0x00FFFFFF) | 0x80000000;
-                this->config_controls_.Button(dialog.Browse(), "Choose file", action, !busy && Contains(dialog.Browse(), x, y));
-                this->config_controls_.Button(dialog.Paste(), "Paste old key", action, !busy && Contains(dialog.Paste(), x, y));
+                this->config_controls_.Button(dialog.Browse(), i18n::Text("Choose file"), action, !busy && Contains(dialog.Browse(), x, y));
+                this->config_controls_.Button(dialog.Paste(), i18n::Text("Paste old key"), action, !busy && Contains(dialog.Paste(), x, y));
             }
         }
         if (!this->profile_error_.empty())
         {
             auto error = caption; error.top_color = 0xFFFFA0A0;
-            this->config_controls_.Text(this->profile_error_.c_str(), dialog.Error(), error);
+            this->config_controls_.Text(i18n::Text(this->profile_error_.c_str()), dialog.Error(), error);
         }
-        else if (deleting) this->config_controls_.Text("This cannot be undone.", dialog.Error(), caption);
+        else if (deleting) this->config_controls_.Text(i18n::Text("This cannot be undone."), dialog.Error(), caption);
         auto button = body; button.alignment = ui::text_alignment::center;
-        this->config_controls_.Button(dialog.Cancel(), sharing && !busy ? "Close" : "Cancel", button,
+        this->config_controls_.Button(dialog.Cancel(), sharing && !busy ? i18n::Text("Close") : i18n::Text("Cancel"), button,
             Contains(dialog.Cancel(), x, y) || ((deleting || confirming) && this->profile_keyboard_selection_ == 0));
         const bool available = !busy && (!importing || this->profile_import_.has_value());
         if (!available) button.top_color = button.bottom_color = (button.top_color & 0x00FFFFFF) | 0x80000000;
-        this->config_controls_.Button(dialog.Create(), moduleReset ? "Reset settings" : warning ? confirmationOption.action_text : resetting ? "Reset" : confirming ? "Apply" : deleting ? "Delete" : sharing ? "Save file" : importing ? "Import" : duplicate ? "Duplicate" : renaming ? "Rename" : "Create", button,
+        this->config_controls_.Button(dialog.Create(), moduleReset ? i18n::Text("Reset settings") : warning ? i18n::Text(confirmationOption.action_text) : resetting ? i18n::Text("Reset") : confirming ? i18n::Text("Apply") : deleting ? i18n::Text("Delete") : sharing ? i18n::Text("Save file") : importing ? i18n::Text("Import") : duplicate ? i18n::Text("Duplicate") : renaming ? i18n::Text("Rename") : i18n::Text("Create"), button,
             available && (Contains(dialog.Create(), x, y) || ((deleting || confirming) && this->profile_keyboard_selection_ == 1)),
             deleting || resetting || warning ? ui::button_tone::danger : ui::button_tone::normal);
         this->config_controls_.IconButton(dialog.Close(), ui::icon_glyph::close, Contains(dialog.Close(), x, y));

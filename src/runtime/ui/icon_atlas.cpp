@@ -119,6 +119,10 @@ namespace xiui::ui
                 p.Begin(10, 10); p.Line(14, 14); p.End(); break;
             case icon_glyph::search:
                 p.Circle(10, 10, 6); p.Begin(14.5f, 14.5f); p.Line(21, 21); p.End(); break;
+            case icon_glyph::language:
+                p.Circle(12, 12, 9);
+                p.Begin(3, 12); p.Line(21, 12); p.End();
+                p.Begin(12, 3); p.Curve(5, 8, 5, 16, 12, 21); p.Curve(19, 16, 19, 8, 12, 3); p.End(); break;
             case icon_glyph::world:
                 p.Circle(12, 12, 9); p.Begin(12, 6); p.Line(12, 12); p.Line(16, 14); p.End(); break;
             case icon_glyph::minimap:

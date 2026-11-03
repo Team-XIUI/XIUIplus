@@ -6,14 +6,14 @@ namespace xiui
 {
     struct native_target_selection
     {
-        bool action_target{}, subtarget{};
-        uint32_t action_id{};
+        bool subtarget{};
+        uintptr_t action_callback{}, cancel_callback{};
     };
 
     inline auto NativeTargetSelectionActive(const native_target_selection& state) -> bool
     {
-        // The client can retain the action flag after clearing its pending ID.
-        return state.subtarget || (state.action_target && state.action_id != UINT32_MAX);
+        // Action flags and IDs can outlive selection; the client clears its callbacks on completion.
+        return state.subtarget || state.action_callback != 0 || state.cancel_callback != 0;
     }
 
     template<typename Memory>
@@ -21,7 +21,7 @@ namespace xiui
     {
         const auto* target = memory != nullptr ? memory->GetTarget() : nullptr;
         if (target == nullptr) return false;
-        return NativeTargetSelectionActive(native_target_selection{target->GetActionTargetActive() != 0,
-            target->GetIsSubTargetActive() != 0, target->GetActionId()});
+        return NativeTargetSelectionActive(native_target_selection{target->GetIsSubTargetActive() != 0,
+            target->GetActionCallback(), target->GetCancelCallback()});
     }
 }

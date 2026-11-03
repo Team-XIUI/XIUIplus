@@ -1,3 +1,8 @@
+add_executable(xiui_localization_smoke tests/localization_smoke.cpp src/runtime/settings/settings_store.cpp)
+configure_xiui_target(xiui_localization_smoke)
+set_target_properties(xiui_localization_smoke PROPERTIES RUNTIME_OUTPUT_DIRECTORY "${CMAKE_SOURCE_DIR}/bin/tests")
+add_test(NAME xiui_localization_smoke COMMAND xiui_localization_smoke)
+
 add_executable(xiui_single_dll_smoke tests/single_dll_smoke.cpp)
 configure_xiui_target(xiui_single_dll_smoke)
 set_target_properties(xiui_single_dll_smoke PROPERTIES RUNTIME_OUTPUT_DIRECTORY "${CMAKE_SOURCE_DIR}/bin/tests")

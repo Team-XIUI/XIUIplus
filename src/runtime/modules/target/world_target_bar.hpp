@@ -1,3 +1,4 @@
+#include "localization/localization.hpp"
 #pragma once
 
 #include "modules/module.hpp"
@@ -51,7 +52,7 @@ namespace xiui
             auto bounds = this->bar_.scale_state.bounds;
             bounds.width = this->bar_.width; bounds.height = this->bar_.meter.height + 20;
             this->bar_.scale_state.bounds.width = bounds.width; this->bar_.scale_state.bounds.height = bounds.height;
-            context.DrawMeter(bounds, "World Target", "75%", .75f, this->bar_.fill_top, this->bar_.fill_bottom,
+            context.DrawMeter(bounds, i18n::Text("World Target"), "75%", .75f, this->bar_.fill_top, this->bar_.fill_bottom,
                 this->bar_.meter, this->bar_.animation, false, &this->bar_.text[0], &this->bar_.text[1]);
         }
     private:

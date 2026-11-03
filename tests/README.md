@@ -12,6 +12,8 @@ The wrapper builds only the selected target, then runs its catalogued arguments.
 
 ## Useful starting points
 
+- Localization: `localization` (English/Japanese lookup and fallback, reported settings/dialog labels, consistent numbered Hotbar captions, unchanged HP/MP/TP abbreviations, UTF-8 paragraph wrapping, local-only persistence and header geometry). CMake also validates source message coverage, catalogs and format arguments. `python tests/localization_sources_test.py` checks the source scanner's metadata, UTF-8 literals and user-content boundary.
+
 - Global XIV 1.0 appearance: `xiv1-theme` (persistence, native Window Type isolation, controller access and text fade preservation).
 
 - Explicit Edit Mode: `edit-mode` (live visibility, selected previews, hover controls, hidden input targets and shared toggle).
@@ -21,6 +23,7 @@ The wrapper builds only the selected target, then runs its catalogued arguments.
 - Complete captured setups: `hud-presets` (all preferences, Party-only Classic differences, independent reset baseline).
 - Edit-mode module resets: `module-menu` (shared dropdown, owned clicks, scoped resets and Cancel-first confirmation).
 - Config controls/input: `config-ui`, `choice-arrows`, `element-tabs`, `input-mode`.
+- Native macros: `xiui_native_hud_target_smoke --macros-only` checks execution suppression, instant palette timing, patch ownership, conflicts and restoration; `xiui_actionbars_ui_smoke --input-ownership-only` checks the saved preference and replacement routing alongside input ownership.
 - Config geometry: `config-resize`, `config-sidebar`, `scrollbar`; lookup: `settings-search`.
 - Config navigation memory: `config-memory` (mode, last page, scroll and window placement through close/reopen and reload).
 - Text: `config-text`, `global-text`, `text-rasterization`.
@@ -32,6 +35,7 @@ The wrapper builds only the selected target, then runs its catalogued arguments.
 - Fishing: `fishing` (module, Extras, controller settings and persistence), `native-fishing` (validated stamina reads with party suppression active).
 - Other feature boundaries: `all-ui-visibility`, `target-rings`, `notification-feedback`, `heal-prediction`, `experience-model`. See `-List` and the dispatcher for the rest.
 - Target of Target theme defaults: `target-recipient-theme` (XIV 1.0 stacking, XI inline layout, explicit configuration choices and persistence).
+- Spell effects and target timers: `xiui_module_parity_smoke --spell-statuses-only` (all imported spell rules and packet variants), `--status-timers-only` (large countdown layout) and `--hud-parity-only` (shared HUD regressions).
 - World ring cameras: `target-ring-camera` exercises the host on an isolated Direct3D device with fixed-function and terrain-shader cameras, scene-end/copy boundaries, early-label rejection, frame lifetime and opt-in shader report saving/grouping/automatic completion.
 
 The dispatcher is [config_input_smoke.cpp](config_input_smoke.cpp). Fixture declarations live in [config_input_fixture.hpp](config_input_fixture.hpp), helpers in [config_check_support.cpp](config_check_support.cpp), and feature methods in `config_control_checks.cpp`, `config_navigation_checks.cpp`, `config_module_checks.cpp`, `config_profile_checks.cpp`, `config_render_checks.cpp` and `config_text_checks.cpp`. Existing specialized `*_checks.cpp` files remain separate. Keep new implementations with their feature rather than expanding the dispatcher.

@@ -102,13 +102,13 @@ namespace xiui
         metrics.button_height = std::ceil(design.TextHeight(style(0.76f, true)));
         metrics.sidebar_width = 128;
         for (const auto* label : {"All actions", "Spells", "Abilities", "Weapon skills", "Items", "Equipment", "Pet commands", "Macros", "Commands"})
-            metrics.sidebar_width = std::max(metrics.sidebar_width, std::ceil(design.MeasureText(label, style(0.72f, true))) + 24);
-        metrics.filter_width = std::ceil(std::max(design.MeasureText("Your actions", style(0.76f, true)), design.MeasureText("All actions", style(0.76f, true)))) + 24;
-        metrics.search_with_shortcut_width = std::ceil(design.MeasureText("Search actions and macros...", style(0.76f)) + design.MeasureText("Ctrl+F", style(0.64f))) +
+            metrics.sidebar_width = std::max(metrics.sidebar_width, std::ceil(design.MeasureText(i18n::Text(label), style(0.72f, true))) + 24);
+        metrics.filter_width = std::ceil(std::max(design.MeasureText(i18n::Text("Your actions"), style(0.76f, true)), design.MeasureText(i18n::Text("All actions"), style(0.76f, true)))) + 24;
+        metrics.search_with_shortcut_width = std::ceil(design.MeasureText(i18n::Text("Search actions and macros..."), style(0.76f)) + design.MeasureText("Ctrl+F", style(0.64f))) +
             design.GetTheme().spacing.sm * 2 + design.GetTheme().spacing.md + 12;
         metrics.create_width = 96;
         for (const auto* label : {"New macro", "Single command", "Game macro"})
-            metrics.create_width = std::max(metrics.create_width, std::ceil(design.MeasureText(label, style(0.76f, true))) + 24);
+            metrics.create_width = std::max(metrics.create_width, std::ceil(design.MeasureText(i18n::Text(label), style(0.76f, true))) + 24);
         if (this->dialog_ == dialog::picker) this->SetScroll(static_cast<int>(this->result_scroll_));
     }
 

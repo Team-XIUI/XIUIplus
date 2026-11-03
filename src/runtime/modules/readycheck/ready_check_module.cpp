@@ -345,24 +345,23 @@ namespace xiui
         const auto content = context.DrawContainer(bounds, settings.container);
         const auto draw = [&](const std::string& text, const ui::rect& at, size_t profile) { context.DrawText(text.c_str(), at, at, settings.text[profile]); };
         const auto remaining = preview ? uint64_t{30} : this->check_.Remaining(::GetTickCount64());
-        const auto timer = this->check_.Completed() ? std::string{"Complete"} : std::to_string(remaining) + "s";
+        const auto timer = this->check_.Completed() ? std::string{i18n::Text("Complete")} : std::to_string(remaining) + "s";
         const float timerWidth = context.Design().MeasureText(timer.c_str(), settings.text[3].style) + 8;
-        draw("READY CHECK", {content.x, content.y, std::max(0.0f, content.width - timerWidth), headingHeight}, 0);
+        draw(i18n::Text("READY CHECK"), {content.x, content.y, std::max(0.0f, content.width - timerWidth), headingHeight}, 0);
         auto timerStyle = settings.text[3]; timerStyle.style.alignment = ui::text_alignment::right;
         const ui::rect timerBounds{content.x + content.width - timerWidth, content.y, timerWidth, headingHeight};
         context.DrawText(timer.c_str(), timerBounds, timerBounds, timerStyle);
         float y = content.y + headingHeight + 6;
         if (prompt)
         {
-            draw(this->check_.Sender() + " asks: are you ready?", {content.x, y, content.width, detailsHeight}, 1);
-            draw("Choose Yes or No, or reply in party chat.", {content.x, y + detailsHeight + 4, content.width, detailsHeight}, 3);
+            draw(i18n::Format("%s asks: are you ready?", this->check_.Sender().c_str()), {content.x, y, content.width, detailsHeight}, 1);
+            draw(i18n::Text("Choose Yes or No, or reply in party chat."), {content.x, y + detailsHeight + 4, content.width, detailsHeight}, 3);
         }
         else
         {
             const auto ready = preview ? size_t{2} : this->check_.Count(ready_response::ready);
             const auto no = preview ? size_t{1} : this->check_.Count(ready_response::not_ready) + this->check_.Count(ready_response::no_response);
-            draw("Ready " + std::to_string(ready) + "/" + std::to_string(members.size()) + "   Not ready " + std::to_string(no) +
-                "   Waiting " + std::to_string(members.size() - ready - no), {content.x, y, content.width, detailsHeight}, 3);
+            draw(i18n::Format("Ready %zu/%zu   Not ready %zu   Waiting %zu", ready, members.size(), no, members.size() - ready - no), {content.x, y, content.width, detailsHeight}, 3);
             y += detailsHeight + 6;
             const float columnWidth = (content.width - gap * (columns - 1)) / columns;
             size_t column{};
@@ -371,7 +370,7 @@ namespace xiui
                 if (counts[group] == 0) continue;
                 const float x = content.x + column++ * (columnWidth + gap);
                 float rowY = y;
-                if (columns > 1) { draw("Party " + std::to_string(group + 1), {x, rowY, columnWidth, detailsHeight}, 3); rowY += detailsHeight + 6; }
+                if (columns > 1) { draw(i18n::Format("Party %zu", group + 1), {x, rowY, columnWidth, detailsHeight}, 3); rowY += detailsHeight + 6; }
                 for (size_t row = 0; row < counts[group]; ++row)
                 {
                     const auto* member = parties[group][row];
@@ -393,10 +392,10 @@ namespace xiui
                     auto responseStyle = TintTextProfile(settings.text[2], response == ready_response::ready ? settings.ready :
                         response == ready_response::pending ? settings.pending : settings.no);
                     responseStyle.style.alignment = ui::text_alignment::right;
-                    const float responseWidth = context.Design().MeasureText("No response", responseStyle.style) + 8;
+                    const float responseWidth = context.Design().MeasureText(i18n::Text("No response"), responseStyle.style) + 8;
                     draw(member->name, {nameX, rowY, std::max(0.0f, x + columnWidth - responseWidth - nameX), rowHeight - settings.row_spacing}, 1);
                     const ui::rect at{x + columnWidth - responseWidth, rowY, responseWidth, rowHeight - settings.row_spacing};
-                    context.DrawText(label, at, at, responseStyle);
+                    context.DrawText(i18n::Text(label), at, at, responseStyle);
                     rowY += rowHeight;
                 }
             }
@@ -407,7 +406,7 @@ namespace xiui
         this->buttons_[0] = {prompt ? content.x : content.x + (content.width - buttonWidth) * 0.5f, buttonY, buttonWidth, buttonHeight};
         if (prompt) this->buttons_[1] = {content.x + buttonWidth + 12, buttonY, buttonWidth, buttonHeight};
         for (size_t i = 0; i < (prompt ? size_t{2} : size_t{1}); ++i)
-            context.DrawButton(this->buttons_[i], prompt ? i == 0 ? "Yes" : "No" : "Close",
+            context.DrawButton(this->buttons_[i], i18n::Text(prompt ? i == 0 ? "Yes" : "No" : "Close"),
                 !context.IsEditing() && Inside(this->buttons_[i], this->mouse_x_, this->mouse_y_), settings.text[4]);
     }
 }

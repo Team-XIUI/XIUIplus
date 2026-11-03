@@ -1,3 +1,4 @@
+#include "localization/localization.hpp"
 #include "minimap_module.hpp"
 #include "ui/focus_frame.hpp"
 #include "ui/contour.hpp"
@@ -357,7 +358,7 @@ namespace xiui
             if (image.texture == nullptr)
             {
                 const ui::rect message{view.x + 8, center.y - lineHeight / 2, width - 16, lineHeight};
-                context.DrawText(image.loading ? "Loading map..." : "Map unavailable", message, message, this->text_);
+                context.DrawText(image.loading ? i18n::Text("Loading map...") : i18n::Text("Map unavailable"), message, message, this->text_);
             }
             if (this->vision_cone_ && image.texture != nullptr && (live || context.IsEditing()))
             {

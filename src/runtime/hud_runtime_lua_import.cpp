@@ -289,22 +289,22 @@ namespace xiui
         auto caption = theme.caption_text; caption.scale = 0.72f;
         this->design_system_.FillRect(this->config_.bounds, 0x66000000);
         this->config_controls_.Panel(layout.Bounds());
-        this->config_controls_.Text("Import profile", layout.Title(), body);
+        this->config_controls_.Text(i18n::Text("Import profile"), layout.Title(), body);
         const auto x = static_cast<float>(this->mouse_x_), y = static_cast<float>(this->mouse_y_);
         const auto button = [&](const size_t index, const char* label, const bool active = false) {
             auto style = body; style.alignment = ui::text_alignment::center;
             const bool available = this->LuaImportControlAvailable(index);
             if (!available && !active) style.top_color = style.bottom_color = 0x80808080;
-            this->config_controls_.Button(layout.Control(index), label, style, active || (available && Contains(layout.Control(index), x, y)));
+            this->config_controls_.Button(layout.Control(index), i18n::Text(label), style, active || (available && Contains(layout.Control(index), x, y)));
         };
         button(10, "Profile file"); button(11, "XIUI Lua", true);
-        this->config_controls_.Text("XIUI folder or saved profile", layout.PathLabel(), caption);
+        this->config_controls_.Text(i18n::Text("XIUI folder or saved profile"), layout.PathLabel(), caption);
         this->config_controls_.TextInput(layout.Control(5), this->profile_lua_path_);
         button(3, "Browse..."); button(2, "Scan"); button(6, "<"); button(7, ">");
         const auto selection = !this->profile_lua_preview_ ? "No source loaded" : this->profile_lua_selection_ == SIZE_MAX ?
             "All profiles (" + std::to_string(this->profile_lua_preview_->profiles.size()) + ")" : this->profile_lua_preview_->profiles[this->profile_lua_selection_].preview.name;
         this->config_controls_.Text(selection.c_str(), layout.Selection(), body);
-        this->config_controls_.Text(this->profile_lua_selection_ == SIZE_MAX ? "Name prefix for new profiles" : "New profile name", layout.NameLabel(), caption);
+        this->config_controls_.Text(this->profile_lua_selection_ == SIZE_MAX ? i18n::Text("Name prefix for new profiles") : i18n::Text("New profile name"), layout.NameLabel(), caption);
         this->config_controls_.TextInput(layout.Control(4), this->profile_name_);
         button(8, this->profile_lua_activate_ ? "[x] Activate single import" : "[ ] Activate single import");
         button(9, this->profile_lua_links_ ? "[x] Link unassigned chars" : "[ ] Link unassigned chars");
@@ -312,7 +312,7 @@ namespace xiui
         this->profile_lua_report_.Draw(this->design_system_, this->config_controls_, layout.Control(12), this->profile_lua_report_text_, Contains(layout.Control(12), x, y), false,
             "Scan to preview conversions and unsupported settings.");
         const auto* status = this->profile_transfer_.Busy() && this->profile_transfer_.Selecting() ? "Choose a Lua profile in Windows, or Cancel here." : this->profile_lua_status_.c_str();
-        this->config_controls_.Text(status, layout.Status(), caption);
+        this->config_controls_.Text(i18n::Text(status), layout.Status(), caption);
         button(0, this->profile_lua_done_ ? "Close" : "Cancel"); button(1, "Import");
         this->config_controls_.IconButton(layout.Close(), ui::icon_glyph::close, Contains(layout.Close(), x, y));
     }

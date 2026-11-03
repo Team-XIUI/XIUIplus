@@ -47,7 +47,7 @@ namespace xiui
         const float left = bounds.x + 16, right = bounds.x + bounds.width - 28;
         controls.push_back({8000, {left, bounds.y + 44, 46, 28}, "Bar", {}, control_kind::label, false});
         controls.push_back({keybind_bar, {left + 54, bounds.y + 44, right - left - 54, 28},
-            crossbar ? "Crossbar" : "Hotbar " + std::to_string(this->selected_.bar + 1), {}, control_kind::dropdown});
+            crossbar ? "Crossbar" : i18n::Format("Hotbar %zu", this->selected_.bar + 1), {}, control_kind::dropdown});
         if (crossbar)
         {
             const float half = (right - left - 12) / 2;
@@ -66,11 +66,11 @@ namespace xiui
             const size_t slot = scroll + row;
             const float y = bounds.y + (crossbar ? 150 : 116) + static_cast<float>(row) * 32;
             const float bindingX = right - 232;
-            std::string label = crossbar ? slot_names[slot] : "Slot " + std::to_string(slot + 1);
+            std::string label = crossbar ? std::string{i18n::Text(slot_names[slot])} : i18n::Format("Slot %zu", slot + 1);
             if (this->store_ != nullptr)
             {
                 const auto& action = this->store_->Resolve(this->selected_.surface, this->selected_.bar, slot);
-                const auto name = !action.label.empty() ? action.label : !action.name.empty() ? action.name : action.Empty() ? "Empty" : ActionKindName(action.kind);
+                const auto name = !action.label.empty() ? action.label : !action.name.empty() ? action.name : action.Empty() ? i18n::Text("Empty") : i18n::Text(ActionKindName(action.kind));
                 label += "  " + name;
             }
             controls.push_back({8100 + static_cast<int>(slot), {left, y, bindingX - left - 8, 28}, label, {}, control_kind::label, false});

@@ -1,3 +1,4 @@
+#include "localization/localization.hpp"
 #include "pet_module.hpp"
 #include "ui/game_icon_cache.hpp"
 #include "ui/health_colors.hpp"
@@ -322,7 +323,7 @@ namespace xiui
         case 1: return module_option::Toggle("Show this pet type", "Independent visibility for this pet category.", &type.enabled);
         case 2: return module_option::Toggle("HP percent", "Show native pet HP percent without inventing absolute HP.", &type.hp);
         case 3: return module_option::Toggle("MP percent", "Show native MP percent for avatars, spirits and automatons when available.", &type.mp).VisibleWhen(mpType);
-        case 4: return module_option::Toggle("TP", "Show valid native pet TP (0–3000).", &type.tp);
+        case 4: return module_option::Toggle("TP", "Show valid native pet TP (0â€“3000).", &type.tp);
         case 5: return module_option::Toggle("Distance", "Show the native pet distance.", &type.distance);
         case 6: return module_option::Toggle("Job icon fallback", "Use the shared job artwork when pet portrait artwork is unavailable or hidden.", &type.icon).Ordered(-40);
         case 7: return module_option::Toggle("Ability recasts", "Use existing native ability timers and Ready charges.", &type.recasts);
@@ -457,7 +458,7 @@ namespace xiui
         }
         const bool valid = target.id != 0;
         const auto name = valid ? TintTextProfile(settings.text[0], target.color) : settings.text[0];
-        context.DrawText(valid ? target.name.c_str() : "Pet target", at, at, name);
+        context.DrawText(valid ? target.name.c_str() : i18n::Text("Pet target"), at, at, name);
         char distance[32]{};
         if (valid && settings.distance && target.distance_known) std::snprintf(distance, sizeof(distance), "%.1f y", target.distance);
         if (*distance)
@@ -467,7 +468,7 @@ namespace xiui
         }
         char hp[20]{};
         if (settings.percent && valid) std::snprintf(hp, sizeof(hp), "%u%%", target.hp);
-        context.DrawMeter(meter, settings.label ? "HP" : "", hp, valid ? target.hp / 100.0f : 0, settings.top, settings.bottom,
+        context.DrawMeter(meter, settings.label ? i18n::Text("HP") : "", hp, valid ? target.hp / 100.0f : 0, settings.top, settings.bottom,
             settings.meter, main.target_animation_, true, &settings.text[1], &settings.text[1], ui::meter_text_anchor::automatic, ui::meter_text_anchor::automatic, meter_fill_mode::health);
         return height;
     }
@@ -567,7 +568,7 @@ namespace xiui
         const float iconWidth = inlineSize > 0 ? inlineSize + 6 : 0;
         const ui::rect nameAt{x + iconWidth, y, std::max(1.0f, width - iconWidth), heading};
         const auto name = actual ? TintTextProfile(settings.text[0], snapshot.pet.color) : settings.text[0];
-        const auto title = actual ? snapshot.pet.name : std::string{"No active "} + pet_kind_names[static_cast<size_t>(kind)];
+        const auto title = actual ? snapshot.pet.name : i18n::Format("No active %s", i18n::Text(pet_kind_names[static_cast<size_t>(kind)]));
         context.DrawText(title.c_str(), nameAt, nameAt, name); y += heading + settings.spacing;
         for (size_t resource = 0; resource < 3; ++resource)
         {

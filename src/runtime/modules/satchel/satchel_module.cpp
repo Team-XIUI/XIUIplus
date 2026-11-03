@@ -1,7 +1,9 @@
+#include "localization/localization.hpp"
 #include "satchel_module.hpp"
 #include "ui/game_icon_cache.hpp"
 #include "ui/item_slot_frame.hpp"
 #include "ui/text_fit.hpp"
+#include "ui/text_wrap.hpp"
 
 #include "satchel_source.hpp"
 #include "satchel_cache.hpp"
@@ -868,7 +870,7 @@ namespace xiui
             const auto maximum = this->dialog_ == dialog::quantity ?
                 this->action_item_.count - (static_cast<satchel_action>(this->action_) == satchel_action::split ? 1 : 0) : 99999999u;
             if (!Number(this->editor_.Editor().Text(), value) || value > maximum || (this->dialog_ == dialog::quantity && value == 0))
-            { this->message_ = "Enter " + std::to_string(this->dialog_ == dialog::price ? 0 : 1) + " to " + std::to_string(maximum) + "."; return; }
+            { this->message_ = i18n::Format("Enter %u to %u.", static_cast<unsigned>(this->dialog_ == dialog::price ? 0 : 1), static_cast<unsigned>(maximum)); return; }
             if (this->dialog_ == dialog::quantity) this->quantity_ = value; else this->price_ = value;
             this->editor_.Cancel();
             if (static_cast<satchel_action>(this->action_) == satchel_action::drop)
@@ -1256,7 +1258,7 @@ namespace xiui
     {
         const bool hovered = Contains(bounds, this->hover_x_, this->hover_y_);
         auto profile = this->text_[1]; profile.style.alignment = ui::text_alignment::center;
-        context.DrawButton(bounds, label, selected || hovered, profile);
+        context.DrawButton(bounds, i18n::Text(label), selected || hovered, profile);
     }
 
     auto satchel_module::Render(const hud_snapshot&, const module_render_context& context) -> void
@@ -1273,7 +1275,7 @@ namespace xiui
             context.DrawContainer(this->state_.bounds, this->container_, fills);
         }
         const auto inner = this->Inner(); const auto* snapshot = this->Snapshot();
-        context.DrawText("Satchel", this->TitleBounds(), this->TitleBounds(), this->text_[0]);
+        context.DrawText(i18n::Text("Satchel"), this->TitleBounds(), this->TitleBounds(), this->text_[0]);
         this->DrawButton(this->HelpBounds(), "?", this->help_open_, context);
         this->DrawButton(this->CloseBounds(), "X", false, context);
         this->DrawButton(this->MinimizeBounds(), this->minimized_ ? "+" : "-", false, context);
@@ -1283,11 +1285,11 @@ namespace xiui
             this->dialog_ == dialog::characters || Contains(this->CharacterBounds(), this->hover_x_, this->hover_y_));
         if (this->minimized_) return;
         if (!this->editor_.Focused() && this->dialog_ == dialog::none) this->editor_.Open(this->query_, 100), this->editor_.Cancel();
-        if (this->dialog_ == dialog::none) controls.TextInput(this->SearchBounds(), this->editor_, false, this->all_bags_search_ ? "Search all bags by name or item ID" : "Search this view by name or item ID", "Ctrl+F");
+        if (this->dialog_ == dialog::none) controls.TextInput(this->SearchBounds(), this->editor_, false, this->all_bags_search_ ? i18n::Text("Search all bags by name or item ID") : i18n::Text("Search this view by name or item ID"), i18n::Text("Ctrl+F"));
         else
         {
             ui::text_input display; display.Open(this->query_, 100); display.Cancel();
-            controls.TextInput(this->SearchBounds(), display, false, "Search items", "Ctrl+F");
+            controls.TextInput(this->SearchBounds(), display, false, i18n::Text("Search items"), i18n::Text("Ctrl+F"));
         }
         const auto totalItems = snapshot ? std::accumulate(snapshot->bags.begin(), snapshot->bags.end(), size_t{},
             [](const size_t total, const satchel_bag& bag) { return total + bag.items.size(); }) : 0;
@@ -1394,7 +1396,7 @@ namespace xiui
         if (this->ItemMenuOpen())
         {
             const auto& design = context.Design(); const auto& colors = design.GetTheme().colors;
-            const auto title = this->dialog_ == dialog::actions ? this->action_name_ : this->dialog_ == dialog::destinations ? "Move to bag" : "Equipment slot";
+            const auto title = this->dialog_ == dialog::actions ? this->action_name_ : std::string{i18n::Text(this->dialog_ == dialog::destinations ? "Move to bag" : "Equipment slot")};
             const ui::rect header{bounds.x + 12, bounds.y + 6, bounds.width - 24, 22};
             const auto fitted = ui::FitText(design, title, header.width, controls.Style(design.GetTheme().caption_text));
             controls.Text(fitted.c_str(), header, design.GetTheme().caption_text);
@@ -1424,7 +1426,7 @@ namespace xiui
             {
                 const auto at = this->PickBounds(index % picker_rows);
                 controls.NavigationItem(at, this->picks_[index].label.c_str(), this->picks_[index].value == this->character_,
-                    Contains(at, this->hover_x_, this->hover_y_));
+                    Contains(at, this->hover_x_, this->hover_y_), true, false);
             }
             if (this->navigation_focus_ && this->pick_index_ < this->picks_.size())
                 context.Design().DrawFocusFrame(this->PickBounds(this->pick_index_ % picker_rows), this->focus_style_);
@@ -1440,12 +1442,12 @@ namespace xiui
         const char* title = this->dialog_ == dialog::slips ? "Owned storage slips" :
             this->dialog_ == dialog::destinations ? "Move to bag" : this->dialog_ == dialog::equipment ? "Equipment slot" : this->dialog_ == dialog::drop ? "Drop this item?" :
             this->dialog_ == dialog::quantity ? "Quantity" : this->dialog_ == dialog::price ? "Bazaar price per item (0 removes)" : "Item actions";
-        context.DrawText(title, {content.x, bounds.y + 9, content.width, 24}, content, this->text_[0]);
+        context.DrawText(i18n::Text(title), {content.x, bounds.y + 9, content.width, 24}, content, this->text_[0]);
         if (this->dialog_ == dialog::quantity || this->dialog_ == dialog::price)
         {
             const auto maximum = this->dialog_ == dialog::price ? 99999999u : this->action_item_.count - (static_cast<satchel_action>(this->action_) == satchel_action::split ? 1 : 0);
             uint32_t value{}; const bool valid = Number(this->editor_.Editor().Text(), value) && value <= maximum && (this->dialog_ == dialog::price || value > 0);
-            controls.TextInput(this->PickBounds(0), this->editor_, !valid, "Enter a number", "Up/Down adjusts");
+            controls.TextInput(this->PickBounds(0), this->editor_, !valid, i18n::Text("Enter a number"), i18n::Text("Up/Down adjusts"));
             this->DrawButton(this->PickBounds(1), "Cancel", this->pick_index_ == 1, context);
             this->DrawButton(this->PickBounds(2), "Confirm", this->pick_index_ == 2, context);
             if (this->navigation_focus_) context.Design().DrawFocusFrame(this->PickBounds(this->pick_index_), this->focus_style_);
@@ -1493,10 +1495,10 @@ namespace xiui
         if (showHelp || showCharacter || showMinimize)
         {
             const auto* snapshot = this->Snapshot();
-            const auto character = snapshot && !snapshot->name.empty() ? snapshot->name + (this->character_.empty() ? " (live)" : " (saved)") : "Choose character";
-            const std::vector<std::string> hints = showMinimize ? std::vector<std::string>{this->minimized_ ? "Restore Satchel" : "Minimize to title bar"} :
-                showHelp ? std::vector<std::string>{"Right-click: actions", "Double-click: transfer", "Drag to bag: move"} :
-                std::vector<std::string>{"Character inventories", character};
+            const auto character = snapshot && !snapshot->name.empty() ? i18n::Format(this->character_.empty() ? "%s (live)" : "%s (saved)", snapshot->name.c_str()) : std::string{i18n::Text("Choose character")};
+            const std::vector<std::string> hints = showMinimize ? std::vector<std::string>{i18n::Text(this->minimized_ ? "Restore Satchel" : "Minimize to title bar")} :
+                showHelp ? std::vector<std::string>{i18n::Text("Right-click: actions"), i18n::Text("Double-click: transfer"), i18n::Text("Drag to bag: move")} :
+                std::vector<std::string>{i18n::Text("Character inventories"), character};
             const auto& design = context.Design(); const auto& viewport = context.Viewport();
             auto profile = this->text_[1]; profile.style.alignment = ui::text_alignment::left;
             profile.offset_x = profile.offset_y = 0; profile.placement = 0;
@@ -1541,35 +1543,20 @@ namespace xiui
         struct line { std::string text; const module_text_profile* style; float height; };
         std::vector<line> lines;
         const auto append = [&](const std::string& value, const module_text_profile& style) {
-            std::string current;
-            const auto emit = [&] { if (!current.empty()) { lines.push_back({current, &style, design.TextHeight(style.style) + 4}); current.clear(); } };
-            for (size_t start = 0; start < value.size();)
-            {
-                const auto end = value.find_first_of(" \r\n", start);
-                const auto word = value.substr(start, end == std::string::npos ? std::string::npos : end - start);
-                if (!word.empty())
-                {
-                    const auto candidate = current.empty() ? word : current + " " + word;
-                    if (!current.empty() && design.MeasureText(candidate.c_str(), style.style) > contentWidth) emit();
-                    if (!current.empty()) current += ' ';
-                    current += word;
-                }
-                if (end == std::string::npos) break;
-                if (value[end] == '\n') emit();
-                start = end + 1;
-            }
-            emit();
+            for (const auto& text : ui::WrapText(value, contentWidth,
+                [&](const char* candidate) { return design.MeasureText(candidate, style.style); }))
+                lines.push_back({text, &style, design.TextHeight(style.style) + 4});
         };
         append(this->Name(item.id), title);
         std::string state;
         if (resource)
         {
-            if (resource->Flags & 0x8000) state += "Rare  ";
+            if (resource->Flags & 0x8000) state += std::string{i18n::Text("Rare")} + "  ";
             if ((resource->Flags & 0x4000) || item.extra[0] == 2 || item.extra[0] == 3) state += "Ex  ";
         }
-        if (item.extra[0] == 2 || item.extra[0] == 3) state += "Augmented  ";
-        if (item.equipped) state += "Equipped  ";
-        if (item.price) state += "Bazaar: " + std::to_string(item.price) + " gil each";
+        if (item.extra[0] == 2 || item.extra[0] == 3) state += std::string{i18n::Text("Augmented")} + "  ";
+        if (item.equipped) state += std::string{i18n::Text("Equipped")} + "  ";
+        if (item.price) state += i18n::Format("Bazaar: %u gil each", static_cast<unsigned>(item.price));
         if (!state.empty()) append(state, accent);
         if (resource)
         {
@@ -1577,9 +1564,9 @@ namespace xiui
             if (description && *description) append(FromGameText(description), body);
             if (resource->Slots)
             {
-                std::string level = "Lv. " + std::to_string(resource->Level);
-                if (resource->ItemLevel) level += "  |  Item level " + std::to_string(resource->ItemLevel);
-                if (resource->SuperiorLevel) level += "  |  Superior " + std::to_string(resource->SuperiorLevel);
+                std::string level = i18n::Format("Lv. %u", static_cast<unsigned>(resource->Level));
+                if (resource->ItemLevel) level += i18n::Format("  |  Item level %u", static_cast<unsigned>(resource->ItemLevel));
+                if (resource->SuperiorLevel) level += i18n::Format("  |  Superior %u", static_cast<unsigned>(resource->SuperiorLevel));
                 append(level, caption);
                 constexpr const char* jobs[]{"", "WAR", "MNK", "WHM", "BLM", "RDM", "THF", "PLD", "DRK", "BST", "BRD", "RNG", "SAM", "NIN", "DRG", "SMN", "BLU", "COR", "PUP", "DNC", "SCH", "GEO", "RUN"};
                 std::string jobNames;
@@ -1591,16 +1578,16 @@ namespace xiui
                 if (!slots.empty()) append(slots, caption);
             }
             if (resource->MaxCharges && item.extra[0] == 1)
-                append(resource->MaxCharges == 255 ? "Unlimited charges" : "Charges: " + std::to_string(item.extra[1]) + "/" + std::to_string(resource->MaxCharges), accent);
+                append(resource->MaxCharges == 255 ? std::string{i18n::Text("Unlimited charges")} : i18n::Format("Charges: %u/%u", static_cast<unsigned>(item.extra[1]), static_cast<unsigned>(resource->MaxCharges)), accent);
             if (resource->Type == 4 || resource->Type == 5) for (const auto& augment : Augments(item)) append(augment, accent);
         }
-        if (this->slip_ >= 0) append("Stored on Slip " + std::to_string(this->slip_ + 1) + "  |  Read-only", caption);
+        if (this->slip_ >= 0) append(i18n::Format("Stored on Slip %d  |  Read-only", this->slip_ + 1), caption);
         else
         {
-            const std::string bag = item.bag < satchel_bag_names.size() ? satchel_bag_names[item.bag] : "Bag";
-            append(bag + "  |  Slot " + std::to_string(item.slot) + "  |  Quantity " + std::to_string(item.count) + (this->ReadOnly() ? "  |  Read-only" : ""), caption);
+            const auto* bag = i18n::Text(item.bag < satchel_bag_names.size() ? satchel_bag_names[item.bag] : "Bag");
+            append(i18n::Format("%s  |  Slot %u  |  Quantity %u", bag, static_cast<unsigned>(item.slot), static_cast<unsigned>(item.count)) + (this->ReadOnly() ? i18n::Text("  |  Read-only") : ""), caption);
         }
-        append("Item #" + std::to_string(item.id) + (resource && resource->StackSize > 1 ? "  |  Stack size " + std::to_string(resource->StackSize) : ""), caption);
+        append(i18n::Format("Item #%u", static_cast<unsigned>(item.id)) + (resource && resource->StackSize > 1 ? i18n::Format("  |  Stack size %u", static_cast<unsigned>(resource->StackSize)) : ""), caption);
         if (!this->character_.empty()) if (const auto* snapshot = this->Snapshot()) append(Observed(snapshot->observed), caption);
         float height = 26;
         for (const auto& line : lines) height += line.height;

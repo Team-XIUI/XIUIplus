@@ -63,9 +63,9 @@ namespace xiui::ui
             if (const auto* category = AppearanceCategory(section))
             {
                 const auto count = std::count_if(sections.begin(), sections.end(), [](const auto& item) { return AppearanceCategory(item) != nullptr; });
-                return count > 1 ? std::string{"Appearance / "} + category : "Appearance";
+                return count > 1 ? std::string{i18n::Text("Appearance")} + " / " + i18n::Text(category) : i18n::Text("Appearance");
             }
-        return SettingsTopicName(section);
+        return i18n::Text(SettingsTopicName(section));
     }
 
     inline auto SettingsTopics(const std::span<const module_config_section> sections, const size_t selected,

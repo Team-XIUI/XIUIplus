@@ -27,7 +27,7 @@ namespace xiui::ui
         auto Button(const rect& bounds, const char* label, const text_style& style, bool highlighted, button_tone tone = button_tone::normal, std::optional<bool> marquee = std::nullopt) const -> void;
         auto IconButton(const rect& bounds, icon_glyph icon, bool highlighted) const -> void;
         auto NavigationButton(const rect& bounds, const char* id, const char* label, bool selected, bool hovered = false, bool iconsOnly = false) const -> void;
-        auto NavigationItem(const rect& bounds, const char* label, bool selected, bool hovered = false, bool enabled = true) const -> void;
+        auto NavigationItem(const rect& bounds, const char* label, bool selected, bool hovered = false, bool enabled = true, bool translate = true) const -> void;
         auto Segmented(const rect& bounds, std::span<const char* const> labels, size_t selected, float mouseX, float mouseY) const -> void;
         auto ListItem(const rect& bounds, const char* label, const char* accessory, bool selected, bool hovered) const -> void;
         auto Dropdown(const rect& bounds, const char* label, bool open, bool hovered) const -> void;

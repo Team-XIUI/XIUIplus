@@ -246,7 +246,7 @@ namespace xiui
         }
         else if (item.id == keybind_bar && this->dialog_ == dialog::keybinds)
         {
-            for (size_t bar = 0; bar < action_bar_count; ++bar) add(static_cast<int>(bar), "Hotbar " + std::to_string(bar + 1));
+            for (size_t bar = 0; bar < action_bar_count; ++bar) add(static_cast<int>(bar), i18n::Format("Hotbar %zu", bar + 1));
             add(static_cast<int>(action_bar_count), "Crossbar");
             current = this->selected_.surface == action_surface::crossbar ? static_cast<int>(action_bar_count) : static_cast<int>(this->selected_.bar);
         }
