@@ -11,7 +11,7 @@ namespace xiui::ui
     namespace
     {
         constexpr std::array<std::string_view, static_cast<size_t>(native_ui_image::gauge) + 1> image_names{
-            "buttonto", "compass ", "elfire  ", "elearth ", "elwater ", "elwind  ", "elice   ", "elthunde", "elholy  ", "eldark  ", "news    ", "marker  ", "markgree", "markred ", "gauge   "};
+            "buttonto", "compass ", "elfire  ", "elearth ", "elwater ", "elwind  ", "elice   ", "elthunde", "elholy  ", "eldark  ", "news    ", "marker  ", "markgree", "markred ", "ustats  ", "gauge   "};
 
         auto CreateSelectionImage(void) -> resources::menu_texture
         {
@@ -289,6 +289,16 @@ namespace xiui::ui
             design.DrawTextureQuad(this->textures_[imageIndex], points, {static_cast<float>(patch.u) / image.width, static_cast<float>(patch.v) / image.height,
                 static_cast<float>(patch.width) / image.width, static_cast<float>(patch.height) / image.height}, style);
         }
+        return true;
+    }
+
+    auto native_ui_assets::DrawSeekingParty(const design_system& design, const rect& bounds) const -> bool
+    {
+        const auto index = static_cast<size_t>(native_ui_image::seeking_party);
+        const auto& image = this->images_[index];
+        if (this->textures_[index] == nullptr || !image || image->width < 64 || image->height < 16 || bounds.width <= 0 || bounds.height <= 0) return false;
+        design.DrawTexture(this->textures_[index], bounds, 0xFFFFFFFF,
+            {48.5f / image->width, .5f / image->height, 15.0f / image->width, 15.0f / image->height});
         return true;
     }
 

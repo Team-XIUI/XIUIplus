@@ -106,6 +106,8 @@ namespace
             Check(player->GetPetTP() == 1000, "player slots realign after the new submap method");
 
             const xiui::ashita::entity_view entity{reinterpret_cast<const IEntity*>(&native), legacy};
+            native.Bind(59, &native_fixture::Indexed);
+            Check(entity->GetRenderFlags1(3) == 1003, "seeking-party name flags retain their entity getter in both SDK layouts");
             native.Bind(legacy ? 114 : 115, &native_fixture::Index);
             Check(entity->GetPetTargetIndex(3) == 1003, "pet targeting accounts for the inserted entity method");
             native.Bind(legacy ? 120 : 121, &native_fixture::Scalar);

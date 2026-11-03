@@ -192,10 +192,15 @@ namespace xiui
         return detail;
     }
 
-    auto party_module::JobIconBounds(const entry_layout& entry, const ui::rect& name, const float leaderSpace) const -> ui::rect
+    auto party_module::NameBadgeSpace(const party_member& member) const -> float
+    {
+        return (this->show_leader_ && (member.leader || member.alliance_leader) ? 10.0f : 0) + (member.seeking ? 20.0f : 0);
+    }
+
+    auto party_module::JobIconBounds(const entry_layout& entry, const ui::rect& name, const float badgeSpace) const -> ui::rect
     {
         const float gap = this->xiv1_theme_ ? 3.0f : 7.0f;
-        auto result = this->icon_follow_name_ ? ui::rect{name.x - leaderSpace - gap - this->icon_size_,
+        auto result = this->icon_follow_name_ ? ui::rect{name.x - badgeSpace - gap - this->icon_size_,
             name.y + (name.height - this->icon_size_) * 0.5f, this->icon_size_, this->icon_size_} : entry.icon;
         result.x += this->icon_offset_x_; result.y += this->icon_offset_y_;
         return result;

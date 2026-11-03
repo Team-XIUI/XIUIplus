@@ -1,6 +1,7 @@
 #include "localization/localization.hpp"
 #include "ui/text_fit.hpp"
 #include "ui/game_icon_cache.hpp"
+#include "ui/native_ui_assets.hpp"
 #include "party_module.hpp"
 #include "ui/health_colors.hpp"
 #include "modules/bar_config.hpp"
@@ -1271,13 +1272,13 @@ namespace xiui
         const float detailWidth = detail.empty() ? 0 : std::min(headerWidth * 0.44f, design.MeasureText(detail.c_str(), this->text_[4].style) + 2);
         const auto nameTint = !member.in_zone ? std::optional<D3DCOLOR>{0xFFA8A8A8} : member.hp_percent < 25 ? std::optional{this->low_hp_} : std::nullopt;
         const bool leader = this->show_leader_ && (member.leader || member.alliance_leader);
-        const float leaderSpace = leader ? 10.0f : 0;
+        const float badgeSpace = this->NameBadgeSpace(member);
         const float nameWidth = std::max(0.0f, headerWidth - detailWidth - 4);
         const bool jobsByName = member.in_zone && this->jobs_ && this->job_anchor_ == job_anchor_name && this->job_placement_ == jobs_name;
         const auto jobs = member.in_zone && this->jobs_ ? this->JobLines(member) : std::array<std::string,2>{};
         const float jobWidth = !jobsByName || jobs[0].empty() ? 0 : std::min(nameWidth * 0.5f,
             std::max(design.MeasureText(jobs[0].c_str(), this->text_[1].style),design.MeasureText(jobs[1].c_str(), this->text_[1].style)) + 8);
-        const ui::rect nameBounds{x + leaderSpace, entry.header.y, std::max(0.0f, nameWidth - jobWidth - leaderSpace), headerHeight};
+        const ui::rect nameBounds{x + badgeSpace, entry.header.y, std::max(0.0f, nameWidth - jobWidth - badgeSpace), headerHeight};
         const bool nameCast = casting && this->cast_placement_ == cast_name;
         auto nameProfile = this->text_[0];
         if (this->xiv1_theme_)
@@ -1310,7 +1311,7 @@ namespace xiui
             if (jobAtlas != nullptr)
             {
                 const auto icon = member.main_job - 1;
-                const auto iconBounds = this->JobIconBounds(entry, visibleName, leaderSpace);
+                const auto iconBounds = this->JobIconBounds(entry, visibleName, badgeSpace);
                 design.DrawTexture(jobAtlas, iconBounds, 0xFFFFFFFF,
                     {(static_cast<float>(icon % 8) * 64 + 0.5f) / 512, (static_cast<float>(icon / 8) * 64 + 0.5f) / 256, 63.0f / 512, 63.0f / 256});
             }
@@ -1318,6 +1319,12 @@ namespace xiui
             {
                 const std::array<ui::slot_dot, 1> dot{{{{visibleName.x - 7, visibleName.y + (visibleName.height - 6) * 0.5f, 6, 6}, 0xFFFFD84D}}};
                 design.DrawSlotDots(dot);
+            }
+            if (member.seeking && context.NativeAssets() != nullptr)
+            {
+                const float size = std::min(16.0f, visibleName.height);
+                context.NativeAssets()->DrawSeekingParty(design,
+                    {visibleName.x - badgeSpace + 2 + (16 - size) * 0.5f, visibleName.y + (visibleName.height - size) * 0.5f, size, size});
             }
             if (jobsByName) drawJobs(jobBounds);
             text(detail, {headerRight - detailWidth, entry.header.y, detailWidth, headerHeight}, 4,

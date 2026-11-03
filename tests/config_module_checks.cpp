@@ -283,6 +283,35 @@ namespace xiui
         ui::design_system design;
         module_render_context context{design};
         {
+            party_module badges; badges.icon_follow_name_ = true;
+            party_member member; member.active = member.in_zone = member.entity_valid = true;
+            member.seeking = member.selected = true;
+            const auto plain = badges.LayoutEntry({0, 0, 300, 0}, true, {});
+            for (const bool xiv1 : {false, true})
+            {
+                badges.xiv1_theme_ = xiv1;
+                for (const bool leader : {false, true})
+                {
+                    member.leader = leader;
+                    const auto space = badges.NameBadgeSpace(member);
+                    for (const int placement : {0, 1, 2, 3})
+                    {
+                        badges.text_[0].placement = placement;
+                        const auto entry = badges.LayoutEntry({20, 100, 300, 0}, true, {});
+                        const ui::rect area{entry.header.x + space, entry.header.y, entry.header.width - space, entry.header.height};
+                        const auto name = context.TextBounds("Player", area, area, badges.text_[0]);
+                        const auto icon = badges.JobIconBounds(entry, name, space);
+                        if (!check(space == (leader ? 30 : 20) && icon.x + icon.width < name.x - space,
+                            "seeking and leader badges keep following job icons clear across themes and name alignments")) return false;
+                    }
+                }
+            }
+            member.seeking = member.leader = member.selected = false;
+            badges.xiv1_theme_ = false;
+            if (!check(badges.NameBadgeSpace(member) == 0 && badges.LayoutEntry({0, 0, 300, 0}, true, {}).height == plain.height,
+                "clearing seeking removes its name gap without changing party-row height")) return false;
+        }
+        {
             party_source source;
             source.player_id_ = 100;
             auto& member = source.members_[0];

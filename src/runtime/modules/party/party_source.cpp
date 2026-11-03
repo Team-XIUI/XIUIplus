@@ -201,6 +201,7 @@ namespace xiui
             member.alliance_leader = party->GetAllianceLeaderServerId() != 0 && party->GetAllianceLeaderServerId() == id;
             member.index = member.in_zone ? party->GetMemberTargetIndex(slot) : 0;
             member.entity_valid = member.index > 0 && member.index < mapSize && entity->GetServerId(member.index) == id;
+            member.seeking = member.entity_valid && (entity->GetRenderFlags1(member.index) & 0x800u) != 0;
             member.status_known = member.entity_valid && (entity->GetRenderFlags0(member.index) & 0x200) != 0;
             member.status = member.status_known ? entity->GetStatus(member.index) : 0;
             member.distance_known = false;

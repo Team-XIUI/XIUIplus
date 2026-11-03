@@ -26,7 +26,7 @@ namespace xiui
         uint32_t status{};
         bool status_known{};
         bool preview{};
-        bool active{}, in_zone{}, entity_valid{}, distance_known{}, leader{}, alliance_leader{}, sync{};
+        bool active{}, in_zone{}, entity_valid{}, distance_known{}, leader{}, alliance_leader{}, sync{}, seeking{};
         bool selected{}, subtarget{}, hp_max_exact{}, mp_max_exact{};
         float distance{};
         std::string name{}, zone_name{};

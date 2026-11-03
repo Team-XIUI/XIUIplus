@@ -111,6 +111,7 @@ namespace xiui::ashita
         XIUI_ASHITA_METHOD(uint8_t, GetType, (uint32_t index), (index), 41)
         XIUI_ASHITA_METHOD(uint8_t, GetRace, (uint32_t index), (index), 42)
         XIUI_ASHITA_METHOD(uint32_t, GetRenderFlags0, (uint32_t index), (index), 58)
+        XIUI_ASHITA_METHOD(uint32_t, GetRenderFlags1, (uint32_t index), (index), 59)
         XIUI_ASHITA_METHOD(uint32_t, GetStatusServer, (uint32_t index), (index), 86)
         XIUI_ASHITA_METHOD(uint32_t, GetStatus, (uint32_t index), (index), 87)
         XIUI_ASHITA_METHOD(uint32_t, GetClaimStatus, (uint32_t index), (index), 91)

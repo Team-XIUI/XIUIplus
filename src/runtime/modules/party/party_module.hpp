@@ -210,7 +210,8 @@ namespace xiui
         auto LayoutEntry(const ui::rect& bounds, bool inZone, const resource_slots& slots, bool details = true) const -> entry_layout;
         auto MemberHeight(const party_member& member) const -> float;
         auto DetailText(const party_member& member) const -> std::string;
-        auto JobIconBounds(const entry_layout& entry, const ui::rect& name, float leaderSpace) const -> ui::rect;
+        auto NameBadgeSpace(const party_member& member) const -> float;
+        auto JobIconBounds(const entry_layout& entry, const ui::rect& name, float badgeSpace) const -> ui::rect;
         auto JobTextBounds(const ui::rect& header, const ui::rect& name, float right) const -> ui::rect;
         auto HPJobTextBounds(const ui::rect& hp) const -> ui::rect;
         auto JobTextHeight(void) const -> float;

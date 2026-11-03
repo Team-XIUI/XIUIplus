@@ -10,7 +10,7 @@
 namespace xiui::ui
 {
     enum class native_ui_image : size_t { button, compass, fire, earth, water, wind, ice, lightning, light, dark, directions, marker, auto_translate_green, auto_translate_red,
-        gauge, gauge_fill, selection_frame, selection_arrow, count };
+        seeking_party, gauge, gauge_fill, selection_frame, selection_arrow, count };
 
     class native_ui_assets
     {
@@ -26,6 +26,7 @@ namespace xiui::ui
         auto ControlPalette(void) const -> std::optional<std::array<D3DCOLOR, 2>>;
         auto MeterSkin(void) const -> const std::optional<meter_skin>& { return this->meter_skin_; }
         auto DrawAutoTranslateCap(const design_system& design, bool closing, float x, float y, float scale, float opacity) const -> bool;
+        auto DrawSeekingParty(const design_system& design, const rect& bounds) const -> bool;
         auto DrawSelectionFrame(const design_system& design, const rect& bounds, D3DCOLOR color, float backgroundOpacity) const -> void;
         auto DrawSelectionArrow(const design_system& design, float tipX, float centerY, D3DCOLOR color) const -> void;
         auto DrawCompassPart(const design_system& design, size_t group, float x, float y, float scale, float rotation = 0, float flatten = 1,
