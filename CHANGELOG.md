@@ -2,7 +2,7 @@
 
 ## Unreleased
 
-## 0.1.2-alpha.1 — 2026-11-02
+## 0.1.2-alpha — 2026-11-02
 
 - Add one-DLL compatibility for Ashita plugin interfaces 4.16 and 4.30, including the different Party, Player, Entity and Target SDK layouts. Keep unavailable legacy party master levels separate from the local player fallback.
 - Normalize mouse press/release state when Ashita callbacks omit held-button flags, preserving plain clicks and drags without Shift. Cancel a confirmed missed release without activating a pending control.
