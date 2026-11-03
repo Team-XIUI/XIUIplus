@@ -292,6 +292,13 @@ namespace xiui
             this->actionbars_.HandleKey(key, flags);
             return true;
         }
+        // A fresh press replaces a release missed during zoning or foreground loss.
+        if (!released && (static_cast<uint32_t>(flags) & 0x40000000u) == 0 &&
+            key < this->actionbar_key_release_.size() && this->actionbar_key_release_[key])
+        {
+            this->actionbar_key_release_[key] = false;
+            this->actionbars_.HandleKey(key, static_cast<LPARAM>(0x80000000u));
+        }
         const bool replacement = !this->editing_ && !this->actionbars_.InputFocused() && this->actionbars_.ReplacesNativeMacroKey(key);
         if (released || blocked || !this->ActionBarsInputAvailable(replacement, this->actionbars_.InputFocused())) return false;
         if (this->editing_ && !this->actionbars_.InputFocused()) return false;

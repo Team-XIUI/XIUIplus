@@ -30,6 +30,6 @@ namespace xiui
         if ((::GetKeyState(VK_LWIN) & 0x8000) != 0 || (::GetKeyState(VK_RWIN) & 0x8000) != 0) return false;
         const bool commandModifier = (::GetKeyState(VK_CONTROL) & 0x8000) != 0 || (::GetKeyState(VK_MENU) & 0x8000) != 0 ||
             (static_cast<uint32_t>(flags) & 0x20000000u) != 0;
-        return KeyboardAllowsCharacterShortcuts(fullKeyboard) || commandModifier || !KeyboardTextKey(key);
+        return KeyboardAllowsCharacterShortcuts(fullKeyboard) || commandModifier || !KeyboardTextKey(key) || (key >= '0' && key <= '9');
     }
 }

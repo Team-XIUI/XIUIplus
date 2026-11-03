@@ -3,6 +3,7 @@
 #include "modules/pet/pet_lifetimes.hpp"
 #include "resources/custom_action_icons.hpp"
 #include "custom_icon_fixture.hpp"
+#include "input/keyboard_policy.hpp"
 
 #include <algorithm>
 #include <cmath>
@@ -1683,6 +1684,40 @@ namespace xiui
                 "dismissing a hotbar popup returns keyboard ownership to the native menu");
             runtime->HandleActionBarsKey(VK_ESCAPE, static_cast<LPARAM>(0x80000000u), false);
         }
+        static auto NumberBindingOwnership(void) -> void
+        {
+            keyboard_restore restore; BYTE keys[256]{};
+            Check(SetKeyboardState(keys) != FALSE, "clear modifiers for number-row bindings");
+            for (const auto layout : {std::optional<bool>{true}, std::optional<bool>{false}, std::optional<bool>{}})
+                for (WPARAM key = '0'; key <= '9'; ++key)
+                    Check(KeyboardAllowsGlobalBinding(layout, key, 0), "number-row bindings remain eligible in Full, Compact and unavailable keyboard layouts");
+            Check(!KeyboardAllowsGlobalBinding(true, 'F', 0) && !KeyboardAllowsGlobalBinding({}, 'F', 0) &&
+                !KeyboardAllowsGlobalBinding(true, VK_NUMPAD1, 0), "number bindings do not take ordinary Full-mode typing or numpad movement");
+            auto runtime = std::make_unique<hud_runtime>(); auto& module = runtime->actionbars_;
+            runtime->action_store_.SetContext({7, 3, {}});
+            module.Initialize(nullptr, &runtime->action_store_, &runtime->action_executor_);
+            module.bars_[0].state.enabled = module.available_[0] = true;
+            module.bars_[0].keys[0] = {'1', 0};
+            runtime->action_store_.Assign(action_surface::hotbar, 0, 0, Command("Number binding"));
+            Check(!module.ReplaceNativeMacros() && runtime->HandleActionBarsKey('1', 0, false) && !runtime->action_executor_.Status().empty(),
+                "an explicit unmodified number reaches the executor without native macro replacement or a readable keyboard layout");
+            runtime->action_executor_.Clear();
+            Check(runtime->HandleActionBarsKey('1', static_cast<LPARAM>(0x40000000u), false) && runtime->action_executor_.Status().empty(),
+                "held repeats remain owned without activating the number binding again");
+            runtime->HandlePacket(0x000B, nullptr, 0); runtime->HandlePacket(0x000A, nullptr, 0);
+            Check(runtime->HandleActionBarsKey('1', 0, false) && !runtime->action_executor_.Status().empty(),
+                "a fresh number press after zoning recovers a missed release and activates again");
+            Check(runtime->HandleActionBarsKey('1', static_cast<LPARAM>(0x80000000u), false) &&
+                !runtime->HandleActionBarsKey('1', static_cast<LPARAM>(0x80000000u), false), "the recovered number press drains its release exactly once");
+            runtime->action_executor_.Clear();
+            Check(!runtime->HandleActionBarsKey('2', 0, false) && runtime->action_executor_.Status().empty(), "unbound digits remain native");
+            runtime->chat_.Focus(true);
+            Check(!runtime->HandleActionBarsKey('1', 0, false), "focused chat retains bound digits for typing");
+            runtime->chat_.Focus(false); runtime->native_ui_.menu_visible = true;
+            Check(!runtime->HandleActionBarsKey('1', 0, false), "a native menu retains its number keys");
+            runtime->native_ui_.menu_visible = false; runtime->editing_ = true;
+            Check(!runtime->HandleActionBarsKey('1', 0, false), "Configuration retains its number keys");
+        }
         static auto NativeMacroKeyboardOwnership(void) -> void
         {
             {
@@ -2266,7 +2301,7 @@ namespace xiui
             Check(legacy.ReadString("session.config", "topic_id") == "keybinds", "topic identity persists independently of its ordinal");
             Check(runtime->config_.section == 2 && !module.DialogOpen(), "new Keybinds topic selections round trip without reopening transient workspaces");
         }
-        static auto Run(void) -> void { GlobalSettings(); GlobalCaption(); ControllerVisuals(); Ownership(); DirectInteraction(); LibraryPlacement(); LibraryEditorReturn(); StandaloneLibrary(); BarControlsAndCrossbarGeometry(); EmptyBarEditBounds(); ShiftSlotDragging(); Editing(); KeyboardAndCrossbar(); Persistence(); SlotStylePersistence(); SlotStyleCompatibility(); SlotFrameProfileOverlay(); SlotTextDefaults(); SlotStyleActions(); SlotStyleGeometry(); Keybinds(); ControllerSetup(); RuntimeOwnership(); NativeMacroKeyboardOwnership(); EditModeManagement(); DependentSettings(); WorkspaceCursors(); FloatingWorkspaces(); LibraryCategories(); LibraryLayoutAndSearch(); LibraryGridNavigation(); Configuration(); }
+        static auto Run(void) -> void { GlobalSettings(); GlobalCaption(); ControllerVisuals(); Ownership(); DirectInteraction(); LibraryPlacement(); LibraryEditorReturn(); StandaloneLibrary(); BarControlsAndCrossbarGeometry(); EmptyBarEditBounds(); ShiftSlotDragging(); Editing(); KeyboardAndCrossbar(); Persistence(); SlotStylePersistence(); SlotStyleCompatibility(); SlotFrameProfileOverlay(); SlotTextDefaults(); SlotStyleActions(); SlotStyleGeometry(); Keybinds(); ControllerSetup(); RuntimeOwnership(); NumberBindingOwnership(); NativeMacroKeyboardOwnership(); EditModeManagement(); DependentSettings(); WorkspaceCursors(); FloatingWorkspaces(); LibraryCategories(); LibraryLayoutAndSearch(); LibraryGridNavigation(); Configuration(); }
     };
 }
 
@@ -2294,7 +2329,7 @@ auto main(const int argc, char** argv) -> int
     }
     if (argc == 2 && std::strcmp(argv[1], "--input-ownership-only") == 0)
     {
-        try { xiui::actionbars_ui_test::ShiftSlotDragging(); xiui::actionbars_ui_test::WorkspaceChatCapture(); xiui::actionbars_ui_test::RuntimeOwnership(); xiui::actionbars_ui_test::NativeMacroKeyboardOwnership(); xiui::actionbars_ui_test::ConfigurationClose(); xiui::actionbars_ui_test::ClosePointerOwnership(); std::puts("Action bar pointer, menu and keyboard ownership checks passed."); return 0; }
+        try { xiui::actionbars_ui_test::ShiftSlotDragging(); xiui::actionbars_ui_test::WorkspaceChatCapture(); xiui::actionbars_ui_test::RuntimeOwnership(); xiui::actionbars_ui_test::NumberBindingOwnership(); xiui::actionbars_ui_test::NativeMacroKeyboardOwnership(); xiui::actionbars_ui_test::ConfigurationClose(); xiui::actionbars_ui_test::ClosePointerOwnership(); std::puts("Action bar pointer, menu and keyboard ownership checks passed."); return 0; }
         catch (const std::exception& error) { std::fprintf(stderr, "Action bar input check failed: %s\n", error.what()); return 1; }
     }
     if (argc == 2 && std::strcmp(argv[1], "--custom-icons-only") == 0)

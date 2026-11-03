@@ -72,7 +72,7 @@ Click the action set caption to choose a set; the bar menu opens management. Cre
 
 Select **Keybinds** in the left sidebar: directly below **Actions** for Hotbars and below **Controller Setup** for Crossbar. The sidebar item opens the list directly. Bar menus, `/xiuiplus keybinds`, `/xiuiplus hotbar keybinds` and `/xiuiplus crossbar keybinds` open the same independent, movable/resizable window. Its Bar dropdown lists all ten hotbars and Crossbar, including empty slots. Each row shows the slot/action and current binding; Clear removes the binding without removing the action.
 
-For a hotbar, select its binding and press a key combination. Ctrl, Alt and Shift are supported. Escape cancels, and an existing conflicting assignment is reported without replacing either slot. Bindings stay attached to bar slots when action sets change. Full keyboard mode still reserves ordinary unfocused typing for chat.
+For a hotbar, select its binding and press a key combination. Ctrl, Alt and Shift are supported. Escape cancels, and an existing conflicting assignment is reported without replacing either slot. Bindings stay attached to bar slots when action sets change. Explicit number-row bindings also work in Full keyboard mode and after zoning; unbound digits and ordinary letters remain available for chat. Active chat, native menus/targeting and editors retain their input.
 
 For Crossbar, choose a trigger bank to see its actions, select XInput or DirectInput, then choose the button for a slot using the shared mapping dropdown. Auto follows the game mapping; Clear uses Unbound. Physical slot mappings apply to every trigger bank and use the same device settings as Controller Setup. Hardware mappings remain local when sharing profiles.
 

@@ -16,6 +16,8 @@ Global visuals are opt-in per hotbar. Preserve independent shapes, assignments, 
 
 **Keep intact:** Keep native macro suppression separate from crossbar activation. All execution uses the validated executor. Pointer management can work over native menus; unclaimed keyboard/controller navigation remains native. Shared library edits must not silently assign slots.
 
+Explicit number-row bindings work with Full, Compact and temporarily unavailable native keyboard settings, including after zoning. Unbound digits still pass through for chat/native input. A fresh key press retires stale ownership from a missed release; held repeats remain consumed without activating again. Focused check: `xiui_actionbars_ui_smoke --input-ownership-only`.
+
 Verified native Attack/command menus permit assigned action-bar shortcuts, clicks and crossbar actions. Other native menus and active action/subtarget selection retain their guards. Refresh the executor's transient menu permission at every input path and scheduler update.
 
 Controller callbacks and the mailbox re-read the verified native focus slot before allowing that menu exception. Cached command-menu permission cannot capture a newly focused inventory/menu. The same check permits native trigger suppression and handles an already-open replacement macro palette; no game restart is required to apply the setting. `xiui_crossbar_input_smoke` covers both controller backends and live permission changes.
