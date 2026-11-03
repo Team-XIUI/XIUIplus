@@ -34,7 +34,7 @@ Update both UTF-8 catalogs and run `python scripts/build-locales.py` when adding
 
 Use `ui::container_renderer` through the render context. It reads the installed native Window Type DATs, caches textures per device and preserves patch geometry, colors and blends. Theme changes select cached skins; rendering performs no file reads or uploads.
 
-The game's Window Type remains authoritative for XI Theme. Global's Native Window Type control uses the validated native setter. The separate Theme control selects XI Theme or XIV 1.0 Theme without changing that client preference. XIV 1.0 uses embedded screenshot-derived frames and gauges; selecting XI Theme restores the existing artwork and saved module styles. Do not reset the client preference when resetting XIUI+.
+For XI Theme, Global → Appearance → Window places **Follow game** directly below **Window Type**, enabled by default. Following uses the validated native setting/setter. Turning it off selects XIUI+'s shared container and bar skin independently, with no native writes; the first independent selection starts from the current type and is remembered while following is reenabled. Both preferences participate in profiles. The separate Theme control selects XI Theme or XIV 1.0 Theme without changing the client preference. XIV 1.0 uses its own embedded artwork. Resetting XIUI+ restores Follow game without resetting the game's Window Type.
 
 Keep opacity, padding and dark backing independent of module position/size. Tooltips use `DrawTooltip`. To put artwork under a native frame, draw the container without its border, clip the artwork, then use `DrawContainerFrame`. Preserve supported DAT-specific corrections rather than inventing replacement pixels.
 

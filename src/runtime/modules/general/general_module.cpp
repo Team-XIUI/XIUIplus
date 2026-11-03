@@ -11,6 +11,8 @@ namespace xiui
     auto general_module::ResetDefaults(const ui::theme& theme) -> void
     {
         this->requested_window_type_ = -1;
+        this->custom_window_type_ = -1;
+        this->follow_game_window_type_ = true;
         this->dark_backing_opacity_ = 1.0f;
         this->xiv1_background_opacity_ = .4f;
         this->appearance_theme_ = ui::native_appearance;
@@ -32,6 +34,10 @@ namespace xiui
 
     auto general_module::Load(const settings_store& store) -> void
     {
+        this->requested_window_type_ = -1;
+        this->follow_game_window_type_ = store.ReadBool("appearance", "follow_game_window_type", true);
+        this->custom_window_type_ = std::clamp(store.ReadInt("appearance", "window_type", -1), -1, 7);
+        if (!this->follow_game_window_type_) this->window_type_ = this->custom_window_type_ = std::max(0, this->custom_window_type_);
         this->dark_backing_opacity_ = std::clamp(store.ReadFloat("appearance", "dark_backing_opacity", 1.0f), 0.0f, 1.0f);
         this->xiv1_background_opacity_ = std::clamp(store.ReadFloat("appearance", "xiv1_background_opacity", .4f), 0.0f, 1.0f);
         this->appearance_theme_ = ui::AppearanceTheme(store.ReadInt("appearance", "theme", ui::native_appearance));
@@ -64,6 +70,8 @@ namespace xiui
 
     auto general_module::Save(const settings_store& store) const -> void
     {
+        store.WriteBool("appearance", "follow_game_window_type", this->follow_game_window_type_);
+        store.WriteInt("appearance", "window_type", this->custom_window_type_);
         store.WriteFloat("appearance", "dark_backing_opacity", this->dark_backing_opacity_);
         store.WriteFloat("appearance", "xiv1_background_opacity", this->xiv1_background_opacity_);
         store.WriteInt("appearance", "theme", this->appearance_theme_);
@@ -90,6 +98,9 @@ namespace xiui
 
     auto general_module::ContentOption(const size_t index) -> module_option
     {
+        if (index == this->FollowGameWindowTypeOption())
+            return module_option::Toggle("Follow game", "Use the game's Window Type for XIUI+. Turn off to choose a separate type without changing native game windows.",
+                &this->follow_game_window_type_, module_option_group::appearance).Ordered(-39);
         if (index == this->Xiv1BackgroundOpacityOption())
             return module_option::Slider("XIV 1.0 background opacity", "Opacity of all XIV 1.0 window backgrounds. Combines with each module's opacity; frames and text retain their own settings.",
                 &this->xiv1_background_opacity_, 0, 1, .05f, module_option_group::appearance).Ordered(449).VisibleWhen(this->appearance_theme_ == ui::xiv1_appearance);
@@ -210,8 +221,8 @@ namespace xiui
         if (index == window_theme_option)
         {
             static constexpr const char* types[]{"Type 1", "Type 2", "Type 3", "Type 4", "Type 5", "Type 6", "Type 7", "Type 8"};
-            auto result = module_option::Choice("Native Window Type", "Changes Window Type for the whole game. XIUI+ follows it when XI Theme is selected.", &this->window_type_, types, std::size(types), module_option_group::appearance).Ordered(-40);
-            result.available = this->window_type_available_;
+            auto result = module_option::Choice("Window Type", "Choose window artwork for XI Theme. With Follow game enabled, this changes the game's Window Type; otherwise it changes only XIUI+.", &this->window_type_, types, std::size(types), module_option_group::appearance).Ordered(-40);
+            result.available = !this->follow_game_window_type_ || this->window_type_available_;
             if (!result.available) result.description = "Unavailable on this client.";
             return result;
         }
@@ -220,6 +231,16 @@ namespace xiui
 
     auto general_module::OnContentOptionChanged(const size_t index) -> void
     {
+        if (index == this->FollowGameWindowTypeOption())
+        {
+            this->requested_window_type_ = -1;
+            if (!this->follow_game_window_type_)
+            {
+                if (this->custom_window_type_ < 0) this->custom_window_type_ = this->window_type_;
+                this->window_type_ = this->custom_window_type_;
+            }
+            return;
+        }
         if (index == this->AppearanceThemeOption()) { this->appearance_theme_ = ui::AppearanceTheme(this->appearance_theme_); return; }
         if (index >= this->HudScaleStart())
         {
@@ -300,13 +321,15 @@ namespace xiui
     auto general_module::UpdateWindowType(const std::optional<uint8_t> type) -> void
     {
         this->window_type_available_ = type && *type < 8;
-        if (this->window_type_available_ && this->requested_window_type_ < 0) this->window_type_ = *type;
+        if (this->follow_game_window_type_ && this->window_type_available_ && this->requested_window_type_ < 0) this->window_type_ = *type;
     }
 
     auto general_module::RequestWindowType(const int type) -> bool
     {
-        if (!this->window_type_available_ || type < 0 || type > 7) return false;
-        this->window_type_ = this->requested_window_type_ = type;
+        if ((this->follow_game_window_type_ && !this->window_type_available_) || type < 0 || type > 7) return false;
+        this->window_type_ = type;
+        if (this->follow_game_window_type_) this->requested_window_type_ = type;
+        else this->custom_window_type_ = type;
         return true;
     }
 
@@ -315,6 +338,6 @@ namespace xiui
         if (this->requested_window_type_ < 0) return std::nullopt;
         const auto type = static_cast<uint8_t>(this->requested_window_type_);
         this->requested_window_type_ = -1;
-        return type;
+        return this->follow_game_window_type_ ? std::optional{type} : std::nullopt;
     }
 } // namespace xiui

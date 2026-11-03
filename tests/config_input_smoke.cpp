@@ -4,6 +4,11 @@ using namespace xiui::config_checks;
 
 int main(int argc, char** argv)
 {
+    if (argc == 2 && std::strcmp(argv[1], "--window-theme-only") == 0)
+    {
+        if (!xiui::config_input_test::WindowTheme()) return 1;
+        std::puts("Follow game, independent Window Type, native write isolation, profiles and controller access passed."); return 0;
+    }
     if (argc == 2 && std::strcmp(argv[1], "--xiv1-theme-only") == 0)
     {
         if (!xiui::config_input_test::Xiv1Theme()) return 1;

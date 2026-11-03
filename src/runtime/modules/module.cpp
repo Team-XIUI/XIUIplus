@@ -289,7 +289,7 @@ namespace xiui
     {
         constexpr static const char* appearances[]{"Window theme", "Modern"};
         if (index == 0)
-            return module_option::Choice("Bar style", "Follow the game's Window Type or use modern bars.", &style.appearance, appearances, std::size(appearances), module_option_group::appearance).Ordered(50);
+            return module_option::Choice("Bar style", "Use XIUI+'s selected Window Type or modern bars.", &style.appearance, appearances, std::size(appearances), module_option_group::appearance).Ordered(50);
         if (index == 1)
             return module_option::Slider("Bar height", "Bar track thickness in pixels; text keeps its own size.", &style.height, 1.0f, 80.0f, 1.0f, module_option_group::appearance).Ordered(101);
         const auto modern = [&style](module_option option) {

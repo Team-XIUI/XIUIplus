@@ -1465,7 +1465,7 @@ namespace xiui
         {
             this->general_.UpdateWindowType(this->window_config_.Type());
             if (!this->general_.RequestWindowType(command[6] - '1')) message = "[XIUI+] Client Window Type control is unavailable.";
-            else return true;
+            else { this->SaveSettings(); return true; }
         }
         else if (::_stricmp(command, "party") == 0 || ::_stricmp(command, "alliance1") == 0 || ::_stricmp(command, "alliance2") == 0)
         {
@@ -1841,7 +1841,7 @@ namespace xiui
             message = this->notifications_.IsScreenAnchored() ? "[XIUI+] Notifications use a stable screen-space anchor." : "[XIUI+] Notifications use the saved manual position.";
         else if (::_stricmp(command, "container") == 0 || ::_stricmp(command, "container preview") == 0 || ::_stricmp(command, "container show") == 0 || ::_stricmp(command, "container hide") == 0)
         {
-            message = "[XIUI+] The container demo has been removed. Modules follow the game's Window Type setting.";
+            message = i18n::Text("[XIUI+] The container demo has been removed. Configure windows under Global > Appearance > Window.");
         }
         else
             return false;
@@ -2773,7 +2773,8 @@ namespace xiui
         this->container_renderer_.SetAppearanceTheme(this->general_.AppearanceTheme());
         this->design_system_.SetAppearanceTheme(this->general_.AppearanceTheme());
         this->target_.Settings().recipient.ApplyThemeDefaults(this->design_system_.IsXiv1Theme());
-        if (this->native_ui_.window_type_available) this->container_renderer_.SelectSkin(this->native_ui_.window_type);
+        if (!this->general_.FollowGameWindowType()) this->container_renderer_.SelectSkin(this->general_.WindowType());
+        else if (this->native_ui_.window_type_available) this->container_renderer_.SelectSkin(this->native_ui_.window_type);
         this->design_system_.SetWindowPalette(this->container_renderer_.BackgroundColor());
         this->EnsureLayout(viewport);
         this->UpdateSetup();

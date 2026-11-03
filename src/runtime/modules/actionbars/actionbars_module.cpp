@@ -534,7 +534,7 @@ namespace xiui
         case crossbar_animations: return controllerOnly(module_option::Toggle("Crossbar animations", "Animate trigger and button presses, and slide between trigger banks. Actions activate immediately.", &this->crossbar_animations_));
         case double_window: return controllerOnly(module_option::Action("Timing and mappings", "Adjust thresholds and timings, or choose an explicit device preset.", "Open setup"));
         case native_keys: return module_option::Toggle("Replace native macros", "Disable native keyboard/controller macros and their palette UI. Turn off to restore native macros.", &this->allow_native_keys_);
-        case slot_frame: return module_option::Choice("Frame style", "Window theme follows the current native Window Type. Other styles use the custom slot colors.", &bar.style.frame, frames, std::size(frames)).Ordered(100);
+        case slot_frame: return module_option::Choice("Frame style", "Window theme uses XIUI+'s selected Window Type. Other styles use the custom slot colors.", &bar.style.frame, frames, std::size(frames)).Ordered(100);
         case slot_radius: return customSlot(module_option::Slider("Corner radius", "Round custom frames and artwork; Window theme keeps its native corners.", &bar.style.radius, 0, 48, 1).Ordered(110, true));
         case slot_border_width: return module_option::Slider("Border thickness", "Custom frame width or native frame scale; zero removes the border.", &bar.style.border_width, 0, 4, 1).Ordered(111);
         case slot_icon_inset: return module_option::Slider("Icon padding", "Inset artwork without changing the slot's click area or spacing.", &bar.style.icon_inset, 0, 12, 1).Ordered(120, true);

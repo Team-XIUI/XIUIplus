@@ -108,7 +108,8 @@ namespace xiui
         auto HudScaleStart(void) const -> size_t { return this->GameHudStart() + (this->game_hud_module_ != nullptr ? this->game_hud_module_->OptionCount() : 0); }
         auto ExtraSettingsStart(void) const -> size_t { return this->HudScaleStart() + 6; }
         auto Xiv1BackgroundOpacityOption(void) const -> size_t { return this->ExtraSettingsStart() + 1; }
-        auto ContentOptionCount(void) const -> size_t override { return this->ExtraSettingsStart() + 2; }
+        auto FollowGameWindowTypeOption(void) const -> size_t { return this->ExtraSettingsStart() + 2; }
+        auto ContentOptionCount(void) const -> size_t override { return this->ExtraSettingsStart() + 3; }
         auto FollowMovedModuleSettings(void) const -> bool { return this->follow_moved_module_settings_; }
         auto HudPresetOption(size_t preset) const -> size_t
         {
@@ -132,6 +133,8 @@ namespace xiui
         auto UpdateWindowType(std::optional<uint8_t> type) -> void;
         auto RequestWindowType(int type) -> bool;
         auto TakeWindowTypeRequest(void) -> std::optional<uint8_t>;
+        auto WindowType(void) const -> uint8_t { return static_cast<uint8_t>(std::clamp(this->window_type_, 0, 7)); }
+        auto FollowGameWindowType(void) const -> bool { return this->follow_game_window_type_; }
         auto DarkBackingOpacity(void) const -> float { return this->dark_backing_opacity_; }
         auto Xiv1BackgroundOpacity(void) const -> float { return this->xiv1_background_opacity_; }
         auto AppearanceThemeOption(void) const -> size_t { return this->HudScaleStart() + 4; }
@@ -163,8 +166,9 @@ namespace xiui
         bool party_enabled_{true};
         HWND clipboard_owner_{};
         size_t copied_credit_{static_cast<size_t>(-1)};
-        int window_type_{}, requested_window_type_{-1};
+        int window_type_{}, custom_window_type_{-1}, requested_window_type_{-1};
         bool window_type_available_{};
+        bool follow_game_window_type_{true};
         float dark_backing_opacity_{1.0f};
         float xiv1_background_opacity_{.4f};
         int appearance_theme_{};

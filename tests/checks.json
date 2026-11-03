@@ -19,6 +19,12 @@
       "requires_arguments": false
     },
     {
+      "name": "window-theme",
+      "target": "xiui_config_input_smoke",
+      "arguments": ["--window-theme-only"],
+      "requires_arguments": false
+    },
+    {
       "name": "xiv1-theme",
       "target": "xiui_config_input_smoke",
       "arguments": ["--xiv1-theme-only"],

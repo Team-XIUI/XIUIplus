@@ -563,6 +563,17 @@ namespace xiui
         const auto empty = this->config_.module->OptionCount();
         const int columns = ui::config_layout{this->config_.bounds, 0, false, !this->ConfigTopicRows().empty(), 0, 0, false, -1, 0, this->config_.sidebar_collapsed}.Columns();
         auto slots = ui::ArrangeConfigOptions(std::move(entries), empty, columns);
+        if (this->config_.module == &this->general_)
+        {
+            const auto follow = std::find(slots.begin(), slots.end(), this->general_.FollowGameWindowTypeOption());
+            if (follow != slots.end() && std::find(slots.begin(), slots.end(), general_module::window_theme_option) != slots.end())
+            {
+                slots.erase(follow);
+                const auto below = static_cast<size_t>(std::find(slots.begin(), slots.end(), general_module::window_theme_option) - slots.begin()) + columns;
+                if (below > slots.size()) slots.resize(below, empty);
+                slots.insert(slots.begin() + below, this->general_.FollowGameWindowTypeOption());
+            }
+        }
         if (!cards.empty() && slots.size() % columns != 0) slots.push_back(empty);
         for (const auto& card : cards) slots.push_back(card.index);
         return slots;

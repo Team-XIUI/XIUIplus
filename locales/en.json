@@ -3125,5 +3125,12 @@
   "[x] Activate single import": "[x] Activate single import",
   "[x] Controller options": "[x] Controller options",
   "[x] Link unassigned chars": "[x] Link unassigned chars",
-  "Usage: /xiuiplus actionbars run <bar 1-10> <slot 1-12>": "Usage: /xiuiplus actionbars run <bar 1-10> <slot 1-12>"
+  "Usage: /xiuiplus actionbars run <bar 1-10> <slot 1-12>": "Usage: /xiuiplus actionbars run <bar 1-10> <slot 1-12>",
+  "Window Type": "Window Type",
+  "Use the game's Window Type for XIUI+. Turn off to choose a separate type without changing native game windows.": "Use the game's Window Type for XIUI+. Turn off to choose a separate type without changing native game windows.",
+  "Choose window artwork for XI Theme. With Follow game enabled, this changes the game's Window Type; otherwise it changes only XIUI+.": "Choose window artwork for XI Theme. With Follow game enabled, this changes the game's Window Type; otherwise it changes only XIUI+.",
+  "[XIUI+] The container demo has been removed. Configure windows under Global > Appearance > Window.": "[XIUI+] The container demo has been removed. Configure windows under Global > Appearance > Window.",
+  "Use XIUI+'s selected Window Type or modern bars.": "Use XIUI+'s selected Window Type or modern bars.",
+  "Window theme uses XIUI+'s selected Window Type. Other styles use the custom slot colors.": "Window theme uses XIUI+'s selected Window Type. Other styles use the custom slot colors.",
+  "Optional container using XIUI+'s selected Window Type.": "Optional container using XIUI+'s selected Window Type."
 }

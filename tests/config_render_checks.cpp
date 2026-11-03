@@ -447,8 +447,54 @@ namespace xiui
         if (!check(*option.choice == 6, "changes made in the native menu sync back into XIUI+")) return false;
         module.UpdateWindowType(std::nullopt);
         window_record[1] = 19;
-        return check(!module.Option(general_module::window_theme_option).available && !client.Type() && !client.SetType(0),
-            "unavailable or mismatched native settings disable the control");
+        if (!check(!module.Option(general_module::window_theme_option).available && !client.Type() && !client.SetType(0),
+            "unavailable or mismatched native settings disable the followed control")) return false;
+        const auto followIndex = module.FollowGameWindowTypeOption();
+        auto follow = module.Option(followIndex);
+        if (!check(follow.available && *follow.toggle && follow.display_order == option.display_order + 1 &&
+            module.ConfigSectionContains(general_module::appearance_section, followIndex) && module.AppearanceOption(followIndex),
+            "Follow game defaults on directly beneath Window Type in the shared Appearance controls")) return false;
+        *follow.toggle = false; module.OnOptionChanged(followIndex);
+        if (!check(module.WindowType() == 6 && module.Option(general_module::window_theme_option).available &&
+            module.RequestWindowType(7) && !module.TakeWindowTypeRequest() && !module.RequestWindowType(8) && !module.RequestWindowType(-1),
+            "independent selection starts from the current type and works without native settings or native writes")) return false;
+        module.UpdateWindowType(1);
+        ui::container_renderer containers; containers.SelectSkin(module.WindowType());
+        if (!check(module.WindowType() == 7 && containers.SelectedSkin() == 7 && window_writes == 2,
+            "native changes do not replace XIUI+'s selected shared container skin")) return false;
+        auto saved = settings_store::FromIniText(""); module.Save(saved);
+        auto portable = settings_store::FromIniText("");
+        saved.VisitPreferences([&](auto section, auto key, auto value) { portable.WriteString(std::string{section}.c_str(), std::string{key}.c_str(), std::string{value}); });
+        general_module restored; restored.Load(portable); restored.UpdateWindowType(2);
+        if (!check(!restored.FollowGameWindowType() && restored.WindowType() == 7 && !restored.TakeWindowTypeRequest(),
+            "independent type and follow preference survive portable profile save/load without changing the game")) return false;
+        auto restoredFollow = restored.Option(restored.FollowGameWindowTypeOption());
+        *restoredFollow.toggle = true; restored.OnOptionChanged(restored.FollowGameWindowTypeOption()); restored.UpdateWindowType(2);
+        if (!check(restored.WindowType() == 2 && !restored.TakeWindowTypeRequest(), "reenabling Follow game adopts the native type without writing it")) return false;
+        *restoredFollow.toggle = false; restored.OnOptionChanged(restored.FollowGameWindowTypeOption());
+        if (!check(restored.WindowType() == 7, "temporarily following the game retains the independent selection")) return false;
+        restored.ResetDefaults(ui::theme::CreateDefault()); restored.UpdateWindowType(3);
+        restored.RequestWindowType(4);
+        *restoredFollow.toggle = false; restored.OnOptionChanged(restored.FollowGameWindowTypeOption());
+        if (!check(!restored.TakeWindowTypeRequest(), "disabling Follow game cancels an unconsumed native change")) return false;
+        restored.ResetDefaults(ui::theme::CreateDefault()); restored.UpdateWindowType(3);
+        if (!check(restored.FollowGameWindowType() && restored.WindowType() == 3 && !restored.TakeWindowTypeRequest(),
+            "reset restores Follow game without changing native preferences")) return false;
+        hud_runtime runtime; runtime.editing_ = true; runtime.config_.basic = false;
+        runtime.config_.module = &runtime.general_; runtime.config_.section = general_module::appearance_section;
+        const auto items = runtime.ControllerConfigItems(config_controller_region::options);
+        if (!check(std::any_of(items.begin(), items.end(), [&](const auto& item) { return item.index == runtime.general_.FollowGameWindowTypeOption(); }),
+            "keyboard and controller navigation reach the shared Follow game toggle")) return false;
+        for (const float width : {700.f, 1200.f})
+        {
+            runtime.config_.bounds = {40, 40, width, 600};
+            const auto slots = runtime.GroupOptionSlots();
+            const auto type = std::find(slots.begin(), slots.end(), general_module::window_theme_option);
+            const auto toggle = std::find(slots.begin(), slots.end(), runtime.general_.FollowGameWindowTypeOption());
+            if (!check(type != slots.end() && toggle != slots.end() && toggle - type == runtime.ConfigLayout().Columns(),
+                "Follow game stays directly below Window Type in narrow and wide settings")) return false;
+        }
+        return true;
     }
 
     auto config_input_test::Presentation(const char* dat) -> bool

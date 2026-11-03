@@ -105,7 +105,7 @@ File selection and processing run in the background. The dialog shows its status
 - `/xiuiplus notify status` — report screen-space anchoring or the saved manual position
 - `/xiuiplus theme` — open Global → Appearance; choose XI Theme or XIV 1.0 Theme under Theme (also available in Basic settings)
 - `/xiuiplus theme xiv1` / `/xiuiplus theme xi` — switch XIUI+'s theme while keeping saved layouts; `theme native` remains an alias for XI Theme
-- `/xiuiplus theme 1` through `/xiuiplus theme 8` — change the game's native Window Type
+- `/xiuiplus theme 1` through `/xiuiplus theme 8` — change Window Type; applies only to XIUI+ when Follow game is off
 - `/xiuiplus general` — configure native game HUD visibility
 - `/xiuiplus gamehud` — configure native game HUD visibility
 - `/xiuiplus gamehud show all` — restore every native HUD element
@@ -195,7 +195,7 @@ Kipling created [Cadence](https://github.com/KiplingFFXI/cadence) and [Momentum]
 
 Cursor artwork is from Kenney's CC0 Cursor Pack. The original notice is retained in `assets/cursors/LICENSE.txt`.
 
-Native command/details menus: `/xiuiplus commands` opens their movable module. It preserves native actions, item/spell details, selections and cursor handling; disabling movement restores the game positions. With **XI Theme**, HUD containers and the configuration UI follow **Menu → Config → Windows → Shared → Window Type**, using all eight installed DAT skins. **XIV 1.0 Theme** uses navy fabric, aged-metal frames, copper gauges, serif HUD text, transparent chat and a softly fading minimap. Choose it with **Theme** in Basic settings or **Global → Appearance**. Switching themes preserves saved module styling and placement. `/xiuiplus commands status` and `/xiuiplus theme status` report native support and the selected theme.
+Native command/details menus: `/xiuiplus commands` opens their movable module. It preserves native actions, item/spell details, selections and cursor handling; disabling movement restores the game positions. With **XI Theme**, HUD containers and the configuration UI use all eight installed DAT skins. **Global → Appearance → Window → Follow game** is on by default and follows the game's Window Type. Turn it off, then choose **Window Type** directly above it to style XIUI+ independently. Your separate choice is remembered when you turn following back on. **XIV 1.0 Theme** uses navy fabric, aged-metal frames, copper gauges, serif HUD text, transparent chat and a softly fading minimap. Choose it with **Theme** in Basic settings or **Global → Appearance**. Switching themes preserves saved module styling and placement. `/xiuiplus commands status` and `/xiuiplus theme status` report native support and the selected theme.
 
 Target includes **World Target Bar**, an optional small HP bar beneath the selected world target, and **Mob Info** group sub-tabs for combined rows, separate rows or independent movement. See [World Target Bar](reference/world-target-bar.md) and [Mob Info](modules/mobinfo.md).
 

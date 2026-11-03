@@ -116,7 +116,7 @@ namespace xiui
             {"General", "Choose what this storage tracker displays.", "general"},
             {"Layout", "Arrange slot dots into groups; extra groups wrap to fit the screen.", "layout"},
             {"Fullness", "Used-slot warning and critical thresholds, with independent colors.", "fullness"},
-            {"Appearance", "Optional container using the game's current Window Type.", "appearance"},
+            {"Appearance", "Optional container using XIUI+'s selected Window Type.", "appearance"},
             {"Text", "Label and count profiles retain the shared HUD text effects.", "text"}};
         return sections;
     }

@@ -15,6 +15,7 @@ The wrapper builds only the selected target, then runs its catalogued arguments.
 - Localization: `localization` (English/Japanese lookup and fallback, reported settings/dialog labels, consistent numbered Hotbar captions, unchanged HP/MP/TP abbreviations, UTF-8 paragraph wrapping, local-only persistence and header geometry). CMake also validates source message coverage, catalogs and format arguments. `python tests/localization_sources_test.py` checks the source scanner's metadata, UTF-8 literals and user-content boundary.
 
 - Global XIV 1.0 appearance: `xiv1-theme` (persistence, native Window Type isolation, controller access, text fade preservation and configured fonts overriding theme defaults across HUD text).
+- Independent XI Window Type: `window-theme` (Follow game defaults and placement, native write isolation, remembered custom skin, portable profiles, resets and shared controller navigation).
 
 - Explicit Edit Mode: `edit-mode` (live visibility, selected previews, hover controls, hidden input targets and shared toggle).
 - Full / Compact typing: `xiui_chat_smoke --full-keyboard-only` (first-key composition, native draft handoff, shortcut ownership, numpad movement and editor isolation).

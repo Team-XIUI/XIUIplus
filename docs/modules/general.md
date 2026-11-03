@@ -4,6 +4,8 @@ The top-right globe opens the shared language menu in Basic and Advanced setting
 
 Basic's Theme control and Global → Appearance → Theme select XI Theme or XIV 1.0 Theme. `/xiuiplus theme xiv1` and `/xiuiplus theme xi` use the same persisted preference (`appearance.theme`); `theme native` remains an alias. XIV 1.0 Theme applies embedded navy fabric and aged-metal frames, copper gauges, default serif HUD text, transparent chat, feathered minimap and resource/target layout overlays. Selected global or module fonts override those defaults, including names and meter numbers. Switching themes keeps native Window Type, positions, scales and per-module styles intact. Native menus outside XIUI+ retain the game's Window Type. Focused check: `xiv1-theme`.
 
+Global → Appearance → Window has **Follow game** directly beneath **Window Type**, on by default. Turn it off to choose XIUI+'s XI Theme skin independently of native windows. The first independent choice starts from the current type and remains remembered when following is reenabled. `appearance.follow_game_window_type` and `appearance.window_type` persist through profiles; loading or resetting these preferences never writes native settings. `/xiuiplus theme 1`–`8` respects the same mode. Shared config controls provide mouse, keyboard and controller access. Focused check: `window-theme`.
+
 [First-load setup](../reference/setup.md) lives in `hud_runtime_setup.cpp`, with copy and shared state in `config/setup_wizard.hpp`. It previews modules through their normal renderer, saves choices through the current profile, and keeps completion/progress local to the installation. Existing installs enter only with `/xiuiplus setup`. Focused check: `setup-wizard`.
 
 [Basic/Advanced and HUD scaling](../reference/hud-scaling.md) use `hud_runtime_basic.cpp`, `hud_runtime_scale.cpp` and the shared module scale controls. General remains the internal ID; Global is the visible category.
@@ -32,7 +34,7 @@ XIV 1.0 background opacity defaults to 40% and is adjustable under Appearance �
 
 **Start in:** [general_module.cpp](../../src/runtime/modules/general/general_module.cpp), [global_text.cpp](../../src/runtime/config/global_text.cpp), [module_visibility.hpp](../../src/runtime/config/module_visibility.hpp), [hud_runtime_visibility.cpp](../../src/runtime/hud_runtime_visibility.cpp).
 
-**Keep intact:** Global text changes only the chosen property across HUD profiles. Presentation mode must not change native device settings. Event visibility uses the complete native predicate, not its system-enable byte. Explicit Hide all releases focus; native Window Type remains authoritative.
+**Keep intact:** Global text changes only the chosen property across HUD profiles. Presentation mode must not change native device settings. Event visibility uses the complete native predicate, not its system-enable byte. Explicit Hide all releases focus; only an explicit Window Type change with Follow game enabled may write the native setting.
 
 **Focused check:** `./scripts/check.ps1 -Name global-text`, `input-mode` or `all-ui-visibility`, according to the change.
 

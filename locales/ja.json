@@ -3125,5 +3125,12 @@
   "[x] Activate single import": "[x] 単一の取込を有効化",
   "[x] Controller options": "[x] コントローラー設定",
   "[x] Link unassigned chars": "[x] 未割当キャラクターを関連付け",
-  "Usage: /xiuiplus actionbars run <bar 1-10> <slot 1-12>": "使い方: /xiuiplus actionbars run <バー 1-10> <スロット 1-12>"
+  "Usage: /xiuiplus actionbars run <bar 1-10> <slot 1-12>": "使い方: /xiuiplus actionbars run <バー 1-10> <スロット 1-12>",
+  "Window Type": "ウィンドウタイプ",
+  "Use the game's Window Type for XIUI+. Turn off to choose a separate type without changing native game windows.": "XIUI+のウィンドウタイプをゲームに合わせます。オフにすると、ゲームの標準ウィンドウを変更せずに別のタイプを選べます。",
+  "Choose window artwork for XI Theme. With Follow game enabled, this changes the game's Window Type; otherwise it changes only XIUI+.": "XIテーマのウィンドウデザインを選びます。「ゲームに合わせる」がオンの場合はゲームのウィンドウタイプを変更し、オフの場合はXIUI+だけを変更します。",
+  "[XIUI+] The container demo has been removed. Configure windows under Global > Appearance > Window.": "[XIUI+] ウィンドウ枠のデモは削除されました。「全般」>「外観」>「ウィンドウ」で設定してください。",
+  "Use XIUI+'s selected Window Type or modern bars.": "XIUI+で選択したウィンドウタイプ、またはモダンバーを使います。",
+  "Window theme uses XIUI+'s selected Window Type. Other styles use the custom slot colors.": "ウィンドウテーマはXIUI+で選択したウィンドウタイプを使います。他のスタイルは独自のスロット色を使います。",
+  "Optional container using XIUI+'s selected Window Type.": "XIUI+で選択したウィンドウタイプを使う任意の枠です。"
 }
