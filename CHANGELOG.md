@@ -1,16 +1,25 @@
 # Changelog
 
-## Unreleased
+## 0.1.4-alpha — 2026-11-03
 
-- Add an independent Minimap theme selector with Follow global theme, Standard and XIV 1.0 (Fading circle), retaining saved shapes, edges and positions.
+Changes since the last published release, 0.1.3-alpha:
 
-## 0.1.4-alpha — 2026-11-02
-
-- Allow SDK-compatible hosts such as VanaCore to initialize without Ashita's optional core version exports. Retain the plugin interface advertised to the loader and pass that SDK selection into embedded and hot-reloaded runtimes instead of rejecting version `0.00`.
-- Resolve available core version exports from normal, renamed and manually mapped images. Keep host version metadata separate from the selected plugin SDK interface.
-- Preserve separate plain-click and Shift-click histories, add `/xiuiplus mouse clear`, and report the resolved provider image and SDK layout.
-- Honor configured global and module fonts throughout the XIV 1.0 theme, including Party/Player/Target names and meter values. Preserve explicit Bahnschrift selections and saved module overrides through reloads.
-- Exercise actual standalone initialization with 4.16/4.30 cores and SDK facades without version exports, and verify the selected SDK reaches hot-reloaded runtimes.
+- Custom action icons: use your own PNG, JPEG, BMP, GIF, TIFF, ICO or static WebP images on hotbars and crossbars. Add files under `config/XIUIplus/icons/` and refresh the Custom icon picker.
+- Independent minimap theme: choose Follow global theme, Standard or XIV 1.0 (Fading circle) without changing the rest of your HUD.
+- Independent window type: turn off Follow game beneath Global → Appearance → Window → Window Type to style XIUI+'s XI Theme separately from native game windows.
+- Seeking-party indicator: show the native green icon on your solo party row. It clears when you stop seeking or join a party/alliance.
+- Dungeon maps: fix floor discovery in areas such as Gusgen Mines, including use with AllMaps enabled.
+- Macro waits: continue subsequent commands after inline `<wait 4>` or a separate `/wait 4`, including mining and other temporary native events.
+- Actions & Macros: creating or editing library macros no longer replaces the first hotbar slot. Explicit slot assignment still works normally.
+- Keyboard hotbars: keep plain number-key bindings available across zoning and recover presses after a missed key release.
+- Controller crossbars: restore expanded/shared banks based on the first held trigger and improve action input over native command menus.
+- Japanese macro editing: recognize English and Japanese action/recast names, preserve saved command text, and add Unicode Paste for slot labels.
+- Accented chat: display and send common Western accented letters, including French, German and Spanish characters, alongside Japanese and auto-translate text.
+- Startup settings: preserve loaded preferences and positions during initial layout setup.
+- XIV 1.0 fonts: honor selected global and per-module fonts, including explicit Bahnschrift choices, through reloads.
+- Host compatibility: improve initialization with SDK-compatible hosts such as VanaCore and renamed or manually mapped Ashita cores.
+- Click diagnostics: retain separate plain-click and Shift-click histories and add `/xiuiplus mouse clear` for support reports.
+- Release history: preserve older public releases, download assets and tags when publishing new versions.
 
 ## 0.1.3-alpha — 2026-11-02
 

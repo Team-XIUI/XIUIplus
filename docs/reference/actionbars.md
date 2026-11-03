@@ -42,7 +42,7 @@ Keyboard, pointer and controller activation use the same executor. It checks the
 
 The game's macro palette is recognized separately from other native menus. A native execution guard blocks palette confirmation as well as keyboard/trigger starts, while explicit XIUI-macro actions use the guarded host bridge to run their selected book/set. Keyboard and controller state, buffered input and owned releases are handled together so quick taps or a preference change cannot replay a native macro activation.
 
-Keyboard bindings follow the game's keyboard mode. Compact layouts retain ordinary letter/number bindings. Full mode reserves unfocused letters, digits, punctuation, Space and Shift-only text for chat; use Ctrl/Alt combinations or function keys for global actions. Explicit editor/binding-capture focus still receives typing. A held action key drains through release if the keyboard mode changes.
+Keyboard bindings follow the game's keyboard mode. Compact layouts retain ordinary letter/number bindings. Explicit number-row bindings work in every layout, including after zoning. Full mode reserves unbound digits, unfocused letters, punctuation, Space and Shift-only text for chat; Ctrl/Alt combinations and function keys remain available for global actions. Explicit editor/binding-capture focus still receives typing. A held action key drains through release if the keyboard mode changes.
 
 ## Custom icon files
 

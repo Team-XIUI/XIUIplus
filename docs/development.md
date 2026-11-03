@@ -89,7 +89,7 @@ The November 1, 2026 live XIV1.0 setup is captured in both reset defaults and th
 
 DLL releases live in the public [xiuiplus-releases repository](https://github.com/Team-XIUI/xiuiplus-releases/releases). Its independent `main` contains public download instructions only; development source and history remain in private `Shuu-37/XIUIplus`. The development checkout's `origin` stays private. Use `--repo Team-XIUI/xiuiplus-releases` explicitly for every GitHub release command.
 
-For every new release, increment the furthest-right numeric component in root `VERSION`: `0.1.2` → `0.1.3` (and `0.1.9` → `0.1.10`). Keep `VERSION` numeric for CMake/Windows. Alpha tags use the fixed `-alpha` suffix: `v0.1.2-alpha` → `v0.1.3-alpha`. Do not add or increment an alpha counter such as `-alpha.1`.
+Use the version Cody requests. Otherwise, reuse an already-incremented, unpublished development version; if none is prepared, increment the furthest-right numeric component after the latest published release: `0.1.2` → `0.1.3` (and `0.1.9` → `0.1.10`). Do not bump again just because `VERSION` already contains the next release number. Keep `VERSION` numeric for CMake/Windows. Alpha tags use the fixed `-alpha` suffix: `v0.1.2-alpha` → `v0.1.3-alpha`. Do not add or increment an alpha counter such as `-alpha.1`.
 
 Generate all version fields from `VERSION`, including Ashita's `GetVersion()`. Ashita displays a numeric compatibility value with two decimals: `major + minor / 10 + patch / 100`, so `0.1.3` displays as `0.13`. The startup message and Windows file/product metadata keep the complete semantic version. The standalone packaging check compares the loaded plugin's displayed value with its Windows version resource.
 
@@ -98,12 +98,12 @@ Preserve the shipped defaults unless a capture was requested. Run `./scripts/pac
 Upload only `dist/XIUIplus.dll` and the generated `dist/SHA256SUMS.txt`; no companion runtime or external assets are needed. With the private source tag pushed and public release notes written:
 
 ```powershell
-gh release create v0.1.2-alpha dist/XIUIplus.dll dist/SHA256SUMS.txt --repo Team-XIUI/xiuiplus-releases --target main --prerelease --latest=false --title 'XIUIplus 0.1.2-alpha' --notes-file out/release-notes.md
+gh release create v0.1.2-alpha dist/XIUIplus.dll dist/SHA256SUMS.txt --repo Team-XIUI/xiuiplus-releases --target main --prerelease --latest=false --title 'XIUI+ 0.1.2-alpha' --notes-file out/release-notes.md
 ```
 
-GitHub creates the public release tag on the public repository's own `main`; it shares the version name with the private source tag, not its Git history. Use a new tag for each release. Stable releases omit the channel suffix and prerelease flags and use `--latest`. Write public notes from the intended changes and known limitations; the public repository has no development PR history from which to generate them. Verify uploaded asset hashes and release status after publication.
+GitHub creates the public release tag on the public repository's own `main`; it shares the version name with the private source tag, not its Git history. Use a new tag for each release. Stable releases omit the channel suffix and prerelease flags and use `--latest`. Write short, player-facing patch notes for every new feature and fix since the last published public release. Compare its matching private source tag with the intended release commit; an unpublished development version or changelog heading is not the baseline. Update `CHANGELOG.md` and use an explicit notes file, since the public repository has no development PR history from which to generate notes. Verify uploaded asset hashes and release status after publication.
 
-Keep only the newest public release, including when it is an alpha. After publishing and verifying its assets, delete older public releases and their public tags with `gh release delete <old-tag> --repo Team-XIUI/xiuiplus-releases --yes --cleanup-tag`. Retain private source tags. The public README links to the Releases page, without a version-specific download link.
+Preserve older public releases, their assets and public tags, including alpha versions, so users can download previous builds. Publishing a new release must not delete, overwrite or clean up older releases or tags. Retain private source tags too. Any historical release removal requires a separate explicit user request. The public README links to the Releases page, without a version-specific download link.
 
 The public checkout is the sibling `../xiuiplus-releases/`, with its own `main` and `origin`. DLLs and checksums are release assets, not committed files. Existing private releases are historical copies; public downloads and future publications use `xiuiplus-releases`.
 
