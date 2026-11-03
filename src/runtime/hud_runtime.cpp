@@ -500,11 +500,17 @@ namespace xiui
 
     auto hud_runtime::HandleMouseMessage(const uint32_t message, const WPARAM wParam, const LPARAM lParam, const bool inputBlocked) -> bool
     {
-        const auto keys = this->mouse_input_.Normalize(message, wParam, PhysicalMouseButtons(), PhysicalMouseModifiers());
+        this->mouse_thread_ = ::GetCurrentThreadId();
+        const auto physical = PhysicalMouseButtons();
+        const bool leftHeld = (this->mouse_input_.Buttons() & MK_LBUTTON) != 0;
+        const auto keys = this->mouse_input_.Normalize(message, wParam, physical, PhysicalMouseModifiers(), ::GetTickCount64());
+        if (const auto lost = this->mouse_input_.Lost(); lost != 0) this->CancelLostPointer(lost, "polled release");
+        if (const auto repeated = this->mouse_input_.Repeated(); repeated != 0) this->CancelLostPointer(repeated, "repeated press");
+        if (message == WM_LBUTTONUP && leftHeld) this->mouse_release_reason_ = "release";
         const bool button = message == WM_LBUTTONDOWN || message == WM_LBUTTONDBLCLK || message == WM_LBUTTONUP ||
             message == WM_RBUTTONDOWN || message == WM_RBUTTONDBLCLK || message == WM_RBUTTONUP;
         if (!button) return this->RouteMouseMessage(message, keys, lParam, inputBlocked);
-        auto& trace = this->mouse_trace_.Record(message, static_cast<uint32_t>(wParam), static_cast<uint32_t>(keys),
+        auto& trace = this->mouse_trace_.Record(message, static_cast<uint32_t>(wParam), static_cast<uint32_t>(keys), physical,
             signed_low_word(lParam), signed_high_word(lParam), inputBlocked, this->mouse_down_);
         const bool consumed = this->RouteMouseMessage(message, keys, lParam, inputBlocked);
         trace.owner = this->mouse_route_;
@@ -1274,6 +1280,9 @@ namespace xiui
         if (::_stricmp(command, "mouse clear") == 0)
         {
             this->mouse_trace_.Clear();
+            this->mouse_input_.ClearStats();
+            this->mouse_capture_losses_ = 0;
+            this->mouse_release_reason_ = "none";
             if (auto* chat = this->core_ != nullptr ? this->core_->GetChatManager() : nullptr)
                 chat->Write(1, false, i18n::Text("[XIUI+] Mouse trace cleared. Try a plain click, then a Shift-click, then /xiuiplus mouse status."));
             return true;
@@ -1294,6 +1303,13 @@ namespace xiui
             chat->Writef(1, false, i18n::Text("[XIUI+] Mouse: config %u; held %u; buttons 0x%X; capture %u; prior block %u; shared capture %u; prior shared block %u; events %zu."),
                 unsigned(this->editing_), unsigned(this->mouse_down_), this->mouse_buttons_, unsigned(this->mouse_captured_),
                 unsigned(this->previous_mouse_blocked_), unsigned(this->chat_mouse_block_saved_), unsigned(this->previous_chat_mouse_blocked_), this->mouse_trace_.total);
+            const auto& stats = this->mouse_input_.Stats();
+            const auto* properties = this->core_->GetProperties();
+            const auto window = properties != nullptr ? properties->GetFinalFantasyHwnd() : nullptr;
+            chat->Writef(1, false, i18n::Text("[XIUI+] Mouse gestures: last end %s; ignored poll releases %zu; recovered releases %zu; repeated presses %zu; move flags %u; swapped buttons %u; capture losses %zu; threads input %lu, frame %lu, window %lu."),
+                this->mouse_release_reason_, stats.ignored_releases, stats.recovered_releases, stats.repeated_presses, unsigned(stats.move_flags),
+                unsigned(::GetSystemMetrics(SM_SWAPBUTTON) != 0), this->mouse_capture_losses_, this->mouse_thread_, this->frame_thread_,
+                window != nullptr ? ::GetWindowThreadProcessId(window, nullptr) : 0UL);
             for (size_t mode = 0; mode < this->mouse_trace_.events.size(); ++mode)
             {
                 const auto& events = this->mouse_trace_.events[mode];
@@ -1302,8 +1318,8 @@ namespace xiui
                 for (auto index = first; index < count; ++index)
                 {
                     const auto& trace = events[index % events.size()];
-                    chat->Writef(1, false, i18n::Text("[XIUI+] Mouse #%zu: msg 0x%X; data 0x%X; keys 0x%X; pos %d,%d; Shift %u; blocked %u; owner %s; handled %u; config held %u -> %u."),
-                        trace.sequence, trace.message, trace.data, trace.keys, trace.x, trace.y, unsigned(trace.shift), unsigned(trace.blocked), trace.owner,
+                    chat->Writef(1, false, i18n::Text("[XIUI+] Mouse #%zu: msg 0x%X; data 0x%X; keys 0x%X; poll 0x%X; pos %d,%d; Shift %u; blocked %u; owner %s; handled %u; config held %u -> %u."),
+                        trace.sequence, trace.message, trace.data, trace.keys, trace.physical, trace.x, trace.y, unsigned(trace.shift), unsigned(trace.blocked), trace.owner,
                         unsigned(trace.consumed), unsigned(trace.config_down_before), unsigned(trace.config_down_after));
                 }
             }
@@ -2317,7 +2333,7 @@ namespace xiui
         }
         const bool enabled = active && this->interaction_ == interaction::none && !this->mouse_down_ &&
             !this->ready_check_.PointerDown() && this->chat_pointer_ == nullptr && !this->hud_target_pressed_ &&
-            (::GetAsyncKeyState(VK_LBUTTON) & 0x8000) == 0 && (::GetAsyncKeyState(VK_RBUTTON) & 0x8000) == 0;
+            (this->mouse_input_.Buttons() & (MK_LBUTTON | MK_RBUTTON)) == 0;
         this->ui_sounds_.Hover(target, ::GetTickCount64(), enabled);
     }
 
@@ -2367,8 +2383,7 @@ namespace xiui
             this->UpdateSoundHover(viewport, active);
             return;
         }
-        if (gameWindow == nullptr || ::GetForegroundWindow() != gameWindow ||
-            (this->mouse_capture_window_ != nullptr && ::GetCapture() != this->mouse_capture_window_))
+        if (gameWindow == nullptr || ::GetForegroundWindow() != gameWindow)
         {
             this->config_.header_menu_open = false;
             this->FinishConfigInput(false);
@@ -2503,6 +2518,45 @@ namespace xiui
         this->mouse_capture_window_ = nullptr;
         if (::GetCapture() == capturedWindow)
             ::ReleaseCapture();
+    }
+
+    auto hud_runtime::CancelLostPointer(const uint32_t buttons, const char* reason) -> void
+    {
+        // The matching release will never arrive: end held gestures without activating them.
+        this->mouse_buttons_ &= ~buttons;
+        this->actionbar_pointer_release_ &= ~buttons;
+        this->satchel_pointer_release_ &= ~buttons;
+        this->setup_.pointer_buttons &= ~buttons;
+        if ((buttons & MK_LBUTTON) != 0)
+        {
+            this->mouse_release_reason_ = reason;
+            this->setup_.pressed = ui::setup_control::none;
+            if (this->mouse_down_)
+            {
+                this->FinishScale(false);
+                this->mouse_down_ = false;
+                this->module_menu_pressed_.reset();
+                this->config_.choice_input.CancelScrollPointer();
+                this->FinishInteraction();
+            }
+            this->hud_target_pressed_ = false; this->hud_target_module_ = nullptr;
+            if (this->chat_pointer_ != nullptr || this->ChatResizing())
+            {
+                if (this->ChatResizing()) this->SaveSettings();
+                this->chat_.CancelPointer(); this->chat_second_.CancelPointer(); this->chat_pointer_ = nullptr;
+            }
+            this->ready_check_.CancelPointer();
+            if (this->actionbars_.PointerDown()) this->actionbars_.CancelPointerGesture(false);
+        }
+        if (this->mouse_input_.Buttons() == 0) this->ReleasePointerCapture();
+    }
+
+    auto hud_runtime::ObservePointerCapture(void) -> void
+    {
+        // Capture only extends delivery outside the window; losing it does not end a gesture.
+        const bool lost = this->mouse_capture_window_ != nullptr && ::GetCapture() != this->mouse_capture_window_;
+        if (lost && !this->mouse_capture_lost_) ++this->mouse_capture_losses_;
+        this->mouse_capture_lost_ = lost;
     }
 
     auto hud_runtime::UpdateMouseCapture(const D3DVIEWPORT8& viewport, const uint32_t buttons) -> bool
@@ -2659,6 +2713,8 @@ namespace xiui
         this->layout_snapshot_ = snapshot;
         this->native_ui_ = snapshot.native_ui;
         this->UpdateVisibilityContext();
+        this->frame_thread_ = ::GetCurrentThreadId();
+        this->ObservePointerCapture();
         const bool settingsFailed = this->settings_writer_.HasFailed() || this->profile_writer_.HasFailed();
         if (settingsFailed && !this->settings_error_reported_ && this->core_ != nullptr && this->core_->GetChatManager() != nullptr)
             this->core_->GetChatManager()->Write(1, false, "[XIUI+] Settings save failed; changes will be retried on the next save.");
@@ -2684,7 +2740,7 @@ namespace xiui
         }
         if (this->chat_colors_.available) snapshot.chat_colors = this->chat_colors_;
         this->notification_source_.Update(this->core_, this->notifications_.Center(), now);
-        if (this->hud_target_pressed_ && (::GetAsyncKeyState(VK_LBUTTON) & 0x8000) == 0)
+        if (this->hud_target_pressed_ && (this->mouse_input_.Buttons() & MK_LBUTTON) == 0)
         { this->hud_target_pressed_ = false; this->hud_target_module_ = nullptr; }
         this->combat_source_.SetRules(this->combat_settings_.Rules());
         this->combat_source_.SetSongBonuses(this->combat_settings_.SongBonuses());
@@ -2748,8 +2804,8 @@ namespace xiui
         this->chat_palette_available_ = snapshot.chat_colors.available;
         auto* properties = this->core_ != nullptr ? this->core_->GetProperties() : nullptr;
         this->general_.SetClipboardOwner(properties != nullptr ? properties->GetFinalFantasyHwnd() : nullptr);
-        if ((!this->chat_.State().enabled && (this->chat_.Focused() || this->chat_pointer_ != nullptr)) || (this->chat_pointer_ != nullptr && !this->chat_pointer_->WindowVisible()) ||
-            (this->mouse_capture_window_ != nullptr && ::GetCapture() != this->mouse_capture_window_)) this->ReleaseChatInput(!this->GameWindowFocused());
+        if ((!this->chat_.State().enabled && (this->chat_.Focused() || this->chat_pointer_ != nullptr)) || (this->chat_pointer_ != nullptr && !this->chat_pointer_->WindowVisible()))
+            this->ReleaseChatInput(!this->GameWindowFocused());
         if (!this->visible_ || this->device_ == nullptr)
         {
             this->cursor_renderer_.SetNativeCursorHidden(false);

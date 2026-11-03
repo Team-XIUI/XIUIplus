@@ -29,6 +29,7 @@ namespace xiui
         this->FinishInteraction();
         this->chat_.CancelPointer(); this->chat_second_.CancelPointer(); this->ready_check_.CancelPointer();
         this->chat_pointer_ = nullptr; this->mouse_down_ = false; this->mouse_buttons_ = 0;
+        if ((this->mouse_input_.Buttons() & MK_LBUTTON) != 0) this->mouse_release_reason_ = "focus";
         this->mouse_input_.Reset();
         this->confirmation_key_release_ = 0; this->chat_activation_enter_down_ = false;
         this->setup_.pressed = ui::setup_control::none; this->setup_.pointer_buttons = 0; this->setup_.key_releases.reset();

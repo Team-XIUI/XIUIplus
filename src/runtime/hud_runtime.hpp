@@ -425,7 +425,13 @@ namespace xiui
         mouse_input mouse_input_{};
         mouse_button_trace mouse_trace_{};
         const char* mouse_route_{"unclaimed"};
+        const char* mouse_release_reason_{"none"};
+        size_t mouse_capture_losses_{};
+        bool mouse_capture_lost_{};
+        DWORD mouse_thread_{}, frame_thread_{};
         auto RouteMouseMessage(uint32_t message, WPARAM wParam, LPARAM lParam, bool blocked) -> bool;
+        auto CancelLostPointer(uint32_t buttons, const char* reason) -> void;
+        auto ObservePointerCapture(void) -> void;
 #if defined(XIUI_ENABLE_TEST_FAULTS)
         bool raise_after_begin_for_testing_{false};
 #endif

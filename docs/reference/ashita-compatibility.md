@@ -14,7 +14,7 @@ The 4.16 party interface does not expose remote master levels. XIUI+ leaves thos
 
 ## Mouse boundary
 
-[mouse_input.hpp](../../src/shared/mouse_input.hpp) normalizes Ashita callbacks before runtime routing. Button messages establish press/release state even when callback data has no Win32 held-button flags. Physical state can cancel a missing release on movement; it never starts an action. Shift/Ctrl are read separately, and wheel/X-button data keep their high word. Foreground suspension clears the observed button history.
+[mouse_input.hpp](../../src/shared/mouse_input.hpp) normalizes Ashita callbacks before runtime routing. Ashita 4.3.2.1 passes zero `wParam` on button messages, so callback data cannot be relied on for held buttons. Button messages establish press/release state; held flags on movement are trusted only after the host has sent them. `GetAsyncKeyState` reports physical buttons (mapped here for swapped buttons), runs ahead of queued messages and may never observe a press. Polling therefore recovers a missing release only after it saw that press and then reported release for `mouse_release_grace_ms`; it never starts an action or ends an uncorroborated drag. Shift/Ctrl are read separately, and wheel/X-button data keep their high word. Foreground suspension clears the observed button history.
 
 Raw callback data and normalized keys appear separately in the mouse trace. Hover continues to follow cursor position; it is not evidence that a button callback reached Configuration. A Shift-only report still needs the affected client's trace before assigning a cause to another addon or a particular core build.
 

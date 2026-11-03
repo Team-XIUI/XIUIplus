@@ -27,14 +27,9 @@ namespace xiui
     {
         this->satchel_source_.Update(this->core_, this->inventory_source_.State(), this->profile_identity_.Read(this->core_), now);
         this->satchel_cache_.Observe(this->satchel_source_.Snapshot(), now);
-        if (this->satchel_.PointerDown())
-        {
-            const auto* properties = this->core_ != nullptr ? this->core_->GetProperties() : nullptr;
-            const auto window = properties != nullptr ? properties->GetFinalFantasyHwnd() : nullptr;
-            // The pending mouse-up commits the drag; button polling can run ahead of it.
-            if (window != nullptr && ::GetCapture() != window)
-                this->SuspendSatchelInput();
-        }
+        // The pending mouse-up commits the drag, so held state follows button messages rather than polling or capture.
+        if (this->satchel_.PointerDown() && (this->mouse_input_.Buttons() & (MK_LBUTTON | MK_RBUTTON)) == 0)
+            this->SuspendSatchelInput();
         if (!this->SatchelInputAvailable(true)) this->SuspendSatchelInput();
         this->satchel_actions_.Update(this->core_, this->satchel_source_.Snapshot(), now);
         this->satchel_.SetFocusStyle(this->general_.FocusStyle());

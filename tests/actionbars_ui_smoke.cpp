@@ -1437,13 +1437,28 @@ namespace xiui
                 const auto close = runtime->ConfigLayout().CloseButton();
                 runtime->mouse_x_ = static_cast<int>(close.x + 4); runtime->mouse_y_ = static_cast<int>(close.y + 4);
                 mouse_input pointer;
-                runtime->ProcessPointerMessage(WM_LBUTTONDOWN, static_cast<uint32_t>(pointer.Normalize(WM_LBUTTONDOWN, 0, 0, 0)), viewport);
-                runtime->ProcessPointerMessage(WM_MOUSEMOVE, static_cast<uint32_t>(pointer.Normalize(WM_MOUSEMOVE, 0, MK_LBUTTON, 0)), viewport);
+                const auto move = [&](const uint32_t physical, const uint64_t now)
+                { runtime->ProcessPointerMessage(WM_MOUSEMOVE, static_cast<uint32_t>(pointer.Normalize(WM_MOUSEMOVE, 0, physical, 0, now)), viewport); };
+                runtime->ProcessPointerMessage(WM_LBUTTONDOWN, static_cast<uint32_t>(pointer.Normalize(WM_LBUTTONDOWN, 0, 0, 0, 0)), viewport);
+                move(0, 16);
+                Check(runtime->mouse_down_ && runtime->interaction_ == hud_runtime::interaction::close_config,
+                    "a poll that never saw the press cannot cancel Configuration's zero-data gesture");
+                move(MK_LBUTTON, 32);
                 Check(runtime->mouse_down_ && runtime->interaction_ == hud_runtime::interaction::close_config && runtime->IsEditing(),
                     "zero-data callbacks retain Configuration's held gesture without Shift");
-                runtime->ProcessPointerMessage(WM_MOUSEMOVE, static_cast<uint32_t>(pointer.Normalize(WM_MOUSEMOVE, 0, 0, 0)), viewport);
+                move(0, 48);
+                Check(runtime->mouse_down_ && runtime->interaction_ == hud_runtime::interaction::close_config,
+                    "movement queued behind a release keeps the press for its release message");
+                move(0, 48 + mouse_release_grace_ms);
                 Check(runtime->IsEditing() && !runtime->mouse_down_ && runtime->interaction_ == hud_runtime::interaction::none,
                     "an observed released button cancels a missed Configuration release without activating Close");
+                runtime->ProcessPointerMessage(WM_LBUTTONDOWN, MK_LBUTTON, viewport);
+                Check(runtime->mouse_down_ && runtime->interaction_ == hud_runtime::interaction::close_config && runtime->mouse_buttons_ == MK_LBUTTON,
+                    "Configuration begins a fresh press after a recovered release");
+                runtime->CancelLostPointer(MK_LBUTTON, "repeated press");
+                Check(runtime->IsEditing() && !runtime->mouse_down_ && runtime->interaction_ == hud_runtime::interaction::none &&
+                    runtime->mouse_buttons_ == 0 && std::string_view{runtime->mouse_release_reason_} == "repeated press",
+                    "a repeated press ends the stale gesture without activating Close and lets the new press choose its owner");
                 const auto mode = runtime->SettingsModeBounds(); const auto basic = runtime->config_.basic;
                 runtime->mouse_x_ = static_cast<int>(mode.x + 4); runtime->mouse_y_ = static_cast<int>(mode.y + 4);
                 runtime->ProcessPointerMessage(WM_LBUTTONDOWN, MK_LBUTTON, viewport);
@@ -1582,7 +1597,9 @@ namespace xiui
             const auto capture = reinterpret_cast<HWND>(uintptr_t{0x1234});
             const auto send = [&](const uint32_t message, const float x, const float y) {
                 runtime->mouse_x_ = static_cast<int>(x); runtime->mouse_y_ = static_cast<int>(y);
-                return runtime->HandleActionBarsMouse(message, message == WM_LBUTTONUP ? 0 : MK_LBUTTON, x, y, input.GetBlockInput());
+                // Zero-data host messages with no corroborating poll, as reported on Ashita 4.3.2.1.
+                const auto keys = runtime->mouse_input_.Normalize(message, 0, 0, 0, 0);
+                return runtime->HandleActionBarsMouse(message, keys, x, y, input.GetBlockInput());
             };
             for (const bool targeting : {true, false})
             {

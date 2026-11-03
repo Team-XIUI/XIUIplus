@@ -94,7 +94,8 @@ namespace xiui
         auto WindowFocused(void) const -> bool { return this->window_focused_; }
         auto KeyboardCapture(void) const -> bool { return this->KeyboardFocused() || this->setup_choice_input_.Opened() || this->navigation_focus_ || this->dialog_ != dialog::none && !this->IsWindowDialog(this->dialog_); }
         auto AssignmentDragging(void) const -> bool { return this->library_drag_.has_value() || this->dragging_; }
-        auto CancelPointerGesture(void) -> void;
+        // awaitRelease discards the gesture's pending release; pass false when that release was lost.
+        auto CancelPointerGesture(bool awaitRelease = true) -> void;
         auto SetWindowFocused(bool) -> void;
         auto WindowBounds(void) const -> ui::rect;
         auto WindowConfigView(void) const -> size_t;

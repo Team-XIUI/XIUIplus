@@ -216,9 +216,9 @@ namespace xiui
             this->settings_changed_ = true;
         this->window_gesture_ = window_gesture::none; this->window_resize_edges_ = 0;
     }
-    auto actionbars_module::CancelPointerGesture(void) -> void
+    auto actionbars_module::CancelPointerGesture(const bool awaitRelease) -> void
     {
-        if (this->pointer_down_) this->discard_pointer_release_ = true;
+        this->discard_pointer_release_ = awaitRelease && (this->pointer_down_ || this->discard_pointer_release_);
         this->FinishWindowGesture(false);
         this->pointer_down_ = this->bar_pointer_down_ = this->dragging_ = this->shift_drag_ = this->scrolling_ = false;
         this->CancelSetupControls();

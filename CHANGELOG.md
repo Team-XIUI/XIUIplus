@@ -1,5 +1,12 @@
 # Changelog
 
+## 0.1.41-alpha — 2026-11-03
+
+Changes since the last published release, 0.1.4-alpha:
+
+- Mouse input: fix XIUI+ windows that could not be dragged in Edit Mode, hotbar and window clicks that were cancelled, and clicks on XIUI+ windows that moved the game camera. This affected Ashita builds that report mouse buttons without held-state flags, including Ashita 4.3.2.x.
+- Click diagnostics: `/xiuiplus mouse status` also reports how the last drag ended and which input threads delivered it.
+
 ## 0.1.4-alpha — 2026-11-03
 
 Changes since the last published release, 0.1.3-alpha:

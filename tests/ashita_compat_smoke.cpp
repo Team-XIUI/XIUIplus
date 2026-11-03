@@ -136,25 +136,45 @@ namespace
 
     auto CheckMouse(void) -> void
     {
+        constexpr auto grace = xiui::mouse_release_grace_ms;
         xiui::mouse_input mouse;
-        Check(mouse.Normalize(WM_MOUSEMOVE, 0, MK_LBUTTON, 0) == 0, "polling a held button never creates a press");
-        Check(mouse.Normalize(WM_LBUTTONDOWN, 0, 0, 0) == MK_LBUTTON, "zero-data callbacks still report a fresh left press");
-        Check(mouse.Normalize(WM_MOUSEMOVE, 0, MK_LBUTTON, 0) == MK_LBUTTON, "zero-data movement retains a real held drag without Shift");
-        Check(mouse.Normalize(WM_LBUTTONUP, 0, MK_LBUTTON, 0) == 0, "the release message wins over a stale physical snapshot");
-        Check(mouse.Normalize(WM_LBUTTONDBLCLK, 0, 0, MK_SHIFT) == (MK_LBUTTON | MK_SHIFT), "double clicks and physical Shift remain separate");
-        Check(mouse.Normalize(WM_MOUSEMOVE, 0, MK_LBUTTON, 0) == MK_LBUTTON, "releasing Shift does not release the pointer gesture");
-        Check(mouse.Normalize(WM_MOUSEMOVE, 0, 0, 0) == 0, "a confirmed lost release can cancel the gesture");
-        Check(mouse.Normalize(WM_RBUTTONDOWN, 0, 0, 0) == MK_RBUTTON, "camera button presses are tracked independently");
+        Check(mouse.Normalize(WM_MOUSEMOVE, 0, MK_LBUTTON, 0, 0) == 0, "polling a held button never creates a press");
+        Check(mouse.Normalize(WM_LBUTTONDOWN, 0, 0, 0, 0) == MK_LBUTTON, "zero-data callbacks still report a fresh left press");
+        Check(mouse.Normalize(WM_MOUSEMOVE, 0, MK_LBUTTON, 0, 10) == MK_LBUTTON, "zero-data movement retains a real held drag without Shift");
+        Check(mouse.Normalize(WM_LBUTTONUP, 0, MK_LBUTTON, 0, 20) == 0, "the release message wins over a stale physical snapshot");
+        Check(mouse.Normalize(WM_LBUTTONDBLCLK, 0, 0, MK_SHIFT, 30) == (MK_LBUTTON | MK_SHIFT), "double clicks and physical Shift remain separate");
+        Check(mouse.Normalize(WM_MOUSEMOVE, 0, MK_LBUTTON, 0, 40) == MK_LBUTTON, "releasing Shift does not release the pointer gesture");
+        Check(mouse.Normalize(WM_MOUSEMOVE, 0, 0, 0, 50) == MK_LBUTTON && mouse.Lost() == 0, "queued movement after a physical release keeps the press for its release message");
+        Check(mouse.Normalize(WM_MOUSEMOVE, 0, 0, 0, 50 + grace) == 0 && mouse.Lost() == MK_LBUTTON, "a corroborated lost release cancels the gesture after the grace period");
+        Check(mouse.Normalize(WM_RBUTTONDOWN, 0, 0, 0, 400) == MK_RBUTTON, "camera button presses are tracked independently");
         const auto wheel = MAKEWPARAM(0, static_cast<WORD>(-WHEEL_DELTA));
-        Check(mouse.Normalize(WM_MOUSEWHEEL, wheel, MK_RBUTTON, MK_CONTROL) == (wheel | MK_RBUTTON | MK_CONTROL), "wheel sign and held buttons survive normalization");
-        Check(mouse.Normalize(WM_XBUTTONDOWN, MAKEWPARAM(0, XBUTTON2), MK_RBUTTON, 0) == (MAKEWPARAM(0, XBUTTON2) | MK_RBUTTON | MK_XBUTTON2), "X button identity stays in the high word");
+        Check(mouse.Normalize(WM_MOUSEWHEEL, wheel, MK_RBUTTON, MK_CONTROL, 410) == (wheel | MK_RBUTTON | MK_CONTROL), "wheel sign and held buttons survive normalization");
+        Check(mouse.Normalize(WM_XBUTTONDOWN, MAKEWPARAM(0, XBUTTON2), MK_RBUTTON, 0, 420) == (MAKEWPARAM(0, XBUTTON2) | MK_RBUTTON | MK_XBUTTON2), "X button identity stays in the high word");
         mouse.Reset();
-        Check(mouse.Normalize(WM_MOUSEMOVE, 0, MK_RBUTTON | MK_XBUTTON2, 0) == 0, "suspension drains button history without adopting held input");
+        Check(mouse.Normalize(WM_MOUSEMOVE, 0, MK_RBUTTON | MK_XBUTTON2, 0, 430) == 0, "suspension drains button history without adopting held input");
+
+        xiui::mouse_input unreliable;
+        unreliable.Normalize(WM_LBUTTONDOWN, 0, 0, 0, 0);
+        for (uint64_t now = 10; now < 2000; now += 16)
+            Check(unreliable.Normalize(WM_MOUSEMOVE, 0, 0, 0, now) == MK_LBUTTON, "polling that never saw the press cannot cancel a zero-data drag");
+        Check(unreliable.Stats().ignored_releases == 1 && unreliable.Stats().recovered_releases == 0, "uncorroborated polling is reported once per gesture");
+        Check(unreliable.Normalize(WM_LBUTTONUP, 0, 0, 0, 2000) == 0, "the release message still ends an uncorroborated drag");
+        unreliable.Normalize(WM_LBUTTONDOWN, 0, 0, 0, 2100);
+        Check(unreliable.Normalize(WM_LBUTTONDOWN, 0, 0, 0, 2200) == MK_LBUTTON && unreliable.Repeated() == MK_LBUTTON &&
+            unreliable.Stats().repeated_presses == 1, "a second press reports the missing release without losing the new press");
+        Check(unreliable.Normalize(WM_MOUSEMOVE, 0, 0, 0, 2300) == MK_LBUTTON && unreliable.Repeated() == 0, "repeated-press reporting lasts for one message");
+
+        xiui::mouse_input flagged;
+        flagged.Normalize(WM_LBUTTONDOWN, MK_LBUTTON, MK_LBUTTON, 0, 0);
+        Check(flagged.Normalize(WM_MOUSEMOVE, MK_LBUTTON, 0, 0, 10) == MK_LBUTTON && flagged.Stats().move_flags, "movement flags are trusted once a host reports them");
+        Check(flagged.Normalize(WM_MOUSEMOVE, MK_LBUTTON, 0, 0, 20) == MK_LBUTTON, "synchronous held flags outrank a physical poll that ran ahead");
+        Check(flagged.Normalize(WM_MOUSEMOVE, 0, 0, 0, 30) == 0 && flagged.Lost() == MK_LBUTTON, "synchronous flags end a lost release immediately");
+
         xiui::mouse_button_trace trace;
-        trace.Record(WM_LBUTTONDOWN, MK_LBUTTON, MK_LBUTTON, 10, 20, false, false);
-        trace.Record(WM_LBUTTONUP, 0, 0, 10, 20, false, true);
+        trace.Record(WM_LBUTTONDOWN, MK_LBUTTON, MK_LBUTTON, 0, 10, 20, false, false);
+        trace.Record(WM_LBUTTONUP, 0, 0, 0, 10, 20, false, true);
         for (size_t index = 0; index < 20; ++index)
-            trace.Record(WM_LBUTTONDOWN, MK_LBUTTON | MK_SHIFT, MK_LBUTTON | MK_SHIFT, 30, 40, false, false);
+            trace.Record(WM_LBUTTONDOWN, MK_LBUTTON | MK_SHIFT, MK_LBUTTON | MK_SHIFT, 0, 30, 40, false, false);
         Check(trace.counts[0] == 2 && trace.counts[1] == 20 && trace.events[0][0].sequence == 1 && trace.events[0][1].sequence == 2,
             "later Shift clicks cannot erase the plain click press/release evidence");
         trace.Clear();

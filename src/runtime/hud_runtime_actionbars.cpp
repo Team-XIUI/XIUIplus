@@ -151,13 +151,9 @@ namespace xiui
         this->actionbars_.SetPreview(this->ConfigPreview(this->actionbar_children_.back()));
         this->actionbars_.SetFocusStyle(this->general_.FocusStyle());
         this->actionbars_.SetConfigText(&this->general_.ConfigText());
-        if (this->actionbars_.PointerDown())
-        {
-            const auto* properties = this->core_ != nullptr ? this->core_->GetProperties() : nullptr;
-            const auto window = properties != nullptr ? properties->GetFinalFantasyHwnd() : nullptr;
-            if (window != nullptr && ::GetCapture() != window)
-                this->SuspendActionBarsInput(false);
-        }
+        // Button messages, not capture, own the gesture; this only clears one whose buttons were released elsewhere.
+        if (this->actionbars_.PointerDown() && (this->mouse_input_.Buttons() & (MK_LBUTTON | MK_RBUTTON)) == 0)
+            this->actionbars_.CancelPointerGesture(false);
         // A macro's own subtarget is drained by the executor before its next line.
         if (!this->ActionBarsInputAvailable(false, true))
         {
