@@ -475,7 +475,7 @@ namespace xiui
         if (this->settings_.show_identity)
         {
             auto nameText = this->settings_.name_text;
-            if (xiv1) nameText.style.font = ui::xiv1_italic_font;
+            if (xiv1) nameText.style.font = nameText.style.ThemeFont(ui::xiv1_italic_font);
             context.DrawText(snapshot.player_name, {panel.x + 7.0f, y, panel.width * 0.55f, 18.0f}, panel, nameText);
             char jobs[64]{};
             std::snprintf(jobs, sizeof(jobs), "%s / %s", snapshot.main_job, snapshot.sub_job);

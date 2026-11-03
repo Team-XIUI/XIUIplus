@@ -2,6 +2,8 @@
 
 Renders regular/enhanced zone maps with player, party, pet, target, enemy and NPC markers, plus per-zone zoom and configurable edges.
 
+Appearance → Minimap theme offers Follow global theme (default), Standard and XIV 1.0 (Fading circle). The fading circle can be selected with either global theme; Standard restores the saved map shape and edges even while the global theme is XIV 1.0. The choice persists with profiles and uses the shared mouse, keyboard and controller dropdown.
+
 The XIV 1.0 appearance uses a softly fading circular map, a warm north label and a turquoise player marker. The frame, backing and coordinate strips are suppressed while this appearance is active; saved shape and edge preferences are retained. Marker opacity follows the feather, and wheel/hover capture uses the visible circular shape.
 
 Default zoom is 4×. A versioned migration updates the old 3× starting value once, retaining other saved starting values and all per-zone zoom choices. The shipped preset contains no development zone overrides.

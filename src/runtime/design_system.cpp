@@ -542,7 +542,7 @@ namespace xiui::ui
     {
         auto style = source;
         if (!this->IsXiv1Theme() || !style.theme_text) return style;
-        if (style.font != xiv1_font && style.font != xiv1_italic_font && style.font != xiv1_number_font) style.font = xiv1_font;
+        style.font = style.ThemeFont(xiv1_font);
         const auto alpha = std::max(style.top_color >> 24, style.bottom_color >> 24);
         style.stroke = {true, std::min<D3DCOLOR>({240, alpha, style.stroke.color >> 24}) << 24};
         style.shadow = {true, 1.5f, 1.5f, std::min<D3DCOLOR>({224, alpha, style.shadow.color >> 24}) << 24, false};

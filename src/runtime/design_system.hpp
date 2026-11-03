@@ -112,6 +112,10 @@ namespace xiui::ui
         sheen_effect sheen{};
         bool theme_text{true};
         font_weight weight{};
+        bool font_explicit{};
+
+        auto ThemeFont(const int fallback) const -> int
+        { return this->theme_text && this->font == 0 && !this->font_explicit ? fallback : this->font; }
     };
 
     struct color_tokens

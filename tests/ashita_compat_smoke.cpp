@@ -4,12 +4,60 @@
 #include <array>
 #include <cstdio>
 #include <cstring>
+#include <filesystem>
+#include <fstream>
 #include <stdexcept>
+#include <vector>
 
 namespace
 {
     auto Check(const bool condition, const char* message) -> void
     { if (!condition) throw std::runtime_error{message}; }
+
+    auto MapHostImage(const std::filesystem::path& path) -> HMODULE
+    {
+        std::ifstream input{path, std::ios::binary};
+        const std::vector<char> file{std::istreambuf_iterator<char>{input}, {}};
+        Check(file.size() >= sizeof(IMAGE_DOS_HEADER), "read host image fixture");
+        const auto& dos = *reinterpret_cast<const IMAGE_DOS_HEADER*>(file.data());
+        Check(dos.e_magic == IMAGE_DOS_SIGNATURE && dos.e_lfanew > 0 && static_cast<size_t>(dos.e_lfanew) + sizeof(IMAGE_NT_HEADERS32) <= file.size(), "fixture has bounded PE headers");
+        const auto& nt = *reinterpret_cast<const IMAGE_NT_HEADERS32*>(file.data() + dos.e_lfanew);
+        Check(nt.Signature == IMAGE_NT_SIGNATURE && nt.OptionalHeader.Magic == IMAGE_NT_OPTIONAL_HDR32_MAGIC && nt.OptionalHeader.SizeOfHeaders <= file.size(), "fixture is an x86 image");
+        auto* image = static_cast<char*>(::VirtualAlloc(nullptr, nt.OptionalHeader.SizeOfImage, MEM_COMMIT | MEM_RESERVE, PAGE_EXECUTE_READWRITE));
+        Check(image != nullptr, "allocate host outside the Windows loader");
+        struct cleanup { void* address; ~cleanup() { if (address) ::VirtualFree(address, 0, MEM_RELEASE); } } release{image};
+        std::memcpy(image, file.data(), nt.OptionalHeader.SizeOfHeaders);
+        const auto* sections = IMAGE_FIRST_SECTION(&nt);
+        Check(reinterpret_cast<const char*>(sections + nt.FileHeader.NumberOfSections) <= file.data() + file.size(), "fixture section table is bounded");
+        for (WORD index = 0; index < nt.FileHeader.NumberOfSections; ++index)
+        {
+            const auto& section = sections[index];
+            Check(size_t{section.PointerToRawData} + section.SizeOfRawData <= file.size() &&
+                size_t{section.VirtualAddress} + section.SizeOfRawData <= nt.OptionalHeader.SizeOfImage, "fixture section bytes are bounded");
+            std::memcpy(image + section.VirtualAddress, file.data() + section.PointerToRawData, section.SizeOfRawData);
+        }
+        const auto delta = reinterpret_cast<uintptr_t>(image) - nt.OptionalHeader.ImageBase;
+        const auto relocation = nt.OptionalHeader.DataDirectory[IMAGE_DIRECTORY_ENTRY_BASERELOC];
+        Check(relocation.Size != 0 && size_t{relocation.VirtualAddress} + relocation.Size <= nt.OptionalHeader.SizeOfImage, "fixture has bounded relocations");
+        for (DWORD at = 0; at < relocation.Size;)
+        {
+            const auto* block = reinterpret_cast<const IMAGE_BASE_RELOCATION*>(image + relocation.VirtualAddress + at);
+            Check(relocation.Size - at >= sizeof(*block) && block->SizeOfBlock >= sizeof(*block) && block->SizeOfBlock <= relocation.Size - at, "fixture relocation block is bounded");
+            const auto* entries = reinterpret_cast<const WORD*>(block + 1);
+            for (DWORD index = 0; index < (block->SizeOfBlock - sizeof(*block)) / sizeof(WORD); ++index)
+            {
+                const auto type = entries[index] >> 12;
+                if (type == IMAGE_REL_BASED_ABSOLUTE) continue;
+                const auto rva = block->VirtualAddress + (entries[index] & 0xFFF);
+                Check(type == IMAGE_REL_BASED_HIGHLOW && size_t{rva} + sizeof(DWORD) <= nt.OptionalHeader.SizeOfImage, "fixture uses bounded x86 relocations");
+                *reinterpret_cast<DWORD*>(image + rva) += delta;
+            }
+            at += block->SizeOfBlock;
+        }
+        ::FlushInstructionCache(::GetCurrentProcess(), image, nt.OptionalHeader.SizeOfImage);
+        release.address = nullptr;
+        return reinterpret_cast<HMODULE>(image);
+    }
 
     struct native_fixture
     {
@@ -94,43 +142,149 @@ namespace
         Check(mouse.Normalize(WM_XBUTTONDOWN, MAKEWPARAM(0, XBUTTON2), MK_RBUTTON, 0) == (MAKEWPARAM(0, XBUTTON2) | MK_RBUTTON | MK_XBUTTON2), "X button identity stays in the high word");
         mouse.Reset();
         Check(mouse.Normalize(WM_MOUSEMOVE, 0, MK_RBUTTON | MK_XBUTTON2, 0) == 0, "suspension drains button history without adopting held input");
+        xiui::mouse_button_trace trace;
+        trace.Record(WM_LBUTTONDOWN, MK_LBUTTON, MK_LBUTTON, 10, 20, false, false);
+        trace.Record(WM_LBUTTONUP, 0, 0, 10, 20, false, true);
+        for (size_t index = 0; index < 20; ++index)
+            trace.Record(WM_LBUTTONDOWN, MK_LBUTTON | MK_SHIFT, MK_LBUTTON | MK_SHIFT, 30, 40, false, false);
+        Check(trace.counts[0] == 2 && trace.counts[1] == 20 && trace.events[0][0].sequence == 1 && trace.events[0][1].sequence == 2,
+            "later Shift clicks cannot erase the plain click press/release evidence");
+        trace.Clear();
+        Check(trace.total == 0 && trace.counts[0] == 0 && trace.counts[1] == 0, "mouse trace can start a fresh comparison");
     }
 
-    auto CheckPlugin(const char* path) -> void
+    auto CheckPlugin(const char* path, const HMODULE host, const bool initialize) -> void
     {
         const auto module = ::LoadLibraryA(path);
         Check(module != nullptr, "load standalone plugin against an isolated host fixture");
-        struct cleanup { HMODULE module; ~cleanup() { ::FreeLibrary(this->module); } } release{module};
+        struct cleanup
+        {
+            HMODULE module;
+            IPlugin* plugin{};
+            void(__stdcall* destroy)(void*){};
+            bool initialized{};
+            std::filesystem::path root;
+            std::filesystem::path previous{std::filesystem::current_path()};
+            ~cleanup()
+            {
+                if (this->initialized) this->plugin->Release();
+                if (this->plugin && this->destroy) this->destroy(this->plugin);
+                ::FreeLibrary(this->module);
+                std::error_code ignored;
+                std::filesystem::current_path(this->previous, ignored);
+                if (!this->root.empty() && this->root.parent_path() == std::filesystem::temp_directory_path()) std::filesystem::remove_all(this->root, ignored);
+            }
+        } release{module};
         const auto version = reinterpret_cast<double(__stdcall*)(void)>(::GetProcAddress(module, "expGetInterfaceVersion"));
         const auto create = reinterpret_cast<IPlugin*(__stdcall*)(const char*)>(::GetProcAddress(module, "expCreatePlugin"));
         const auto destroy = reinterpret_cast<void(__stdcall*)(void*)>(::GetProcAddress(module, "expDestroyPlugin"));
         Check(version && create && destroy, "standard plugin exports remain available");
-        Check(version() == xiui::ashita::HostInterfaceVersion(), "plugin loader receives the supported host interface");
-        const auto plugin = create("");
+        Check(version() == xiui::ashita::SelectedInterfaceVersion(), "plugin loader receives the selected supported interface");
+        release.destroy = destroy;
+        const auto plugin = release.plugin = create("");
         Check(plugin != nullptr, "create compatible plugin metadata");
         const auto objectVersion = plugin->GetInterfaceVersion();
-        destroy(plugin);
         Check(objectVersion == version(), "plugin metadata agrees with the loader export");
+        if (initialize)
+        {
+            const auto root = std::filesystem::temp_directory_path() /
+                ("XIUIplus-host-startup-" + std::to_string(::GetCurrentProcessId()) + "-" + std::to_string(::GetTickCount64()));
+            Check(std::filesystem::create_directory(root), "create an isolated startup directory");
+            release.root = root;
+            std::filesystem::current_path(root);
+            const auto make = reinterpret_cast<void*(__stdcall*)(HMODULE, const char*)>(xiui::ashita::detail::HostExport(host, "GetTestCore", "_GetTestCore@8"));
+            Check(make != nullptr, "fixture exposes a real core vtable from its own image");
+            const auto install = root.string();
+            const auto core = reinterpret_cast<IAshitaCore*>(make(::GetModuleHandleW(nullptr), install.c_str()));
+            Check(core->GetHandle() != host, "startup reproduces a handle that does not identify the core DLL");
+            release.initialized = plugin->Initialize(core, nullptr, 0);
+            Check(release.initialized, "the actual standalone plugin initializes when GetHandle is not the core DLL");
+            plugin->Release(); release.initialized = false;
+        }
     }
 }
 
 int main(int argc, char** argv)
 {
-    HMODULE fixture{};
+    struct fixture_lifetime
+    {
+        HMODULE host{}, plugin{};
+        bool mapped{};
+        std::filesystem::path alias;
+        ~fixture_lifetime()
+        {
+            if (this->plugin) ::FreeLibrary(this->plugin);
+            if (this->host) { if (this->mapped) ::VirtualFree(this->host, 0, MEM_RELEASE); else ::FreeLibrary(this->host); }
+            if (!this->alias.empty()) { std::error_code ignored; std::filesystem::remove(this->alias, ignored); }
+        }
+    } fixture;
     try
     {
-        Check(argc == 1 || argc == 3, "optional arguments: host fixture DLL and standalone plugin DLL");
-        if (argc == 3) { fixture = ::LoadLibraryA(argv[1]); Check(fixture != nullptr, "load isolated host fixture"); }
+        Check(argc == 1 || argc == 3 || argc == 4, "optional arguments: host DLL, plugin DLL, --renamed / --mapped / --mapped-real / --core-handle / --facade");
+        const bool renamed = argc == 4 && std::strcmp(argv[3], "--renamed") == 0;
+        const bool real = argc == 4 && std::strcmp(argv[3], "--mapped-real") == 0;
+        const bool mapped = real || (argc == 4 && std::strcmp(argv[3], "--mapped") == 0);
+        const bool handle = argc == 4 && std::strcmp(argv[3], "--core-handle") == 0;
+        const bool facade = argc == 4 && std::strcmp(argv[3], "--facade") == 0;
+        Check(argc != 4 || renamed || mapped || handle || facade, "unknown compatibility mode");
+        if (argc >= 3)
+        {
+            Check(xiui::ashita::HostInterfaceVersion() == 0, "no host is loaded before the late-discovery regression check");
+            if (!handle)
+            {
+                fixture.plugin = ::LoadLibraryA(argv[2]);
+                Check(fixture.plugin != nullptr, "load plugin before its host is discoverable");
+                const auto probe = reinterpret_cast<double(__stdcall*)(void)>(::GetProcAddress(fixture.plugin, "expGetInterfaceVersion"));
+                Check(probe != nullptr && probe() == ASHITA_INTERFACE_VERSION, "isolated loader probe preserves the build SDK fallback");
+            }
+            auto hostPath = std::filesystem::absolute(argv[1]);
+            if (renamed)
+            {
+                const auto alias = std::filesystem::temp_directory_path() /
+                    ("XIUIplus-renamed-core-" + std::to_string(::GetCurrentProcessId()) + "-" + std::to_string(::GetTickCount64()) + ".dll");
+                std::filesystem::copy_file(hostPath, alias);
+                fixture.alias = alias; hostPath = alias;
+            }
+            fixture.host = mapped ? MapHostImage(hostPath) : ::LoadLibraryW(hostPath.c_str());
+            fixture.mapped = mapped;
+            Check(fixture.host != nullptr, "load isolated host fixture");
+            if (renamed || mapped) Check(::GetModuleHandleW(L"Ashita.dll") == nullptr, "core has no registered Ashita.dll basename");
+            if (mapped)
+            {
+                HMODULE registered{};
+                Check(!::GetModuleHandleExW(GET_MODULE_HANDLE_EX_FLAG_FROM_ADDRESS | GET_MODULE_HANDLE_EX_FLAG_UNCHANGED_REFCOUNT,
+                    reinterpret_cast<LPCWSTR>(fixture.host), &registered), "mapped core is absent from the Windows loader list");
+            }
+            if (!real)
+            {
+                const auto make = reinterpret_cast<void*(__stdcall*)(HMODULE, const char*)>(xiui::ashita::detail::HostExport(fixture.host, "GetTestCore", "_GetTestCore@8"));
+                Check(make != nullptr, "fixture core factory is discoverable");
+                const auto core = reinterpret_cast<const IAshitaCore*>(make(nullptr, "."));
+                Check(xiui::ashita::InitializeHost(core) && xiui::ashita::HostModule() == fixture.host,
+                    "the core vtable identifies its image even when GetHandle is null");
+                if (facade)
+                {
+                    Check(xiui::ashita::HostInterfaceVersion() == 0 && xiui::ashita::SelectedInterfaceVersion() == ASHITA_INTERFACE_VERSION,
+                        "a facade uses the accepted build SDK without inventing an Ashita core version");
+                    Check(xiui::ashita::InitializeHost(core, 4.16) && xiui::ashita::LegacyInterface(),
+                        "an explicitly negotiated legacy interface selects legacy views without core exports");
+                    Check(xiui::ashita::InitializeHost(core, 4.30) && !xiui::ashita::LegacyInterface() &&
+                        !xiui::ashita::InitializeHost(core, 4.20) && xiui::ashita::SelectedInterfaceVersion() == 4.30,
+                        "modern negotiation remains authoritative and unsupported requests cannot replace it");
+                }
+            }
+            Check(xiui::ashita::HostModule() == fixture.host && (facade || xiui::ashita::HostInterfaceVersion() != 0), "core discovery recovers after an initial miss");
+            if (real) std::printf("Mapped core interface: %.2f.\n", xiui::ashita::HostInterfaceVersion());
+        }
         CheckInterfaces(); CheckMouse();
-        if (argc == 3) CheckPlugin(argv[2]);
-        if (fixture) ::FreeLibrary(fixture);
-        std::puts(argc == 3 ? "Ashita SDK dispatch, plugin negotiation and mouse normalization passed." :
+        if (argc >= 3) CheckPlugin(argv[2], fixture.host, !real);
+        std::puts(real ? "Real core image exports and standalone interface negotiation passed; core startup was not invoked." :
+            argc >= 3 ? "Ashita SDK dispatch, core-image discovery, standalone startup and mouse trace checks passed." :
             "Ashita 4.16/4.30 SDK dispatch and mouse normalization passed.");
         return 0;
     }
     catch (const std::exception& error)
     {
-        if (fixture) ::FreeLibrary(fixture);
         std::fprintf(stderr, "Ashita compatibility check failed: %s\n", error.what());
         return 1;
     }

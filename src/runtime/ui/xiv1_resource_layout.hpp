@@ -15,7 +15,7 @@ namespace xiui::ui
     inline auto Xiv1ResourceLabel(module_text_profile source) -> module_text_profile
     {
         source = TintTextProfile(source, 0xFFE3D2A0);
-        source.style.font = xiv1_italic_font;
+        source.style.font = source.style.ThemeFont(xiv1_italic_font);
         source.style.scale *= .8f;
         source.style.alignment = text_alignment::left;
         source.placement = 0;
@@ -26,7 +26,7 @@ namespace xiui::ui
 
     inline auto Xiv1ResourceValue(module_text_profile source, const float baselineOffset, const bool compact = false) -> module_text_profile
     {
-        source.style.font = xiv1_number_font;
+        source.style.font = source.style.ThemeFont(xiv1_number_font);
         source.style.scale *= compact ? 1.0f : 1.3f;
         source.style.alignment = text_alignment::right;
         source.placement = 0;

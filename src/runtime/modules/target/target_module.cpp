@@ -415,7 +415,7 @@ namespace xiui
         auto profiles = std::array{this->settings_.name_text, this->settings_.distance_text, this->settings_.label_text, this->settings_.value_text};
         if (recipient && !options.follow_text) profiles = options.text;
         auto nameText = valid && (!recipient || options.tint_name) ? TintTextProfile(profiles[0], view.color) : profiles[0];
-        if (xiv1) nameText.style.font = ui::xiv1_italic_font;
+        if (xiv1) nameText.style.font = nameText.style.ThemeFont(ui::xiv1_italic_font);
         std::string level;
         if (valid && (recipient ? options.mob_level : this->settings_.display.mob_level))
             if (const auto* mob = view.mob; mob != nullptr && mob->minimum_level != 0 && mob->maximum_level != 0)
@@ -532,7 +532,7 @@ namespace xiui
             {
                 if (context.Containers() != nullptr) context.Containers()->DrawXiv1TargetHeader(context.Design(), flourish);
                 constexpr float captionScale = .72f;
-                auto caption = profiles[2]; caption.style.font = ui::xiv1_italic_font;
+                auto caption = profiles[2]; caption.style.font = caption.style.ThemeFont(ui::xiv1_italic_font);
                 caption.style.scale *= captionScale;
                 caption.style.alignment = ui::text_alignment::right;
                 const char* captionText = recipient ? subtarget ? "Subtarget" : "Target of Target" : "Target";
@@ -601,7 +601,7 @@ namespace xiui
                 options.custom_cast_fill ? options.cast_top : 0xFFEDCAB5,
                 options.custom_cast_fill ? options.cast_bottom : 0xFFB98370, 0, style);
             auto text = cast.interrupted ? TintTextProfile(options.cast_text, 0xFFFF8888) : options.cast_text;
-            text.style.font = ui::xiv1_italic_font;
+            text.style.font = text.style.ThemeFont(ui::xiv1_italic_font);
             text.style.alignment = ui::text_alignment::left;
             text.placement = 0;
             const float available = std::max(1.0f, track.y - bounds.y - 2);

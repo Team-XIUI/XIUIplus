@@ -234,6 +234,7 @@ namespace xiui
         else if (index >= this->GlobalTextStart() && index < this->ConfigTextStart())
         {
             const auto property = index - this->GlobalTextStart();
+            if (property == static_cast<size_t>(text_property::font)) this->global_text_.style.font_explicit = true;
             this->global_text_.applied[property] = true;
             for (auto* module : this->text_modules_)
                 module->VisitTextSettings([&](ui::text_style& style) { this->global_text_.Apply(property, style); });

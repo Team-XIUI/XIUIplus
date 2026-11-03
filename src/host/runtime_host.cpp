@@ -1,4 +1,5 @@
 #include "runtime_host.hpp"
+#include "ashita_host.hpp"
 
 #include <algorithm>
 #include <cstdio>
@@ -32,7 +33,7 @@ namespace xiui
         runtime_api embedded{};
         embedded.size = sizeof(embedded);
         if (XiuiGetRuntimeApi(runtime_abi_version, &embedded) == FALSE || !ValidateApi(embedded)) return false;
-        const runtime_create_context context{sizeof(runtime_create_context), core, this->install_root_.c_str(), this->macro_context_, this->macro_runner_};
+        const runtime_create_context context{sizeof(runtime_create_context), core, this->install_root_.c_str(), this->macro_context_, this->macro_runner_, ashita::SelectedInterfaceVersion()};
         this->instance_ = embedded.create(&context);
         if (this->instance_ == nullptr) return false;
         this->api_ = embedded;
@@ -459,7 +460,7 @@ namespace xiui
             return load_result::rejected;
         }
 
-        const runtime_create_context context{sizeof(runtime_create_context), this->core_, this->install_root_.c_str(), this->macro_context_, this->macro_runner_};
+        const runtime_create_context context{sizeof(runtime_create_context), this->core_, this->install_root_.c_str(), this->macro_context_, this->macro_runner_, ashita::SelectedInterfaceVersion()};
         void* candidateInstance = candidateApi.create(&context);
         if (candidateInstance == nullptr)
         {

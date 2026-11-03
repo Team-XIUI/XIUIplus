@@ -20,6 +20,13 @@ foreach(interface IN ITEMS 4.16 4.30)
         ARCHIVE_OUTPUT_DIRECTORY "${CMAKE_SOURCE_DIR}/bin/tests/ashita-${interface}")
 endforeach()
 
+add_library(xiui_ashita_facade_fixture MODULE tests/ashita_host_fixture.cpp tests/ashita_facade_fixture.def)
+target_compile_definitions(xiui_ashita_facade_fixture PRIVATE XIUI_TEST_ASHITA_FACADE)
+set_target_properties(xiui_ashita_facade_fixture PROPERTIES OUTPUT_NAME CoreFacade PREFIX ""
+    RUNTIME_OUTPUT_DIRECTORY "${CMAKE_SOURCE_DIR}/bin/tests/ashita-facade"
+    LIBRARY_OUTPUT_DIRECTORY "${CMAKE_SOURCE_DIR}/bin/tests/ashita-facade"
+    ARCHIVE_OUTPUT_DIRECTORY "${CMAKE_SOURCE_DIR}/bin/tests/ashita-facade")
+
 add_executable(xiui_storage_paths_smoke tests/storage_paths_smoke.cpp src/runtime/settings/storage_paths.cpp src/runtime/settings/settings_store.cpp)
 configure_xiui_target(xiui_storage_paths_smoke)
 set_target_properties(xiui_storage_paths_smoke PROPERTIES RUNTIME_OUTPUT_DIRECTORY "${CMAKE_SOURCE_DIR}/bin/tests")

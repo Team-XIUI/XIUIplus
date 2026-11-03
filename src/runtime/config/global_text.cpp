@@ -30,7 +30,12 @@ namespace xiui::ui
         switch (static_cast<text_property>(index))
         {
         case text_property::size: return TextSizeOption("Global text size (px)", scope, &this->style.scale).Ordered(101);
-        case text_property::font: return module_option::Dropdown("Global font", scope, &this->style.font, font_names, font_count).Ordered(100, true);
+        case text_property::font:
+        {
+            auto option = module_option::Dropdown("Global font", scope, &this->style.font, font_names, font_count).Ordered(100, true);
+            option.choice_explicit = &this->style.font_explicit;
+            return option;
+        }
         case text_property::letter_spacing: return module_option::Slider("Letter spacing", scope, &this->style.letter_spacing, -1, 6, 0.25f).Ordered(201);
         case text_property::shadow: return module_option::Toggle("Drop shadow", scope, &this->style.shadow.enabled).Ordered(600, true);
         case text_property::shadow_color: return module_option::Color("Shadow color", scope, &this->style.shadow.color).Ordered(601).VisibleWhen(this->style.shadow.enabled);

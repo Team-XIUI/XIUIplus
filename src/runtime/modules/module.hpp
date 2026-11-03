@@ -64,9 +64,18 @@ namespace xiui
         float step{0.1f};
         float display_scale{1};
         int* choice{};
+        bool* choice_explicit{};
         const char* const* choices{};
         size_t choice_count{};
         bool translate_choices{true};
+        auto SetChoice(const int value) const -> bool
+        {
+            if (this->choice == nullptr || value < 0 || static_cast<size_t>(value) >= this->choice_count) return false;
+            const bool changed = *this->choice != value || (this->choice_explicit != nullptr && !*this->choice_explicit);
+            *this->choice = value;
+            if (this->choice_explicit != nullptr) *this->choice_explicit = true;
+            return changed;
+        }
         auto ChoiceText(size_t index) const -> const char*
         { return this->translate_choices ? i18n::Text(this->choices[index]) : this->choices[index]; }
         auto VerbatimChoices() const -> module_option

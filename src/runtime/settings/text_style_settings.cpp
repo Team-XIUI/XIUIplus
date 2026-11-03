@@ -18,7 +18,7 @@ namespace xiui
         switch (property)
         {
         case text_property::size: target.scale = source.scale; break;
-        case text_property::font: target.font = source.font; break;
+        case text_property::font: target.font = source.font; target.font_explicit = source.font_explicit; break;
         case text_property::letter_spacing: target.letter_spacing = source.letter_spacing; break;
         case text_property::shadow: target.shadow.enabled = source.shadow.enabled; break;
         case text_property::shadow_color: target.shadow.color = source.shadow.color; break;
@@ -46,6 +46,7 @@ namespace xiui
         };
         style.scale = number("scale", style.scale, 0.5f, ui::text_max_scale);
         style.font = ui::FontIndex(store.ReadInt(section, "font", style.font));
+        style.font_explicit = store.ReadBool(section, "font_explicit", style.font_explicit || store.ReadBool(section, "font_set", false));
         style.letter_spacing = number("letter_spacing", style.letter_spacing, -1, 6);
         style.shadow.enabled = store.ReadBool(section, "shadow_enabled", style.shadow.enabled);
         style.shadow.color = store.ReadArgb(section, "shadow_color", style.shadow.color);
@@ -67,6 +68,7 @@ namespace xiui
     {
         store.WriteFloat(section, "scale", style.scale);
         store.WriteInt(section, "font", style.font);
+        store.WriteBool(section, "font_explicit", style.font_explicit);
         store.WriteFloat(section, "letter_spacing", style.letter_spacing);
         store.WriteBool(section, "shadow_enabled", style.shadow.enabled);
         store.WriteArgb(section, "shadow_color", style.shadow.color);

@@ -300,6 +300,32 @@ auto RunMinimapChecks(void) -> bool
         Check(*legacy.Option(minimap_module::zoom_option).slider == 3, "a later explicit 3x choice survives reload");
         legacy.Load(settings_store::FromIniText("[minimap]\nzoom=5.5\n"));
         Check(*legacy.Option(minimap_module::zoom_option).slider == 5.5f, "other saved starting zoom choices remain unchanged");
+        minimap_module themed; themed.ApplyTextDefaults(design.GetTheme()); themed.SetSource(live, maps);
+        themed.State().bounds = {20, 30, 220, 240};
+        const auto themeChoice = themed.Option(minimap_module::theme_option);
+        Check(themeChoice.kind == module_option_kind::dropdown && themeChoice.choice_count == 3 && *themeChoice.choice == 0 &&
+            themed.ConfigSectionContains(1, minimap_module::theme_option), "minimap has an independent shared Appearance theme dropdown that defaults to following Global");
+        for (const int global : {ui::native_appearance, ui::xiv1_appearance})
+            for (int theme = 0; theme < 3; ++theme)
+            {
+                design.SetAppearanceTheme(global); themeChoice.SetChoice(theme); themed.Render({}, context);
+                const bool circle = theme == 2 || (theme == 0 && global == ui::xiv1_appearance);
+                Check(themed.Contains(130, 140) && themed.Contains(28, 38) == !circle &&
+                    themed.HandleMouseWheel(WHEEL_DELTA, 28, 38, save) == !circle,
+                    "independent and inherited minimap themes share visible circle/standard hover and wheel geometry in either global theme");
+            }
+        design.SetAppearanceTheme(ui::native_appearance);
+        themeChoice.SetChoice(2);
+        auto themeStore = settings_store::FromIniText(""); themed.Save(themeStore);
+        minimap_module restoredTheme; restoredTheme.Load(themeStore); restoredTheme.Render({}, context);
+        Check(*restoredTheme.Option(minimap_module::theme_option).choice == 2 && !restoredTheme.Contains(28, 38) &&
+            restoredTheme.State().bounds.x == 20 && *restoredTheme.Option(minimap_module::shape_option).choice == 0 &&
+            *restoredTheme.Option(minimap_module::frame_option).toggle,
+            "the fading minimap theme persists independently while preserving position, standard shape and frame preferences");
+        restoredTheme.Option(minimap_module::theme_option).SetChoice(1); restoredTheme.Render({}, context);
+        Check(restoredTheme.Contains(28, 38), "returning to Standard restores the saved square map geometry");
+        restoredTheme.Load(settings_store::FromIniText("[minimap]\ntheme=99\n"));
+        Check(*restoredTheme.Option(minimap_module::theme_option).choice == 0, "invalid minimap themes fall back to following Global");
         *loaded.Option(minimap_module::enabled_option).toggle = false;
         Check(!loaded.ShouldRender({}) && !loaded.PreviewVisible() && !loaded.HandleMouseWheel(WHEEL_DELTA, 200, 280, save),
             "disabled minimaps leave gameplay, wheel input and edit mode");

@@ -32,9 +32,8 @@ namespace xiui
         {
             const auto option = module->Option(index);
             if (option.available && option.choice != nullptr && option.choice == this->config_.choice_input.Option().choice &&
-                selected >= 0 && static_cast<size_t>(selected) < option.choice_count && *option.choice != selected)
+                option.SetChoice(selected))
             {
-                *option.choice = selected;
                 module->OnOptionChanged(index);
                 this->SaveSettings();
             }

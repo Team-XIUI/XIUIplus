@@ -14,7 +14,7 @@ The wrapper builds only the selected target, then runs its catalogued arguments.
 
 - Localization: `localization` (English/Japanese lookup and fallback, reported settings/dialog labels, consistent numbered Hotbar captions, unchanged HP/MP/TP abbreviations, UTF-8 paragraph wrapping, local-only persistence and header geometry). CMake also validates source message coverage, catalogs and format arguments. `python tests/localization_sources_test.py` checks the source scanner's metadata, UTF-8 literals and user-content boundary.
 
-- Global XIV 1.0 appearance: `xiv1-theme` (persistence, native Window Type isolation, controller access and text fade preservation).
+- Global XIV 1.0 appearance: `xiv1-theme` (persistence, native Window Type isolation, controller access, text fade preservation and configured fonts overriding theme defaults across HUD text).
 
 - Explicit Edit Mode: `edit-mode` (live visibility, selected previews, hover controls, hidden input targets and shared toggle).
 - Full / Compact typing: `xiui_chat_smoke --full-keyboard-only` (first-key composition, native draft handoff, shortcut ownership, numpad movement and editor isolation).
@@ -30,7 +30,7 @@ The wrapper builds only the selected target, then runs its catalogued arguments.
 - Installed directories and migration: `storage-paths` (byte preservation, inventories, source archives, conflicts, shared resources and interrupted-load retry).
 - Preferences/profiles: `settings` (dedicated store executable), `defaults` (passes the shipped INI automatically), `profile-sharing` (background files, cancellation, captured snapshots, corruption, failed writes, Unicode paths, controller routes, legacy keys and isolated imports), `profile-delete`, `party-presets`, `lua-profile-import` (release writer fixtures, strict data parsing, mixed damaged/valid discovery, background scans, staged cancellation and isolated persistence).
 - Controller: `controller-input` (host adapter/normalization), `controller-config` (shared config actions), `cursor-ownership` (pointer lifetime). Synthetic checks do not establish physical-device/native-keyboard acceptance.
-- Ashita: `ashita-compat` (4.16/4.30 virtual layouts, x86 calls and mouse normalization). Standalone packaging also checks loader negotiation against isolated host fixtures for both interfaces; see [compatibility](../docs/reference/ashita-compatibility.md).
+- Ashita: `ashita-compat` (4.16/4.30 virtual layouts, x86 calls, mouse normalization and separate plain/Shift trace retention). Standalone packaging also checks loader negotiation and actual initialization against normal, renamed and manually mapped cores with non-core handle hints, plus an SDK facade without Ashita version exports; see [compatibility](../docs/reference/ashita-compatibility.md).
 - Window focus and chat: `window-input` (hex editing, foreground draft/focus suspension, F â†’ Enter over the combat menu, native full-log fallback and menu handoff); `xiui_keyboard_suppression_smoke` covers DirectInput reads before WM delivery and returning a fresh Enter to gameplay. `controller-input` also checks native cycle press/hold/release in both backends.
 - Minimap: `minimap`, including named IDs, pinned edge toggles and burnt contour geometry.
 - Fishing: `fishing` (module, Extras, controller settings and persistence), `native-fishing` (validated stamina reads with party suppression active).

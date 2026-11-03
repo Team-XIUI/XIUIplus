@@ -1227,7 +1227,7 @@ namespace xiui
             auto style = tint ? TintTextProfile(this->text_[profile], *tint) : this->text_[profile];
             if (this->xiv1_theme_ && profile == 0)
             {
-                style.style.font = ui::xiv1_italic_font;
+                style.style.font = style.style.ThemeFont(ui::xiv1_italic_font);
                 style.offset_x -= 4;
             }
             value = xiui::ui::FitText(design, std::move(value), bounds.width, design.ResolveHudText(style.style));
@@ -1282,7 +1282,7 @@ namespace xiui
         auto nameProfile = this->text_[0];
         if (this->xiv1_theme_)
         {
-            nameProfile.style.font = ui::xiv1_italic_font;
+            nameProfile.style.font = nameProfile.style.ThemeFont(ui::xiv1_italic_font);
             nameProfile.offset_x -= 4;
         }
         const float nameRoom = std::max(0.0f, nameBounds.width - std::max(0.0f, nameProfile.offset_x) -

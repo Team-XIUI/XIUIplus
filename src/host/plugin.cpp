@@ -2,6 +2,7 @@
 #include "ashita_compat.hpp"
 #include "world_projection.hpp"
 #include "xiui_version.hpp"
+#include "localization/localization.hpp"
 #include "entities/entity_name_colors.hpp"
 
 #include <cmath>
@@ -104,6 +105,11 @@ namespace xiui
         this->core_ = core;
         this->log_ = logger;
         this->id_ = id;
+        if (!ashita::InitializeHost(core))
+        {
+            this->WriteChat(i18n::Format("[XIUI+] Unsupported Ashita interface (%.2f); XIUI+ %s was not initialized.", ashita::HostInterfaceVersion(), release_version).c_str());
+            return false;
+        }
         this->keyboard_suppression_.Reset();
         const char* installPath = core != nullptr ? core->GetInstallPath() : ".";
         this->ring_capture_.Initialize(installPath,release_version,native_build_id);
@@ -429,9 +435,8 @@ namespace xiui
     {
         if (!this->device_ || this->scene_target_hook_) return;
         auto* site=(*reinterpret_cast<void***>(this->device_))[31];
-        HMODULE owner{};
-        if (!::GetModuleHandleExW(GET_MODULE_HANDLE_EX_FLAG_FROM_ADDRESS|GET_MODULE_HANDLE_EX_FLAG_UNCHANGED_REFCOUNT,
-            reinterpret_cast<LPCWSTR>(site),&owner) || owner!=::GetModuleHandleW(L"Ashita.dll"))
+        const auto owner=ashita::ModuleFromAddress(site);
+        if (owner==nullptr || owner!=ashita::HostModule())
         { this->scene_hook_status_="outer wrapper unavailable"; return; }
         const auto initialized=::MH_Initialize();
         if (initialized!=MH_OK && initialized!=MH_ERROR_ALREADY_INITIALIZED)
@@ -443,7 +448,7 @@ namespace xiui
         { ::MH_RemoveHook(site); this->scene_hook_status_="enable failed"; this->WriteChat("[XIUI+] Target ring boundary hook enable failed."); return; }
         this->scene_target_hook_=site;
         this->scene_hook_status_="ready";
-        this->WriteChat("[XIUI+] Target ring boundary hook ready (Ashita.dll).");
+        this->WriteChat(i18n::Text("[XIUI+] Target ring boundary hook ready (Ashita core)."));
     }
 
     auto __stdcall plugin::SceneTargetCallback(IDirect3DDevice8* device, IDirect3DSurface8* color, IDirect3DSurface8* depth) -> HRESULT

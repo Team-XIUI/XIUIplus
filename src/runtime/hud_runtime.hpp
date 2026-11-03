@@ -88,7 +88,7 @@ namespace xiui
 
         auto Language() const -> i18n::language { return this->language_; }
 
-        auto Initialize(IAshitaCore* core, const char* installPath = nullptr) -> void;
+        auto Initialize(IAshitaCore* core, const char* installPath = nullptr, double ashitaInterface = 0) -> void;
         auto SetNativeMacroRunner(native_macro_runner runner, void* context) -> void { this->native_macros_.SetRunner(runner, context); }
         auto Shutdown(void) -> void;
         auto SetDevice(IDirect3DDevice8* device) -> bool;
@@ -423,16 +423,7 @@ namespace xiui
         bool mouse_captured_{false};
         uint32_t mouse_buttons_{};
         mouse_input mouse_input_{};
-        struct mouse_trace_entry
-        {
-            uint32_t message{}, data{}, keys{};
-            int x{}, y{};
-            bool blocked{}, shift{}, config_down_before{}, config_down_after{};
-            const char* owner{"pending"};
-            bool consumed{};
-        };
-        std::array<mouse_trace_entry, 12> mouse_trace_{};
-        size_t mouse_trace_count_{};
+        mouse_button_trace mouse_trace_{};
         const char* mouse_route_{"unclaimed"};
         auto RouteMouseMessage(uint32_t message, WPARAM wParam, LPARAM lParam, bool blocked) -> bool;
 #if defined(XIUI_ENABLE_TEST_FAULTS)

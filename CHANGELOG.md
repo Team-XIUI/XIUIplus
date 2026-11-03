@@ -2,6 +2,24 @@
 
 ## Unreleased
 
+- Add an independent Minimap theme selector with Follow global theme, Standard and XIV 1.0 (Fading circle), retaining saved shapes, edges and positions.
+
+## 0.1.6-alpha — 2026-11-02
+
+- Allow SDK-compatible hosts such as VanaCore to initialize without Ashita's optional core version exports. Retain the plugin interface advertised to the loader and pass that SDK selection into embedded and hot-reloaded runtimes instead of rejecting version `0.00`.
+- Report unavailable host version metadata separately from the selected SDK interface. Add startup regression coverage for a host with no Ashita version exports and verify explicit legacy/modern runtime routing.
+
+## 0.1.5-alpha — 2026-11-02
+
+- Fix startup rejection on supported Ashita cores when `GetHandle()` is not the core DLL or the core is manually mapped outside Windows' module list. Resolve the actual core image and its version exports, preserving successful loader negotiation and the correct 4.16/4.30 SDK routing.
+- Exercise actual standalone initialization with normal, renamed and manually mapped host fixtures for both interfaces, including misleading handle values.
+- Honor configured global and module fonts throughout the XIV 1.0 theme, including Party/Player/Target names and meter values. Preserve explicit Bahnschrift selections and saved module overrides through reloads.
+
+## 0.1.4-alpha — 2026-11-02
+
+- Resolve the Ashita core by its version exports before loader negotiation and its supplied module handle at initialization, including renamed cores and discovery after an early miss. Reject unknown SDK layouts instead of silently using 4.30 calls.
+- Preserve separate plain-click and Shift-click histories, add `/xiuiplus mouse clear`, and report the resolved core module and SDK layout. This improves diagnosis of Shift-only config reports; affected-client verification is still needed.
+
 ## 0.1.3-alpha — 2026-11-02
 
 - Include the patch component in Ashita's numeric plugin version instead of reporting every 0.1.x build as 0.10. Ashita displays 0.1.3 as 0.13; XIUI+ startup and Windows metadata retain the full semantic version.

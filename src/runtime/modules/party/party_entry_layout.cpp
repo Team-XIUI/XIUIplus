@@ -16,8 +16,7 @@ namespace xiui
         auto style = profile.style;
         if (this->xiv1_theme_)
         {
-            if (&profile == &this->text_[0]) style.font = ui::xiv1_italic_font;
-            else if (style.theme_text && style.font != ui::xiv1_font && style.font != ui::xiv1_italic_font && style.font != ui::xiv1_number_font) style.font = ui::xiv1_font;
+            style.font = style.ThemeFont(&profile == &this->text_[0] ? ui::xiv1_italic_font : ui::xiv1_font);
         }
         return style;
     }

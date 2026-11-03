@@ -21,7 +21,7 @@ namespace xiui
             shadow_y_option, map_number_option,
             text_profile_begin,
             text_selector_option = text_profile_begin + text_profile_option_count,
-            zoom_readout_option, distant_party_option, coordinate_edges_option, enemies_option, player_icon_option, option_count,
+            zoom_readout_option, distant_party_option, coordinate_edges_option, enemies_option, player_icon_option, theme_option, option_count,
             text_alignment_option = text_profile_begin, text_size_option = text_profile_begin + 1,
             text_font_option = text_profile_begin + 14,
             text_x_option = text_profile_begin + 2, text_y_option = text_profile_begin + 3,
@@ -52,7 +52,7 @@ namespace xiui
         module_state state_{true, {-1, -1, 220, 244}, 120, 80, 600};
         const minimap_state* data_{};
         minimap_maps* maps_{};
-        int shape_{}, artwork_{1}, selected_text_{}, edge_style_{}, player_icon_{};
+        int shape_{}, artwork_{1}, selected_text_{}, edge_style_{}, player_icon_{}, theme_{};
         float zoom_{initial_zoom}, default_zoom_{initial_zoom}, map_opacity_{1}, background_opacity_{0.8f}, frame_opacity_{1}, marker_size_{4}, marker_opacity_{1};
         bool xiv1_theme_{};
         bool frame_{true}, background_{true}, party_{true}, alliance_{true}, pet_{true}, target_{true}, zone_name_{true}, coordinates_{true}, north_{true};

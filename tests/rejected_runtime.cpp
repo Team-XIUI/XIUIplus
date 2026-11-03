@@ -26,6 +26,7 @@ namespace
     auto __stdcall handle_key(void*, WPARAM, LPARAM, BOOL) -> BOOL { return FALSE; }
     auto __stdcall chat_focused(void*) -> BOOL { return FALSE; }
     auto __stdcall keyboard_input_state(void*) -> uint32_t { return 0; }
+    auto __stdcall crossbar_settings(void*, xiui::controller_crossbar_settings* settings) -> void { if (settings) *settings = {}; }
     auto __stdcall handle_controller(void*, const xiui::controller_event*) -> BOOL { return FALSE; }
     auto __stdcall controller_input_state(void*) -> uint32_t { return 0; }
     auto __stdcall update_controller_status(void*, const xiui::controller_status*) -> void {}
@@ -72,6 +73,7 @@ extern "C" __declspec(dllexport) auto __stdcall XiuiGetRuntimeApi(const uint32_t
     result.handle_key = &handle_key;
     result.chat_focused = &chat_focused;
     result.keyboard_input_state = &keyboard_input_state;
+    result.crossbar_settings = &crossbar_settings;
     result.handle_controller = &handle_controller;
     result.controller_input_state = &controller_input_state;
     result.update_controller_status = &update_controller_status;

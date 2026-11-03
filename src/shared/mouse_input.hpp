@@ -1,10 +1,37 @@
 #pragma once
 
 #include <Windows.h>
+#include <array>
+#include <cstddef>
 #include <cstdint>
 
 namespace xiui
 {
+    struct mouse_trace_entry
+    {
+        size_t sequence{};
+        uint32_t message{}, data{}, keys{};
+        int x{}, y{};
+        bool blocked{}, shift{}, config_down_before{}, config_down_after{};
+        const char* owner{"pending"};
+        bool consumed{};
+    };
+
+    struct mouse_button_trace
+    {
+        std::array<std::array<mouse_trace_entry, 6>, 2> events{};
+        std::array<size_t, 2> counts{};
+        size_t total{};
+        auto Clear(void) -> void { this->events = {}; this->counts = {}; this->total = 0; }
+        auto Record(uint32_t message, uint32_t data, uint32_t keys, int x, int y, bool blocked, bool configDown) -> mouse_trace_entry&
+        {
+            const bool shift = (keys & MK_SHIFT) != 0;
+            auto& event = this->events[shift][this->counts[shift]++ % this->events[shift].size()];
+            event = {++this->total, message, data, keys, x, y, blocked, shift, configDown, configDown};
+            return event;
+        }
+    };
+
     inline constexpr uint32_t mouse_button_mask = MK_LBUTTON | MK_RBUTTON | MK_MBUTTON | MK_XBUTTON1 | MK_XBUTTON2;
 
     class mouse_input

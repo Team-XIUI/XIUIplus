@@ -488,20 +488,20 @@ namespace xiui
             runtime.config_.collapsed = collapsed;
             for (int mode = 0; mode < 3; ++mode)
             {
-                if (!check(click(runtime.ConfigLayout().InputMode()) && runtime.config_.input_mode_menu, "pointer opens the header input dropdown")) return false;
+                if (!check(click(runtime.ConfigLayout().InputMode()) && runtime.config_.header_menu_open, "pointer opens the header input dropdown")) return false;
                 controller_status unavailable{}; unavailable.enumeration_disabled = true; unavailable.connection_known = true;
                 runtime.UpdateControllerStatus(unavailable); runtime.UpdateControllerFocus();
-                if (!check(runtime.config_.input_mode_menu, "unavailable controller updates cannot dismiss a mouse-owned mode dropdown")) return false;
-                if (!check(click(runtime.ConfigLayout().InputModeRow(mode)) && runtime.general_.InputMode() == mode && !runtime.config_.input_mode_menu,
+                if (!check(runtime.config_.header_menu_open, "unavailable controller updates cannot dismiss a mouse-owned mode dropdown")) return false;
+                if (!check(click(runtime.ConfigLayout().HeaderMenuRow(mode, false)) && runtime.general_.InputMode() == mode && !runtime.config_.header_menu_open,
                     "pointer selects every input mode with expanded or collapsed config")) return false;
             }
         }
         if (!check(runtime.player_.State().bounds.x == original.x && runtime.player_.State().bounds.y == original.y,
             "mode selection leaves HUD positions unchanged")) return false;
-        runtime.controller_surface_ = hud_runtime::controller_surface::config; runtime.config_.focus.active = true; runtime.config_.input_mode_menu = true;
+        runtime.controller_surface_ = hud_runtime::controller_surface::config; runtime.config_.focus.active = true; runtime.config_.header_menu_open = true;
         controller_status disconnected{}; disconnected.connection_known = true;
         runtime.UpdateControllerStatus(disconnected);
-        if (!check(runtime.controller_surface_ == hud_runtime::controller_surface::none && !runtime.config_.input_mode_menu,
+        if (!check(runtime.controller_surface_ == hud_runtime::controller_surface::none && !runtime.config_.header_menu_open,
             "disconnect still releases a controller-owned popup")) return false;
         return check(ui::config_controls::IconId("statuses") == ui::icon_glyph::statuses && ui::config_controls::IconId("buffs") == ui::icon_glyph::statuses &&
             ui::config_controls::IconId("debuffs") == ui::icon_glyph::statuses, "status groups use their distinct effects icon");
@@ -1184,7 +1184,7 @@ namespace xiui
         runtime.party_.meters_[2].height = 7; runtime.party_.meters_[3].height = 5;
         const D3DVIEWPORT8 viewport{0, 0, 1280, 720, 0, 1};
         const auto layout = runtime.ConfigLayout();
-        if (!check(layout.InputMode().width == 24 && layout.InputModeMenu().width >= 180 &&
+        if (!check(layout.InputMode().width == 24 && layout.HeaderMenu(false).width >= 180 &&
             layout.SearchInput().x + layout.SearchInput().width < layout.InputMode().x &&
             layout.HeaderTitle().x + layout.HeaderTitle().width < layout.SearchInput().x,
             "compact input icon retains readable options and leaves a separate header search field")) return false;

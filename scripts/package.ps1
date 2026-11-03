@@ -14,7 +14,7 @@ if (-not $SkipBuild) {
     $CMake = Resolve-XiuiCMake -VisualStudioPath $VisualStudio
     $VcVars = Join-Path $VisualStudio 'VC/Auxiliary/Build/vcvarsall.bat'
     $Sdk = Resolve-XiuiSdk -PreferredPath $SdkPath
-    $BuildCommand = 'call "' + $VcVars + '" x86 && set "ASHITA4_SDK_PATH=' + $Sdk + '" && "' + $CMake + '" --preset msvc-x86-release && "' + $CMake + '" --build --preset release --target XIUIplus_release xiui_single_dll_smoke xiui_resource_smoke xiui_ashita_compat_smoke xiui_ashita_4_16_fixture xiui_ashita_4_30_fixture'
+    $BuildCommand = 'call "' + $VcVars + '" x86 && set "ASHITA4_SDK_PATH=' + $Sdk + '" && "' + $CMake + '" --preset msvc-x86-release && "' + $CMake + '" --build --preset release --target XIUIplus_release xiui_single_dll_smoke xiui_resource_smoke xiui_ashita_compat_smoke xiui_ashita_4_16_fixture xiui_ashita_4_30_fixture xiui_ashita_facade_fixture'
     Push-Location $Root
     try {
         cmd /d /s /c $BuildCommand
@@ -26,7 +26,15 @@ if (-not $SkipBuild) {
         foreach ($Interface in @('4.16', '4.30')) {
             & (Join-Path $Root 'bin/tests/xiui_ashita_compat_smoke.exe') (Join-Path $Root "bin/tests/ashita-$Interface/Ashita.dll") (Join-Path $Root 'bin/release/XIUIplus.dll')
             if ($LASTEXITCODE -ne 0) { throw "Ashita $Interface compatibility check failed." }
+            & (Join-Path $Root 'bin/tests/xiui_ashita_compat_smoke.exe') (Join-Path $Root "bin/tests/ashita-$Interface/Ashita.dll") (Join-Path $Root 'bin/release/XIUIplus.dll') --renamed
+            if ($LASTEXITCODE -ne 0) { throw "Renamed Ashita $Interface compatibility check failed." }
+            foreach ($Mode in @('--mapped', '--core-handle')) {
+                & (Join-Path $Root 'bin/tests/xiui_ashita_compat_smoke.exe') (Join-Path $Root "bin/tests/ashita-$Interface/Ashita.dll") (Join-Path $Root 'bin/release/XIUIplus.dll') $Mode
+                if ($LASTEXITCODE -ne 0) { throw "Ashita $Interface $Mode startup check failed." }
+            }
         }
+        & (Join-Path $Root 'bin/tests/xiui_ashita_compat_smoke.exe') (Join-Path $Root 'bin/tests/ashita-facade/CoreFacade.dll') (Join-Path $Root 'bin/release/XIUIplus.dll') --facade
+        if ($LASTEXITCODE -ne 0) { throw 'SDK facade without Ashita version exports failed initialization.' }
     }
     finally { Pop-Location }
 }

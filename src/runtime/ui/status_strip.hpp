@@ -276,7 +276,7 @@ namespace xiui::ui
         auto text = profile;
         text.placement = 0; text.offset_x = text.offset_y = 0; text.style.alignment = text_alignment::left;
         auto titleText = text;
-        if (font_faces[FontIndex(titleText.style.font)].weight < FW_BOLD) titleText.style.font = 0;
+        titleText.style.weight = font_weight::bold;
         titleText.style.scale = std::min(text_max_scale, text.style.scale + 1 / text_base_pixels);
         const auto descriptionText = TintTextProfile(text, 0xFFE0E0E0);
         auto estimateText = TintTextProfile(text, 0xFFB8B8B8);

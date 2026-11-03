@@ -64,6 +64,46 @@ namespace xiui
         style.font = ui::xiv1_number_font;
         if (!check(design.ResolveHudText(style).font == ui::xiv1_number_font,
             "lining meter numerals keep their consistent baseline")) return false;
+        auto& names = runtime.party_.text_[0];
+        runtime.party_.xiv1_theme_ = true;
+        runtime.config_.module = &runtime.party_;
+        size_t fontOption = runtime.party_.OptionCount();
+        for (size_t i = 0; i < runtime.party_.OptionCount(); ++i)
+            if (runtime.party_.Option(i).choice == &names.style.font) { fontOption = i; break; }
+        if (!check(fontOption < runtime.party_.OptionCount(), "party names expose the shared font control")) return false;
+        const auto choose = [&](hud_module& module, const size_t index, const int font) {
+            runtime.config_.module = runtime.config_.choice_module = &module;
+            runtime.config_.choice_option = index;
+            runtime.config_.choice_input.Open(module.Option(index), {40, 40, 180, 24});
+            runtime.SelectChoiceInput(font);
+        };
+        runtime.config_.choice_input.Open(runtime.party_.Option(fontOption), {40, 40, 180, 24});
+        runtime.CloseChoiceInput();
+        if (!check(!names.style.font_explicit && runtime.party_.TextStyle(names).font == ui::xiv1_italic_font,
+            "cancelling font selection retains automatic theme typography")) return false;
+        for (int font = 0; font < ui::font_count; ++font)
+        {
+            choose(runtime.party_, fontOption, font);
+            if (!check(names.style.font_explicit && design.ResolveHudText(runtime.party_.TextStyle(names)).font == font &&
+                ui::Xiv1ResourceLabel(names).style.font == font && ui::Xiv1ResourceValue(names, 0).style.font == font,
+                "each committed font overrides theme names, resource labels and values, including Bahnschrift")) return false;
+        }
+        const auto legacy = LoadTextProfile(settings_store::FromIniText("[text.party.name]\nfont=1\n"), "text.party.name", {});
+        if (!check(design.ResolveHudText(legacy.style).font == 1,
+            "previously saved custom fonts work without reselecting them")) return false;
+        choose(runtime.general_, runtime.general_.GlobalTextStart() + static_cast<size_t>(text_property::font), 0);
+        bool globalFont = true;
+        for (auto* module : runtime.modules_.All()) module->VisitTextSettings([&](ui::text_style& text) {
+            globalFont &= text.font_explicit && design.ResolveHudText(text).font == 0;
+        });
+        if (!check(globalFont, "global Bahnschrift selection overrides theme defaults across every HUD module")) return false;
+        choose(runtime.party_, fontOption, 1);
+        const auto customFonts = runtime.CaptureSettings();
+        hud_runtime loaded; loaded.LoadSettings(customFonts);
+        loaded.design_system_.SetAppearanceTheme(ui::xiv1_appearance);
+        if (!check(loaded.party_.text_[0].style.font_explicit && loaded.design_system_.ResolveHudText(loaded.party_.text_[0].style).font == 1 &&
+            loaded.player_.Settings().name_text.style.font_explicit && loaded.design_system_.ResolveHudText(loaded.player_.Settings().name_text.style).font == 0,
+            "module font overrides and explicit global Bahnschrift survive profile reload")) return false;
         const auto hpTrack = ui::Xiv1ResourceTrack({0, 0, 120, 20}, 0);
         const auto tpTrack = ui::Xiv1ResourceTrack({0, 0, 120, 20}, 2);
         if (!check(hpTrack.y == tpTrack.y && hpTrack.height == tpTrack.height,

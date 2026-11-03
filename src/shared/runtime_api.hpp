@@ -11,7 +11,7 @@
 
 namespace xiui
 {
-    inline constexpr uint32_t runtime_abi_version = 20;
+    inline constexpr uint32_t runtime_abi_version = 21;
 
     struct world_party_anchor
     {
@@ -67,6 +67,7 @@ namespace xiui
         const char* install_path{};
         void* native_macro_context{};
         native_macro_runner run_native_macro{};
+        double ashita_interface{};
     };
 
     struct runtime_state

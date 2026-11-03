@@ -1,6 +1,6 @@
 #pragma once
 
-#include "Ashita.h"
+#include "ashita_host.hpp"
 
 #include <cstddef>
 #include <cstring>
@@ -10,25 +10,6 @@
 namespace xiui::ashita
 {
     static_assert(ASHITA_INTERFACE_VERSION == 4.30, "Review the Ashita compatibility maps when updating the SDK.");
-
-    inline auto HostInterfaceVersion(void) -> double
-    {
-        static const double version = [] {
-            const auto module = ::GetModuleHandleW(L"Ashita.dll");
-            const auto get = module != nullptr ? reinterpret_cast<double(__stdcall*)(void)>(::GetProcAddress(module, "GetInterfaceVersion")) : nullptr;
-            return get != nullptr ? get() : 0.0;
-        }();
-        return version;
-    }
-
-    inline auto LegacyInterface(void) -> bool { return HostInterfaceVersion() == 4.16; }
-    inline auto PluginInterfaceVersion(void) -> double { return LegacyInterface() ? 4.16 : ASHITA_INTERFACE_VERSION; }
-    inline auto HostVersion(void) -> ashitaversion_t
-    {
-        const auto module = ::GetModuleHandleW(L"Ashita.dll");
-        const auto get = module != nullptr ? reinterpret_cast<uint64_t(__stdcall*)(void)>(::GetProcAddress(module, "GetAshitaVersion")) : nullptr;
-        return ashitaversion_t{get != nullptr ? get() : 0};
-    }
 
     namespace detail
     {
@@ -53,7 +34,8 @@ namespace xiui::ashita
     template<typename Derived, typename Interface> class memory_view
     {
     public:
-        memory_view(const Interface* native = nullptr, const bool legacy = LegacyInterface()) : native_(native), legacy_(legacy) {}
+        memory_view(const Interface* native = nullptr) : memory_view(native, native != nullptr && LegacyInterface()) {}
+        memory_view(const Interface* native, const bool legacy) : native_(native), legacy_(legacy) {}
         explicit operator bool(void) const { return this->native_ != nullptr; }
         auto operator==(std::nullptr_t) const -> bool { return this->native_ == nullptr; }
         auto operator!=(std::nullptr_t) const -> bool { return this->native_ != nullptr; }

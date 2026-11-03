@@ -245,15 +245,13 @@ namespace xiui
         runtime.editing_ = true; runtime.config_.module = &runtime.general_;
         runtime.config_.section = general_module::appearance_section;
         runtime.config_.bounds = {40, 40, 1100, 600};
-        const D3DVIEWPORT8 viewport{0, 0, 1280, 720, 0, 1};
-        const auto tab = ui::config_controls::Segment(runtime.ConfigLayout().ContentTabs(), 1, std::size(general_module::appearance_tabs));
-        runtime.mouse_x_ = static_cast<int>(tab.x + 4); runtime.mouse_y_ = static_cast<int>(tab.y + 4);
-        if (!check(ControlCount(runtime) == 2 && runtime.ResolveCursorShape(viewport) == hud_runtime::cursor_shape::hand &&
-            runtime.ConfigSoundTarget(viewport) != 0 && runtime.ProcessPointerMessage(WM_LBUTTONDOWN, MK_LBUTTON, viewport) &&
-            runtime.ProcessPointerMessage(WM_LBUTTONUP, 0, viewport) && runtime.general_.AppearanceTab() == 1 &&
-            runtime.GroupOptionIndex(0) == runtime.general_.GlobalTextStart() && ControlCount(runtime) == ui::global_text_settings::option_count &&
-            runtime.ConfigLayout().ContentSubtabs().y + 48 <= runtime.ConfigLayout().OptionRow(0).y,
-            "Global Text exposes all controls with shared input geometry and a separate preview area")) return false;
+        const auto topics = runtime.ConfigTopicRows();
+        const auto textTopic = std::find_if(topics.begin(), topics.end(), [](const auto& row) { return row.subview == 1; });
+        if (!check(textTopic != topics.end(), "Global Text has a shared topic destination")) return false;
+        runtime.SelectConfigTopicRow(static_cast<size_t>(textTopic - topics.begin()));
+        if (!check(runtime.general_.AppearanceTab() == 1 &&
+            runtime.GroupOptionIndex(0) == runtime.general_.GlobalTextStart() + static_cast<size_t>(text_property::font),
+            "Global Text opens with its font control first")) return false;
         auto& name = runtime.player_.Settings().name_text;
         name.style.top_color = 0xAABBCCDD; name.style.bottom_color = 0x88997766;
         name.style.shadow.enabled = name.style.stroke.enabled = name.style.glow.enabled = true;
@@ -268,11 +266,11 @@ namespace xiui
         if (!check(sizes && styles > 70, "global size reaches hidden modules, both chat windows, alliances, timers and recipient text")) return false;
         name.style.scale = 0.8f;
         const auto family = runtime.general_.Option(sizeIndex + 1);
-        if (!check(family.kind == module_option_kind::dropdown && family.choice_count == 4 && std::strcmp(family.choices[3], "Grammara") == 0,
-            "global fonts include the original, two Windows alternatives and Grammara")) return false;
+        if (!check(family.kind == module_option_kind::dropdown && family.choice_count == ui::font_count && std::strcmp(family.choices[3], "Grammara") == 0,
+            "global fonts include all bundled and Windows faces")) return false;
         *family.choice = 3; runtime.general_.OnOptionChanged(sizeIndex + 1);
         bool fonts = true;
-        for (auto* module : runtime.modules_.All()) module->VisitTextSettings([&](ui::text_style& style) { fonts &= style.font == 3; });
+        for (auto* module : runtime.modules_.All()) module->VisitTextSettings([&](ui::text_style& style) { fonts &= style.font == 3 && style.font_explicit; });
         if (!check(fonts && name.style.scale == 0.8f && name.style.top_color == 0xAABBCCDD && name.style.bottom_color == 0x88997766 &&
             name.style.shadow.enabled && name.style.stroke.enabled && name.style.glow.enabled && name.offset_x == 13 && name.offset_y == -7,
             "font changes preserve module size overrides, colors, opacity, text effects and offsets")) return false;

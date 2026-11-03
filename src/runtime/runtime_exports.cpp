@@ -61,7 +61,7 @@ namespace
             if (runtime == nullptr)
                 return nullptr;
             runtime->SetNativeMacroRunner(context->run_native_macro, context->native_macro_context);
-            runtime->Initialize(context->core, context->install_path);
+            runtime->Initialize(context->core, context->install_path, context->ashita_interface);
             return runtime.release();
         }
         catch (...)

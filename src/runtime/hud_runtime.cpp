@@ -274,8 +274,9 @@ namespace xiui
         this->Shutdown();
     }
 
-    auto hud_runtime::Initialize(IAshitaCore* core, const char* installPath) -> void
+    auto hud_runtime::Initialize(IAshitaCore* core, const char* installPath, const double ashitaInterface) -> void
     {
+        if (!ashita::InitializeHost(core, ashitaInterface)) throw std::runtime_error{"Ashita plugin interface is unsupported"};
         this->startup_profile_ = {};
         this->startup_render_recorded_ = false;
         startup_profile::scope total(this->startup_profile_, "initialize total");
@@ -501,9 +502,8 @@ namespace xiui
         const bool button = message == WM_LBUTTONDOWN || message == WM_LBUTTONDBLCLK || message == WM_LBUTTONUP ||
             message == WM_RBUTTONDOWN || message == WM_RBUTTONDBLCLK || message == WM_RBUTTONUP;
         if (!button) return this->RouteMouseMessage(message, keys, lParam, inputBlocked);
-        auto& trace = this->mouse_trace_[this->mouse_trace_count_++ % this->mouse_trace_.size()];
-        trace = {message, static_cast<uint32_t>(wParam), static_cast<uint32_t>(keys), signed_low_word(lParam), signed_high_word(lParam), inputBlocked,
-            (keys & MK_SHIFT) != 0, this->mouse_down_, this->mouse_down_};
+        auto& trace = this->mouse_trace_.Record(message, static_cast<uint32_t>(wParam), static_cast<uint32_t>(keys),
+            signed_low_word(lParam), signed_high_word(lParam), inputBlocked, this->mouse_down_);
         const bool consumed = this->RouteMouseMessage(message, keys, lParam, inputBlocked);
         trace.owner = this->mouse_route_;
         trace.consumed = consumed;
@@ -1269,24 +1269,41 @@ namespace xiui
         if (command != nullptr && this->HandleSatchelCommand(command)) return true;
         if (command == nullptr)
             return false;
+        if (::_stricmp(command, "mouse clear") == 0)
+        {
+            this->mouse_trace_.Clear();
+            if (auto* chat = this->core_ != nullptr ? this->core_->GetChatManager() : nullptr)
+                chat->Write(1, false, i18n::Text("[XIUI+] Mouse trace cleared. Try a plain click, then a Shift-click, then /xiuiplus mouse status."));
+            return true;
+        }
         if (::_stricmp(command, "mouse status") == 0)
         {
             auto* chat = this->core_ != nullptr ? this->core_->GetChatManager() : nullptr;
             if (chat == nullptr) return true;
             const auto version = ashita::HostVersion();
-            chat->Writef(1, false, i18n::Text("[XIUI+] Ashita %u.%u.%u.%u; interface %.2f; XIUI+ SDK %.2f."),
-                unsigned(version.Major), unsigned(version.Minor), unsigned(version.Build), unsigned(version.Revision),
-                ashita::HostInterfaceVersion(), ASHITA_INTERFACE_VERSION);
+            if (version.Version != 0)
+                chat->Writef(1, false, i18n::Text("[XIUI+] Ashita %u.%u.%u.%u; interface %.2f; XIUI+ SDK %.2f."),
+                    unsigned(version.Major), unsigned(version.Minor), unsigned(version.Build), unsigned(version.Revision),
+                    ashita::HostInterfaceVersion(), ASHITA_INTERFACE_VERSION);
+            else chat->Writef(1, false, i18n::Text("[XIUI+] Host version exports unavailable; using plugin interface %.2f; XIUI+ SDK %.2f."),
+                ashita::SelectedInterfaceVersion(), ASHITA_INTERFACE_VERSION);
+            chat->Writef(1, false, i18n::Text("[XIUI+] Ashita module: %s; legacy SDK routing %u. Mouse events: plain %zu; Shift %zu."),
+                ashita::HostModuleName().c_str(), unsigned(ashita::LegacyInterface()), this->mouse_trace_.counts[0], this->mouse_trace_.counts[1]);
             chat->Writef(1, false, i18n::Text("[XIUI+] Mouse: config %u; held %u; buttons 0x%X; capture %u; prior block %u; shared capture %u; prior shared block %u; events %zu."),
                 unsigned(this->editing_), unsigned(this->mouse_down_), this->mouse_buttons_, unsigned(this->mouse_captured_),
-                unsigned(this->previous_mouse_blocked_), unsigned(this->chat_mouse_block_saved_), unsigned(this->previous_chat_mouse_blocked_), this->mouse_trace_count_);
-            const auto first = this->mouse_trace_count_ > this->mouse_trace_.size() ? this->mouse_trace_count_ - this->mouse_trace_.size() : 0;
-            for (auto index = first; index < this->mouse_trace_count_; ++index)
+                unsigned(this->previous_mouse_blocked_), unsigned(this->chat_mouse_block_saved_), unsigned(this->previous_chat_mouse_blocked_), this->mouse_trace_.total);
+            for (size_t mode = 0; mode < this->mouse_trace_.events.size(); ++mode)
             {
-                const auto& trace = this->mouse_trace_[index % this->mouse_trace_.size()];
-                chat->Writef(1, false, i18n::Text("[XIUI+] Mouse #%zu: msg 0x%X; data 0x%X; keys 0x%X; pos %d,%d; Shift %u; blocked %u; owner %s; handled %u; config held %u -> %u."),
-                    index + 1, trace.message, trace.data, trace.keys, trace.x, trace.y, unsigned(trace.shift), unsigned(trace.blocked), trace.owner,
-                    unsigned(trace.consumed), unsigned(trace.config_down_before), unsigned(trace.config_down_after));
+                const auto& events = this->mouse_trace_.events[mode];
+                const auto count = this->mouse_trace_.counts[mode];
+                const auto first = count > events.size() ? count - events.size() : 0;
+                for (auto index = first; index < count; ++index)
+                {
+                    const auto& trace = events[index % events.size()];
+                    chat->Writef(1, false, i18n::Text("[XIUI+] Mouse #%zu: msg 0x%X; data 0x%X; keys 0x%X; pos %d,%d; Shift %u; blocked %u; owner %s; handled %u; config held %u -> %u."),
+                        trace.sequence, trace.message, trace.data, trace.keys, trace.x, trace.y, unsigned(trace.shift), unsigned(trace.blocked), trace.owner,
+                        unsigned(trace.consumed), unsigned(trace.config_down_before), unsigned(trace.config_down_after));
+                }
             }
             return true;
         }

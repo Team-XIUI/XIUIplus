@@ -40,7 +40,8 @@ namespace
 
     auto __stdcall create(const xiui::runtime_create_context* context) -> void*
     {
-        return context != nullptr && context->size == sizeof(xiui::runtime_create_context)
+        return context != nullptr && context->size == sizeof(xiui::runtime_create_context) &&
+            (context->ashita_interface == 4.16 || context->ashita_interface == 4.30)
             ? new (std::nothrow) synthetic_state{}
             : nullptr;
     }
@@ -91,6 +92,8 @@ namespace
         return FALSE;
     }
     auto __stdcall chat_focused(void* instance) -> BOOL { return as_state(instance)->chat_focused; }
+    auto __stdcall keyboard_input_state(void* instance) -> uint32_t
+    { return as_state(instance)->chat_focused ? xiui::keyboard_capture_all : 0; }
     auto __stdcall handle_controller(void*, const xiui::controller_event*) -> BOOL { return FALSE; }
     auto __stdcall controller_input_state(void*) -> uint32_t { return 0; }
     auto __stdcall update_controller_status(void*, const xiui::controller_status*) -> void {}
@@ -163,6 +166,7 @@ extern "C" __declspec(dllexport) auto __stdcall XiuiGetRuntimeApi(const uint32_t
     result.handle_chat = &handle_chat;
     result.handle_key = &handle_key;
     result.chat_focused = &chat_focused;
+    result.keyboard_input_state = &keyboard_input_state;
     result.handle_controller = &handle_controller;
     result.controller_input_state = &controller_input_state;
     result.update_controller_status = &update_controller_status;

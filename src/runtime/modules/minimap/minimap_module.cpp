@@ -27,6 +27,8 @@ namespace xiui
         this->state_.bounds = store.ReadRect("layout.minimap", this->state_.bounds);
         this->state_.bounds.width = std::clamp(this->state_.bounds.width, 120.0f, 600.0f);
         this->shape_ = std::clamp(store.ReadInt("minimap", "shape", 0), 0, 2);
+        const auto theme = store.ReadInt("minimap", "theme", 0);
+        this->theme_ = theme >= 0 && theme <= 2 ? theme : 0;
         this->artwork_ = std::clamp(store.ReadInt("minimap", "artwork", 1), 0, 1);
         this->zoom_ = this->default_zoom_ = std::clamp(store.ReadFloat("minimap", "zoom", initial_zoom), 1.0f, 8.0f);
         if (store.ReadInt("minimap", "zoom_defaults_version", 0) < 1 && this->default_zoom_ == 3)
@@ -99,6 +101,7 @@ namespace xiui
         for (size_t i = 0; i < this->coordinate_edges_.size(); ++i)
             store.WriteBool("minimap", edgeKeys[i], this->coordinate_edges_[i]);
         store.WriteInt("minimap", "shape", this->shape_); store.WriteInt("minimap", "artwork", this->artwork_);
+        store.WriteInt("minimap", "theme", this->theme_);
         store.WriteFloat("minimap", "zoom", this->default_zoom_);
         store.WriteInt("minimap", "zoom_defaults_version", 1);
         store.WriteFloat("minimap", "map_opacity", this->map_opacity_); store.WriteFloat("minimap", "background_opacity", this->background_opacity_);
@@ -182,7 +185,7 @@ namespace xiui
     {
         static constexpr module_config_section sections[]{
             {"General", "Map artwork, shape, zoom and pinned coordinate edges. Enhanced maps use Remapster art (CC BY-SA 4.0).", "general"},
-            {"Appearance", "Map dimensions, Straight/Rounded/Burnt edges, drop shadow, background, frame and opacity.", "appearance"},
+            {"Appearance", "Minimap theme, dimensions, edges, drop shadow, background, frame and opacity.", "appearance"},
             {"Markers", "Facing cone, nearby enemies, green NPC dots, party, alliance, pet and selected target.", "markers"},
             {"Text", "Choose Labels or Zoom to edit visibility, position offsets and text styling independently.", "text"}};
         return sections;
@@ -191,6 +194,7 @@ namespace xiui
     auto minimap_module::ContentConfigSectionContains(const size_t section, const size_t index) -> bool
     {
         if (index >= this->OptionCount()) return false;
+        if (index == theme_option) return section == 1;
         if (index == coordinate_edges_option) return section == 0;
         if (index == distant_party_option || index == enemies_option || index == player_icon_option) return section == 2;
         if (index >= map_number_option || index == zone_name_option || index == coordinates_option) return section == 3;
@@ -212,6 +216,12 @@ namespace xiui
         switch (index)
         {
         case enabled_option: return module_option::Toggle("Enabled", "Show an independent minimap centered on your position.", &this->state_.enabled).Ordered(-50);
+        case theme_option:
+        {
+            static constexpr const char* themes[]{"Follow global theme", "Standard", "XIV 1.0 (Fading circle)"};
+            return module_option::Dropdown("Minimap theme", "Use the global theme, or choose Standard or the XIV 1.0 fading circle for just the minimap.",
+                &this->theme_, themes, std::size(themes)).Ordered(50);
+        }
         case shape_option: return module_option::Choice("Shape", "Choose Square, Circle or a wide 16:9 map. Artwork keeps its proportions.", &this->shape_, shapes, 3);
         case artwork_option: return module_option::Choice("Map artwork", "Enhanced uses Remapster maps, with Regular art where no enhanced map is available.", &this->artwork_, artwork, 2);
         case width_option: return module_option::Slider("Width", "Map width; height follows the selected shape.", &this->state_.bounds.width, 120, 600, 1).Ordered(110);
@@ -285,7 +295,7 @@ namespace xiui
     auto minimap_module::Render(const hud_snapshot&, const module_render_context& context) -> void
     {
         const auto& design = context.Design(); const auto& colors = design.GetTheme().colors;
-        this->xiv1_theme_ = design.IsXiv1Theme();
+        this->xiv1_theme_ = this->theme_ == 2 || (this->theme_ == 0 && design.IsXiv1Theme());
         const bool xiv1 = this->xiv1_theme_;
         const int shape = xiv1 ? 1 : this->shape_;
         const bool live = this->data_ != nullptr && this->data_->available;

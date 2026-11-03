@@ -16,7 +16,7 @@ Use `module_text_profile` with shared title, meter and caption roles. Render thr
 - Font weight can be a temporary run style. Keep it in measurement, rasterization and glyph-cache identity; preserve the face's default weight elsewhere.
 - Medium requests the native 500 face. If a static family maps it to Regular, the rasterizer strengthens supersampled coverage before downsampling and adjusts advances; the result stays cached independently of Regular and Bold.
 
-Configuration text is separate: `config/config_text` owns its plain presentation and effects. Global typography in `config/global_text` changes only the selected property across HUD profiles; later module edits remain authoritative. Keep new profiles compatible with inherited global settings.
+Configuration text is separate: `config/config_text` owns its plain presentation and effects. Global typography in `config/global_text` changes only the selected property across HUD profiles; later module edits remain authoritative. Keep new profiles compatible with inherited global settings. Theme fonts are defaults: use `text_style::ThemeFont` for theme-specific names, labels and numbers so configured faces survive drawing and measurement. Font controls record `font_explicit`, including selecting Bahnschrift at index zero, and shared text persistence retains it. Existing nonzero font selections remain authoritative without migration.
 
 Shared buttons reveal overflowing labels with a clipped bounce marquee on hover or deliberate controller focus, pausing at each end. Idle labels retain UTF-8-safe ellipses; fitting labels stay still. Keep selection tint separate from marquee activation.
 

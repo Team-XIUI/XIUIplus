@@ -220,6 +220,7 @@ namespace xiui
         case 14:
         {
             auto option = module_option::Dropdown("Font", "Font face for this text element.", &profile.style.font, ui::font_names, ui::font_count).Ordered(100, true);
+            option.choice_explicit = &profile.style.font_explicit;
             option.group = module_option_group::text;
             return option;
         }
@@ -542,7 +543,7 @@ namespace xiui
         if (this->design_.IsXiv1Theme())
         {
             themedValue = valueProfile != nullptr ? *valueProfile : module_text_profile{theme.meter_text};
-            themedValue->style.font = ui::xiv1_number_font;
+            themedValue->style.font = themedValue->style.ThemeFont(ui::xiv1_number_font);
             if (valueProfile == nullptr) themedValue->style.alignment = ui::text_alignment::right;
             valueProfile = &*themedValue;
         }

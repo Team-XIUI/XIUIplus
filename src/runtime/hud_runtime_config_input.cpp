@@ -364,7 +364,7 @@ namespace xiui
         {
             const int count = static_cast<int>(option.choice_count);
             const int direction = Contains(ui::config_layout::ChoicePrevious(this->ConfigLayout().OptionRow(visibleIndex)), x, y) ? -1 : 1;
-            *option.choice = (std::clamp(*option.choice, 0, count - 1) + direction + count) % count;
+            option.SetChoice((std::clamp(*option.choice, 0, count - 1) + direction + count) % count);
             this->config_.active_color = nullptr;
             this->config_.module->OnOptionChanged(optionIndex);
         }
