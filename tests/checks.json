@@ -366,6 +366,14 @@
       ],
       "requires_arguments": false
     },
+      {
+        "name": "startup-settings",
+        "target": "xiui_config_input_smoke",
+        "arguments": [
+          "--startup-settings-only"
+        ],
+        "requires_arguments": false
+      },
     {
       "name": "profiles",
       "target": "xiui_config_input_smoke",

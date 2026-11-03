@@ -104,6 +104,7 @@ namespace xiui
         static inline uint32_t* window_record{};
         static inline unsigned window_writes{};
         static auto StartupWiring(void) -> bool;
+        static auto StartupSettings(void) -> bool;
         static auto SetupWizard(const char* defaultsPath) -> bool;
         static auto HudScaling(const char* defaultsPath) -> bool;
         static auto HudPresets(const char* defaultsPath) -> bool;

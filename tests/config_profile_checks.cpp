@@ -596,6 +596,60 @@ namespace xiui
             "profile files, overlays and share keys exclude local character bindings case-insensitively");
     }
 
+    auto config_input_test::StartupSettings(void) -> bool
+    {
+        const auto bytes = resources::LoadEmbeddedResource(reinterpret_cast<HMODULE>(&__ImageBase), 301, maximum_profile_payload);
+        const std::string text{reinterpret_cast<const char*>(bytes.data()), bytes.size()};
+        const auto defaults = settings_store::FromIniText(text);
+        const auto size = ReadLayoutViewport(defaults);
+        if (!check(size.Valid(), "startup settings use the current embedded layout")) return false;
+        const D3DVIEWPORT8 viewport{0, 0, static_cast<DWORD>(size.width), static_cast<DWORD>(size.height), 0, 1};
+        const auto path = std::filesystem::temp_directory_path() /
+            ("XIUIplus-startup-settings-" + std::to_string(::GetCurrentProcessId()) + "-" + std::to_string(::GetTickCount64()) + ".ini");
+        struct cleanup { std::filesystem::path path; ~cleanup() { std::error_code error; std::filesystem::remove(path, error); } } cleanupFile{path};
+        hud_runtime original;
+        original.default_settings_text_ = text;
+        original.settings_path_ = path.string();
+        original.LoadSettings(defaults, size);
+        original.EnsureLayout(viewport);
+        size_t index{};
+        for (auto* module : original.modules_.All())
+        {
+            if (!module->CanMove()) continue;
+            module->State().bounds.x = 200 + static_cast<float>(index * 7);
+            module->State().bounds.y = 100 + static_cast<float>(index++ * 3);
+        }
+        original.player_.Settings().show_identity = false;
+        original.equipment_.State().enabled = false;
+        original.game_hud_.SetAvailable(~uint32_t{});
+        original.game_hud_.SetShown("clock", !defaults.ReadBool("game_hud", "show_clock", true));
+        const auto expected = original.CaptureSettings();
+        original.SaveSettings();
+        original.settings_writer_.Stop();
+        if (!check(!original.settings_writer_.HasFailed(), "startup fixture finishes its pending disk save")) return false;
+
+        hud_runtime loaded;
+        loaded.default_settings_text_ = text;
+        loaded.settings_path_ = path.string();
+        loaded.LoadSettings();
+        if (!check(loaded.pending_layout_settings_.has_value() &&
+            loaded.equipment_.State().bounds.x == expected.ReadInt("layout.equipment", "x", -1),
+            "disk settings load before a device viewport exists")) return false;
+        loaded.EnsureLayout({0, 0, 0, 0, 0, 1});
+        loaded.EnsureLayout(viewport);
+        loaded.SaveSettings();
+        loaded.settings_writer_.Stop();
+        if (!check(!loaded.settings_writer_.HasFailed(), "startup retains a complete settings snapshot when saving again")) return false;
+        const auto actual = settings_store::CachedFile(path.string());
+        for (const auto& section : LayoutSections(expected))
+            for (const auto* axis : {"x", "y"})
+                if (!check(actual.ReadInt(section.c_str(), axis, -1) == expected.ReadInt(section.c_str(), axis, -1),
+                    ("deferred startup preserves saved " + section + "." + axis).c_str())) return false;
+        return check(!actual.ReadBool("equipment", "enabled", true) && !actual.ReadBool("player", "show_identity", true) &&
+            actual.ReadBool("game_hud", "show_clock", false) == expected.ReadBool("game_hud", "show_clock", false),
+            "deferred startup preserves module and native clock preferences");
+    }
+
     auto config_input_test::ViewportLayout(const char* source) -> bool
     {
         std::ifstream file{source, std::ios::binary};

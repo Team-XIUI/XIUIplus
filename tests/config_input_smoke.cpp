@@ -272,6 +272,12 @@ int main(int argc, char** argv)
         std::puts("Per-character profile restoration, pending saves, identity loss, failure/fallback, shared selection and portability checks passed.");
         return 0;
     }
+    if (argc == 2 && std::strcmp(argv[1], "--startup-settings-only") == 0)
+    {
+        if (!xiui::config_input_test::StartupSettings()) return 1;
+        std::puts("Disk-backed positions and preferences survive deferred startup layout and saving.");
+        return 0;
+    }
     if (argc == 2 && std::strcmp(argv[1], "--profiles-only") == 0)
     {
         if (!xiui::config_input_test::Profiles()) return 1;

@@ -89,7 +89,7 @@ Installed data belongs under `config/XIUIplus/`, resolved by `settings/storage_p
 
 Use `settings_store`, normal module load/save hooks and asynchronous writers. Snapshots merge unknown fields/comments and preserve supported encoding; unchanged values avoid rewrites. Keep full snapshots coalesced and retain failed work for retry. Sanitize non-finite values at the shared reader.
 
-Migrate existing defaults narrowly and with a version marker; preserve later customizations. Layout fitting uses the preset's `layout.viewport` and the actual game viewport, preserving moved modules and deferring startup placement until that viewport is valid. Keep the reference resolution with profile positions. Portable profiles use the existing preference visitor, excluding session state, character-local inventory layouts and controller-device data. Do not modify the immutable sharing preset. Profile/dialog operations must drain writers and cancel transient input at their existing lifecycle boundary.
+Migrate existing defaults narrowly and with a version marker; preserve later customizations. Layout fitting uses the preset's `layout.viewport` and the actual game viewport, preserving moved modules and deferring startup placement until that viewport is valid. Retain the complete indexed settings store during that handoff; serialized pending writes do not include disk-loaded values. Keep the reference resolution with profile positions. Portable profiles use the existing preference visitor, excluding session state, character-local inventory layouts and controller-device data. Do not modify the immutable sharing preset. Profile/dialog operations must drain writers and cancel transient input at their existing lifecycle boundary.
 
 ## Shipped defaults and resources
 

@@ -2093,7 +2093,7 @@ namespace xiui
         this->layout_initialized_ = false;
         this->LoadConfigSelection(store);
         if (viewport.Valid()) this->pending_layout_settings_.reset();
-        else this->pending_layout_settings_ = settings_store::FromIniText(store.ToIniText());
+        else this->pending_layout_settings_ = store;
     }
 
     auto hud_runtime::CaptureSettings(void) const -> settings_store
