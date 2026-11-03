@@ -28,6 +28,8 @@ The Action Bars sidebar page follows the enabled state of all ten hotbars and th
 
 Closing Configuration hands focus to an open action workspace and retains its unsaved draft. Keep its close button, Escape and controller Cancel usable after that handoff.
 
+Opening Configuration must release shared hotbar hover capture before saving its external mouse-block baseline. `--input-ownership-only` covers this transition, an existing external block and plain config clicks after a missed release. Use `/xiuiplus mouse status` to distinguish config clicks from workspace capture in user reports.
+
 Workspace close buttons activate on release and cancel outside the button. Popup dismissal retains mouse blocking and held movement capture through its owned release.
 
 Locked bars require Shift when pressing to rearrange slots; unlocked bars allow ordinary click-drag. Shift reads both mouse modifier flags and keyboard state, including in Movement mode. The gesture temporarily bypasses destination locks, reveals hidden empty slots and retains that permission through release, preserving saved locks and slot keybinds. Library entries still drag directly onto a bar. Cancelled clicks drain their release in both the runtime and module; fresh presses replace any stale release marker. Native chat cleanup preserves ordinary hotbar hover capture so successive macro clicks need no Escape.

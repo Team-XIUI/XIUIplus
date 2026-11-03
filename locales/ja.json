@@ -3086,6 +3086,8 @@
   "[ ] Activate single import": "[ ] 単一の取込を有効化",
   "[ ] Controller options": "[ ] コントローラー設定",
   "[ ] Link unassigned chars": "[ ] 未割当キャラクターを関連付け",
+  "[XIUI+] Mouse #%zu: msg 0x%X; keys 0x%X; pos %d,%d; Shift %u; blocked %u; owner %s; handled %u; config held %u -> %u.": "[XIUI+] マウス #%zu: メッセージ 0x%X; キー 0x%X; 位置 %d,%d; Shift %u; ブロック %u; 所有 %s; 処理 %u; 設定の押下 %u -> %u。",
+  "[XIUI+] Mouse: config %u; held %u; buttons 0x%X; capture %u; prior block %u; shared capture %u; prior shared block %u; events %zu.": "[XIUI+] マウス: 設定 %u; 押下 %u; ボタン 0x%X; 捕捉 %u; 以前のブロック %u; 共有捕捉 %u; 以前の共有ブロック %u; イベント %zu。",
   "[x] Activate single import": "[x] 単一の取込を有効化",
   "[x] Controller options": "[x] コントローラー設定",
   "[x] Link unassigned chars": "[x] 未割当キャラクターを関連付け"

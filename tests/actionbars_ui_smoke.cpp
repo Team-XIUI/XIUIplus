@@ -1295,6 +1295,37 @@ namespace xiui
                 bool GetBlockInput(void) const override { return this->blocked; }
                 void SetBlockInput(bool value) override { this->blocked = value; }
             } input;
+            for (const bool previouslyBlocked : {false, true})
+            {
+                auto runtime = std::make_unique<hud_runtime>(); auto& module = runtime->actionbars_;
+                runtime->mouse_ = &input; input.blocked = previouslyBlocked;
+                module.Initialize(nullptr, &runtime->action_store_, &runtime->action_executor_);
+                module.ApplyTextDefaults(ui::theme::CreateDefault()); module.viewport_ = {0, 0, 1920, 1080};
+                module.bars_[0].state.bounds.x = 80; module.bars_[0].state.bounds.y = 60; module.Layout(0);
+                runtime->action_store_.Assign(action_surface::hotbar, 0, 0, Command("Hover macro"));
+                const auto slot = module.SlotBounds({action_surface::hotbar, 0, 0});
+                runtime->mouse_x_ = static_cast<int>(slot.x + 8); runtime->mouse_y_ = static_cast<int>(slot.y + 8);
+                Check(runtime->ActionBarsPointerOwns(slot.x + 8, slot.y + 8), "hotbar owns hover before opening Configuration");
+                runtime->SetChatMouseCapture(true);
+                Check(runtime->SetEditing(true, false) && runtime->previous_mouse_blocked_ == previouslyBlocked &&
+                    !runtime->chat_mouse_block_saved_, "Configuration does not inherit its own hotbar hover block as an external owner");
+                const D3DVIEWPORT8 viewport{0, 0, 1920, 1080, 0, 1};
+                runtime->config_.bounds = {1100, 40, 680, 700};
+                const auto close = runtime->ConfigLayout().CloseButton();
+                runtime->mouse_x_ = static_cast<int>(close.x + 4); runtime->mouse_y_ = static_cast<int>(close.y + 4);
+                runtime->ProcessPointerMessage(WM_LBUTTONDOWN, MK_LBUTTON, viewport);
+                runtime->ProcessPointerMessage(WM_MOUSEMOVE, 0, viewport);
+                Check(runtime->IsEditing() && !runtime->mouse_down_ && runtime->interaction_ == hud_runtime::interaction::none,
+                    "an observed released button cancels a missed Configuration release without activating Close");
+                const auto mode = runtime->SettingsModeBounds(); const auto basic = runtime->config_.basic;
+                runtime->mouse_x_ = static_cast<int>(mode.x + 4); runtime->mouse_y_ = static_cast<int>(mode.y + 4);
+                runtime->ProcessPointerMessage(WM_LBUTTONDOWN, MK_LBUTTON, viewport);
+                runtime->ProcessPointerMessage(WM_LBUTTONUP, 0, viewport);
+                Check(runtime->config_.basic != basic && !runtime->mouse_down_, "plain Configuration clicks resume after a missed release");
+                runtime->SetEditing(false, false);
+                Check(input.blocked == previouslyBlocked, "Configuration restores only the original external mouse block");
+            }
+            input.blocked = false;
             for (int dismissal = 0; dismissal < 3; ++dismissal)
             {
                 auto runtime = std::make_unique<hud_runtime>(); auto& module = runtime->actionbars_;

@@ -496,9 +496,26 @@ namespace xiui
 
     auto hud_runtime::HandleMouseMessage(const uint32_t message, const WPARAM wParam, const LPARAM lParam, const bool inputBlocked) -> bool
     {
+        const bool button = message == WM_LBUTTONDOWN || message == WM_LBUTTONDBLCLK || message == WM_LBUTTONUP ||
+            message == WM_RBUTTONDOWN || message == WM_RBUTTONDBLCLK || message == WM_RBUTTONUP;
+        if (!button) return this->RouteMouseMessage(message, wParam, lParam, inputBlocked);
+        auto& trace = this->mouse_trace_[this->mouse_trace_count_++ % this->mouse_trace_.size()];
+        trace = {message, static_cast<uint32_t>(wParam), signed_low_word(lParam), signed_high_word(lParam), inputBlocked,
+            (wParam & MK_SHIFT) != 0 || (::GetKeyState(VK_SHIFT) & 0x8000) != 0, this->mouse_down_, this->mouse_down_};
+        const bool consumed = this->RouteMouseMessage(message, wParam, lParam, inputBlocked);
+        trace.owner = this->mouse_route_;
+        trace.consumed = consumed;
+        trace.config_down_after = this->mouse_down_;
+        return consumed;
+    }
+
+    auto hud_runtime::RouteMouseMessage(const uint32_t message, const WPARAM wParam, const LPARAM lParam, const bool inputBlocked) -> bool
+    {
+        this->mouse_route_ = "unclaimed";
+        const auto owned = [this](const char* owner) { this->mouse_route_ = owner; return true; };
         const bool blocked = this->PointerInputBlocked(inputBlocked);
         this->UpdateVisibilityContext();
-        if (!this->SetupVisible() && this->setup_.pointer_buttons != 0 && this->HandleSetupMouse(message, wParam, blocked, this->hud_viewport_)) return true;
+        if (!this->SetupVisible() && this->setup_.pointer_buttons != 0 && this->HandleSetupMouse(message, wParam, blocked, this->hud_viewport_)) return owned("setup-release");
         if (!this->satchel_.PointerDown())
         {
             if (message == WM_LBUTTONDOWN || message == WM_LBUTTONDBLCLK) this->satchel_pointer_release_ &= ~MK_LBUTTON;
@@ -510,16 +527,19 @@ namespace xiui
             if (message == WM_RBUTTONDOWN || message == WM_RBUTTONDBLCLK) this->actionbar_pointer_release_ &= ~MK_RBUTTON;
         }
         if ((message == WM_LBUTTONUP || message == WM_RBUTTONUP) && this->actionbar_pointer_release_ != 0 && !this->actionbars_.PointerDown() &&
-            this->HandleActionBarsMouse(message, wParam, -1, -1, blocked)) return true;
+            this->HandleActionBarsMouse(message, wParam, -1, -1, blocked)) return owned("actionbar-release");
         if ((message == WM_LBUTTONUP || message == WM_RBUTTONUP) && this->satchel_pointer_release_ != 0 && !this->satchel_.PointerDown() &&
-            this->HandleSatchelMouse(message, wParam, -1, -1, blocked)) return true;
+            this->HandleSatchelMouse(message, wParam, -1, -1, blocked)) return owned("satchel-release");
         if (this->visibility_pointer_release_)
         {
-            if (message == WM_LBUTTONUP) { this->visibility_pointer_release_ = false; return true; }
-            if (message == WM_MOUSEMOVE || message == WM_LBUTTONDOWN || message == WM_LBUTTONDBLCLK) return true;
+            if (message == WM_LBUTTONUP) { this->visibility_pointer_release_ = false; return owned("visibility-release"); }
+            if (message == WM_MOUSEMOVE || message == WM_LBUTTONDOWN || message == WM_LBUTTONDBLCLK) return owned("visibility-release");
         }
         if (!this->visible_ || this->device_ == nullptr)
+        {
+            this->mouse_route_ = "hidden-or-no-device";
             return false;
+        }
 
         switch (message)
         {
@@ -546,7 +566,7 @@ namespace xiui
         auto* properties = this->core_ != nullptr ? this->core_->GetProperties() : nullptr;
         const HWND gameWindow = properties != nullptr ? properties->GetFinalFantasyHwnd() : nullptr;
         if (gameWindow == nullptr || ::GetForegroundWindow() != gameWindow)
-        { this->hud_target_pressed_ = false; return false; }
+        { this->mouse_route_ = "foreground"; this->hud_target_pressed_ = false; return false; }
 
         POINT cursor{signed_low_word(lParam), signed_high_word(lParam)};
         if (message == WM_MOUSEWHEEL || message == WM_MOUSEHWHEEL)
@@ -566,7 +586,7 @@ namespace xiui
                 ::SetCapture(gameWindow);
                 if (::GetCapture() == gameWindow) this->mouse_capture_window_ = gameWindow;
             }
-            return true;
+            return owned("setup");
         }
         if (!blocked && (message == WM_RBUTTONDOWN || message == WM_RBUTTONDBLCLK) && this->TryOpenModuleMenu(viewport))
         {
@@ -574,11 +594,11 @@ namespace xiui
             this->UpdateMouseCapture(viewport, static_cast<uint32_t>(wParam) & buttons);
             ::SetCapture(gameWindow);
             if (::GetCapture() == gameWindow) this->mouse_capture_window_ = gameWindow;
-            return true;
+            return owned("module-menu");
         }
-        if (this->HandleSatchelMouse(message, wParam, static_cast<float>(cursor.x), static_cast<float>(cursor.y), blocked)) return true;
-        if (this->HandleActionBarsMouse(message, wParam, static_cast<float>(cursor.x), static_cast<float>(cursor.y), blocked)) return true;
-        if (this->HandleTreasureMouse(message, static_cast<float>(cursor.x), static_cast<float>(cursor.y), blocked)) return true;
+        if (this->HandleSatchelMouse(message, wParam, static_cast<float>(cursor.x), static_cast<float>(cursor.y), blocked)) return owned("satchel");
+        if (this->HandleActionBarsMouse(message, wParam, static_cast<float>(cursor.x), static_cast<float>(cursor.y), blocked)) return owned("actionbars");
+        if (this->HandleTreasureMouse(message, static_cast<float>(cursor.x), static_cast<float>(cursor.y), blocked)) return owned("treasure");
 
         if (this->HandleControllerPointer(message, static_cast<float>(cursor.x), static_cast<float>(cursor.y), viewport))
         {
@@ -588,7 +608,7 @@ namespace xiui
                 ::SetCapture(gameWindow);
                 if (::GetCapture() == gameWindow) this->mouse_capture_window_ = gameWindow;
             }
-            return true;
+            return owned("controller-picker");
         }
         if (message == WM_LBUTTONDOWN || message == WM_RBUTTONDOWN || message == WM_MOUSEWHEEL)
         {
@@ -610,14 +630,15 @@ namespace xiui
                 if ((message == WM_LBUTTONDOWN || message == WM_LBUTTONDBLCLK) && ::GetCapture() != gameWindow)
                 { ::SetCapture(gameWindow); if (::GetCapture() == gameWindow) this->mouse_capture_window_ = gameWindow; }
                 if (message == WM_LBUTTONUP) this->ReleasePointerCapture();
-                return true;
+                return owned("ready-check");
             }
         }
         if ((message == WM_LBUTTONDOWN || message == WM_LBUTTONDBLCLK) && this->config_.slider_input.Focused() &&
             !Contains(this->config_.slider_bounds, static_cast<float>(cursor.x), static_cast<float>(cursor.y))) this->FinishConfigInput(true, false);
         if ((message == WM_LBUTTONDOWN || message == WM_LBUTTONDBLCLK) && this->config_.text_input.Focused() &&
             !Contains(this->config_.text_bounds, static_cast<float>(cursor.x), static_cast<float>(cursor.y))) this->FinishConfigInput(true, false);
-        if (!this->editing_ && this->hud_target_pressed_) return this->HandleTargetMouse(message, blocked);
+        if (!this->editing_ && this->hud_target_pressed_)
+        { this->mouse_route_ = "hud-target"; return this->HandleTargetMouse(message, blocked); }
         auto* chat = this->chat_pointer_ != nullptr ? this->chat_pointer_ : this->ChatAt(static_cast<float>(cursor.x), static_cast<float>(cursor.y));
         const bool overConfig = this->editing_ && (this->ProfileSurface(viewport) || this->config_.choice_input.Opened() || this->config_.header_menu_open || this->config_.search_open ||
             (this->mouse_captured_ && this->mouse_buttons_ != 0) || Contains(this->ConfigVisibleBounds(), static_cast<float>(cursor.x), static_cast<float>(cursor.y)) ||
@@ -644,7 +665,7 @@ namespace xiui
                     { ::SetCapture(gameWindow); if (::GetCapture() == gameWindow) this->mouse_capture_window_ = gameWindow; }
                 }
                 if (message == WM_LBUTTONUP) { this->chat_pointer_ = nullptr; this->ReleasePointerCapture(); }
-                return true;
+                return owned("chat");
             }
             if (resizing) { this->chat_pointer_ = nullptr; this->ReleasePointerCapture(); }
         }
@@ -658,9 +679,11 @@ namespace xiui
                 return true;
             }
         }
-        if (!this->editing_) return this->HandleTargetMouse(message, blocked);
+        if (!this->editing_)
+        { this->mouse_route_ = "hud-target"; return this->HandleTargetMouse(message, blocked); }
         constexpr uint32_t buttonMask = MK_LBUTTON | MK_RBUTTON | MK_MBUTTON | MK_XBUTTON1 | MK_XBUTTON2;
         const bool captured = this->ProcessPointerMessage(message, static_cast<uint32_t>(wParam) & buttonMask, viewport);
+        this->mouse_route_ = captured ? "config" : "unclaimed";
 
         if (captured && this->editing_ && (message == WM_LBUTTONDOWN || message == WM_LBUTTONDBLCLK) && ::GetCapture() != gameWindow)
         {
@@ -1244,6 +1267,23 @@ namespace xiui
         if (command != nullptr && this->HandleSatchelCommand(command)) return true;
         if (command == nullptr)
             return false;
+        if (::_stricmp(command, "mouse status") == 0)
+        {
+            auto* chat = this->core_ != nullptr ? this->core_->GetChatManager() : nullptr;
+            if (chat == nullptr) return true;
+            chat->Writef(1, false, i18n::Text("[XIUI+] Mouse: config %u; held %u; buttons 0x%X; capture %u; prior block %u; shared capture %u; prior shared block %u; events %zu."),
+                unsigned(this->editing_), unsigned(this->mouse_down_), this->mouse_buttons_, unsigned(this->mouse_captured_),
+                unsigned(this->previous_mouse_blocked_), unsigned(this->chat_mouse_block_saved_), unsigned(this->previous_chat_mouse_blocked_), this->mouse_trace_count_);
+            const auto first = this->mouse_trace_count_ > this->mouse_trace_.size() ? this->mouse_trace_count_ - this->mouse_trace_.size() : 0;
+            for (auto index = first; index < this->mouse_trace_count_; ++index)
+            {
+                const auto& trace = this->mouse_trace_[index % this->mouse_trace_.size()];
+                chat->Writef(1, false, i18n::Text("[XIUI+] Mouse #%zu: msg 0x%X; keys 0x%X; pos %d,%d; Shift %u; blocked %u; owner %s; handled %u; config held %u -> %u."),
+                    index + 1, trace.message, trace.buttons, trace.x, trace.y, unsigned(trace.shift), unsigned(trace.blocked), trace.owner,
+                    unsigned(trace.consumed), unsigned(trace.config_down_before), unsigned(trace.config_down_after));
+            }
+            return true;
+        }
         if (::_stricmp(command, "setup") == 0)
         {
             this->BeginSetup();
@@ -1939,6 +1979,8 @@ namespace xiui
 
         if (editing)
         {
+            // End hover capture before saving Configuration's external input owner.
+            this->SetChatMouseCapture(false);
             this->previous_mouse_blocked_ = this->mouse_->GetBlockInput();
             this->mouse_block_state_saved_ = true;
             this->editing_ = true;
@@ -2337,6 +2379,16 @@ namespace xiui
 
     auto hud_runtime::ProcessPointerMessage(const uint32_t message, const uint32_t buttons, const D3DVIEWPORT8& viewport) -> bool
     {
+        if (message == WM_MOUSEMOVE && this->mouse_down_ && (buttons & MK_LBUTTON) == 0 &&
+            (::GetAsyncKeyState(VK_LBUTTON) & 0x8000) == 0)
+        {
+            // Ashita may omit button flags; confirm release before cancelling a gesture.
+            this->FinishScale(false);
+            this->mouse_down_ = false;
+            this->module_menu_pressed_.reset();
+            this->config_.choice_input.CancelScrollPointer();
+            this->FinishInteraction();
+        }
         const bool captured = this->UpdateMouseCapture(viewport, buttons);
         if ((message == WM_RBUTTONDOWN || message == WM_RBUTTONDBLCLK) && this->module_menu_target_ != nullptr)
         { this->CloseChoiceInput(); return captured; }

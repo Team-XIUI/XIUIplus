@@ -421,6 +421,18 @@ namespace xiui
         bool previous_mouse_blocked_{false};
         bool mouse_captured_{false};
         uint32_t mouse_buttons_{};
+        struct mouse_trace_entry
+        {
+            uint32_t message{}, buttons{};
+            int x{}, y{};
+            bool blocked{}, shift{}, config_down_before{}, config_down_after{};
+            const char* owner{"pending"};
+            bool consumed{};
+        };
+        std::array<mouse_trace_entry, 12> mouse_trace_{};
+        size_t mouse_trace_count_{};
+        const char* mouse_route_{"unclaimed"};
+        auto RouteMouseMessage(uint32_t message, WPARAM wParam, LPARAM lParam, bool blocked) -> bool;
 #if defined(XIUI_ENABLE_TEST_FAULTS)
         bool raise_after_begin_for_testing_{false};
 #endif

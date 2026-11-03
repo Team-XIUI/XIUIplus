@@ -26,6 +26,10 @@ Opening settings leaves Edit Mode OFF. Live modules retain hover editing; select
 
 Hover capture blocks native gameplay without blocking XIUI+'s own controls. `PointerInputBlocked` unwraps XIUI+'s capture state while retaining the previous mouse block. Satchel, Action Bars management and Treasure Pool accept pointer interaction over ordinary native menus.
 
+Opening Configuration ends shared HUD hover capture before saving its previous mouse-block state, so hovering or clicking a hotbar cannot become a false external input owner. Configuration uses ordinary clicks without Shift. A subsequent mouse-move message without Left held cancels a missed config release only after the physical button state also confirms release; Ashita callbacks may omit button flags. Cancellation never activates a pending close or menu action.
+
+`/xiuiplus mouse status` reports capture state and the last 12 left/right button events, including modifiers, coordinates, routing owner, handling and config held-state transitions. For an intermittent click failure, try a plain click and a Shift-click before running it; pair the output with `/xiuiplus actionbars status`. The bounded trace stays in memory and does not change settings or generate per-click log output.
+
 Native chat cleanup preserves pointer gestures and pending releases owned by another XIUI+ surface. Repeated command-menu/combat polling must not cancel workspace drags or button clicks between press and release. Foreground/input suspension still releases capture immediately.
 
 Configuration, color-picker and profile/import close buttons activate on the matching release; releasing outside cancels the close. Action workspace close controls use the same press/release rule. Dismissing a popup keeps native mouse blocking and held movement capture until its owned release, even after the popup disappears.

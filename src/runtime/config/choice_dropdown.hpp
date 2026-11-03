@@ -26,6 +26,7 @@ namespace xiui::ui
         auto Highlighted(void) const -> int { return this->highlighted_; }
         auto First(void) const -> int { return this->first_; }
         auto Scrolling(void) const -> bool { return this->scrolling_; }
+        auto CancelScrollPointer(void) -> void { this->scrolling_ = false; }
         auto VisibleCount(void) const -> int { return std::min(8, static_cast<int>(this->option_.choice_count)); }
         auto Scroll(int delta) -> void { this->first_ = std::clamp(this->first_ + delta, 0, std::max(0, static_cast<int>(this->option_.choice_count) - this->VisibleCount())); }
         auto Move(int delta) -> void
