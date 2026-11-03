@@ -111,7 +111,7 @@ For deliberate browsing, use `/xiuiplus focus hotbar` or `/xiuiplus focus crossb
 
 **Import Lua / tHotBar / tCrossBar** reads a local saved data file, displays a preview and warnings, then creates new palettes after Import is selected. Existing layouts are preserved. Supported sources include XIUI+ saved profiles using the actual assignment serializer, returned Lua tables, tHotBar/tCrossBar assignments and native INI action data. This imports actions and shared library records; full settings/placement imports are available separately through [Import profile → XIUI+ Lua](lua-profile-import.md). Expressions and executable Lua are rejected. Unsupported source features are reported rather than executed.
 
-The reusable library accepts typed actions as well as command macros, including unused entries from Lua. Right-click a shared library entry, or focus it and press controller Actions / keyboard Menu, to edit it without assigning a slot. Shared edits update references; deleting a library entry keeps its currently assigned actions usable.
+The reusable library accepts typed actions as well as command macros, including unused entries from Lua. The standalone Actions & Macros window opens entries for editing and saves new entries to the library without assigning a hotbar slot. Drag an entry onto a slot, or choose a destination with the controller, to assign it. Opening the picker from an empty slot retains that explicit destination. Right-click a shared library entry, or focus it and press controller Actions / keyboard Menu, to edit it without assigning a slot. Shared edits update references; deleting a library entry keeps its currently assigned actions usable.
 
 Macro editing offers Automatic, None or a selected spell/ability/weapon-skill/pet/item cooldown source, plus Always available. These affect displayed cooldown/availability metadata; commands retain their normal guarded execution path.
 
@@ -127,6 +127,7 @@ Action data, macro commands and presentation settings follow normal XIUI+ profil
 - `/xiuiplus hotbar next` / `previous`, `/xiuiplus crossbar next` / `previous`: cycle palettes.
 - `/xiuiplus hotbar import`: preview an import.
 - `/xiuiplus actionbars status`: report palette/macro counts and native bridge status.
+- `/xiuiplus actionbars run <bar 1-10> <slot 1-12>`: execute a hotbar assignment with the normal input and character guards. Native gathering events pause an existing macro until the animation ends, retaining elapsed waits.
 
 Focused software checks cover storage, macro references, import boundaries, input normalization and UI ownership. Native builds and AgentLink status confirm the installed integration. Physical controller feel, remappers, visual polish and live action execution remain for Cody's gameplay acceptance; the implementation checks do not send live actions.
 

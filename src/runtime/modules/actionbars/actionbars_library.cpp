@@ -31,9 +31,10 @@ namespace xiui
     auto actionbars_module::OpenLibrary(const bool crossbar, const size_t bar, const size_t slot) -> void
     {
         this->CommitField(); this->binding_capture_ = false;
+        this->library_assignment_ = slot < (crossbar ? action_crossbar_slots : action_bar_slots);
         this->selected_ = {crossbar ? action_surface::crossbar : action_surface::hotbar,
             std::min(bar, crossbar ? action_crossbar_banks - 1 : action_bar_count - 1),
-            std::min(slot, crossbar ? action_crossbar_slots - 1 : action_bar_slots - 1)};
+            this->library_assignment_ ? slot : 0};
         this->view_ = crossbar ? action_bar_count : this->selected_.bar;
         if (crossbar) this->selected_bank_ = static_cast<int>(this->selected_.bar);
         this->draft_ = {};

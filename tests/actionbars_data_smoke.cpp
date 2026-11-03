@@ -14,6 +14,21 @@ namespace xiui
     struct action_executor_test
     {
         static auto NativePalette(const action_executor& executor) -> bool { return executor.native_menu_allowed_; }
+        static auto BeginWait(action_executor& executor) -> void
+        { executor.pending_ = {{"/echo first", 4000, false}, {"/echo next", 0, false}}; executor.next_ = 1; executor.due_ = 5000; }
+        static auto Waiting(const action_executor& executor) -> bool
+        { return executor.pending_.size() == 2 && executor.next_ == 1 && executor.due_ == 5000; }
+        static auto Ready(const action_executor& executor, uint64_t now) -> bool { return executor.StepReady(now); }
+        static auto StandaloneWait(action_executor& executor) -> void
+        { executor.pending_[1].command.clear(); executor.pending_[1].delay = 4000; executor.due_ = 1000; }
+        static auto CompileWaits(const action_slot& slot) -> bool
+        {
+            action_executor executor; bool timed{};
+            const auto steps = executor.BuildSteps(slot, action_executor::Commands(slot, {}), [](const action_slot&) { return std::string{}; }, timed);
+            return timed && steps.size() == 4 && steps[0].command == "/targetnpc" && steps[0].mode == 2 &&
+                steps[1].command == "/item \"Pickaxe\" <t>" && steps[1].delay == 4000 && steps[1].mode == 2 &&
+                steps[2].command.empty() && steps[2].delay == 4000 && steps[3].command == "/echo done" && steps[3].mode == 2;
+        }
     };
 }
 
@@ -245,6 +260,35 @@ return settings;)lua");
         action_executor executor; executor.SetRestricted(true);
         Check(!executor.Inspect(nullptr, macro, true).usable && !executor.Activate(nullptr, macro, 0) && executor.Status() == "Close the editor or finish typing first.", "representative display data cannot bypass restricted macro execution");
     }
+    auto NativeEventWaits(void) -> void
+    {
+        using namespace xiui;
+        action_slot timedMacro; timedMacro.kind = action_kind::macro;
+        timedMacro.lines = {"/targetnpc", "/item \"Pickaxe\" <t> <wait 4>", "/wait 4", "/echo done"};
+        const auto original = timedMacro;
+        Check(action_executor_test::CompileWaits(timedMacro) && timedMacro == original,
+            "both wait forms retain four-second delays and native macro mode for targeting, items and non-action lines without rewriting saved text");
+        action_executor executor;
+        action_executor_test::BeginWait(executor);
+        executor.SetNativeInputBusy(true);
+        Check(action_executor_test::Waiting(executor) && !action_executor_test::Ready(executor, 6000) && executor.Diagnostics(6000).find("native input") != std::string::npos,
+            "native gathering events preserve the pending line and original wait deadline");
+        action_slot macro; macro.kind = action_kind::macro; macro.lines = {"/echo replacement"};
+        Check(!executor.Activate(nullptr, macro, 6000) && executor.Status() == "Finish the native menu, event or target selection first." && action_executor_test::Waiting(executor),
+            "an event blocks new activations without replacing the waiting macro");
+        executor.SetNativeInputBusy(false);
+        Check(action_executor_test::Waiting(executor) && !action_executor_test::Ready(executor, 4999) && action_executor_test::Ready(executor, 5000),
+            "event completion retains the elapsed wait and permits dispatch exactly at its deadline");
+        executor.SetNativeInputBusy(true); action_executor_test::StandaloneWait(executor);
+        Check(!action_executor_test::Ready(executor, 999) && action_executor_test::Ready(executor, 1000),
+            "standalone wait lines can start their timers during a native item-trade menu without dispatching a command");
+        executor.SetNativeInputBusy(true); executor.SetRestricted(true);
+        Check(executor.Diagnostics(6000).starts_with("Macro trace: idle."), "explicit input restrictions still cancel a macro during an event");
+        executor.SetRestricted(false); action_executor_test::BeginWait(executor); executor.Update(nullptr, 6000);
+        Check(executor.Diagnostics(6000).starts_with("Macro trace: idle."), "character/service loss still cancels a paused macro");
+        executor.Clear();
+        Check(executor.Inspect(nullptr, macro).reason == "Action services are unavailable.", "clearing the executor removes transient event ownership");
+    }
     auto MacroIconInference(void) -> void
     {
         using namespace xiui;
@@ -358,6 +402,6 @@ int main(int argc, char** argv)
             xiui::action_store migrated; Check(xiui::CommitActionImport(migrated, preview) == 4, "real writer fixture commits atomically");
             std::printf("Saved-profile fixture: %s; %zu actions, %zu library entries, %zu sets.\n", argv[i], preview.actions, preview.macros.size(), preview.palettes.size());
         }
-        Storage(); Imports(); MigrationData(); ExecutionBoundaries(); MacroPresentation(); MacroIconInference(); JapaneseNames(); NativePaletteBoundaries(); std::puts("Action palette, macro, import and execution boundary checks passed."); return 0; }
+        Storage(); Imports(); MigrationData(); ExecutionBoundaries(); MacroPresentation(); NativeEventWaits(); MacroIconInference(); JapaneseNames(); NativePaletteBoundaries(); std::puts("Action palette, macro, import and execution boundary checks passed."); return 0; }
     catch (const std::exception& error) { std::fprintf(stderr, "%s\n", error.what()); return 1; }
 }

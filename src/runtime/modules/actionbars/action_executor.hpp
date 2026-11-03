@@ -25,6 +25,7 @@ namespace xiui
         auto SetRestricted(bool restricted, std::string_view reason = "Macro cancelled because another window owns input.") -> void
         { this->restricted_ = restricted; if (restricted) this->Cancel(reason); }
         auto SetNativeMenuAllowed(bool allowed) -> void { this->native_menu_allowed_ = allowed; }
+        auto SetNativeInputBusy(bool active) -> void { this->native_input_busy_ = active; }
         auto Catalog(IAshitaCore* core) -> std::span<const action_catalog_entry>;
         auto Inspect(IAshitaCore* core, const action_slot& slot, bool presentation = false) -> action_availability;
         auto Activate(IAshitaCore* core, const action_slot& slot, uint64_t now) -> bool;
@@ -48,14 +49,14 @@ namespace xiui
         uint8_t job_{}, subjob_{}, level_{}, sublevel_{};
         uint32_t player_{};
         uint64_t next_catalog_{};
-        bool restricted_{}, native_menu_allowed_{};
+        bool restricted_{}, native_menu_allowed_{}, native_input_busy_{};
         std::string status_{};
         std::string last_command_{};
         uint64_t last_dispatch_{};
         size_t last_line_{}, last_total_{};
         std::function<bool(const native_macro_ref&)> native_runner_{};
         std::function<action_slot(const action_slot&)> macro_resolver_{};
-        struct macro_step { std::string command{}; uint64_t delay{}; bool subtarget{}; };
+        struct macro_step { std::string command{}; uint64_t delay{}; bool subtarget{}; int mode{-1}; };
         std::vector<macro_step> pending_{};
         size_t next_{};
         uint64_t due_{}, subtarget_deadline_{};
@@ -66,6 +67,10 @@ namespace xiui
         std::unordered_map<uint32_t, item_sample> items_{};
         uint64_t next_inventory_{};
         uint32_t utc_{};
+        auto StepReady(uint64_t now) const -> bool
+        { return now >= this->due_ && (!this->native_input_busy_ || this->next_ >= this->pending_.size() || this->pending_[this->next_].command.empty()); }
+        auto BuildSteps(const action_slot& slot, const std::vector<std::string>& commands,
+            const std::function<std::string(const action_slot&)>& resolveName, bool& timed) -> std::vector<macro_step>;
         auto ReadItems(IAshitaCore* core) -> void;
     };
 }

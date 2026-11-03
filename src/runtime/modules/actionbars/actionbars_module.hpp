@@ -109,7 +109,7 @@ namespace xiui
         auto SetHover(float x, float y) -> void { this->hover_x_ = x; this->hover_y_ = y; }
         auto TakeSettingsChanged(void) -> bool;
         auto OpenEditor(bool crossbar = false, size_t bar = 0, size_t slot = 0) -> void;
-        auto OpenLibrary(bool crossbar = false, size_t bar = 0, size_t slot = 0) -> void;
+        auto OpenLibrary(bool crossbar = false, size_t bar = 0, size_t slot = action_bar_slots) -> void;
         auto OpenPalettes(bool crossbar = false, size_t bar = 0) -> void;
         auto OpenSetup(void) -> void;
         auto OpenKeybinds(bool crossbar = false, size_t bar = 0) -> void;
@@ -188,7 +188,7 @@ namespace xiui
             action_slot draft{};
             size_t view{};
             int bank{}, control{};
-            bool pet{}, library_draft{}, library_edit{};
+            bool pet{}, library_draft{}, library_edit{}, assignment{};
         };
         struct control
         {
@@ -293,7 +293,7 @@ namespace xiui
         int crossbar_visibility_{};
         float crossbar_delay_{5}, crossbar_fade_{0.15f}, crossbar_alpha_{1};
         uint64_t last_trigger_{}, visibility_updated_{};
-        bool library_draft_{}, library_edit_{};
+        bool library_draft_{}, library_edit_{}, library_assignment_{};
         bool editor_options_{}, editor_recast_{}, editor_new_{};
         bool settings_changed_{}, binding_capture_{}, inactive_{true}, prompts_{true}, allow_native_keys_{}, only_learned_{true}, draft_pet_{}, scrolling_{};
         bool placing_{}, crossbar_preview_{}, trigger_controls_{};

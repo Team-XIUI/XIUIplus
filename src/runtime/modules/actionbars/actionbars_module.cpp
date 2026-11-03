@@ -710,6 +710,7 @@ namespace xiui
         this->library_popup_.reset();
         this->editor_options_ = this->editor_recast_ = this->editor_new_ = false;
         this->library_edit_ = false;
+        this->library_assignment_ = true;
         this->CommitField(); this->binding_capture_ = false;
         this->selected_ = {crossbar ? action_surface::crossbar : action_surface::hotbar, std::min(bar, crossbar ? action_crossbar_banks - 1 : action_bar_count - 1), std::min(slot, crossbar ? action_crossbar_slots - 1 : action_bar_slots - 1)};
         this->view_ = crossbar ? action_bar_count : this->selected_.bar;
@@ -796,12 +797,12 @@ namespace xiui
     }
     auto actionbars_module::EditLibraryEntry(const size_t index) -> bool
     {
-        if (!this->store_ || index >= this->results_.size() || this->results_[index].macro_id.empty()) return false;
+        if (!this->store_ || index >= this->results_.size() || (this->results_[index].macro_id.empty() && this->library_assignment_)) return false;
         const auto source = this->results_[index];
         this->RememberLibrary(); this->CommitField();
         this->draft_ = this->store_->ExpandMacro(source); this->draft_.macro_id = source.macro_id;
         this->library_edit_ = this->library_draft_ = true; this->line_scroll_ = 0; this->dialog_ = dialog::editor;
-        this->editor_options_ = this->editor_recast_ = this->editor_new_ = false;
+        this->editor_options_ = this->editor_recast_ = false; this->editor_new_ = source.macro_id.empty();
         this->focused_control_ = command_kind; this->message_.clear(); this->SetWindowFocused(true); return true;
     }
     auto actionbars_module::CloseLibraryEditor(void) -> void
@@ -821,9 +822,10 @@ namespace xiui
     }
     auto actionbars_module::NewDraft(const action_kind kind) -> void
     {
+        const bool libraryOnly = this->dialog_ == dialog::picker && !this->library_assignment_;
         this->RememberLibrary();
         this->editor_options_ = this->editor_recast_ = false; this->editor_new_ = true;
-        this->library_edit_ = false; this->library_draft_ = kind == action_kind::macro;
+        this->library_edit_ = libraryOnly; this->library_draft_ = libraryOnly || kind == action_kind::macro;
         this->draft_ = {}; this->draft_.kind = kind; this->draft_.target = "<t>";
         if (kind == action_kind::macro || kind == action_kind::command) this->draft_.lines = {""};
         if (kind == action_kind::equip) this->draft_.equipment_slot = "main";
@@ -996,7 +998,7 @@ namespace xiui
             if (this->dialog_ == dialog::slot_menu) this->OpenLibrary(this->selected_.surface == action_surface::crossbar, this->selected_.bar, this->selected_.slot);
             else this->OpenPicker();
             break;
-        case menu_library: this->OpenLibrary(this->selected_.surface == action_surface::crossbar, this->selected_.bar, this->selected_.slot); break;
+        case menu_library: this->OpenLibrary(this->selected_.surface == action_surface::crossbar, this->selected_.bar); break;
         case menu_edit: this->OpenEditor(this->selected_.surface == action_surface::crossbar, this->selected_.bar, this->selected_.slot); break;
         case menu_palettes: this->OpenPalettes(this->selected_.surface == action_surface::crossbar, this->selected_.bar); break;
         case menu_keybinds: this->OpenKeybinds(this->selected_.surface == action_surface::crossbar, this->selected_.bar); break;

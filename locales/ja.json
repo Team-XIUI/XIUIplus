@@ -943,6 +943,7 @@
   "Final attack countdown and tick highlight.": "攻撃直前のカウントダウンと回復時の強調です。",
   "Final half second before an expected attack.": "次の攻撃予測までの最後の0.5秒です。",
   "Finish": "完了",
+  "Finish the native menu, event or target selection first.": "先に標準メニュー、イベント、ターゲット選択を終了してください。",
   "Finish the native menu or target selection first.": "先に標準メニューやターゲット選択を終了してください。",
   "Fire": "火",
   "Fire Spirit": "Fire Spirit",
@@ -3123,5 +3124,6 @@
   "[XIUI+] Unsupported or unavailable Ashita interface (%.2f); XIUI+ was not initialized.": "[XIUI+] Ashita インターフェース（%.2f）が未対応または確認できないため、XIUI+ を初期化しませんでした。",
   "[x] Activate single import": "[x] 単一の取込を有効化",
   "[x] Controller options": "[x] コントローラー設定",
-  "[x] Link unassigned chars": "[x] 未割当キャラクターを関連付け"
+  "[x] Link unassigned chars": "[x] 未割当キャラクターを関連付け",
+  "Usage: /xiuiplus actionbars run <bar 1-10> <slot 1-12>": "使い方: /xiuiplus actionbars run <バー 1-10> <スロット 1-12>"
 }

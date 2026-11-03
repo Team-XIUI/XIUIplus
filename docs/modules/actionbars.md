@@ -26,6 +26,10 @@ An active native macro palette can sit above a still-visible command menu. Ident
 
 `/xiuiplus actionbars status` reports current TP, pending macro line/wait and the last queued timed line. Input suspension records its cancellation reason instead of silently discarding the remaining sequence.
 
+Running macros retain their current line and wait deadline while native menus, events, maps or target selection own input, including the item-trade menu before a mining animation. They resume when native input clears. New activations remain guarded; foreground, editor and character/zone/job restrictions still cancel the sequence. `/xiuiplus actionbars run <bar 1-10> <slot 1-12>` activates a hotbar assignment through the same validated executor for command-based use and AgentLink tests.
+
+Timed and untimed command macros use the same native macro queue mode for every line, including `/targetnpc` and other non-action commands. Parsing waits must not change the dispatch origin.
+
 Replace native macros defaults off in code, resets and bundled setups. Preserve explicit saved choices.
 
 Users keeping native macros can enable **Instant native macro bar** in Extras → Native Menus. It changes the native Ctrl/Alt palette delay and preserves command waits and action cooldowns. It remains independent of hotbar visibility and pauses while Replace native macros is enabled; see [General](general.md).
@@ -43,6 +47,8 @@ Locked bars require Shift when pressing to rearrange slots; unlocked bars allow 
 Actions & Macros is nonmodal to exposed hotbars: slot drags, bar locks and slot/bar menus remain usable with the library open. The library keeps its search, category, scroll, assignment context and draft behind child menus; dismissing a menu restores it. Window bounds take precedence over covered bars, and an active drag retains its press/release ownership. Existing slot actions and controller Cancel are shared with the child menus. Focused check: `xiui_actionbars_ui_smoke --library-bars-only`.
 
 Clicking a saved macro in Actions & Macros opens its editor without assigning or executing it. Dragging the entry still assigns it to a hotbar slot; controller Confirm retains destination placement and Actions opens the editor. Save, Cancel, Escape and deletion return to the existing library search, category, scroll and slot context. New macro, Single command and Game macro also remember that context while their independent editor is open. Save refreshes results immediately.
+
+The standalone library has no assignment destination. Clicking a catalog action or saving a new library action opens/saves its shared definition without changing hotbar 1, slot 1. An explicit empty-slot picker retains its chosen destination; dragging and controller placement remain deliberate assignment paths. Preserve this distinction when returning from child editors or slot menus.
 
 `ReleaseChatInput` must preserve action-workspace pointer capture while native chat polls the command menu. The input-ownership fixture places that poll between drag/button press and release, during and after combat, and checks suspension cleanup. Create labels distinguish multi-line New macro, Single command and an existing FFXI Game macro; old imported type names remain accepted.
 

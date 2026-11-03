@@ -5,6 +5,7 @@
 
 #include <algorithm>
 #include <cctype>
+#include <cstdio>
 
 namespace xiui
 {
@@ -23,7 +24,11 @@ namespace xiui
     auto hud_runtime::PrepareActionBarsExecutor(const bool keyboardReplacement) -> void
     {
         this->action_executor_.SetNativeMenuAllowed(this->ActionBarsNativeMenuAllowed(keyboardReplacement));
-        if (this->ActionBarsExecutionAvailable(keyboardReplacement)) { this->action_executor_.SetRestricted(false); return; }
+        const auto* memory = this->core_ != nullptr ? this->core_->GetMemoryManager() : nullptr;
+        this->action_executor_.SetNativeInputBusy(this->visibility_context_.event_active || this->party_source_.InCutscene() ||
+            this->visibility_context_.map_open || this->visibility_context_.interface_hidden || NativeTargetSelectionActive(memory) ||
+            (this->ControllerNativeMenuOpen() && !this->ActionBarsNativeMenuAllowed(keyboardReplacement)));
+        if (this->ActionBarsExecutionAvailable(keyboardReplacement, true)) { this->action_executor_.SetRestricted(false); return; }
         std::string reason = "Macro cancelled because the action input context changed.";
         if (!this->GameWindowFocused()) reason = "Macro cancelled because the game window lost focus.";
         else if (this->editing_) reason = "Macro cancelled because Configuration opened.";
@@ -67,19 +72,21 @@ namespace xiui
             (!this->editing_ || this->actionbars_.WindowFocused() || !Contains(this->ConfigVisibleBounds(), x, y));
     }
 
-    auto hud_runtime::ActionBarsExecutionAvailable(const bool keyboardReplacement) const -> bool
+    auto hud_runtime::ActionBarsExecutionAvailable(const bool keyboardReplacement, const bool continuingMacro) const -> bool
     {
         const auto* memory = this->core_ != nullptr ? this->core_->GetMemoryManager() : nullptr;
         const auto player = memory != nullptr ? xiui::ashita::View(memory->GetPlayer()) : nullptr;
         const auto* chat = this->core_ != nullptr ? this->core_->GetChatManager() : nullptr;
+        const bool nativeEvent = this->visibility_context_.event_active || this->party_source_.InCutscene();
         return this->visible_ && !this->editing_ && this->GameWindowFocused() && player != nullptr &&
             player->GetLoginStatus() == static_cast<uint8_t>(Ashita::FFXI::Enums::LoginStatus::LoggedIn) && !player->GetIsZoning() &&
             (chat == nullptr || !chat->IsInputOpen()) && !this->ChatFocused() &&
             !this->chat_.HistoryExpanded() && !this->chat_second_.HistoryExpanded() && !this->satchel_.InputFocused() &&
             !this->actionbars_.DialogOpen() && !this->actionbars_.KeyboardFocused() &&
             (this->controller_surface_ == controller_surface::none || this->controller_surface_ == controller_surface::hotbar || this->controller_surface_ == controller_surface::crossbar) &&
-            (!this->ControllerNativeMenuOpen() || this->ActionBarsNativeMenuAllowed(keyboardReplacement)) && !this->visibility_context_.event_active && !this->visibility_context_.map_open &&
-            !this->visibility_context_.interface_hidden && !this->party_source_.InCutscene();
+            (!this->ControllerNativeMenuOpen() || this->ActionBarsNativeMenuAllowed(keyboardReplacement) || continuingMacro) &&
+            (!nativeEvent || continuingMacro) && (!this->visibility_context_.map_open || continuingMacro) &&
+            (!this->visibility_context_.interface_hidden || continuingMacro);
     }
 
     auto hud_runtime::CrossbarSettings(void) const -> controller_crossbar_settings
@@ -198,6 +205,22 @@ namespace xiui
         const bool crossbar = name == "crossbar" || (name == "keybinds" && argument == "crossbar");
         if (argument == "cancel" || (name == "macros" && argument == "stop"))
         { this->action_executor_.Cancel(); this->SuspendActionBarsInput(); return true; }
+        if (name == "actionbars" && (argument == "run" || argument.starts_with("run ")))
+        {
+            size_t bar{}, slot{}; char trailing{};
+            if (std::sscanf(std::string{argument}.c_str(), "run %zu %zu %c", &bar, &slot, &trailing) != 2 ||
+                bar == 0 || bar > action_bar_count || slot == 0 || slot > action_bar_slots)
+            {
+                if (this->core_ != nullptr && this->core_->GetChatManager() != nullptr)
+                    this->core_->GetChatManager()->Write(1, false, i18n::Text("Usage: /xiuiplus actionbars run <bar 1-10> <slot 1-12>"));
+                return true;
+            }
+            this->PrepareActionBarsExecutor();
+            if (!this->action_executor_.Activate(this->core_, this->action_store_.Resolve(action_surface::hotbar, bar - 1, slot - 1), ::GetTickCount64()) &&
+                this->core_ != nullptr && this->core_->GetChatManager() != nullptr)
+                this->core_->GetChatManager()->Write(1, false, i18n::Text(this->action_executor_.Status().c_str()));
+            return true;
+        }
         if (argument == "status")
         {
             const auto& bindings = this->actionbars_.ControllerBindings();

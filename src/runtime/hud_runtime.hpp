@@ -551,7 +551,7 @@ namespace xiui
         auto PrepareActionBarsExecutor(bool keyboardReplacement = false) -> void;
         auto ActionBarsInputAvailable(bool keyboardReplacement = false, bool pointer = false) const -> bool;
         auto ActionBarsPointerOwns(float x, float y) const -> bool;
-        auto ActionBarsExecutionAvailable(bool keyboardReplacement = false) const -> bool;
+        auto ActionBarsExecutionAvailable(bool keyboardReplacement = false, bool continuingMacro = false) const -> bool;
         auto SuspendActionBarsInput(bool closeWindow = true) -> void;
         auto FinishActionBarsLaunch(void) -> void;
         auto UpdateActionBars(uint64_t now) -> void;

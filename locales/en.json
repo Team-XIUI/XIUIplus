@@ -943,6 +943,7 @@
   "Final attack countdown and tick highlight.": "Final attack countdown and tick highlight.",
   "Final half second before an expected attack.": "Final half second before an expected attack.",
   "Finish": "Finish",
+  "Finish the native menu, event or target selection first.": "Finish the native menu, event or target selection first.",
   "Finish the native menu or target selection first.": "Finish the native menu or target selection first.",
   "Fire": "Fire",
   "Fire Spirit": "Fire Spirit",
@@ -3123,5 +3124,6 @@
   "[XIUI+] Unsupported or unavailable Ashita interface (%.2f); XIUI+ was not initialized.": "[XIUI+] Unsupported or unavailable Ashita interface (%.2f); XIUI+ was not initialized.",
   "[x] Activate single import": "[x] Activate single import",
   "[x] Controller options": "[x] Controller options",
-  "[x] Link unassigned chars": "[x] Link unassigned chars"
+  "[x] Link unassigned chars": "[x] Link unassigned chars",
+  "Usage: /xiuiplus actionbars run <bar 1-10> <slot 1-12>": "Usage: /xiuiplus actionbars run <bar 1-10> <slot 1-12>"
 }

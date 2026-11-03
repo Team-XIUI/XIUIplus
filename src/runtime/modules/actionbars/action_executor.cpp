@@ -51,7 +51,7 @@ namespace
         const auto index = party->GetMemberTargetIndex(0);
         state.identity_valid = index != 0 && index < entity->GetEntityMapSize() && entity->GetServerId(index) == party->GetMemberServerId(0);
         if (!state.identity_valid) return xiui::ActionGuardReason(state, presentation, allowNativeMenu);
-        state.dead = entity->GetStatus(index) == 4 || party->GetMemberHP(0) == 0;
+        state.dead = party->GetMemberHP(0) == 0;
         state.menu_open = target->GetIsMenuOpen() != 0; state.action_target = xiui::NativeTargetSelectionActive(memory);
         return xiui::ActionGuardReason(state, presentation, allowNativeMenu);
     }
@@ -115,7 +115,7 @@ namespace xiui
         char text[160]{};
         if (this->pending_.empty()) std::snprintf(text, sizeof(text), "Macro trace: idle.");
         else std::snprintf(text, sizeof(text), "Macro trace: %s; next line %zu/%zu; wait %llu ms.",
-            this->waiting_subtarget_ ? "target selection" : "running", this->next_ + 1, this->pending_.size(),
+            this->native_input_busy_ ? "native input" : this->waiting_subtarget_ ? "target selection" : "running", this->next_ + 1, this->pending_.size(),
             static_cast<unsigned long long>(now < this->due_ ? this->due_ - now : 0));
         std::string result{text};
         if (!this->last_command_.empty())
@@ -127,7 +127,7 @@ namespace xiui
         return result;
     }
     auto action_executor::Clear(void) -> void
-    { this->Cancel(); this->catalog_.clear(); this->items_.clear(); this->next_inventory_ = 0; this->player_ = 0; this->native_menu_allowed_ = false; this->status_.clear(); this->last_command_.clear(); }
+    { this->Cancel(); this->catalog_.clear(); this->items_.clear(); this->next_inventory_ = 0; this->player_ = 0; this->native_menu_allowed_ = this->native_input_busy_ = false; this->status_.clear(); this->last_command_.clear(); }
     auto action_executor::ReadItems(IAshitaCore* core) -> void
     {
         const auto now = GetTickCount64(); if (now < this->next_inventory_) return;
@@ -221,6 +221,7 @@ namespace xiui
         action_availability result{}; result.name = slot.label.empty() ? slot.name : slot.label; result.icon = slot.icon;
         result.reason = ValidateAction(slot); if (!result.reason.empty() || slot.Empty()) return result;
         if (!presentation && this->restricted_) { result.reason = "Close the editor or finish typing first."; return result; }
+        if (!presentation && this->native_input_busy_) { result.reason = "Finish the native menu, event or target selection first."; return result; }
         result.reason = Guard(core, presentation, this->native_menu_allowed_); if (!result.reason.empty()) return result;
         auto* memory = core->GetMemoryManager(); auto player = xiui::ashita::View(memory->GetPlayer()); auto* resources = core->GetResourceManager(); auto party = xiui::ashita::View(memory->GetParty()); auto* recast = memory->GetRecast();
         const auto index = party->GetMemberTargetIndex(0); uint32_t timer{}, chargeCost{}; float base{};
@@ -450,6 +451,32 @@ namespace xiui
         const char* prefix = slot.kind == action_kind::spell ? "/ma" : slot.kind == action_kind::weapon_skill ? "/ws" : slot.kind == action_kind::pet ? "/pet" : slot.kind == action_kind::item ? "/item" : slot.kind == action_kind::equip ? "/equip" : "/ja";
         return {std::string{prefix} + (slot.kind == action_kind::equip ? " " + Lower(slot.equipment_slot) : "") + " \"" + resourceName + "\"" + (slot.kind != action_kind::equip && !slot.target.empty() ? " " + slot.target : "")};
     }
+    auto action_executor::BuildSteps(const action_slot& slot, const std::vector<std::string>& commands,
+        const std::function<std::string(const action_slot&)>& resolveName, bool& timed) -> std::vector<macro_step>
+    {
+        std::vector<macro_step> steps;
+        for (auto command : commands)
+        {
+            command = Trim(std::move(command)); if (command.empty()) continue;
+            const auto lower = Lower(command); const auto end = lower.find_first_of(" \t"); const auto verb = lower.substr(0, end);
+            macro_step step{};
+            if (verb == "/wait" || verb == "/pause" || verb == "/sleep")
+            { step.delay = WaitMilliseconds(end == std::string::npos ? std::string{} : Trim(command.substr(end + 1))); timed = true; }
+            else
+            {
+                if (const auto wait = lower.rfind("<wait "); wait != std::string::npos && lower.back() == '>')
+                { step.delay = WaitMilliseconds(Trim(command.substr(wait + 6, command.size() - wait - 7))); command = Trim(command.substr(0, wait)); timed = true; }
+                step.command = ResolveCommandName(std::move(command), resolveName); step.subtarget = IsSubtarget(Lower(step.command)); timed = timed || step.subtarget;
+            }
+            if (step.delay == UINT64_MAX) { this->status_ = "Waits must be between 0 and 3600 seconds."; return {}; }
+            std::string encoded;
+            if (!step.command.empty() && (!ToGameText(step.command, encoded) || encoded.size() > 240)) { this->status_ = "A command exceeds the game's input limit or cannot be encoded."; return {}; }
+            step.command = std::move(encoded);
+            step.mode = slot.kind == action_kind::macro ? 2 : QueueMode(step.command);
+            steps.push_back(std::move(step));
+        }
+        return steps;
+    }
     auto action_executor::Activate(IAshitaCore* core, const action_slot& slot, uint64_t now) -> bool
     {
         if (this->restricted_) { this->status_ = "Close the editor or finish typing first."; return false; }
@@ -468,32 +495,14 @@ namespace xiui
         const auto resourceName = resolveName(slot);
         const auto commands = Commands(slot, resourceName);
         if (commands.empty()) { this->status_ = "No valid commands are assigned."; return false; }
-        std::vector<macro_step> steps;
         bool timed = slot.kind == action_kind::command && commands.size() > 1;
-        for (auto command : commands)
-        {
-            command = Trim(std::move(command)); if (command.empty()) continue;
-            const auto lower = Lower(command); const auto end = lower.find_first_of(" \t"); const auto verb = lower.substr(0, end);
-            macro_step step{};
-            if (verb == "/wait" || verb == "/pause" || verb == "/sleep")
-            { step.delay = WaitMilliseconds(end == std::string::npos ? std::string{} : Trim(command.substr(end + 1))); timed = true; }
-            else
-            {
-                if (const auto wait = lower.rfind("<wait "); wait != std::string::npos && lower.back() == '>')
-                { step.delay = WaitMilliseconds(Trim(command.substr(wait + 6, command.size() - wait - 7))); command = Trim(command.substr(0, wait)); timed = true; }
-                step.command = ResolveCommandName(std::move(command), resolveName); step.subtarget = IsSubtarget(Lower(step.command)); timed = timed || step.subtarget;
-            }
-            if (step.delay == UINT64_MAX) { this->status_ = "Waits must be between 0 and 3600 seconds."; return false; }
-            std::string encoded;
-            if (!step.command.empty() && (!ToGameText(step.command, encoded) || encoded.size() > 240)) { this->status_ = "A command exceeds the game's input limit or cannot be encoded."; return false; }
-            step.command = std::move(encoded); steps.push_back(std::move(step));
-        }
+        auto steps = this->BuildSteps(slot, commands, resolveName, timed);
         if (steps.empty()) return false;
         this->Cancel();
         if (!timed)
         {
             // Native macro commands use a LIFO stack, including non-action lines.
-            for (auto step = steps.rbegin(); step != steps.rend(); ++step) if (!step->command.empty()) core->GetChatManager()->QueueCommand(slot.kind == action_kind::macro ? 2 : QueueMode(step->command), step->command.c_str());
+            for (auto step = steps.rbegin(); step != steps.rend(); ++step) if (!step->command.empty()) core->GetChatManager()->QueueCommand(step->mode, step->command.c_str());
             return true;
         }
         auto* memory = core->GetMemoryManager(); auto party = xiui::ashita::View(memory->GetParty()); auto player = xiui::ashita::View(memory->GetPlayer());
@@ -506,6 +515,8 @@ namespace xiui
         auto* memory = core != nullptr ? core->GetMemoryManager() : nullptr; auto party = memory != nullptr ? xiui::ashita::View(memory->GetParty()) : nullptr; auto player = memory != nullptr ? xiui::ashita::View(memory->GetPlayer()) : nullptr; auto target = memory != nullptr ? xiui::ashita::View(memory->GetTarget()) : nullptr;
         if (this->restricted_ || party == nullptr || player == nullptr || target == nullptr || player->GetIsZoning() || party->GetMemberServerId(0) != this->macro_player_ || party->GetMemberZone(0) != this->macro_zone_ || player->GetMainJob() != this->macro_job_ || player->GetSubJob() != this->macro_subjob_)
         { this->Cancel(); this->status_ = "Macro cancelled because the input or character context changed."; return; }
+        const auto context = Guard(core, true);
+        if (!context.empty()) { this->Cancel(); this->status_ = context; return; }
         if (this->waiting_subtarget_)
         {
             const bool active = NativeTargetSelectionActive(memory);
@@ -515,14 +526,19 @@ namespace xiui
             if (!this->saw_subtarget_ && now < this->due_) return;
             this->waiting_subtarget_ = false; this->due_ = now + this->pending_[this->next_ - 1].delay;
         }
-        if (now < this->due_) return;
-        const auto guard = Guard(core, false, this->native_menu_allowed_); if (!guard.empty()) { this->Cancel(); this->status_ = guard; return; }
+        // Native input holds commands while standalone waits can still start their timers.
+        if (!this->StepReady(now)) return;
         if (this->next_ >= this->pending_.size()) { this->Cancel(); return; }
+        if (!this->pending_[this->next_].command.empty())
+        {
+            const auto guard = Guard(core, false, this->native_menu_allowed_);
+            if (!guard.empty()) { this->Cancel(); this->status_ = guard; return; }
+        }
         const auto& step = this->pending_[this->next_++];
         if (!step.command.empty())
         {
             this->last_command_ = step.command; this->last_dispatch_ = now; this->last_line_ = this->next_; this->last_total_ = this->pending_.size();
-            core->GetChatManager()->QueueCommand(QueueMode(step.command), step.command.c_str());
+            core->GetChatManager()->QueueCommand(step.mode, step.command.c_str());
         }
         if (step.subtarget)
         { this->waiting_subtarget_ = true; this->saw_subtarget_ = false; this->due_ = now + 1000; this->subtarget_deadline_ = now + 120000; }

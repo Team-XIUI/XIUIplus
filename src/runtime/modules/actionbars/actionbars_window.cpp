@@ -123,13 +123,14 @@ namespace xiui
         if (this->dialog_ != dialog::picker || this->library_popup_) return;
         this->CommitField();
         this->library_popup_ = library_context{this->selected_, this->draft_, this->view_, this->selected_bank_, this->focused_control_,
-            this->draft_pet_, this->library_draft_, this->library_edit_};
+            this->draft_pet_, this->library_draft_, this->library_edit_, this->library_assignment_};
     }
     auto actionbars_module::SwapLibraryContext(library_context& context) -> void
     {
         std::swap(this->selected_, context.selected); std::swap(this->draft_, context.draft); std::swap(this->view_, context.view);
         std::swap(this->selected_bank_, context.bank); std::swap(this->focused_control_, context.control);
         std::swap(this->draft_pet_, context.pet); std::swap(this->library_draft_, context.library_draft); std::swap(this->library_edit_, context.library_edit);
+        std::swap(this->library_assignment_, context.assignment);
     }
     auto actionbars_module::PointerCursor(const float x, const float y) const -> cursor_renderer::shape
     {

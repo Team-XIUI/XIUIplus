@@ -612,6 +612,53 @@ namespace xiui
             Check(module.dialog_ == actionbars_module::dialog::picker && store.Resolve(action_surface::hotbar, 0, 8).macro_id == savedId &&
                 store.Resolve(action_surface::hotbar, 0, 7).name == "Untouched slot", "dragging a saved macro still assigns its drop slot without opening the editor");
         }
+        static auto StandaloneLibrary(void) -> void
+        {
+            for (const bool crossbar : {false, true})
+            {
+                action_store store; action_executor executor; actionbars_module module;
+                store.SetContext({7, 3, {}});
+                module.Initialize(nullptr, &store, &executor); module.ApplyTextDefaults(ui::theme::CreateDefault()); module.viewport_ = {0, 0, 1280, 900};
+                const auto first = Command("Keep first hotbar slot"), crossbarFirst = Command("Keep first crossbar slot");
+                Check(store.Assign(action_surface::hotbar, 0, 0, first) && store.Assign(action_surface::crossbar, 0, 0, crossbarFirst),
+                    "standalone library fixture has existing assignments on both surfaces");
+                const auto unchanged = [&] { return store.Resolve(action_surface::hotbar, 0, 0) == first && store.Resolve(action_surface::crossbar, 0, 0) == crossbarFirst; };
+                module.OpenLibrary(crossbar);
+                Check(!module.library_assignment_, "opening the standalone library has no implicit first-slot destination");
+                module.CloseDialog(); module.OpenBarMenu({crossbar ? action_surface::crossbar : action_surface::hotbar, 0, 0});
+                module.ActivateControl(Control(module, "Actions & macros..."));
+                Check(!module.library_assignment_, "the bar menu also opens a standalone library without selecting its first slot");
+                const std::pair<const char*, action_kind> creators[]{{"New macro", action_kind::macro}, {"Single command", action_kind::command}, {"Game macro", action_kind::native_macro}};
+                for (const auto [label, kind] : creators)
+                {
+                    const auto count = store.Macros().size();
+                    Click(module, ControlBounds(module, label));
+                    Check(module.library_edit_ && module.library_draft_, "standalone creation edits a library definition rather than a slot");
+                    module.draft_.name = std::string{label} + " library";
+                    if (kind != action_kind::native_macro) module.draft_.lines = {"/echo library only"};
+                    Click(module, ControlBounds(module, "Save"));
+                    Check(module.dialog_ == actionbars_module::dialog::picker && !module.library_assignment_ && store.Macros().size() == count + 1 && unchanged(),
+                        "saving any standalone creator adds a library entry and preserves the first hotbar and crossbar slots");
+                }
+                const auto id = store.Macros().front().id;
+                Click(module, ControlBounds(module, "New macro library"));
+                Check(module.library_edit_ && module.draft_.macro_id == id && unchanged(), "clicking a saved macro only opens its editor");
+                module.draft_.lines = {"/echo edited library only"}; Click(module, ControlBounds(module, "Save"));
+                Check(unchanged() && store.Macro(id)->lines == std::vector<std::string>{"/echo edited library only"},
+                    "saving a clicked macro updates its shared definition without assigning it to the first slot");
+                module.results_ = {Command("Catalog action")};
+                Click(module, ControlBounds(module, "Catalog action"));
+                Check(module.library_edit_ && module.editor_new_ && unchanged(), "a standalone catalog click also opens an independent draft without assigning a slot");
+                Click(module, ControlBounds(module, "Cancel"));
+                Check(!module.library_assignment_ && unchanged(), "returning to the standalone library retains its lack of an assignment destination");
+                module.BeginControllerBrowse(crossbar); module.OpenLibrary(crossbar); module.RebuildResults();
+                module.focused_control_ = Control(module, "New macro library");
+                module.HandleControllerAction(controller_action::confirm, false);
+                Check(module.placing_ && unchanged(), "controller selection still requires an explicit destination confirmation");
+                module.HandleControllerAction(controller_action::cancel, false);
+                Check(unchanged(), "cancelling controller placement leaves both first slots unchanged");
+            }
+        }
         static auto BarControlsAndCrossbarGeometry(void) -> void
         {
             action_store store; action_executor executor; actionbars_module module;
@@ -2219,7 +2266,7 @@ namespace xiui
             Check(legacy.ReadString("session.config", "topic_id") == "keybinds", "topic identity persists independently of its ordinal");
             Check(runtime->config_.section == 2 && !module.DialogOpen(), "new Keybinds topic selections round trip without reopening transient workspaces");
         }
-        static auto Run(void) -> void { GlobalSettings(); GlobalCaption(); ControllerVisuals(); Ownership(); DirectInteraction(); LibraryPlacement(); LibraryEditorReturn(); BarControlsAndCrossbarGeometry(); EmptyBarEditBounds(); ShiftSlotDragging(); Editing(); KeyboardAndCrossbar(); Persistence(); SlotStylePersistence(); SlotStyleCompatibility(); SlotFrameProfileOverlay(); SlotTextDefaults(); SlotStyleActions(); SlotStyleGeometry(); Keybinds(); ControllerSetup(); RuntimeOwnership(); NativeMacroKeyboardOwnership(); EditModeManagement(); DependentSettings(); WorkspaceCursors(); FloatingWorkspaces(); LibraryCategories(); LibraryLayoutAndSearch(); LibraryGridNavigation(); Configuration(); }
+        static auto Run(void) -> void { GlobalSettings(); GlobalCaption(); ControllerVisuals(); Ownership(); DirectInteraction(); LibraryPlacement(); LibraryEditorReturn(); StandaloneLibrary(); BarControlsAndCrossbarGeometry(); EmptyBarEditBounds(); ShiftSlotDragging(); Editing(); KeyboardAndCrossbar(); Persistence(); SlotStylePersistence(); SlotStyleCompatibility(); SlotFrameProfileOverlay(); SlotTextDefaults(); SlotStyleActions(); SlotStyleGeometry(); Keybinds(); ControllerSetup(); RuntimeOwnership(); NativeMacroKeyboardOwnership(); EditModeManagement(); DependentSettings(); WorkspaceCursors(); FloatingWorkspaces(); LibraryCategories(); LibraryLayoutAndSearch(); LibraryGridNavigation(); Configuration(); }
     };
 }
 
@@ -2242,7 +2289,7 @@ auto main(const int argc, char** argv) -> int
     }
     if (argc == 2 && std::strcmp(argv[1], "--library-bars-only") == 0)
     {
-        try { xiui::actionbars_ui_test::DirectInteraction(); xiui::actionbars_ui_test::LibraryPlacement(); xiui::actionbars_ui_test::LibraryEditorReturn(); xiui::actionbars_ui_test::LibraryBarManagement(); xiui::actionbars_ui_test::FloatingWorkspaces(); std::puts("Library assignment, editor return and exposed hotbar management checks passed."); return 0; }
+        try { xiui::actionbars_ui_test::DirectInteraction(); xiui::actionbars_ui_test::LibraryPlacement(); xiui::actionbars_ui_test::LibraryEditorReturn(); xiui::actionbars_ui_test::StandaloneLibrary(); xiui::actionbars_ui_test::LibraryBarManagement(); xiui::actionbars_ui_test::FloatingWorkspaces(); std::puts("Library assignment, editor return and exposed hotbar management checks passed."); return 0; }
         catch (const std::exception& error) { std::fprintf(stderr, "Library/bar check failed: %s\n", error.what()); return 1; }
     }
     if (argc == 2 && std::strcmp(argv[1], "--input-ownership-only") == 0)
