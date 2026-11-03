@@ -1,6 +1,7 @@
 #include "controller_input.hpp"
 #include "ashita_compat.hpp"
 #include "native_target.hpp"
+#include "native_menu_focus.hpp"
 #include "runtime_host.hpp"
 
 #include <algorithm>
@@ -138,7 +139,8 @@ namespace xiui
 
     auto controller_input::CrossbarEligible(const controller_backend backend) -> bool
     {
-        return this->runtime_ != nullptr && this->Enabled(backend) && !this->NativeBusy() && !this->NativeMenuOpen() &&
+        return this->runtime_ != nullptr && this->Enabled(backend) && !this->NativeBusy() &&
+            !CrossbarNativeMenuBlocked(this->NativeMenuOpen(), this->crossbar_settings_.allowed_menu_slot) &&
             this->runtime_->ControllerCapture() == controller_capture_mode::none;
     }
 

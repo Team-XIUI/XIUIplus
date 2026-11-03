@@ -85,12 +85,15 @@ namespace xiui
     auto hud_runtime::CrossbarSettings(void) const -> controller_crossbar_settings
     {
         auto settings = this->actionbars_.ControllerBindings();
+        settings.allowed_menu_slot = 0;
         settings.enabled = settings.enabled && !this->SetupVisible() && this->actionbars_.ReplaceNativeMacros() && this->ActionBarsExecutionAvailable() && !this->actionbars_.InputFocused() && !this->ControllerNativeBusy() &&
             this->ContextVisible(this->actionbar_children_.back()) && this->actionbars_.BarState(action_bar_count).enabled;
         settings.suppress_native_macros = this->actionbars_.ReplaceNativeMacros() && !this->SetupVisible() && this->visible_ && this->GameWindowFocused() &&
             !this->ControllerNativeBusy() && (!this->ControllerNativeMenuOpen() || this->ActionBarsNativeMenuAllowed()) &&
             !this->editing_ && !this->visibility_context_.event_active && !this->visibility_context_.map_open &&
             !this->visibility_context_.interface_hidden && !this->party_source_.InCutscene();
+        if ((settings.enabled || settings.suppress_native_macros) && this->ActionBarsNativeMenuAllowed())
+            settings.allowed_menu_slot = this->visibility_context_.window_focus_slot;
         return settings;
     }
 

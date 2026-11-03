@@ -422,6 +422,65 @@ namespace
             "crossbar resumes after native trigger and face buttons return to neutral");
     }
 
+    auto CheckNativeCommandMenu(void) -> bool
+    {
+        std::array<uintptr_t, 2> primitive{};
+        std::array<char, 0x60> resource{};
+        primitive[1] = reinterpret_cast<uintptr_t>(resource.data());
+        uintptr_t focused = reinterpret_cast<uintptr_t>(primitive.data());
+        const auto slot = reinterpret_cast<uintptr_t>(&focused);
+        const auto focus = [&](const char* name) {
+            resource.fill(0); std::memcpy(resource.data() + 0x46, "menu    ", 8);
+            std::memcpy(resource.data() + 0x4E, name, std::strlen(name));
+        };
+        focus("playermo");
+        if (!require(CrossbarNativeMenuBlocked(true, 0) && !CrossbarNativeMenuBlocked(true, slot),
+            "only a verified live command menu bypasses the native menu flag")) return false;
+        for (const auto backend : {controller_backend::xinput, controller_backend::direct_input})
+        {
+            focus("playermo");
+            auto config = settings(); config.suppress_native_macros = true;
+            controller_mailbox mailbox;
+            mailbox.CrossbarSettings(config);
+            controller_event bank{controller_action::crossbar_bank, backend, 0, true, false, false, 100};
+            bank.bank = crossbar_bank::left; bank.triggers = 1;
+            if (!require(!mailbox.Submit(bank, true), "an unverified native menu retains ownership before settings apply")) return false;
+            config.allowed_menu_slot = slot; mailbox.CrossbarSettings(config);
+            const std::vector<int32_t> native = backend == controller_backend::xinput ?
+                std::vector<int32_t>{0, 9, 0, 12} : std::vector<int32_t>{0, 6, 0, 7};
+            crossbar_normalizer input; input.Configure(backend, native, config);
+            uint64_t now{100};
+            const auto dispatch = [&](const controller_event& event) { return mailbox.Submit(event, true); };
+            input.State(input.Values(), ++now, false, !CrossbarNativeMenuBlocked(true, config.allowed_menu_slot), dispatch);
+            const uint32_t trigger = backend == controller_backend::xinput ? 16 : 54;
+            const uint32_t face = backend == controller_backend::xinput ? 15 : 51;
+            const auto raw = [&](uint32_t field, int32_t value) {
+                return input.Raw(field, value, ++now, false, false, !CrossbarNativeMenuBlocked(true, config.allowed_menu_slot), dispatch);
+            };
+            if (!require(raw(trigger, 128) && raw(face, 1) && input.Bank() == crossbar_bank::left,
+                "live replacement suppresses native triggers and activates the crossbar over the command menu without restart")) return false;
+            const auto events = mailbox.Take();
+            if (!require(events.count == 2 && events.events[0].action == controller_action::crossbar_bank &&
+                events.events[1].action == controller_action::crossbar_slot && events.events[1].slot == 5,
+                "normalizer and mailbox deliver the command-menu crossbar action once for both backends")) return false;
+            raw(face, 0); raw(trigger, 0); mailbox.Take();
+            focus("itemctrl");
+            if (!require(CrossbarNativeMenuBlocked(true, slot) && !raw(trigger, 128) && !mailbox.Submit(bank, true),
+                "a new native menu immediately wins despite cached command-menu permission")) return false;
+            raw(trigger, 0);
+            for (const auto* name : {"mcr1pall", "mcr2pall", "mcr1long", "mcr2long"})
+            {
+                focus(name);
+                if (!require(!CrossbarNativeMenuBlocked(true, slot) && mailbox.Submit(bank, true),
+                    "a verified native macro palette cannot trap replacement behind its hidden UI")) return false;
+            }
+            config.allowed_menu_slot = 0; config.enabled = false; mailbox.CrossbarSettings(config);
+            if (!require(!mailbox.Submit(bank, true), "disabling replacement invalidates native-menu permission immediately")) return false;
+        }
+        focused = 0;
+        return require(CrossbarNativeMenuBlocked(true, slot), "missing focused menu fails closed instead of claiming native input");
+    }
+
     auto CheckMailbox(void) -> bool
     {
         controller_mailbox mailbox;
@@ -465,7 +524,7 @@ auto main(void) -> int
 {
     if (!CheckMappings() || !CheckBanksAndEdges() || !CheckThresholdsAndDoubleTap() || !CheckStateDeduplication() || !CheckFreshPacketTransitions() ||
         !CheckSuspensionAndNativeOwnership() || !CheckPaletteAndDirectInput() || !CheckNativeMacroSuppression() ||
-        !CheckNativeMacroStateAndBuffer() || !CheckNativeMacroLifecycle() || !CheckMailbox()) return 1;
+        !CheckNativeMacroStateAndBuffer() || !CheckNativeMacroLifecycle() || !CheckNativeCommandMenu() || !CheckMailbox()) return 1;
     std::puts("Crossbar input checks passed.");
     return 0;
 }

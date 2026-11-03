@@ -3,6 +3,7 @@
 #include "hud_runtime.hpp"
 #include "Memory.h"
 #include "native_pattern.hpp"
+#include "native_menu_focus.hpp"
 
 #include <algorithm>
 #include <array>
@@ -19,27 +20,6 @@ namespace
         __except (EXCEPTION_EXECUTE_HANDLER) { return false; }
     }
 
-    auto MenuName(const uintptr_t slot, std::array<char, 16>& name, uintptr_t* primitive = nullptr) -> bool
-    {
-        uintptr_t first{}, resource{};
-        if (!Read(slot, first)) return false;
-        if (primitive != nullptr) *primitive = first;
-        if (first == 0) return true;
-        return Read(first + 4, resource) && resource != 0 && Read(resource + 0x46, name) &&
-            std::all_of(name.begin(), name.end(), [](const unsigned char value) { return value == 0 || value == ' ' || (value >= 'a' && value <= 'z') || (value >= '0' && value <= '9'); });
-    }
-
-    auto ShortName(const std::array<char, 16>& name) -> std::string_view
-    {
-        std::string_view text{name.data(), name.size()};
-        const auto end = text.find('\0');
-        if (end != std::string_view::npos) text = text.substr(0, end);
-        const auto last = text.find_last_not_of(' ');
-        if (last == std::string_view::npos) return {};
-        text = text.substr(0, last + 1);
-        if (text.starts_with("menu ")) text.remove_prefix(text.find_first_not_of(' ', 4));
-        return text;
-    }
 }
 
 namespace xiui
@@ -241,13 +221,14 @@ namespace xiui
         context.interface_available = this->interface_object_ != 0 && ::Read(this->interface_object_ + 0xB4, value) && value <= 1;
         if (context.interface_available) context.interface_hidden = value == 1;
         std::array<char, 16> name{};
-        context.menu_available = MenuName(this->menu_slot_, name, &context.window_focus_id);
+        context.menu_available = NativeMenuName(this->menu_slot_, name, &context.window_focus_id);
         context.macro_available = context.menu_available;
         if (context.menu_available)
         {
+            context.window_focus_slot = this->menu_slot_;
             constexpr std::string_view ignored[]{"inline", "playermo", "chatctrl", "magselec", "magic", "abiselec", "ability", "mount"};
             constexpr std::string_view macros[]{"mcr1pall", "mcr2pall", "mcr1long", "mcr2long"};
-            const auto id = ShortName(name);
+            const auto id = NativeMenuShortName(name);
             std::memcpy(&context.window_focus_name, name.data() + 8, sizeof(context.window_focus_name));
             context.window_focus = id.empty() ? native_window_focus::unknown :
                 id == "playermo" ? native_window_focus::commands :

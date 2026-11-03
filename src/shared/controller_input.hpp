@@ -42,6 +42,7 @@ namespace xiui
         uint16_t min_hold_ms{50};
         controller_crossbar_mapping xinput{};
         controller_crossbar_mapping direct_input{};
+        uintptr_t allowed_menu_slot{}; // Transient native focus; excluded from saved settings.
 
         auto operator==(const controller_crossbar_settings&) const -> bool = default;
     };

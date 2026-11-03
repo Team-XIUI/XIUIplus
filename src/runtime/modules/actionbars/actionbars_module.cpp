@@ -525,7 +525,7 @@ namespace xiui
         case setup: return controllerOnly(module_option::Action("Controller Setup", "Choose your device, trigger feel and explicit native macro replacement.", "Set up controller").Ordered(-100));
         case crossbar_enabled: return controllerOnly(module_option::Toggle("Use XIUI+ trigger controls", "Route trigger actions to XIUI+. Chat, native menus and target selection retain their controls. Device settings stay local.", &this->trigger_controls_));
         case native_replace: return module_option::Toggle("Native trigger replacement", "", &this->controller_settings_.replace_native).VisibleWhen(false);
-        case expanded: return controllerOnly(module_option::Toggle("Ordered two-trigger banks", "Left then right and right then left open separate banks.", &this->controller_settings_.expanded));
+        case expanded: return controllerOnly(module_option::Toggle("Ordered two-trigger banks", "Hold a trigger to select its side, then hold the other trigger to reveal that side's expanded bank. Release the second trigger to return.", &this->controller_settings_.expanded));
         case double_tap: return controllerOnly(module_option::Toggle("Double-tap banks", "Tap and hold the same trigger to open its extra bank.", &this->controller_settings_.double_tap));
         case palette_cycle: return controllerOnly(module_option::Toggle("Shoulder + D-pad palette switching", "While holding a trigger bank, hold the palette shoulder and press D-pad Up/Down to cycle crossbar palettes.", &this->controller_settings_.palette_cycle));
         case inactive: return controllerOnly(module_option::Toggle("Show inactive crossbar", "Keep both base banks visible with no trigger held.", &this->inactive_));
@@ -898,7 +898,7 @@ namespace xiui
     {
         this->CommitField(); this->editing_field_ = id;
         if (id == field_icon_query) this->focused_control_ = id;
-        this->input_.Open(this->FieldValue(id), id == field_path ? 1024 : id >= line_first ? 240 : 128);
+        this->input_.Open(this->FieldValue(id), id == field_path ? 1024 : id >= line_first ? 240 : id == field_label ? 120 : 128);
     }
     auto actionbars_module::CommitField(void) -> void
     {
@@ -1051,6 +1051,13 @@ namespace xiui
             if (!this->library_edit_) { if (!this->draft_.macro_id.empty()) { this->draft_.macro_id.clear(); this->library_draft_ = false; } else this->library_draft_ = !this->library_draft_; }
             break;
         case command_available: this->draft_.always_available = !this->draft_.always_available; break;
+        case command_paste_label:
+        {
+            const auto window = this->core_ && this->core_->GetProperties() ? this->core_->GetProperties()->GetFinalFantasyHwnd() : nullptr;
+            if (const auto text = ui::ReadClipboardText(window, 4096)) this->PasteEditorLabel(*text);
+            else this->Notice("The clipboard does not contain readable text.");
+            break;
+        }
         case command_recast:
         {
             constexpr action_kind kinds[]{action_kind::none, action_kind::none, action_kind::spell, action_kind::ability, action_kind::pet, action_kind::item};

@@ -19,7 +19,6 @@ namespace xiui
         auto Contains(const ui::rect& bounds, const float x, const float y) -> bool
         { return bounds.width > 0 && bounds.height > 0 && x >= bounds.x && y >= bounds.y && x < bounds.x + bounds.width && y < bounds.y + bounds.height; }
 
-        auto Half(const size_t bank) -> size_t { return bank == 0 || bank == 3 || bank == 4 || bank == 6 ? 0 : 1; }
         auto Padding(const actionbar_presentation& bar, const ui::container_style& container) -> float
         { return bar.background ? container.padding + 3 : 2; }
         auto DiamondWidth(const actionbar_presentation& bar) -> float { return bar.size * 3 + bar.gap * 2; }
@@ -129,12 +128,18 @@ namespace xiui
         return this->bars_[index].state.enabled && (index != action_bar_count || this->inactive_ || this->active_bank_ != crossbar_bank::none || this->browsing_ && this->selected_.surface == action_surface::crossbar);
     }
 
+    auto actionbars_module::CrossbarHalf(const size_t bank) const -> size_t
+    {
+        if (bank == 6) return this->active_bank_ == crossbar_bank::right_left ? 1 : 0;
+        return bank == 0 || bank == 2 || bank == 4 ? 0 : 1;
+    }
+
     auto actionbars_module::CrossbarGroups(void) const -> std::vector<size_t>
     {
         const bool preview = this->crossbar_preview_ && (this->view_ == action_bar_count || this->dialog_ != dialog::none && this->selected_.surface == action_surface::crossbar);
         if (this->active_bank_ == crossbar_bank::none && !preview) return {0, 1};
         const auto bank = this->active_bank_ == crossbar_bank::none ? static_cast<size_t>(std::clamp(this->selected_bank_, 0, static_cast<int>(action_crossbar_banks - 1))) : BankIndex(this->active_bank_);
-        return Half(bank) == 0 ? std::vector<size_t>{bank, 1} : std::vector<size_t>{0, bank};
+        return this->CrossbarHalf(bank) == 0 ? std::vector<size_t>{bank, 1} : std::vector<size_t>{0, bank};
     }
 
     auto actionbars_module::SlotBounds(const address& value) const -> ui::rect
@@ -149,7 +154,7 @@ namespace xiui
         }
         constexpr float x[]{1, 2, 1, 0}, y[]{0, 1, 2, 1};
         const auto position = value.slot % 4;
-        const float groupX = bounds.x + pad + static_cast<float>(Half(value.bar)) * (GroupWidth(bar) + bar.group_spacing);
+        const float groupX = bounds.x + pad + static_cast<float>(this->CrossbarHalf(value.bar)) * (GroupWidth(bar) + bar.group_spacing);
         return {groupX + (value.slot >= 4 ? DiamondWidth(bar) + DiamondGap(bar) : 0) + x[position] * (bar.size + bar.gap),
             bounds.y + pad + bank_header + y[position] * (bar.size + (bar.gap_y < 0 ? bar.gap : bar.gap_y) + (bar.labels ? (bar.label_wrap ? 32 : 16) : 0)), bar.size, bar.size};
     }
@@ -461,11 +466,12 @@ namespace xiui
         {
             const bool preview = this->crossbar_preview_ && (this->view_ == action_bar_count || this->dialog_ != dialog::none && this->selected_.surface == action_surface::crossbar);
             const bool active = this->active_bank_ != crossbar_bank::none ? BankIndex(this->active_bank_) == bank : preview && static_cast<size_t>(this->selected_bank_) == bank;
-            const float groupX = bounds.x + pad + static_cast<float>(Half(bank)) * (GroupWidth(bar) + bar.group_spacing);
+            const auto half = this->CrossbarHalf(bank);
+            const float groupX = bounds.x + pad + static_cast<float>(half) * (GroupWidth(bar) + bar.group_spacing);
             if (this->prompts_)
             {
                 const bool ordered = bank == 2 || bank == 3 || bank == 6, twice = bank == 4 || bank == 5;
-                const size_t first = bank == 1 || bank == 3 || bank == 5 ? 1 : 0;
+                const size_t first = bank == 6 ? half : bank == 1 || bank == 3 || bank == 5 ? 1 : 0;
                 const float centerX = groupX + GroupWidth(bar) / 2, centerY = bounds.y + pad + bank_header / 2;
                 for (size_t step = 0; step < (ordered ? 2u : 1u); ++step)
                 {
@@ -485,7 +491,7 @@ namespace xiui
                     context.DrawText(twice ? "x2" : ">", at, at, TintTextProfile(profile, Alpha(0xFFFFFFFF, active ? 1 : 0.6f)));
                 }
             }
-            auto& motion = this->bank_motion_[Half(bank)];
+            auto& motion = this->bank_motion_[half];
             motion.Select(bank, this->now_, slide, this->crossbar_animations_ && !context.IsEditing(), this->active_bank_ != crossbar_bank::none && !active);
             const bool transitioning = motion.changing && this->now_ < motion.changed_at + 500;
             if (transitioning)
@@ -500,20 +506,21 @@ namespace xiui
                 {
                     const size_t layerBank = layerIndex == action_crossbar_banks ? bank : layerIndex;
                     if (layerIndex != action_crossbar_banks && layerBank == bank) continue;
-                    if (Half(layerBank) != Half(bank)) continue;
                     const auto layer = motion.Value(layerBank, this->now_, slide);
                     const bool outgoing = layerBank != bank;
                     if (layer.opacity < 0.01f) continue;
+                    const float offsetX = (static_cast<float>(half) - static_cast<float>(this->CrossbarHalf(layerBank))) * (GroupWidth(bar) + bar.group_spacing);
                     for (size_t slot = 0; slot < action_crossbar_slots; ++slot)
                     {
                         const address value{action_surface::crossbar, layerBank, slot};
-                        this->DrawSlot(value, this->SlotBounds(value), active, context, layer.opacity, layer.y, outgoing, layer.inactive ? 1 : 0,
+                        auto at = this->SlotBounds(value); at.x += offsetX;
+                        this->DrawSlot(value, at, active, context, layer.opacity, layer.y, outgoing, layer.inactive ? 1 : 0,
                             transitioning ? slot_pass::content : slot_pass::all);
                     }
                     if (this->prompts_ && bar.bindings && bar.button_icons)
                         for (size_t diamond = 0; diamond < 2; ++diamond)
                         {
-                            const auto top = this->SlotBounds({action_surface::crossbar, layerBank, diamond * 4});
+                            auto top = this->SlotBounds({action_surface::crossbar, layerBank, diamond * 4}); top.x += offsetX;
                             const float centerX = top.x + bar.size / 2;
                             const float centerY = top.y + bar.size + bar.gap + (bar.labels ? (bar.label_wrap ? 32 : 16) : 0) + bar.size / 2 + layer.y;
                             const float iconSize = std::max(4.0f, std::min({bar.prompt_size, bar.size / 2, (bar.size / 2 + bar.gap - 3) / 1.07f}));

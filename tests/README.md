@@ -71,6 +71,8 @@ Invoke-XiuiBuild -Targets xiui_satchel_ui_smoke,xiui_actionbars_ui_smoke
 ./bin/tests/xiui_satchel_ui_smoke.exe --input-ownership-only
 ./bin/tests/xiui_actionbars_ui_smoke.exe --input-ownership-only
 ./bin/tests/xiui_actionbars_ui_smoke.exe --macro-editor-only
+./bin/tests/xiui_actionbars_data_smoke.exe --japanese-names-only
+./bin/tests/xiui_actionbars_ui_smoke.exe --crossbar-layout-only
 ```
 
 ## Standalone packaging

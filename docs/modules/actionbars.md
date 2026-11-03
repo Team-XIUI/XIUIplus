@@ -6,6 +6,8 @@ Hotbars, controller crossbar, reusable macros, palettes and their management win
 
 Create/Edit Macro follows the Lua editor's order: action type, upper-right artwork preview, command block, optional recast source, slot label and Save/Cancel. Native library, availability and binding controls live under More options. Eight command rows appear when space permits; every page, added row and keyboard transition uses the same visible-row count. Multiline paste is bounded and atomic. Editor inputs use the shared text control with a dark fill, bright foreground and 14-pixel minimum.
 
+Slot Label offers an explicit Unicode Paste action through the shared editor and controller controls. Resource lookups accept English and Japanese names for actions, recasts and inferred icons. Resolve recognized command arguments to the client's default resource name only at dispatch; preserve saved commands and custom labels. `xiui_actionbars_data_smoke --japanese-names-only` covers language IDs, command arguments and game encoding.
+
 The icon picker groups Game, original XIUI and Vincerno artwork with cached name/category searches. Game spell/ability recast artwork and item bitmaps use the existing icon cache; large grids bound their native item working set. Automatic inference is separate from recast inference: prefer a weapon skill over preparation such as Boost, retain explicit artwork and preserve saved icon keys. `--macro-editor-only` covers geometry, rows, paste, shared dropdowns, icon sources and draft persistence; the action-data check covers icon priorities.
 
 Global visuals are opt-in per hotbar. Preserve independent shapes, assignments, keys and positions; unlinking restores saved local visuals. The detailed guide records remaining Lua compatibility gaps.
@@ -13,6 +15,8 @@ Global visuals are opt-in per hotbar. Preserve independent shapes, assignments, 
 **Keep intact:** Keep native macro suppression separate from crossbar activation. All execution uses the validated executor. Pointer management can work over native menus; unclaimed keyboard/controller navigation remains native. Shared library edits must not silently assign slots.
 
 Verified native Attack/command menus permit assigned action-bar shortcuts, clicks and crossbar actions. Other native menus and active action/subtarget selection retain their guards. Refresh the executor's transient menu permission at every input path and scheduler update.
+
+Controller callbacks and the mailbox re-read the verified native focus slot before allowing that menu exception. Cached command-menu permission cannot capture a newly focused inventory/menu. The same check permits native trigger suppression and handles an already-open replacement macro palette; no game restart is required to apply the setting. `xiui_crossbar_input_smoke` covers both controller backends and live permission changes.
 
 An active native macro palette can sit above a still-visible command menu. Identify ownership from the verified focused palette, not the presence of a background menu; holding Ctrl/Alt must not cancel delayed macro lines.
 
@@ -40,7 +44,9 @@ Clicking a saved macro in Actions & Macros opens its editor without assigning or
 
 `ReleaseChatInput` must preserve action-workspace pointer capture while native chat polls the command menu. The input-ownership fixture places that poll between drag/button press and release, during and after combat, and checks suspension cleanup. Create labels distinguish multi-line New macro, Single command and an existing FFXI Game macro; old imported type names remain accepted.
 
-**Focused check:** `xiui_actionbars_ui_smoke --input-ownership-only`; crossbar normalization uses `xiui_crossbar_input_smoke`.
+Expanded banks replace the first-held trigger's half: LT then RT expands left, RT then LT expands right. Shared expanded assignments follow the same side selection. Keep drawing, prompts, animation layers and pointer bounds aligned without remapping saved banks.
+
+**Focused check:** `xiui_actionbars_ui_smoke --input-ownership-only`; crossbar layout uses `--crossbar-layout-only`, normalization uses `xiui_crossbar_input_smoke`.
 
 [Detailed guide](../reference/actionbars.md) · [Shared foundations](../foundations.md) · [Check commands](../../tests/README.md)
 

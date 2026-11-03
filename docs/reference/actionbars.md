@@ -6,6 +6,8 @@ Action workspaces remain open when Configuration closes. The remaining workspace
 
 Assigned actions and macros can run from clicks, configured shortcuts and the crossbar while the normal native Attack/command menu is open. Native shop/editor menus and active target selection remain guarded. `/xiuiplus actionbars status` includes the focused native window and current execution permission.
 
+Controller trigger replacement applies live over the normal command menu, including during combat. The host and input queue verify the current focused native window before suppressing triggers or accepting crossbar actions, so a newly opened inventory or other native menu keeps its input even before the next HUD frame. An already-open native macro palette cannot block replacement behind its hidden buttons. After changing trigger settings, release held triggers and action buttons before using the crossbar again.
+
 For delayed macros, the status command also reports current TP, the pending line/wait and the last queued timed line. If another window suspends execution, the cancellation reason is retained for diagnosis.
 
 ## Global settings and Lua compatibility
@@ -48,6 +50,8 @@ Macros are shared library entries. Click a saved macro in Actions & Macros to ed
 
 Create/Edit Macro follows the Lua layout: **Action Type**, a large icon preview and **Change** button at the upper right, **Macro Commands**, **Recast Source (Optional)**, **Slot Label**, then **Save / Cancel**. More options contains the native library, binding and availability controls. Command inputs have a dark backing and bright text. Eight lines appear when space permits; paging reaches all 32 supported lines. Enter and Up/Down move between rows, and multiline paste preserves command order without changing the saved action until Save.
 
+Use **Paste** beside **Slot Label** to replace it with clipboard text, including Japanese names. Ctrl+V also works while editing text fields. Labels remain unchanged when saved and shared. Actions, optional recast sources and automatic icons recognize both English and Japanese resource names, such as `Cure` and `ケアル`. Recognized macro action arguments use the client's default resource name when executed; the editor keeps the original command text, targets and waits.
+
 **Change** opens a searchable picker for **Game**, original **XIUI+**, and **Vincerno** artwork. Game entries include spell/ability recast icons and native item/equipment images; XIUI+ includes the default weapon-skill artwork. Vincerno retains its 220 custom variants. Search by action/item name, job, magic type or variant; Ctrl+F focuses search. Mouse, keyboard and controller share selection and scrolling. **Automatic (from action)** clears the override and infers artwork from the macro's main action: for Boost → wait → Combo, it selects Combo. Explicit choices take priority. Back/Cancel preserves the draft; Save applies it. Icon keys remain portable without extra installation.
 
 **New macro** creates a sequence of commands and waits, such as Boost → wait → Combo. **Single command** creates one command shortcut. **Game macro** (formerly Native macro) runs an existing FFXI macro by book, set, Ctrl/Alt row and slot. It does not copy the game's macro book into XIUI+. The bridge checks the installed client signatures and reports unavailable execution if they do not match. The create buttons include hover/controller help.
@@ -85,7 +89,7 @@ The stored banks preserve the Lua model:
 - Each bank has D-pad Up/Right/Down/Left and Face Top/Right/Bottom/Left slots.
 - Hold a bank and the selected shoulder, then press D-pad Up/Down to cycle palettes.
 
-The two trigger halves stay in place. Each half contains separate D-pad and face-button diamonds with non-overlapping icons. LT then RT replaces the right half; RT then LT replaces the left. Double taps replace the matching half. Expanded and double-tap banks can be previewed from settings without activating an action.
+The two trigger halves stay in place. Each half contains separate D-pad and face-button diamonds with non-overlapping icons. Hold a trigger to select its side, then hold the other trigger to reveal the bank behind that same side: LT then RT expands the left half; RT then LT expands the right. Release the second trigger to return to the first side's base bank. Shared expanded mode follows the same side selection using its shared assignments. Double taps replace the matching half. Expanded and double-tap banks can be previewed from settings without activating an action.
 
 The crossbar uses XIUI+ Lua's original controller artwork, with larger center button clusters and trigger badges. Prompts follow the effective button mappings, including custom face, direction and shoulder assignments. Auto shows Xbox artwork for XInput and its disconnected preview; choose PlayStation or Nintendo explicitly for DirectInput. Unidentified DirectInput buttons retain numbered labels. The center artwork scales to fit smaller slots.
 
@@ -119,6 +123,8 @@ Action data, macro commands and presentation settings follow normal XIUI+ profil
 Focused software checks cover storage, macro references, import boundaries, input normalization and UI ownership. Native builds and AgentLink status confirm the installed integration. Physical controller feel, remappers, visual polish and live action execution remain for Cody's gameplay acceptance; the implementation checks do not send live actions.
 
 ABI 18 adds the host-owned native macro runner and independent native-trigger suppression. Native macro replacement defaults off; using the XIUI+ crossbar remains a separate setup choice. Updating this contract requires a matching development host/runtime pair.
+
+ABI 22 carries the transient verified native focus slot with crossbar routing settings so controller callbacks can check live command/palette ownership without taking the runtime mutex. It is excluded from saved settings and portable profiles.
 
 The October 16 input revision passed focused action-data, UI, native-HUD and keyboard-suppression checks. The host/runtime pair was installed with SHA-256 verification in `C:/Games/PhoenixXI-dev/PhoenixXI`. AgentLink confirmed both builds `23:48:49` active, HUD visible, twelve macros retained and the native macro bridge available. The previous pair and settings/profiles are backed up under `out/actionbars-input-install-20261016-234916`. Physical keyboard ordering, visual behavior and controller feel remain in-game acceptance checks.
 

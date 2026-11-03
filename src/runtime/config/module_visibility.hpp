@@ -14,6 +14,7 @@ namespace xiui
     {
         native_window_focus window_focus{};
         uintptr_t window_focus_id{};
+        uintptr_t window_focus_slot{};
         uint64_t window_focus_name{};
         bool event_active{};
         bool dialogue_active{};

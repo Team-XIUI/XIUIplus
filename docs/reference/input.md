@@ -15,6 +15,7 @@ Read the ABI from [runtime_api.hpp](../../src/shared/runtime_api.hpp). Follow [c
 
 - Decide suppression before native processing. A queued action alone cannot block the original input.
 - Keep native callbacks independent of the runtime/render mutex. Read cached routing, suppress immediately, and queue accepted semantic actions for the render thread. Expire stale work on suspension or replacement.
+- Crossbar routing carries a transient verified native focus slot. Host callbacks and the mailbox re-read its focused window before allowing command-menu or replacement macro-palette input; a cached exception cannot consume a newly opened native menu. Native text and target selection keep their existing guards.
 - Distinguish DirectInput IDs, XInput event IDs, masks and native mapping slots. Resolve actual configured bindings; historical A/B/Y conventions are not universal.
 - Separate native configuration, Ashita enumeration, observed connection and runtime readiness. Auto/Keyboard & Mouse/Controller presentation changes prompts, not device settings.
 - Respect an existing input owner. Track owned press, repeats, held state and release; one-shot Send/Confirm/Delete must not repeat. Require neutral before returning a captured stick.

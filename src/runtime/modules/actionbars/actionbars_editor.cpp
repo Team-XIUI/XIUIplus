@@ -97,6 +97,11 @@ namespace xiui
             label({left, y, 112, 28}, caption);
             controls.push_back({id, {left + 116, y, width - 116, 28}, value, {}, control_kind::choice, enabled});
         };
+        const auto slotLabel = [&](float y) {
+            label({left, y, width - 80, 18}, "Slot Label");
+            button(command_paste_label, {right - 72, y - 2, 72, 20}, "Paste");
+            controls.back().hint = "Replace the slot label with clipboard text. Japanese text is supported.";
+        };
         label({layout.type.x, layout.type.y - 20, layout.type.width, 18}, "Action Type");
         controls.push_back({command_kind, layout.type, ActionKindName(this->draft_.kind), {}, control_kind::dropdown});
         const float toolsY = bounds.y + (bounds.height < 500 ? 102 : 116);
@@ -151,7 +156,7 @@ namespace xiui
                 if (this->draft_.recast_kind != action_kind::none)
                     field(field_recast, layout.recast.y + 66, "Action", this->draft_.recast_name.empty() && this->draft_.recast_id ? std::to_string(this->draft_.recast_id) : this->draft_.recast_name);
             }
-            label({left, layout.label.y - 20, width, 18}, "Slot Label");
+            slotLabel(layout.label.y - 20);
             controls.push_back({field_label, layout.label, this->draft_.label, {}, control_kind::field});
         }
         else
@@ -174,7 +179,7 @@ namespace xiui
                 else { choice(command_target, y, "Target", this->draft_.target); controls.back().kind = control_kind::dropdown; }
                 y += 40;
             }
-            label({left, y, width, 18}, "Slot Label"); y += 20;
+            slotLabel(y); y += 20;
             controls.push_back({field_label, {left, y, width, 28}, this->draft_.label, {}, control_kind::field});
         }
         button(command_save, {left, layout.footer.y, 90, 28}, "Save");
@@ -188,6 +193,15 @@ namespace xiui
         if (line < this->line_scroll_) this->line_scroll_ = line;
         else if (line >= this->line_scroll_ + rows) this->line_scroll_ = line + 1 - rows;
         this->focused_control_ = line_first + static_cast<int>(line);
+    }
+
+    auto actionbars_module::PasteEditorLabel(const std::string_view text) -> bool
+    {
+        if (this->dialog_ != dialog::editor || text.empty()) return false;
+        ui::text_input pasted; pasted.Open({}, 120); pasted.Insert(text);
+        if (pasted.Editor().Text() != text) { this->Notice("Paste a short, single-line label."); return false; }
+        this->CommitField(); this->draft_.label = pasted.Editor().Text(); this->focused_control_ = field_label; this->BeginField(field_label);
+        return true;
     }
 
     auto actionbars_module::PasteEditorLines(const std::string_view text) -> bool

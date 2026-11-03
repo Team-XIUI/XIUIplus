@@ -276,9 +276,17 @@ namespace xiui
             Check(module.editing_field_ == 408 && module.line_scroll_ == 1, "Enter advances and reveals the next command row");
             module.HandleKey(VK_DOWN, 0); module.HandleKey(VK_DOWN, static_cast<LPARAM>(0x40000000u)); module.HandleKey(VK_DOWN, static_cast<LPARAM>(0x80000000u));
             Check(module.editing_field_ == 410, "held arrow keys repeat row navigation without repeating Enter activation");
-            module.CommitField(); module.draft_.lines = commands; module.draft_.label = "BC";
+            module.CommitField(); module.draft_.lines = commands;
+            Check(Control(module, "Paste") == actionbars_module::command_paste_label && module.PasteEditorLabel("ケアル"),
+                "the macro editor offers an explicit Unicode label paste action");
+            Check(module.draft_.label == "ケアル" && store.Resolve(action_surface::hotbar, 0, 0).Empty(), "Japanese label paste changes only the draft");
+            Check(!module.PasteEditorLabel("ケアル\nCure") && !module.PasteEditorLabel(std::string(121, 'x')) && module.draft_.label == "ケアル",
+                "invalid label pastes preserve the current Japanese draft");
             module.SaveDraft();
             Check(store.ExpandMacro(store.Resolve(action_surface::hotbar, 0, 0)).lines == commands, "saving preserves the pasted wait and final weapon skill");
+            settings_store saved{""}; store.Save(saved);
+            action_store restored; restored.SetContext(store.Context()); restored.Load(settings_store::FromIniText(saved.ToIniText()));
+            Check(restored.Resolve(action_surface::hotbar, 0, 0).label == "ケアル", "Japanese slot labels survive saving and reloading unchanged");
             module.OpenEditor(false, 0, 0); module.draft_.lines.resize(32);
             for (size_t line = 0; line < 32; ++line) module.draft_.lines[line] = "/echo " + std::to_string(line + 1);
             std::set<int> reached;
@@ -573,8 +581,8 @@ namespace xiui
                 Check(module.bars_[0].columns == expected && module.bars_[0].slots == 12 && !module.InputFocused() && store.Resolve(action_surface::hotbar, 0, 11).name == "Preserved", "shape cycling preserves all twelve assignments and native movement");
             }
             auto& crossbar = module.bars_[action_bar_count]; crossbar.state.enabled = true; crossbar.empty = true; crossbar.state.bounds.x = 100; crossbar.state.bounds.y = 450; module.Layout(action_bar_count);
-            constexpr size_t halves[]{0, 1, 1, 0, 0, 1};
-            const std::array<std::vector<size_t>, 6> groups{{{0, 1}, {0, 1}, {0, 2}, {3, 1}, {4, 1}, {0, 5}}};
+            constexpr size_t halves[]{0, 1, 0, 1, 0, 1};
+            const std::array<std::vector<size_t>, 6> groups{{{0, 1}, {0, 1}, {2, 1}, {0, 3}, {4, 1}, {0, 5}}};
             std::array<std::array<ui::rect, 8>, 2> original{};
             for (size_t half = 0; half < 2; ++half) for (size_t slot = 0; slot < 8; ++slot) original[half][slot] = module.SlotBounds({action_surface::crossbar, half, slot});
             for (size_t bank = 0; bank < 6; ++bank)
@@ -594,6 +602,22 @@ namespace xiui
                         Check(hit && hit->header == 0 && hit->slot.surface == action_surface::crossbar && hit->slot.bar == visible && hit->slot.slot == slot, "every visible crossbar icon has its own matching pointer target");
                     }
                 Check(occupied.size() == 16, "every bank displays two complete eight-slot trigger halves");
+            }
+            module.shared_expanded_ = true;
+            for (const auto bank : {crossbar_bank::left_right, crossbar_bank::right_left})
+            {
+                module.active_bank_ = bank;
+                const size_t half = bank == crossbar_bank::left_right ? 0 : 1;
+                Check(module.CrossbarGroups() == (half == 0 ? std::vector<size_t>{6, 1} : std::vector<size_t>{0, 6}),
+                    "Shared expanded bank replaces the first-held trigger side for both orders");
+                for (size_t slot = 0; slot < 8; ++slot)
+                {
+                    const auto rect = module.SlotBounds({action_surface::crossbar, 6, slot});
+                    Check(rect.x == original[half][slot].x && rect.y == original[half][slot].y,
+                        "Shared expanded slots retain the first-held side's coordinates");
+                    const auto hit = module.HitTest(rect.x + rect.width / 2, rect.y + rect.height / 2);
+                    Check(hit && hit->slot.bar == 6 && hit->slot.slot == slot, "Shared expanded pointer targets follow the selected side");
+                }
             }
             const auto up = original[0][0], right = original[0][1], down = original[0][2], left = original[0][3];
             Check(up.y + up.height <= left.y && right.y + right.height <= down.y && left.x + left.width <= up.x && up.x + up.width <= right.x, "each controller diamond uses three non-overlapping rows and columns");
@@ -756,7 +780,7 @@ namespace xiui
             press.bank = crossbar_bank::left; module.HandleCrossbarEvent(press); Check(module.held_slots_[0][0], "fresh mapped slot press highlights its original bank");
             press.pressed = false; module.HandleCrossbarEvent(press); Check(!module.held_slots_[0][0], "slot release clears held highlight");
             press.pressed = true; module.HandleCrossbarEvent(press); bank.bank = crossbar_bank::left_right; bank.triggers = 3; module.HandleCrossbarEvent(bank);
-            Check(!module.held_slots_[0][0] && module.CrossbarGroups() == std::vector<size_t>{0, 2}, "bank transition clears stale held visuals while retaining stable trigger halves");
+            Check(!module.held_slots_[0][0] && module.CrossbarGroups() == std::vector<size_t>{2, 1}, "bank transition clears stale held visuals while expanding the first-held trigger side");
             module.SuspendInput(); Check(module.active_bank_ == crossbar_bank::none && !module.InputFocused(), "suspension clears active trigger and browsing state");
         }
         static auto Persistence(void) -> void
@@ -2150,6 +2174,11 @@ namespace xiui
 
 auto main(const int argc, char** argv) -> int
 {
+    if (argc == 2 && std::strcmp(argv[1], "--crossbar-layout-only") == 0)
+    {
+        try { xiui::actionbars_ui_test::BarControlsAndCrossbarGeometry(); std::puts("Crossbar trigger halves, slot geometry and pointer targets passed."); return 0; }
+        catch (const std::exception& error) { std::fprintf(stderr, "Crossbar layout check failed: %s\n", error.what()); return 1; }
+    }
     if (argc == 2 && std::strcmp(argv[1], "--macro-editor-only") == 0)
     {
         try { xiui::actionbars_ui_test::MacroEditor(); xiui::actionbars_ui_test::CustomMacroIcons(); std::puts("Macro editor layout, line editing, shared dropdowns, icon sources and draft persistence passed."); return 0; }

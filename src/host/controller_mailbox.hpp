@@ -1,6 +1,7 @@
 #pragma once
 
 #include "../shared/controller_input.hpp"
+#include "../shared/native_menu_focus.hpp"
 
 #include <array>
 #include <cstddef>
@@ -35,7 +36,8 @@ namespace xiui
             if (event.action == controller_action::cycle_window && (state & controller_native_cycle) != 0) return false;
             if (event.action > controller_action::focus)
             {
-                if (event.repeated || menuOpen || !this->crossbar_settings_.enabled || !this->crossbar_settings_.replace_native ||
+                if (event.repeated || CrossbarNativeMenuBlocked(menuOpen, this->crossbar_settings_.allowed_menu_slot) ||
+                    !this->crossbar_settings_.enabled || !this->crossbar_settings_.replace_native ||
                     (state & controller_capture_mask) != 0) return false;
                 if (event.action == controller_action::crossbar_bank)
                 {

@@ -1,4 +1,5 @@
 #include "action_executor.hpp"
+#include "action_resource_names.hpp"
 #include "ashita_compat.hpp"
 #include "chat/chat_encoding.hpp"
 #include "combat/ability_recast.hpp"
@@ -15,7 +16,25 @@ namespace
 {
     auto PetType(const uint8_t type) -> bool { return type == 2 || type == 6 || type == 10 || type == 18; }
     auto Name(const char* const* names) -> std::string
-    { const auto* name = names[2] != nullptr ? names[2] : names[0]; return name != nullptr ? xiui::FromGameText(name) : std::string{}; }
+    { return xiui::ActionResourceName(names); }
+    auto Spell(const IResourceManager* resources, const xiui::action_slot& slot, const std::string& gameName) -> ISpell*
+    { return slot.id != 0 ? resources->GetSpellById(slot.id) : xiui::FindActionResource(gameName, [&](const char* name, uint32_t language) { return resources->GetSpellByName(name, language); }); }
+    auto Ability(const IResourceManager* resources, const xiui::action_slot& slot, const std::string& gameName) -> IAbility*
+    { return slot.id != 0 ? resources->GetAbilityById(slot.id) : xiui::FindActionResource(gameName, [&](const char* name, uint32_t language) { return resources->GetAbilityByName(name, language); }); }
+    auto Item(const IResourceManager* resources, const xiui::action_slot& slot, const std::string& gameName) -> IItem*
+    { return slot.id != 0 ? resources->GetItemById(slot.id) : xiui::FindActionResource(gameName, [&](const char* name, uint32_t language) { return resources->GetItemByName(name, language); }); }
+    auto NativeName(const IResourceManager* resources, const xiui::action_slot& slot) -> std::string
+    {
+        std::string gameName;
+        if (resources == nullptr || (!slot.name.empty() && !xiui::ToGameText(slot.name, gameName))) return {};
+        if (slot.kind == xiui::action_kind::spell)
+        { if (const auto* resource = Spell(resources, slot, gameName)) return xiui::ActionResourceName(resource->Name, 0); }
+        else if (slot.kind == xiui::action_kind::item || slot.kind == xiui::action_kind::equip)
+        { if (const auto* resource = Item(resources, slot, gameName)) return xiui::ActionResourceName(resource->Name, 0); }
+        else if (slot.kind == xiui::action_kind::ability || slot.kind == xiui::action_kind::weapon_skill || slot.kind == xiui::action_kind::pet)
+        { if (const auto* resource = Ability(resources, slot, gameName)) return xiui::ActionResourceName(resource->Name, 0); }
+        return {};
+    }
     auto Guard(IAshitaCore* core, const bool presentation = false, const bool allowNativeMenu = false) -> std::string
     {
         auto* memory = core != nullptr ? core->GetMemoryManager() : nullptr;
@@ -230,7 +249,7 @@ namespace xiui
         if (!slot.name.empty() && !ToGameText(slot.name, gameName)) { result.reason = "The action name cannot be encoded for the game."; return result; }
         if (slot.kind == action_kind::spell)
         {
-            const auto* spell = slot.id != 0 ? resources->GetSpellById(slot.id) : resources->GetSpellByName(gameName.c_str(), 2);
+            const auto* spell = Spell(resources, slot, gameName);
             if (spell == nullptr) { result.reason = "Spell resource is unavailable."; return result; }
             result.name = slot.label.empty() ? Name(spell->Name) : slot.label; result.known = true; result.learned = SpellKnown(player, *spell);
             result.mp = spell->ManaCost; base = spell->RecastDelay / 4.0f;
@@ -239,7 +258,7 @@ namespace xiui
         }
         else if (slot.kind == action_kind::ability || slot.kind == action_kind::weapon_skill || slot.kind == action_kind::pet)
         {
-            const auto* ability = slot.id != 0 ? resources->GetAbilityById(slot.id) : resources->GetAbilityByName(gameName.c_str(), 2);
+            const auto* ability = Ability(resources, slot, gameName);
             if (ability == nullptr) { result.reason = "Ability resource is unavailable."; return result; }
             result.name = slot.label.empty() ? Name(ability->Name) : slot.label; result.known = true;
             if (result.icon.empty()) result.icon = "ability:" + std::to_string(ability->Id);
@@ -279,7 +298,7 @@ namespace xiui
         }
         else if (slot.kind == action_kind::item || slot.kind == action_kind::equip)
         {
-            const auto* item = slot.id != 0 ? resources->GetItemById(slot.id) : resources->GetItemByName(gameName.c_str(), 2);
+            const auto* item = Item(resources, slot, gameName);
             if (item == nullptr) { result.reason = "Item resource is unavailable."; return result; }
             result.known = result.learned = true; result.name = slot.label.empty() ? Name(item->Name) : slot.label;
             if (result.icon.empty()) result.icon = "item:" + std::to_string(item->Id);
@@ -387,16 +406,39 @@ namespace xiui
         if (!action->name.empty() && !ToGameText(action->name, name)) return {};
         if (action->kind == action_kind::spell)
         {
-            const auto* spell = action->id ? resources->GetSpellById(action->id) : resources->GetSpellByName(name.c_str(), 2);
+            const auto* spell = Spell(resources, *action, name);
             return spell != nullptr ? "spell:" + std::to_string(spell->Index) : std::string{};
         }
         if (action->kind == action_kind::item || action->kind == action_kind::equip)
         {
-            const auto* item = action->id ? resources->GetItemById(action->id) : resources->GetItemByName(name.c_str(), 2);
+            const auto* item = Item(resources, *action, name);
             return item != nullptr ? "item:" + std::to_string(item->Id) : std::string{};
         }
-        const auto* ability = action->id ? resources->GetAbilityById(action->id) : resources->GetAbilityByName(name.c_str(), 2);
+        const auto* ability = Ability(resources, *action, name);
         return ability != nullptr ? "ability:" + std::to_string(ability->Id) : std::string{};
+    }
+
+    auto action_executor::ResolveCommandName(std::string command, const std::function<std::string(const action_slot&)>& resolve) -> std::string
+    {
+        action_slot source; source.kind = action_kind::command; source.lines = {command};
+        const auto action = RepresentativeAction(source);
+        if (!action) return command;
+        const auto name = resolve(*action);
+        if (name.empty() || name == action->name || name.find_first_of("\"\r\n") != std::string::npos) return command;
+        const auto verb = command.find_first_not_of(" \t");
+        const auto separator = command.find_first_of(" \t", verb);
+        const auto begin = command.find_first_not_of(" \t", separator);
+        if (begin == std::string::npos) return command;
+        size_t end;
+        if (command[begin] == '"' || command[begin] == '\'') end = command.find(command[begin], begin + 1) + 1;
+        else
+        {
+            end = command.find('<', begin);
+            if (end == std::string::npos) end = command.size();
+            while (end > begin && (command[end - 1] == ' ' || command[end - 1] == '\t')) --end;
+        }
+        command.replace(begin, end - begin, "\"" + name + "\"");
+        return command;
     }
 
     auto action_executor::Commands(const action_slot& slot, const std::string& resourceName) -> std::vector<std::string>
@@ -422,9 +464,8 @@ namespace xiui
         if (!available.usable) return false;
         if (slot.kind == action_kind::native_macro)
         { this->Cancel(); const bool ok = this->native_runner_ && this->native_runner_(slot.native); if (!ok) this->status_ = "The native macro could not run."; return ok; }
-        std::string resourceName = available.name;
-        if (!slot.label.empty())
-        { auto plain = slot; plain.label.clear(); resourceName = this->Inspect(core, plain).name; }
+        const auto resolveName = [&](const action_slot& action) { return NativeName(core->GetResourceManager(), action); };
+        const auto resourceName = resolveName(slot);
         const auto commands = Commands(slot, resourceName);
         if (commands.empty()) { this->status_ = "No valid commands are assigned."; return false; }
         std::vector<macro_step> steps;
@@ -440,7 +481,7 @@ namespace xiui
             {
                 if (const auto wait = lower.rfind("<wait "); wait != std::string::npos && lower.back() == '>')
                 { step.delay = WaitMilliseconds(Trim(command.substr(wait + 6, command.size() - wait - 7))); command = Trim(command.substr(0, wait)); timed = true; }
-                step.command = std::move(command); step.subtarget = IsSubtarget(Lower(step.command)); timed = timed || step.subtarget;
+                step.command = ResolveCommandName(std::move(command), resolveName); step.subtarget = IsSubtarget(Lower(step.command)); timed = timed || step.subtarget;
             }
             if (step.delay == UINT64_MAX) { this->status_ = "Waits must be between 0 and 3600 seconds."; return false; }
             std::string encoded;

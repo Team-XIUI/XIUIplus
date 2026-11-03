@@ -1,8 +1,10 @@
 #include "modules/actionbars/action_import.hpp"
 #include "modules/actionbars/action_executor.hpp"
+#include "modules/actionbars/action_resource_names.hpp"
 #include "native_target.hpp"
 
 #include <cstdio>
+#include <cstring>
 #include <fstream>
 #include <iterator>
 #include <stdexcept>
@@ -146,6 +148,41 @@ return settings;)lua");
         Check(legacy.ActivePalette(action_surface::hotbar) && legacy.ActivePalette(action_surface::crossbar) && legacy.ActivePalette(action_surface::hotbar)->id != legacy.ActivePalette(action_surface::crossbar)->id, "legacy combined sets become independent without resetting profile data");
         Check(legacy.Resolve(action_surface::hotbar,0,0).id == 144 && legacy.Resolve(action_surface::crossbar,2,0).id == 145, "splitting legacy sets retains both surfaces' assignments");
     }
+    auto JapaneseNames(void) -> void
+    {
+        using namespace xiui;
+        std::string japanese;
+        Check(ToGameText("ケアル", japanese) && FromGameText(japanese) == "ケアル", "Japanese resource names round trip through the game encoding");
+        int cure{};
+        const auto lookup = [&](const char* name, const uint32_t language) -> int* {
+            return language == 2 && std::string_view{name} == "Cure" || language == 1 && name == japanese ? &cure : nullptr;
+        };
+        Check(FindActionResource("Cure", lookup) == &cure && FindActionResource(japanese, lookup) == &cure,
+            "English and Japanese names resolve the same resource through their language IDs");
+        Check(FindActionResource("Unknown", lookup) == nullptr, "unknown names remain unresolved");
+        const char* names[]{japanese.c_str(), japanese.c_str(), "Cure"};
+        Check(ActionResourceName(names) == "Cure" && ActionResourceName(names, 0) == "ケアル",
+            "client command names are independent of the English catalog name");
+        const auto english = [](const action_slot& action) {
+            return action.kind == action_kind::spell && (action.name == "ケアル" || action.name == "Cure") ? std::string{"Cure"} : std::string{};
+        };
+        const std::string source = "/ma \"ケアル\" <stpc> <wait 2>";
+        Check(action_executor::ResolveCommandName(source, english) == "/ma \"Cure\" <stpc> <wait 2>" && source == "/ma \"ケアル\" <stpc> <wait 2>",
+            "dispatch resolves Japanese names without changing saved text, targets or inline waits");
+        Check(action_executor::ResolveCommandName("  /MAGIC ケアル   <me>", english) == "  /MAGIC \"Cure\"   <me>",
+            "unquoted Japanese names retain the command spelling and target spacing");
+        const auto nativeJapanese = [](const action_slot& action) { return action.name == "Cure" ? std::string{"ケアル"} : std::string{}; };
+        const auto command = action_executor::ResolveCommandName("/ma 'Cure' <stpt>", nativeJapanese);
+        std::string encoded;
+        Check(command == "/ma \"ケアル\" <stpt>" && ToGameText(command, encoded) && encoded == "/ma \"" + japanese + "\" <stpt>",
+            "English names convert to the Japanese client's encoded command name");
+        for (const auto* line : {"/echo ケアル", "/ma \"Unknown\" <me>", "/ma \"unterminated", "/ma \"Cure\" <t>"})
+            Check(action_executor::ResolveCommandName(line, english) == line, "unrelated, unresolved and unchanged commands retain their original text");
+        auto spell = Spell(1, "ケアル"); spell.label = "回復"; spell.target = "<stpc>";
+        Check(action_executor::Commands(spell, "Cure") == std::vector<std::string>{"/ma \"Cure\" <stpc>"},
+            "custom Japanese labels do not replace the executable resource name");
+    }
+
     auto ExecutionBoundaries(void) -> void
     {
         using namespace xiui;
@@ -310,6 +347,8 @@ return settings;)lua");
 int main(int argc, char** argv)
 {
     try {
+        if (argc == 2 && std::strcmp(argv[1], "--japanese-names-only") == 0)
+        { JapaneseNames(); std::puts("Japanese/English resource lookup, command names and encoding checks passed."); return 0; }
         for (int i = 1; i < argc; ++i)
         {
             std::ifstream file{argv[i], std::ios::binary}; Check(static_cast<bool>(file), "open real writer fixture");
@@ -319,6 +358,6 @@ int main(int argc, char** argv)
             xiui::action_store migrated; Check(xiui::CommitActionImport(migrated, preview) == 4, "real writer fixture commits atomically");
             std::printf("Saved-profile fixture: %s; %zu actions, %zu library entries, %zu sets.\n", argv[i], preview.actions, preview.macros.size(), preview.palettes.size());
         }
-        Storage(); Imports(); MigrationData(); ExecutionBoundaries(); MacroPresentation(); MacroIconInference(); NativePaletteBoundaries(); std::puts("Action palette, macro, import and execution boundary checks passed."); return 0; }
+        Storage(); Imports(); MigrationData(); ExecutionBoundaries(); MacroPresentation(); MacroIconInference(); JapaneseNames(); NativePaletteBoundaries(); std::puts("Action palette, macro, import and execution boundary checks passed."); return 0; }
     catch (const std::exception& error) { std::fprintf(stderr, "%s\n", error.what()); return 1; }
 }

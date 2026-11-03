@@ -160,7 +160,7 @@ namespace xiui
             command_previous = 520, command_next = 521, command_more_lines = 522, command_remove_line = 523,
             command_pet = 533, command_kind = 540, command_target = 541, command_equipment = 542, command_native_book = 543, command_native_set = 544,
             command_native_slot = 545, command_native_alt = 546, command_macro_copy = 547, command_macro_delete = 548,
-            command_recast = 563, command_available = 564, command_library = 565, command_editor_options = 569, command_editor_recast = 570
+            command_recast = 563, command_available = 564, command_library = 565, command_editor_options = 569, command_editor_recast = 570, command_paste_label = 571
         };
         enum class window_gesture : uint8_t { none, move, resize };
         enum class slot_pass : uint8_t { all, background, content, foreground };
@@ -324,6 +324,7 @@ namespace xiui
         { return this->shared_expanded_ && (bank == crossbar_bank::left_right || bank == crossbar_bank::right_left) ? 6 : bank == crossbar_bank::none ? 0 : static_cast<size_t>(bank) - 1; }
         auto TextFor(const address& value) const -> const std::array<module_text_profile, 7>&
         { const auto& bar = this->Presentation(value); return bar.custom_text ? bar.text : this->text_; }
+        auto CrossbarHalf(size_t bank) const -> size_t;
         auto CrossbarGroups(void) const -> std::vector<size_t>;
         auto HitTest(float, float) const -> std::optional<hit>;
         auto BarPointerAvailable(float, float) const -> bool;
@@ -354,6 +355,7 @@ namespace xiui
         auto EditorControls(void) const -> std::vector<control>;
         auto RevealEditorLine(size_t line) -> void;
         auto PasteEditorLines(std::string_view text) -> bool;
+        auto PasteEditorLabel(std::string_view text) -> bool;
         auto EditorChoices(int id) const -> std::vector<std::pair<int, std::string>>;
         auto EditorChoiceValue(int id) const -> int;
         auto SelectEditorChoice(int id, int value) -> bool;

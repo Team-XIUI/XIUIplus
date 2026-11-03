@@ -37,6 +37,7 @@ namespace xiui
         auto SetMacroResolver(std::function<action_slot(const action_slot&)> resolve) -> void { this->macro_resolver_ = std::move(resolve); }
         auto SetUtc(uint32_t utc) -> void { this->utc_ = utc; }
         static auto Commands(const action_slot& slot, const std::string& resourceName) -> std::vector<std::string>;
+        static auto ResolveCommandName(std::string command, const std::function<std::string(const action_slot&)>& resolve) -> std::string;
         static auto RepresentativeAction(const action_slot& slot) -> std::optional<action_slot>;
         static auto IconAction(const action_slot& slot) -> std::optional<action_slot>;
         auto SuggestedIcon(IAshitaCore* core, const action_slot& slot) const -> std::string;
