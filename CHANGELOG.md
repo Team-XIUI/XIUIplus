@@ -2,6 +2,10 @@
 
 ## Unreleased
 
+## 0.1.3-alpha — 2026-11-02
+
+- Include the patch component in Ashita's numeric plugin version instead of reporting every 0.1.x build as 0.10. Ashita displays 0.1.3 as 0.13; XIUI+ startup and Windows metadata retain the full semantic version.
+
 ## 0.1.2-alpha — 2026-11-02
 
 - Add one-DLL compatibility for Ashita plugin interfaces 4.16 and 4.30, including the different Party, Player, Entity and Target SDK layouts. Keep unavailable legacy party master levels separate from the local player fallback.

@@ -91,6 +91,8 @@ DLL releases live in the public [xiuiplus-releases repository](https://github.co
 
 For every new release, increment the furthest-right numeric component in root `VERSION`: `0.1.2` → `0.1.3` (and `0.1.9` → `0.1.10`). Keep `VERSION` numeric for CMake/Windows. Alpha tags use the fixed `-alpha` suffix: `v0.1.2-alpha` → `v0.1.3-alpha`. Do not add or increment an alpha counter such as `-alpha.1`.
 
+Generate all version fields from `VERSION`, including Ashita's `GetVersion()`. Ashita displays a numeric compatibility value with two decimals: `major + minor / 10 + patch / 100`, so `0.1.3` displays as `0.13`. The startup message and Windows file/product metadata keep the complete semantic version. The standalone packaging check compares the loaded plugin's displayed value with its Windows version resource.
+
 Preserve the shipped defaults unless a capture was requested. Run `./scripts/package.ps1` and require all packaging checks to pass. Commit and push the intended source on private `main`, then create and push an annotated source tag at that commit. Never push that source tag or private branch into the public repository.
 
 Upload only `dist/XIUIplus.dll` and the generated `dist/SHA256SUMS.txt`; no companion runtime or external assets are needed. With the private source tag pushed and public release notes written:

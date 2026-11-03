@@ -5,6 +5,10 @@
 #include <filesystem>
 #include <fstream>
 #include <stdexcept>
+#include <vector>
+#include <winver.h>
+
+#pragma comment(lib, "Version.lib")
 
 namespace
 {
@@ -55,6 +59,21 @@ int main(const int argc, char** argv)
         { std::ofstream file{oldNotices / "MinHook.txt", std::ios::binary}; file << "Generated notice from an earlier build"; }
         state.plugin = create("");
         Check(state.plugin != nullptr, "create Ashita plugin");
+        DWORD unused{};
+        const auto versionSize = ::GetFileVersionInfoSizeW(installed.c_str(), &unused);
+        Check(versionSize != 0, "read Windows version resource");
+        std::vector<uint8_t> versionData(versionSize);
+        Check(::GetFileVersionInfoW(installed.c_str(), 0, versionSize, versionData.data()) != FALSE, "load Windows version information");
+        VS_FIXEDFILEINFO* versionInfo{};
+        UINT versionLength{};
+        Check(::VerQueryValueW(versionData.data(), L"\\", reinterpret_cast<void**>(&versionInfo), &versionLength) != FALSE &&
+            versionLength >= sizeof(VS_FIXEDFILEINFO), "query numeric Windows version");
+        const auto expectedAshitaVersion = HIWORD(versionInfo->dwFileVersionMS) + LOWORD(versionInfo->dwFileVersionMS) / 10.0 +
+            HIWORD(versionInfo->dwFileVersionLS) / 100.0;
+        char actualVersion[32]{}, expectedVersion[32]{};
+        std::snprintf(actualVersion, sizeof(actualVersion), "%.2f", state.plugin->GetVersion());
+        std::snprintf(expectedVersion, sizeof(expectedVersion), "%.2f", expectedAshitaVersion);
+        Check(std::strcmp(actualVersion, expectedVersion) == 0, "Ashita's displayed version includes the Windows resource patch component");
         state.initialized = state.plugin->Initialize(nullptr, nullptr, 0);
         Check(state.initialized, "initialize embedded runtime without a companion DLL");
         Check(std::strcmp(state.plugin->GetName(), "XIUI+") == 0 &&
