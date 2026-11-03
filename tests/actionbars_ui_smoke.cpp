@@ -2,6 +2,7 @@
 #include "hud_runtime.hpp"
 #include "modules/pet/pet_lifetimes.hpp"
 #include "resources/custom_action_icons.hpp"
+#include "custom_icon_fixture.hpp"
 
 #include <algorithm>
 #include <cmath>
@@ -389,6 +390,56 @@ namespace xiui
             Check(icon.uv.width == 32.0f / resources::custom_action_icon_width && normalized.uv.x == icon.uv.x && normalized.uv.y == icon.uv.y,
                 "custom icon lookup accepts portable keys and normalized addon-style PNG paths");
         }
+        static auto CustomFileIcons(void) -> void
+        {
+            tests::custom_icon_fixture files; files.Write("Healing/Cure.png");
+            resources::custom_icon_library library; library.SetDirectory(files.icons);
+            action_store store; action_executor executor; store.SetContext({1, 0, {}});
+            action_slot spell; spell.kind = action_kind::spell; spell.id = 1; spell.name = "Cure"; spell.target = "<stpc>";
+            Check(store.Assign(action_surface::hotbar, 0, 0, spell), "create default spell icon fixture");
+            actionbars_module module; module.Initialize(nullptr, &store, &executor); module.SetCustomIcons(&library);
+            module.viewport_ = {0, 0, 1280, 900}; module.selected_ = {action_surface::hotbar, 0, 0}; module.dialog_ = actionbars_module::dialog::slot_menu;
+            Check(Control(module, "Change icon...") == actionbars_module::command_slot_icon, "assigned spells expose a direct icon override in their slot menu");
+            module.ActivateControl(actionbars_module::command_slot_icon);
+            Check(module.dialog_ == actionbars_module::dialog::icons, "the slot shortcut opens the existing editor and icon picker");
+            tests::WaitForIcon([&] { return !library.Catalog().scanning; }); module.Update(100);
+            module.ActivateControl(actionbars_module::icon_source_first + 4);
+            Check(module.icon_results_.size() == 1 && Control(module, "Open folder") == actionbars_module::command_icon_folder &&
+                Control(module, "Refresh") == actionbars_module::command_icon_refresh, "Custom source exposes indexed files and shared folder/refresh controls");
+            const auto layout = module.IconPickerLayout();
+            Check(!Overlaps(layout.folder, layout.list) && !Overlaps(layout.refresh, layout.list), "custom file tools reserve their own row above the icon grid");
+            const auto index = module.icon_results_.front();
+            Check(module.icon_catalog_[index].key == "custom:Healing/Cure.png" && module.icon_catalog_[index].category == "Healing", "the picker preserves relative file keys and folder names");
+            module.focused_control_ = actionbars_module::icon_first + static_cast<int>(index);
+            module.HandleControllerAction(controller_action::confirm, true);
+            Check(module.dialog_ == actionbars_module::dialog::icons && module.draft_.icon.empty(), "held controller Confirm never assigns a custom file");
+            module.HandleControllerAction(controller_action::confirm, false);
+            Check(module.dialog_ == actionbars_module::dialog::icons && module.draft_.icon.empty(), "a loading file does not create a broken icon assignment");
+            tests::WaitForIcon([&] { library.TakeImages(); return library.State("custom:Healing/Cure.png") == resources::custom_icon_state::ready; });
+            module.HandleControllerAction(controller_action::confirm, false);
+            Check(module.dialog_ == actionbars_module::dialog::editor && module.draft_.icon == "custom:Healing/Cure.png" &&
+                store.Resolve(action_surface::hotbar, 0, 0).icon.empty(), "controller selection changes only the current spell editor draft");
+            module.SaveDraft(); const auto saved = store.Resolve(action_surface::hotbar, 0, 0);
+            Check(saved.kind == spell.kind && saved.id == spell.id && saved.name == spell.name && saved.target == spell.target && saved.icon == "custom:Healing/Cure.png",
+                "a custom image changes default spell artwork without changing its action or target");
+            store.Assign(action_surface::crossbar, 0, 0, saved);
+            settings_store snapshot{""}; store.Save(snapshot);
+            action_store restored; restored.SetContext(store.Context()); restored.Load(settings_store::FromIniText(snapshot.ToIniText()));
+            Check(restored.Resolve(action_surface::hotbar, 0, 0).icon == saved.icon && restored.Resolve(action_surface::crossbar, 0, 0).icon == saved.icon,
+                "custom file references survive hotbar/crossbar profile round trips without absolute paths");
+            module.OpenEditor(false, 0, 0); module.OpenIconPicker(); module.ActivateControl(actionbars_module::icon_source_first + 4);
+            module.SetFieldValue(actionbars_module::field_icon_query, "Cure"); files.Write("Healing/New.png");
+            const auto generation = library.Catalog().generation;
+            module.focused_control_ = actionbars_module::command_icon_refresh; module.HandleControllerAction(controller_action::confirm, false);
+            tests::WaitForIcon([&] { return !library.Catalog().scanning; }); module.Update(200);
+            Check(library.Catalog().generation > generation && library.Catalog().entries->size() == 2 && module.icon_query_ == "Cure" &&
+                module.icon_results_.size() == 1 && module.draft_.icon == saved.icon, "controller Refresh discovers new files while retaining search and the unsaved icon choice");
+            module.ActivateControl(actionbars_module::command_icon_default);
+            Check(module.draft_.icon.empty() && store.Resolve(action_surface::hotbar, 0, 0).icon == saved.icon, "Automatic restores artwork in the draft without changing the saved spell");
+            module.HandleControllerAction(controller_action::cancel, false);
+            Check(store.Resolve(action_surface::hotbar, 0, 0).icon == saved.icon, "Cancel preserves the saved custom icon");
+        }
+
         static auto Ownership(void) -> void
         {
             action_store store; action_executor executor; actionbars_module module;
@@ -2201,7 +2252,7 @@ auto main(const int argc, char** argv) -> int
     }
     if (argc == 2 && std::strcmp(argv[1], "--custom-icons-only") == 0)
     {
-        try { xiui::actionbars_ui_test::CustomMacroIcons(); std::puts("Custom macro icons, picker navigation and persistence checks passed."); return 0; }
+        try { xiui::actionbars_ui_test::CustomMacroIcons(); xiui::actionbars_ui_test::CustomFileIcons(); std::puts("Custom file/macro icons, picker navigation and persistence checks passed."); return 0; }
         catch (const std::exception& error) { std::fprintf(stderr, "Custom icon check failed: %s\n", error.what()); return 1; }
     }
     if (argc == 2 && std::strcmp(argv[1], "--migration-capabilities-only") == 0)

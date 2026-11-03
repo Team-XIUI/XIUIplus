@@ -12,6 +12,8 @@ set_property(DIRECTORY APPEND PROPERTY CMAKE_CONFIGURE_DEPENDS
     scripts/build-lua-profile-schema.py tests/fixtures/lua/1.8.4/defaults.json tests/fixtures/lua/1.8.5/defaults.json)
 
 set(XIUI_HUD_SOURCES
+    src/runtime/resources/wic_image.cpp
+    src/runtime/resources/custom_icon_library.cpp
     src/runtime/hud_runtime_setup.cpp
     src/runtime/settings/lua_profile_import.cpp
     src/runtime/settings/lua_setup_import.cpp

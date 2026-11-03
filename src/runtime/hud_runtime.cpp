@@ -382,6 +382,8 @@ namespace xiui
             throw;
         }
         this->ready_check_.SetSoundDirectory(storage.Sounds().string());
+        this->game_icons_.CustomIcons().SetDirectory(storage.Icons());
+        this->actionbars_.SetCustomIcons(&this->game_icons_.CustomIcons());
         this->settings_path_ = storage.Settings().string();
         this->satchel_cache_.Initialize(storage.Inventories().string());
         this->default_settings_text_ = LoadEmbeddedText(301);
@@ -2797,6 +2799,7 @@ namespace xiui
             return;
         }
         [[maybe_unused]] const render_frame_guard frameGuard{this->design_system_};
+        this->game_icons_.UpdateCustomIcons();
 #if defined(XIUI_ENABLE_TEST_FAULTS)
         if (this->raise_after_begin_for_testing_)
             throw std::runtime_error{"injected render failure"};

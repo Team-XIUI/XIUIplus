@@ -44,6 +44,14 @@ The game's macro palette is recognized separately from other native menus. A nat
 
 Keyboard bindings follow the game's keyboard mode. Compact layouts retain ordinary letter/number bindings. Full mode reserves unfocused letters, digits, punctuation, Space and Shift-only text for chat; use Ctrl/Alt combinations or function keys for global actions. Explicit editor/binding-capture focus still receives typing. A held action key drains through release if the keyboard mode changes.
 
+## Custom icon files
+
+Right-click an assigned hotbar or crossbar slot and choose **Change icon...**, or open **Edit action... → Change**. The same picker works for ordinary spells, abilities, items and macros. Choose **Custom → Open folder** and add PNG files to `config/XIUIplus/icons/` in the running installation. Subfolders appear as searchable categories. Return to the game and choose **Refresh**, select the image, then **Save** in the editor. Controller browsing uses the same controls; Confirm selects and Cancel returns without saving.
+
+Transparent and indexed PNGs are supported. Non-square images keep their aspect ratio with transparent padding. Source images may be up to 2048 × 2048 pixels and 8 MB; the catalog supports 4096 PNGs. Invalid images show a loading error when selected. **Automatic (from action)** restores the original artwork after Save. Changing artwork preserves the action, command lines, target and recast settings.
+
+Custom image references are relative to the icons folder, including subfolders. When sharing profiles, copy the matching PNG files and folder structure to the other installation's icons folder too; profiles do not embed image files. Refresh updates thumbnails and assigned images without a plugin reload. Missing images keep their saved reference so adding the file and refreshing restores them.
+
 ## Macros and palettes
 
 Macros are shared library entries. Click a saved macro in Actions & Macros to edit it; dragging it to a hotbar still assigns it. Controller Confirm starts placement and Actions opens the editor. Saving or canceling returns to the same library view. Editing one updates every slot referencing it; duplicate it to make an independent variant. Deleting an entry leaves assigned slots with their commands. Multiline commands support `/wait` and `<wait seconds>`; macros wait for their own native subtarget selection before continuing. Opening an editor, changing character/job/zone, losing foreground or hiding XIUI+ cancels pending sequences. `/xiuiplus macros cancel` also cancels a sequence.

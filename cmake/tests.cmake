@@ -50,6 +50,7 @@ add_executable(xiui_resource_smoke
     tests/resource_smoke.cpp
     src/runtime/resources/embedded_resource.cpp
     src/runtime/modules/minimap/minimap_maps.cpp
+    src/runtime/resources/wic_image.cpp
     third_party/miniz/miniz_tinfl.c
     ${XIUI_WEBP_DECODER_SOURCES})
 configure_xiui_target(xiui_resource_smoke)
@@ -269,6 +270,12 @@ add_executable(xiui_crossbar_input_smoke tests/crossbar_input_smoke.cpp)
 configure_xiui_target(xiui_crossbar_input_smoke)
 set_target_properties(xiui_crossbar_input_smoke PROPERTIES RUNTIME_OUTPUT_DIRECTORY "${CMAKE_SOURCE_DIR}/bin/tests")
 add_test(NAME xiui_crossbar_input_smoke COMMAND xiui_crossbar_input_smoke)
+
+add_executable(xiui_custom_icon_smoke tests/custom_icon_smoke.cpp
+    src/runtime/resources/custom_icon_library.cpp src/runtime/resources/wic_image.cpp)
+configure_xiui_target(xiui_custom_icon_smoke)
+set_target_properties(xiui_custom_icon_smoke PROPERTIES RUNTIME_OUTPUT_DIRECTORY "${CMAKE_SOURCE_DIR}/bin/tests")
+add_test(NAME xiui_custom_icon_smoke COMMAND xiui_custom_icon_smoke)
 
 add_executable(xiui_keyboard_suppression_smoke tests/keyboard_suppression_smoke.cpp)
 configure_xiui_target(xiui_keyboard_suppression_smoke)

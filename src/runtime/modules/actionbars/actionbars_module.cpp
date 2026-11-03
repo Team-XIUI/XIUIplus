@@ -643,6 +643,7 @@ namespace xiui
 
     auto actionbars_module::Update(const uint64_t now) -> void
     {
+        if (this->dialog_ == dialog::icons) this->SyncCustomIconCatalog();
         const auto elapsed = this->visibility_updated_ && now >= this->visibility_updated_ ? (now - this->visibility_updated_) / 1000.0f : 0.0f;
         this->visibility_updated_ = now; this->now_ = now;
         const auto* memory = this->core_ ? this->core_->GetMemoryManager() : nullptr;
@@ -934,7 +935,7 @@ namespace xiui
         const auto control = std::find_if(found.begin(), found.end(), [&](const auto& value) { return value.id == id; });
         if (control == found.end() || !control->enabled) return;
         if (this->HandleWindowControl(id)) return;
-        if (id >= icon_source_first && id < icon_source_first + 4)
+        if (id >= icon_source_first && id < icon_source_first + 5)
         { this->CommitField(); this->icon_source_ = id - icon_source_first; this->RebuildIconResults(); this->focused_control_ = id; return; }
         if (control->kind == control_kind::field) { this->BeginField(id); return; }
         if (control->kind == control_kind::dropdown) { this->OpenSetupChoice(*control); return; }
@@ -943,6 +944,7 @@ namespace xiui
         if (this->sounds_) this->sounds_->Select(this->now_);
         if (this->ActivateSetupControl(id, adjustment)) return;
         if (this->ActivateKeybindControl(id, adjustment)) return;
+        if (this->ActivateCustomIconControl(id)) return;
         if (this->dialog_ == dialog::icons && id >= icon_first) { this->SelectIcon(static_cast<size_t>(id - icon_first)); return; }
         if (id >= category_first && id < category_first + static_cast<int>(std::size(categories)))
         { this->category_ = id - category_first; this->result_scroll_ = this->focused_result_ = 0; this->RebuildResults(); return; }
@@ -965,6 +967,10 @@ namespace xiui
         case command_editor_options: this->editor_options_ = !this->editor_options_; this->focused_control_ = command_editor_options; break;
         case command_editor_recast: this->editor_recast_ = !this->editor_recast_; this->line_scroll_ = 0; this->focused_control_ = command_editor_recast; break;
         case command_icon_picker: this->OpenIconPicker(); break;
+        case command_slot_icon:
+            this->OpenEditor(this->selected_.surface == action_surface::crossbar, this->selected_.bar, this->selected_.slot);
+            if (this->dialog_ == dialog::editor) this->OpenIconPicker();
+            break;
         case command_icon_back: this->CloseIconPicker(); break;
         case command_icon_default: this->draft_.icon.clear(); this->CloseIconPicker(); break;
         case command_cancel:
@@ -1106,7 +1112,7 @@ namespace xiui
             const auto bounds = this->dialog_ == dialog::slot_menu ? this->SlotBounds(this->selected_) : this->dialog_ == dialog::bar_menu ? this->MenuBounds(index) : this->PaletteBounds(index);
             const auto count = this->store_ ? this->store_->Palettes(this->selected_.surface, this->selected_.bar).size() : 0;
             const bool popup = this->dialog_ != dialog::palette_dropdown;
-            const auto rows = this->dialog_ == dialog::bar_menu ? (index == action_bar_count ? 5 : 6) : index == action_bar_count ? 3 : 5;
+            const auto rows = this->dialog_ == dialog::bar_menu ? (index == action_bar_count ? 5 : 6) : index == action_bar_count ? 4 : 6;
             const float width = std::min(256.0f, viewport.width - 16), height = 16 + static_cast<float>(popup ? rows : std::min(count, visible_results) + 1) * 30;
             float y = bounds.y + bounds.height + 6;
             if (y + height > viewport.y + viewport.height - 8) y = bounds.y - height - 6;
@@ -1150,6 +1156,7 @@ namespace xiui
             if (this->dialog_ == dialog::slot_menu)
             {
                 entry(command_picker, "Change action..."); entry(menu_edit, "Edit action...");
+                entry(command_slot_icon, "Change icon...", this->store_ != nullptr && !this->store_->Resolve(this->selected_.surface, this->selected_.bar, this->selected_.slot).Empty());
                 if (this->selected_.surface == action_surface::hotbar)
                 {
                     entry(command_binding, this->binding_capture_ ? "Press a key..." : i18n::Format("Key: %s", this->BindingLabel(this->Binding(this->selected_)).c_str()));

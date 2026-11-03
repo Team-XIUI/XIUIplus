@@ -24,6 +24,7 @@
 
 namespace xiui
 {
+    namespace resources { class custom_icon_library; }
     struct actionbar_binding
     {
         uint16_t key{};
@@ -54,6 +55,7 @@ namespace xiui
         auto State(void) const -> const module_state& override { return this->bars_[0].state; }
         auto Initialize(IAshitaCore*, action_store*, action_executor*) -> void;
         auto SetSounds(ui::native_ui_sounds* value) -> void { this->sounds_ = value; }
+        auto SetCustomIcons(resources::custom_icon_library* icons) -> void { this->custom_icons_ = icons; this->custom_icon_revision_ = UINT64_MAX; }
         auto SetSkillchains(const skillchain_source* source) -> void { this->skillchains_ = source; }
         auto SkillchainPredictionsEnabled(void) const -> bool { return this->skillchain_predictions_; }
         auto SetCombatSettings(combat_settings* settings) -> void { this->combat_settings_ = settings; }
@@ -152,7 +154,8 @@ namespace xiui
             slot_apply_all, slot_reset, crossbar_animations, skillchain_predictions, skillchain_rules, magic_burst_settings, keybinds, shared_expanded, vertical_gap, per_bar_text, label_wrap, diamond_spacing, group_spacing, button_icons, prompt_size, prompt_gap_x, prompt_gap_y, visibility_mode, visibility_delay, visibility_fade, use_global, base_options };
         enum class dialog : uint8_t { none, picker, editor, palettes, name, delete_palette, delete_macro, import, setup, palette_dropdown, slot_menu, bar_menu, keybinds, icons };
         enum class control_kind : uint8_t { button, field, choice, list, toggle, label, slider, dropdown, icon };
-        enum icon_control : int { field_icon_query = 8, command_icon_picker = 566, command_icon_default = 567, command_icon_back = 568, icon_source_first = 900, icon_first = 100000 };
+        enum icon_control : int { field_icon_query = 8, command_icon_picker = 566, command_icon_default = 567, command_icon_back = 568,
+            command_icon_folder = 572, command_icon_refresh = 573, command_slot_icon = 574, icon_source_first = 900, icon_first = 100000 };
         enum editor_control : int
         {
             field_query = 1, field_name = 2, field_label = 3, field_target = 4, field_icon = 5, field_path = 6, field_recast = 7,
@@ -212,7 +215,7 @@ namespace xiui
         };
         struct icon_picker_layout
         {
-            ui::rect search{}, list{}, scrollbar{}, details{}, back{}, defaults{};
+            ui::rect search{}, list{}, scrollbar{}, details{}, back{}, defaults{}, folder{}, refresh{};
             size_t rows{}, columns{};
         };
         struct editor_layout
@@ -266,6 +269,8 @@ namespace xiui
         std::vector<action_slot> results_{};
         std::string icon_query_{};
         std::vector<icon_entry> icon_catalog_{};
+        resources::custom_icon_library* custom_icons_{};
+        uint64_t custom_icon_revision_{UINT64_MAX};
         bool icon_catalog_game_ready_{};
         int icon_source_{};
         std::vector<size_t> icon_results_{};
@@ -392,6 +397,8 @@ namespace xiui
         auto RebuildIconResults(void) -> void;
         auto BuildIconCatalog(void) -> void;
         auto IconPickerLayout(void) const -> icon_picker_layout;
+        auto SyncCustomIconCatalog(void) -> void;
+        auto ActivateCustomIconControl(int id) -> bool;
         auto IconControls(void) const -> std::vector<control>;
         auto MoveIconControl(int, int) -> bool;
         auto ScrollIcons(int) -> void;

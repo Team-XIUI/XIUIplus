@@ -1,19 +1,11 @@
 #include "minimap_maps.hpp"
+#include "resources/wic_image.hpp"
 
 #include <algorithm>
 #include <cstring>
-#include <memory>
-#include <wincodec.h>
 #include "src/webp/decode.h"
 
 #pragma comment(lib, "ole32.lib")
-#pragma comment(lib, "windowscodecs.lib")
-
-namespace
-{
-    template<typename T> struct release_com { auto operator()(T* value) const -> void { if (value != nullptr) value->Release(); } };
-    template<typename T> using com_ptr = std::unique_ptr<T, release_com<T>>;
-}
 
 namespace xiui
 {
@@ -50,28 +42,7 @@ namespace xiui
                 image.pixels.size() * 4, width * 4) == nullptr) return {};
             return image;
         }
-        IWICImagingFactory* rawFactory{};
-        if (FAILED(::CoCreateInstance(CLSID_WICImagingFactory, nullptr, CLSCTX_INPROC_SERVER, IID_PPV_ARGS(&rawFactory)))) return {};
-        com_ptr<IWICImagingFactory> factory{rawFactory};
-        IWICStream* rawStream{};
-        if (FAILED(factory->CreateStream(&rawStream))) return {};
-        com_ptr<IWICStream> stream{rawStream};
-        if (FAILED(stream->InitializeFromMemory(const_cast<BYTE*>(bytes.data()), static_cast<DWORD>(bytes.size())))) return {};
-        IWICBitmapDecoder* rawDecoder{};
-        if (FAILED(factory->CreateDecoderFromStream(stream.get(), nullptr, WICDecodeMetadataCacheOnDemand, &rawDecoder))) return {};
-        com_ptr<IWICBitmapDecoder> decoder{rawDecoder};
-        IWICBitmapFrameDecode* rawFrame{};
-        if (FAILED(decoder->GetFrame(0, &rawFrame))) return {};
-        com_ptr<IWICBitmapFrameDecode> frame{rawFrame};
-        xiui::resources::menu_texture image{};
-        if (FAILED(frame->GetSize(&image.width, &image.height)) || image.width == 0 || image.width > 1024 || image.height != image.width) return {};
-        IWICFormatConverter* rawConverter{};
-        if (FAILED(factory->CreateFormatConverter(&rawConverter))) return {};
-        com_ptr<IWICFormatConverter> converter{rawConverter};
-        if (FAILED(converter->Initialize(frame.get(), GUID_WICPixelFormat32bppBGRA, WICBitmapDitherTypeNone, nullptr, 0, WICBitmapPaletteTypeCustom))) return {};
-        image.pixels.resize(size_t{image.width} * image.height);
-        if (FAILED(converter->CopyPixels(nullptr, image.width * 4, static_cast<UINT>(image.pixels.size() * 4), reinterpret_cast<BYTE*>(image.pixels.data())))) return {};
-        return image;
+        return resources::DecodeWicImage(bytes, 1024, true);
     }
 }
 

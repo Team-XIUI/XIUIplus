@@ -13,6 +13,7 @@ namespace xiui
         auto Inventories() const -> std::filesystem::path { return this->root / "inventories"; }
         auto Licenses() const -> std::filesystem::path { return this->root / "licenses"; }
         auto Sounds() const -> std::filesystem::path { return this->root / "sounds"; }
+        auto Icons() const -> std::filesystem::path { return this->root / "icons"; }
         auto Diagnostics() const -> std::filesystem::path { return this->root / "diagnostics"; }
     };
 

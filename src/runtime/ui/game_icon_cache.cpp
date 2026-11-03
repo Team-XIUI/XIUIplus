@@ -25,6 +25,9 @@ namespace xiui::ui
                 item.texture->Release();
         }
         this->items_.clear();
+        for (const auto& [key, icon] : this->custom_textures_)
+        { (void)key; if (icon.texture != nullptr) icon.texture->Release(); }
+        this->custom_textures_.clear();
         for (const auto& [id, texture] : this->atlases_)
         {
             (void)id;
@@ -50,6 +53,7 @@ namespace xiui::ui
 
     auto game_icon_cache::Shutdown(void) -> void
     {
+        this->custom_icons_.Shutdown();
         this->Clear();
         this->device_ = nullptr;
         this->resources_ = nullptr;
@@ -63,6 +67,13 @@ namespace xiui::ui
     auto game_icon_cache::ActionIcon(const std::string_view key) -> game_icon_view
     {
         if (key.empty()) return {};
+        if (key.starts_with("custom:"))
+        {
+            if (const auto found = this->custom_textures_.find(std::string{key}); found != this->custom_textures_.end())
+            { found->second.last_use = ++this->access_; return {found->second.texture}; }
+            this->custom_icons_.Request(key);
+            return {};
+        }
         std::string normalized{key};
         std::transform(normalized.begin(), normalized.end(), normalized.begin(), [](unsigned char c) { return c == '\\' ? '/' : static_cast<char>(std::tolower(c)); });
         if (normalized.ends_with(".png")) normalized.resize(normalized.size() - 4);
@@ -96,6 +107,44 @@ namespace xiui::ui
         return {this->Atlas(1100, resources::action_icon_width, resources::action_icon_height), {static_cast<float>((found->index % 56) * 36 + 2) / resources::action_icon_width,
             static_cast<float>((found->index / 56) * 36 + 2) / resources::action_icon_height,
             32.0f / resources::action_icon_width, 32.0f / resources::action_icon_height}};
+    }
+
+    auto game_icon_cache::UpdateCustomIcons(void) -> void
+    {
+        const auto generation = this->custom_icons_.Catalog().generation;
+        if (generation != this->custom_generation_)
+        {
+            for (const auto& [key, icon] : this->custom_textures_)
+            { (void)key; if (icon.texture != nullptr) icon.texture->Release(); }
+            this->custom_textures_.clear(); this->custom_generation_ = generation;
+        }
+        if (this->device_ == nullptr) return;
+        // Upload and evict only at the frame boundary, before texture draw commands exist.
+        for (auto& decoded : this->custom_icons_.TakeImages())
+        {
+            if (decoded.generation != generation || !decoded.image) continue;
+            if (this->custom_textures_.size() >= 512)
+            {
+                const auto oldest = std::min_element(this->custom_textures_.begin(), this->custom_textures_.end(),
+                    [](const auto& a, const auto& b) { return a.second.last_use < b.second.last_use; });
+                if (oldest->second.texture != nullptr) oldest->second.texture->Release();
+                this->custom_textures_.erase(oldest);
+            }
+            const auto& image = *decoded.image;
+            IDirect3DTexture8* texture{};
+            if (SUCCEEDED(this->device_->CreateTexture(image.width, image.height, 1, 0, D3DFMT_A8R8G8B8, D3DPOOL_MANAGED, &texture)))
+            {
+                D3DLOCKED_RECT locked{};
+                if (SUCCEEDED(texture->LockRect(0, &locked, nullptr, 0)))
+                {
+                    for (uint32_t y = 0; y < image.height; ++y)
+                        std::memcpy(static_cast<uint8_t*>(locked.pBits) + y * locked.Pitch, image.pixels.data() + size_t{y} * image.width, image.width * 4);
+                    if (FAILED(texture->UnlockRect(0))) { texture->Release(); texture = nullptr; }
+                }
+                else { texture->Release(); texture = nullptr; }
+            }
+            this->custom_textures_.emplace(std::move(decoded.key), entry{texture, ++this->access_});
+        }
     }
 
     auto game_icon_cache::Status(const uint32_t id) -> IDirect3DTexture8*

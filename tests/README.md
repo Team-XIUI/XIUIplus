@@ -73,6 +73,8 @@ Invoke-XiuiBuild -Targets xiui_satchel_ui_smoke,xiui_actionbars_ui_smoke
 ./bin/tests/xiui_actionbars_ui_smoke.exe --macro-editor-only
 ./bin/tests/xiui_actionbars_data_smoke.exe --japanese-names-only
 ./bin/tests/xiui_actionbars_ui_smoke.exe --crossbar-layout-only
+./bin/tests/xiui_custom_icon_smoke.exe
+./bin/tests/xiui_actionbars_ui_smoke.exe --custom-icons-only
 ```
 
 ## Standalone packaging

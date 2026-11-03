@@ -3,11 +3,17 @@
 #include "resources/custom_action_icons.hpp"
 #include "resources/action_icons.hpp"
 #include "chat/chat_encoding.hpp"
+#include "resources/custom_icon_library.hpp"
+#include "localization/localization.hpp"
+
+#include <shellapi.h>
 
 #include <algorithm>
 #include <cctype>
 #include <sstream>
 #include <charconv>
+
+#pragma comment(lib, "shell32.lib")
 
 namespace xiui
 {
@@ -16,7 +22,7 @@ namespace xiui
         constexpr float pitch = 52, tile = 48;
         auto Lower(std::string value) -> std::string
         {
-            std::transform(value.begin(), value.end(), value.begin(), [](const unsigned char c) { return static_cast<char>(std::tolower(c)); });
+            for (auto& c : value) if (c >= 'A' && c <= 'Z') c += 'a' - 'A';
             return value;
         }
     }
@@ -24,7 +30,7 @@ namespace xiui
     auto actionbars_module::BuildIconCatalog(void) -> void
     {
         const auto* gameResources = this->core_ != nullptr ? this->core_->GetResourceManager() : nullptr;
-        if (!this->icon_catalog_.empty() && (gameResources == nullptr || this->icon_catalog_game_ready_)) return;
+        if (!this->icon_catalog_.empty() && (gameResources == nullptr || this->icon_catalog_game_ready_)) { this->SyncCustomIconCatalog(); return; }
         this->icon_catalog_.clear();
         for (const auto& icon : resources::custom_action_icons)
             this->icon_catalog_.push_back({std::string{icon.key}, std::string{icon.label}, std::string{icon.category}, 3});
@@ -54,7 +60,8 @@ namespace xiui
             }
             this->icon_catalog_.push_back({std::string{icon.key}, label.empty() ? std::string{icon.key} : label, category, 2});
         }
-        if (gameResources == nullptr) return;
+        this->custom_icon_revision_ = UINT64_MAX;
+        if (gameResources == nullptr) { this->SyncCustomIconCatalog(); return; }
         for (uint32_t id = 1; id < 2048; ++id)
             if (const auto* spell = gameResources->GetSpellById(id); spell != nullptr)
                 if (auto label = name(spell->Name); !label.empty()) this->icon_catalog_.push_back({"game:spell:" + std::to_string(id), std::move(label), "Game spell", 1});
@@ -64,11 +71,58 @@ namespace xiui
         for (uint32_t id = 1; id < 65536; ++id)
             if (const auto* item = gameResources->GetItemById(id); item != nullptr)
                 if (auto label = name(item->Name); !label.empty()) this->icon_catalog_.push_back({"item:" + std::to_string(id), std::move(label), "Game item / equipment", 1});
+        this->SyncCustomIconCatalog();
+    }
+
+    auto actionbars_module::SyncCustomIconCatalog(void) -> void
+    {
+        if (this->custom_icons_ == nullptr) return;
+        const auto catalog = this->custom_icons_->Catalog();
+        if (catalog.revision == this->custom_icon_revision_) return;
+        std::string focused;
+        if (this->focused_control_ >= icon_first && static_cast<size_t>(this->focused_control_ - icon_first) < this->icon_catalog_.size())
+            focused = this->icon_catalog_[this->focused_control_ - icon_first].key;
+        std::erase_if(this->icon_catalog_, [](const auto& icon) { return icon.source == 4; });
+        for (const auto& icon : *catalog.entries)
+            this->icon_catalog_.push_back({icon.key, icon.label, icon.category, 4});
+        this->custom_icon_revision_ = catalog.revision;
+        if (this->dialog_ != dialog::icons) return;
+        const auto scroll = this->icon_scroll_;
+        this->RebuildIconResults();
+        if (!focused.empty())
+        {
+            this->focused_control_ = field_icon_query;
+            for (const auto index : this->icon_results_)
+                if (this->icon_catalog_[index].key == focused) { this->focused_control_ = icon_first + static_cast<int>(index); break; }
+        }
+        this->ScrollIcons(static_cast<int>(scroll));
+    }
+
+    auto actionbars_module::ActivateCustomIconControl(const int id) -> bool
+    {
+        if (id != command_icon_folder && id != command_icon_refresh) return false;
+        if (this->custom_icons_ == nullptr) return true;
+        if (id == command_icon_refresh) this->custom_icons_->Refresh();
+        else
+        {
+            std::error_code error;
+            const auto& directory = this->custom_icons_->Directory();
+            std::filesystem::create_directories(directory, error);
+            const auto owner = this->core_ && this->core_->GetProperties() ? this->core_->GetProperties()->GetFinalFantasyHwnd() : nullptr;
+            if (error || reinterpret_cast<INT_PTR>(::ShellExecuteW(owner, L"open", directory.c_str(), nullptr, nullptr, SW_SHOWNORMAL)) <= 32)
+                this->Notice("Could not open the custom icon folder.");
+        }
+        return true;
     }
 
     auto actionbars_module::OpenIconPicker(void) -> void
     {
         this->CommitField();
+        if (this->custom_icons_ != nullptr)
+        {
+            const auto catalog = this->custom_icons_->Catalog();
+            if (!catalog.scanned && !catalog.scanning) this->custom_icons_->Refresh();
+        }
         this->BuildIconCatalog();
         const auto selected = this->executor_ != nullptr ? this->executor_->SuggestedIcon(this->core_, this->draft_) : this->draft_.icon;
         if (const auto icon = std::find_if(this->icon_catalog_.begin(), this->icon_catalog_.end(), [&](const auto& entry) { return entry.key == selected; });
@@ -114,11 +168,14 @@ namespace xiui
     {
         const auto bounds = this->DialogBounds();
         icon_picker_layout result;
+        const float tools = this->icon_source_ == 4 ? 32.0f : 0;
         result.search = {bounds.x + 16, bounds.y + 86, bounds.width - 32, 28};
         result.columns = static_cast<size_t>(std::max(1, static_cast<int>((bounds.width - 48 + 4) / pitch)));
-        result.rows = static_cast<size_t>(std::max(1, static_cast<int>((bounds.height - 222 + 4) / pitch)));
+        result.rows = static_cast<size_t>(std::max(1, static_cast<int>((bounds.height - 222 - tools + 4) / pitch)));
         result.rows = std::min(result.rows, std::max<size_t>(1, 128 / result.columns));
-        result.list = {bounds.x + 16, bounds.y + 126, static_cast<float>(result.columns) * pitch - 4, static_cast<float>(result.rows) * pitch - 4};
+        result.list = {bounds.x + 16, bounds.y + 126 + tools, static_cast<float>(result.columns) * pitch - 4, static_cast<float>(result.rows) * pitch - 4};
+        result.folder = {bounds.x + 16, bounds.y + 122, 136, 26};
+        result.refresh = {bounds.x + 160, bounds.y + 122, 104, 26};
         result.scrollbar = {bounds.x + bounds.width - 24, result.list.y, 8, result.list.height};
         result.details = {bounds.x + 16, bounds.y + bounds.height - 84, bounds.width - 32, 28};
         result.defaults = {bounds.x + 16, bounds.y + bounds.height - 44, 192, 28};
@@ -130,10 +187,24 @@ namespace xiui
     {
         const auto layout = this->IconPickerLayout();
         std::vector<control> result{{field_icon_query, layout.search, this->icon_query_, {}, control_kind::field}};
-        constexpr const char* sources[]{"All", "Game", "XIUI+", "Vincerno"};
-        const auto bounds = this->DialogBounds(); const float width = (bounds.width - 50) / 4;
-        for (int source = 0; source < 4; ++source)
-            result.push_back({icon_source_first + source, {bounds.x + 16 + source * (width + 6), bounds.y + 50, width, 26}, sources[source], {}, control_kind::button, true, source == this->icon_source_});
+        constexpr const char* sources[]{"All", "Game", "XIUI+", "Vincerno", "Custom"};
+        const auto bounds = this->DialogBounds(); const float width = (bounds.width - 56) / 5;
+        for (int source = 0; source < 5; ++source)
+            result.push_back({icon_source_first + source, {bounds.x + 16 + source * (width + 6), bounds.y + 50, width, 26}, sources[source], {}, control_kind::button,
+                source != 4 || (this->custom_icons_ != nullptr && !this->custom_icons_->Directory().empty()), source == this->icon_source_});
+        if (this->icon_source_ == 4)
+        {
+            const auto catalog = this->custom_icons_ != nullptr ? this->custom_icons_->Catalog() : resources::custom_icon_catalog{};
+            result.push_back({command_icon_folder, layout.folder, "Open folder", "Add PNG files here, then choose Refresh. Subfolders are supported.", control_kind::button});
+            result.push_back({command_icon_refresh, layout.refresh, "Refresh", "Reload custom icons after adding, changing or removing PNG files.", control_kind::button, !catalog.scanning});
+            if (this->icon_results_.empty())
+            {
+                const char* message = catalog.scanning ? "Scanning custom icons..." :
+                    catalog.error == resources::custom_icon_scan_error::folder ? "Could not read the custom icon folder." :
+                    !this->icon_query_.empty() ? "No matching icons." : "Add PNG files using Open folder, then Refresh.";
+                result.push_back({label_first, {layout.list.x, layout.list.y, bounds.width - 48, 28}, message, {}, control_kind::label, false});
+            }
+        }
         const auto first = this->icon_scroll_ * layout.columns;
         const auto& icons = this->icon_catalog_;
         for (size_t offset = 0; offset < layout.rows * layout.columns && first + offset < this->icon_results_.size(); ++offset)
@@ -141,7 +212,9 @@ namespace xiui
             const auto index = this->icon_results_[first + offset]; const auto& icon = icons[index];
             const ui::rect cell{layout.list.x + static_cast<float>(offset % layout.columns) * pitch,
                 layout.list.y + static_cast<float>(offset / layout.columns) * pitch, tile, tile};
-            result.push_back({icon_first + static_cast<int>(index), cell, std::string{icon.key}, std::string{icon.label} + "  /  " + std::string{icon.category},
+            const auto category = icon.source == 4 && icon.category.empty() ? std::string{i18n::Text("Custom icons")} : icon.category;
+            const bool failed = icon.source == 4 && this->custom_icons_ != nullptr && this->custom_icons_->State(icon.key) == resources::custom_icon_state::failed;
+            result.push_back({icon_first + static_cast<int>(index), cell, std::string{icon.key}, failed ? std::string{i18n::Text("Could not load this PNG. Use an image up to 2048 x 2048 pixels and 8 MB.")} : std::string{icon.label} + "  /  " + category,
                 control_kind::icon, true, icon.key == this->draft_.icon});
         }
         result.push_back({command_icon_default, layout.defaults, "Automatic (from action)", {}, control_kind::button, true, this->draft_.icon.empty()});
@@ -180,6 +253,15 @@ namespace xiui
     auto actionbars_module::SelectIcon(const size_t index) -> void
     {
         if (index >= this->icon_catalog_.size()) return;
+        const auto& icon = this->icon_catalog_[index];
+        if (icon.source == 4 && this->custom_icons_ != nullptr)
+        {
+            const auto state = this->custom_icons_->State(icon.key);
+            if (state == resources::custom_icon_state::failed)
+            { this->Notice("Could not load this PNG. Use an image up to 2048 x 2048 pixels and 8 MB."); return; }
+            if (state != resources::custom_icon_state::ready)
+            { this->custom_icons_->Request(icon.key); this->Notice("The icon is still loading. Try again in a moment."); return; }
+        }
         this->draft_.icon = this->icon_catalog_[index].key;
         this->CloseIconPicker();
     }
@@ -187,7 +269,13 @@ namespace xiui
     auto actionbars_module::DrawIconPickerDetails(const module_render_context& context) const -> void
     {
         const auto layout = this->IconPickerLayout();
-        std::string text = this->icon_results_.empty() ? "No matching icons." : std::to_string(this->icon_results_.size()) + " icons";
+        std::string text = this->icon_results_.empty() ? i18n::Text("No matching icons.") : i18n::Format("%zu icons", this->icon_results_.size());
+        if (this->icon_source_ == 4 && this->custom_icons_ != nullptr)
+        {
+            const auto catalog = this->custom_icons_->Catalog();
+            if (catalog.scanning) text = i18n::Text("Scanning custom icons...");
+            else if (catalog.error == resources::custom_icon_scan_error::limit) text = i18n::Text("Custom icon limit reached. Keep up to 4096 PNG files.");
+        }
         const auto controls = this->IconControls();
         const auto focus = std::find_if(controls.begin(), controls.end(), [&](const auto& control) {
             if (control.kind != control_kind::icon) return false;

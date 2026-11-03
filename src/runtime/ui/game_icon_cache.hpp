@@ -4,6 +4,7 @@
 #include "design_system.hpp"
 #include "icon_themes.hpp"
 #include "pet_portraits.hpp"
+#include "resources/custom_icon_library.hpp"
 
 #include <unordered_map>
 
@@ -40,6 +41,8 @@ namespace xiui::ui
         auto NotificationAtlas(void) const -> IDirect3DTexture8* { return this->Atlas(203, 256, 64); }
         auto RecastAtlas(void) const -> IDirect3DTexture8*;
         auto ActionIcon(std::string_view key) -> game_icon_view;
+        auto CustomIcons(void) -> resources::custom_icon_library& { return this->custom_icons_; }
+        auto UpdateCustomIcons(void) -> void;
         auto MagicBurstElement(uint8_t element) const -> game_icon_view
         { return element < 8 ? game_icon_view{this->Atlas(1200, 1024, 512), {static_cast<float>(element % 4) / 4, static_cast<float>(element / 4) / 2, 0.25f, 0.5f}} : game_icon_view{}; }
 
@@ -54,6 +57,9 @@ namespace xiui::ui
         IDirect3DDevice8* device_{};
         uint64_t access_{};
         std::unordered_map<uint32_t, entry> items_{};
+        resources::custom_icon_library custom_icons_{};
+        std::unordered_map<std::string, entry> custom_textures_{};
+        uint64_t custom_generation_{};
         mutable std::unordered_map<uint16_t, IDirect3DTexture8*> atlases_{};
         int status_theme_{}, job_theme_{};
         auto Icon(uint32_t id, bool status) -> IDirect3DTexture8*;
