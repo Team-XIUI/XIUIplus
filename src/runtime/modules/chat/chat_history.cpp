@@ -14,6 +14,7 @@ namespace xiui
 {
     auto chat_module::HistoryLayout(const ui::design_system& design) const -> history_layout
     {
+        const auto transform = design.Transform(this->state_.transform);
         history_layout result{};
         const auto& viewport = this->history_view_.viewport;
         const float margin = std::min(16.0f, viewport.width * 0.02f);
@@ -263,10 +264,10 @@ namespace xiui
 
     auto chat_module::RenderHistory(const hud_snapshot& snapshot, const module_render_context& context) -> void
     {
-        const auto transform = context.Design().Transform(this->state_.transform);
         if (!this->HistoryExpanded()) return;
         if (!this->HistoryTabAvailable(this->history_view_.tab)) this->SelectHistoryTab(static_cast<size_t>(chat_history_tab::window1));
         this->SetHistoryViewport(context.Viewport());
+        const auto transform = context.Design().Transform(this->state_.transform);
         const auto layout = this->HistoryLayout(context.Design());
         this->DrawWindowContainer(context, layout.frame);
         auto label = this->chrome_; label.style.alignment = ui::text_alignment::center;

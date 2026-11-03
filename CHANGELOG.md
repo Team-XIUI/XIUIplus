@@ -2,6 +2,8 @@
 
 ## Unreleased
 
+- Keep expanded chat history on screen after moving or scaling compact chat, with matching channel-tab clicks and controller focus.
+
 ## 0.1.1-alpha — 2026-11-02
 
 - Allow Shift-drag to rearrange locked hotbar or crossbar assignments, including in Movement mode, and ordinary click-drag on unlocked bars.

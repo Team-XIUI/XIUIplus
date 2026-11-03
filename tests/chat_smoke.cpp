@@ -790,6 +790,46 @@ namespace xiui
             for (const auto& tab : layout.tabs)
                 Check(tab.x >= 0 && tab.x + tab.width <= 1600 && tab.y + tab.height < layout.frame.y,
                     "all channel tab hit areas fit above the expanded log");
+            {
+                const auto compactTransform = chat.State().transform;
+                const auto same = [](const ui::rect& a, const ui::rect& b) {
+                    return std::abs(a.x - b.x) < .01f && std::abs(a.y - b.y) < .01f &&
+                        std::abs(a.width - b.width) < .01f && std::abs(a.height - b.height) < .01f;
+                };
+                const auto inside = [](const ui::rect& outer, const ui::rect& inner) {
+                    return inner.x >= outer.x - .01f && inner.y >= outer.y - .01f &&
+                        inner.x + inner.width <= outer.x + outer.width + .01f && inner.y + inner.height <= outer.y + outer.height + .01f;
+                };
+                for (const auto viewport : {ui::rect{0, 0, 1600, 900}, ui::rect{40, 28, 960, 640}})
+                    for (const float scale : {.75f, 1.0f, 1.5f})
+                    {
+                        ui::rect baseline{};
+                        for (const auto position : {ui::point{-250, -100}, ui::point{1400, 800}, ui::point{5000, -3000}})
+                        {
+                            chat.State().bounds.x = position.x; chat.State().bounds.y = position.y;
+                            chat.State().transform = ui::hud_transform::At(position.x, position.y, scale, scale);
+                            chat.SetHistoryViewport(viewport);
+                            chat.RenderHistory({}, module_render_context{runtime.design_system_, nullptr, false, nullptr, viewport});
+                            const auto moved = chat.HistoryLayout(runtime.design_system_);
+                            const auto frame = chat.State().transform.Map(moved.frame);
+                            Check(same(chat.history_view_.viewport, chat.State().transform.Inverse(viewport)) && inside(viewport, frame),
+                                "expanded rendering converts the viewport once and keeps its full frame on screen");
+                            if (baseline.width == 0) baseline = frame;
+                            Check(same(frame, baseline) && same(chat.ControllerBounds(runtime.design_system_), frame),
+                                "moving compact chat never moves the expanded frame or its controller focus");
+                            for (const auto& tab : moved.tabs)
+                                if (tab.height > 0) Check(inside(viewport, chat.State().transform.Map(tab)), "expanded channel tabs stay on screen after moving chat");
+                            const auto say = chat.State().transform.Map(moved.tabs[static_cast<size_t>(chat_history_tab::say)]);
+                            bool save = false;
+                            Check(chat.HandleMouse(WM_LBUTTONDOWN, MK_LBUTTON, say.x + 2, say.y + 2, false, runtime.design_system_, viewport, save) &&
+                                chat.HandleMouse(WM_LBUTTONUP, 0, say.x + 2, say.y + 2, false, runtime.design_system_, viewport, save) &&
+                                chat.history_view_.tab == static_cast<size_t>(chat_history_tab::say) && !save,
+                                "moved-chat history tabs remain clickable at their rendered screen positions");
+                        }
+                    }
+                chat.State().bounds = initial; chat.State().transform = compactTransform;
+                chat.SetHistoryViewport({0, 0, 1600, 900}); chat.SelectHistoryTab(0);
+            }
             constexpr uint32_t modes[]{20, 20, 9, 12, 13, 14, 214, 222, 220, 212, 10, 15};
             for (size_t tab = 0; tab < std::size(chat_history_tabs); ++tab)
             {
