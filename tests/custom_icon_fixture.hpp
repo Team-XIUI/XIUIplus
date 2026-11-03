@@ -5,11 +5,20 @@
 #include <Windows.h>
 #include <chrono>
 #include <fstream>
+#include <iterator>
 #include <stdexcept>
 
 namespace xiui::tests
 {
     inline constexpr std::array<uint8_t, 71> icon_png{137,80,78,71,13,10,26,10,0,0,0,13,73,72,68,82,0,0,0,2,0,0,0,1,8,6,0,0,0,244,34,127,138,0,0,0,14,73,68,65,84,120,156,99,248,207,192,0,66,13,0,15,122,3,126,119,233,127,151,0,0,0,0,73,69,78,68,174,66,96,130};
+    inline constexpr const char* icon_format_files[]{"sample.jpg", "sample.bmp", "animated.gif", "pages.tiff", "sample.ico", "sample.webp"};
+
+    inline auto IconFormatImage(const char* name) -> std::vector<uint8_t>
+    {
+        std::ifstream file{std::filesystem::path{__FILE__}.parent_path() / "fixtures/custom-icons" / name, std::ios::binary};
+        if (!file) throw std::runtime_error{"Could not open custom icon format fixture"};
+        return {std::istreambuf_iterator<char>{file}, {}};
+    }
 
     template<typename Predicate>
     auto WaitForIcon(Predicate&& predicate) -> void

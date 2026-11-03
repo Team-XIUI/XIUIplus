@@ -272,7 +272,7 @@ set_target_properties(xiui_crossbar_input_smoke PROPERTIES RUNTIME_OUTPUT_DIRECT
 add_test(NAME xiui_crossbar_input_smoke COMMAND xiui_crossbar_input_smoke)
 
 add_executable(xiui_custom_icon_smoke tests/custom_icon_smoke.cpp
-    src/runtime/resources/custom_icon_library.cpp src/runtime/resources/wic_image.cpp)
+    src/runtime/resources/custom_icon_library.cpp src/runtime/resources/wic_image.cpp ${XIUI_WEBP_DECODER_SOURCES})
 configure_xiui_target(xiui_custom_icon_smoke)
 set_target_properties(xiui_custom_icon_smoke PROPERTIES RUNTIME_OUTPUT_DIRECTORY "${CMAKE_SOURCE_DIR}/bin/tests")
 add_test(NAME xiui_custom_icon_smoke COMMAND xiui_custom_icon_smoke)

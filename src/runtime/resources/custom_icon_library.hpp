@@ -38,7 +38,7 @@ namespace xiui::resources
         auto TakeImages(size_t limit = 4) -> std::vector<decoded_custom_icon>;
         auto Shutdown(void) -> void;
         static auto RelativePath(std::string_view key) -> std::optional<std::filesystem::path>;
-        static auto DecodePng(std::span<const uint8_t> bytes) -> std::optional<menu_texture>;
+        static auto DecodeImage(std::span<const uint8_t> bytes) -> std::optional<menu_texture>;
 
     private:
         mutable std::mutex mutex_{};

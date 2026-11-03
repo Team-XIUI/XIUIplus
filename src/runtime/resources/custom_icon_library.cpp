@@ -1,5 +1,6 @@
 #include "custom_icon_library.hpp"
 #include "wic_image.hpp"
+#include "src/webp/decode.h"
 
 #include <Windows.h>
 #include <objbase.h>
@@ -11,11 +12,12 @@ namespace
     namespace fs = std::filesystem;
     constexpr size_t file_limit = 8 * 1024 * 1024, catalog_limit = 4096;
     auto Utf8(const fs::path& path) -> std::string { const auto text = path.generic_u8string(); return {text.begin(), text.end()}; }
-    auto IsPng(const fs::path& path) -> bool
+    auto SupportedImage(const fs::path& path) -> bool
     {
         auto extension = path.extension().wstring();
         for (auto& c : extension) if (c >= L'A' && c <= L'Z') c += L'a' - L'A';
-        return extension == L".png";
+        constexpr std::wstring_view extensions[]{L".png", L".jpg", L".jpeg", L".bmp", L".gif", L".tif", L".tiff", L".ico", L".webp"};
+        return std::find(std::begin(extensions), std::end(extensions), extension) != std::end(extensions);
     }
     auto Inside(const fs::path& root, const fs::path& path) -> bool
     {
@@ -33,7 +35,7 @@ namespace
         std::ifstream file{path, std::ios::binary};
         std::vector<uint8_t> bytes(static_cast<size_t>(size));
         if (!file.read(reinterpret_cast<char*>(bytes.data()), static_cast<std::streamsize>(bytes.size()))) return {};
-        return xiui::resources::custom_icon_library::DecodePng(bytes);
+        return xiui::resources::custom_icon_library::DecodeImage(bytes);
     }
     auto Scan(const fs::path& directory, const std::stop_token stop, xiui::resources::custom_icon_scan_error& error) -> std::vector<xiui::resources::custom_icon_entry>
     {
@@ -50,7 +52,7 @@ namespace
             if (attributes == INVALID_FILE_ATTRIBUTES || (attributes & FILE_ATTRIBUTE_REPARSE_POINT) != 0 || it.depth() >= 16)
             { it.disable_recursion_pending(); continue; }
             std::error_code statusError;
-            if (!it->is_regular_file(statusError) || statusError || !IsPng(it->path())) continue;
+            if (!it->is_regular_file(statusError) || statusError || !SupportedImage(it->path())) continue;
             const auto relative = it->path().lexically_relative(root);
             const auto key = "custom:" + Utf8(relative);
             if (!xiui::resources::custom_icon_library::RelativePath(key)) continue;
@@ -71,18 +73,41 @@ namespace xiui::resources
         try
         {
             const auto path = fs::u8path(name);
-            if (path.is_absolute() || path.has_root_name() || path.has_root_directory() || !IsPng(path)) return {};
+            if (path.is_absolute() || path.has_root_name() || path.has_root_directory() || !SupportedImage(path)) return {};
             for (const auto& part : path) if (part == L".." || part == L"." || part.empty()) return {};
             return path;
         }
         catch (...) { return {}; }
     }
 
-    auto custom_icon_library::DecodePng(const std::span<const uint8_t> bytes) -> std::optional<menu_texture>
+    auto custom_icon_library::DecodeImage(const std::span<const uint8_t> bytes) -> std::optional<menu_texture>
     {
-        constexpr std::array<uint8_t, 8> signature{137, 80, 78, 71, 13, 10, 26, 10};
-        if (bytes.size() > file_limit || bytes.size() < signature.size() || !std::equal(signature.begin(), signature.end(), bytes.begin())) return {};
-        return DecodeWicImage(bytes, 2048, false, 128);
+        if (bytes.empty() || bytes.size() > file_limit) return {};
+        if (bytes.size() < 12 || std::memcmp(bytes.data(), "RIFF", 4) != 0 || std::memcmp(bytes.data() + 8, "WEBP", 4) != 0)
+            return DecodeWicImage(bytes, 2048, false, 128);
+        WebPDecoderConfig config{};
+        if (!WebPInitDecoderConfig(&config) || WebPGetFeatures(bytes.data(), bytes.size(), &config.input) != VP8_STATUS_OK ||
+            config.input.width <= 0 || config.input.height <= 0 || config.input.width > 2048 || config.input.height > 2048 || config.input.has_animation) return {};
+        constexpr uint32_t side = 128;
+        const auto longest = std::max(config.input.width, config.input.height);
+        const auto width = static_cast<uint32_t>(std::max(1, config.input.width * static_cast<int>(side) / longest));
+        const auto height = static_cast<uint32_t>(std::max(1, config.input.height * static_cast<int>(side) / longest));
+        menu_texture image{width, height, {}};
+        image.pixels.resize(size_t{width} * height);
+        config.options.use_scaling = 1;
+        config.options.scaled_width = static_cast<int>(width); config.options.scaled_height = static_cast<int>(height);
+        config.output.colorspace = MODE_BGRA; config.output.is_external_memory = 1;
+        config.output.u.RGBA.rgba = reinterpret_cast<uint8_t*>(image.pixels.data());
+        config.output.u.RGBA.stride = static_cast<int>(width * 4); config.output.u.RGBA.size = image.pixels.size() * 4;
+        const auto status = WebPDecode(bytes.data(), bytes.size(), &config);
+        WebPFreeDecBuffer(&config.output);
+        if (status != VP8_STATUS_OK) return {};
+        menu_texture fitted{side, side, {}};
+        fitted.pixels.resize(size_t{side} * side);
+        const uint32_t x = (side - width) / 2, y = (side - height) / 2;
+        for (uint32_t row = 0; row < height; ++row)
+            std::copy_n(image.pixels.data() + size_t{row} * width, width, fitted.pixels.data() + size_t{row + y} * side + x);
+        return fitted;
     }
 
     auto custom_icon_library::SetDirectory(fs::path directory) -> void

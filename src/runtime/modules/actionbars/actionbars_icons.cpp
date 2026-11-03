@@ -195,13 +195,13 @@ namespace xiui
         if (this->icon_source_ == 4)
         {
             const auto catalog = this->custom_icons_ != nullptr ? this->custom_icons_->Catalog() : resources::custom_icon_catalog{};
-            result.push_back({command_icon_folder, layout.folder, "Open folder", "Add PNG files here, then choose Refresh. Subfolders are supported.", control_kind::button});
-            result.push_back({command_icon_refresh, layout.refresh, "Refresh", "Reload custom icons after adding, changing or removing PNG files.", control_kind::button, !catalog.scanning});
+            result.push_back({command_icon_folder, layout.folder, "Open folder", "Add PNG, JPEG, BMP, GIF, TIFF, ICO or WebP images, then choose Refresh. Subfolders are supported.", control_kind::button});
+            result.push_back({command_icon_refresh, layout.refresh, "Refresh", "Reload custom icons after adding, changing or removing image files.", control_kind::button, !catalog.scanning});
             if (this->icon_results_.empty())
             {
                 const char* message = catalog.scanning ? "Scanning custom icons..." :
                     catalog.error == resources::custom_icon_scan_error::folder ? "Could not read the custom icon folder." :
-                    !this->icon_query_.empty() ? "No matching icons." : "Add PNG files using Open folder, then Refresh.";
+                    !this->icon_query_.empty() ? "No matching icons." : "Add image files using Open folder, then Refresh.";
                 result.push_back({label_first, {layout.list.x, layout.list.y, bounds.width - 48, 28}, message, {}, control_kind::label, false});
             }
         }
@@ -214,7 +214,7 @@ namespace xiui
                 layout.list.y + static_cast<float>(offset / layout.columns) * pitch, tile, tile};
             const auto category = icon.source == 4 && icon.category.empty() ? std::string{i18n::Text("Custom icons")} : icon.category;
             const bool failed = icon.source == 4 && this->custom_icons_ != nullptr && this->custom_icons_->State(icon.key) == resources::custom_icon_state::failed;
-            result.push_back({icon_first + static_cast<int>(index), cell, std::string{icon.key}, failed ? std::string{i18n::Text("Could not load this PNG. Use an image up to 2048 x 2048 pixels and 8 MB.")} : std::string{icon.label} + "  /  " + category,
+            result.push_back({icon_first + static_cast<int>(index), cell, std::string{icon.key}, failed ? std::string{i18n::Text("Could not load this image. Maximum size: 2048 x 2048 pixels and 8 MB.")} : std::string{icon.label} + "  /  " + category,
                 control_kind::icon, true, icon.key == this->draft_.icon});
         }
         result.push_back({command_icon_default, layout.defaults, "Automatic (from action)", {}, control_kind::button, true, this->draft_.icon.empty()});
@@ -258,7 +258,7 @@ namespace xiui
         {
             const auto state = this->custom_icons_->State(icon.key);
             if (state == resources::custom_icon_state::failed)
-            { this->Notice("Could not load this PNG. Use an image up to 2048 x 2048 pixels and 8 MB."); return; }
+            { this->Notice("Could not load this image. Maximum size: 2048 x 2048 pixels and 8 MB."); return; }
             if (state != resources::custom_icon_state::ready)
             { this->custom_icons_->Request(icon.key); this->Notice("The icon is still loading. Try again in a moment."); return; }
         }
@@ -274,7 +274,7 @@ namespace xiui
         {
             const auto catalog = this->custom_icons_->Catalog();
             if (catalog.scanning) text = i18n::Text("Scanning custom icons...");
-            else if (catalog.error == resources::custom_icon_scan_error::limit) text = i18n::Text("Custom icon limit reached. Keep up to 4096 PNG files.");
+            else if (catalog.error == resources::custom_icon_scan_error::limit) text = i18n::Text("Custom icon limit reached. Keep up to 4096 image files.");
         }
         const auto controls = this->IconControls();
         const auto focus = std::find_if(controls.begin(), controls.end(), [&](const auto& control) {
