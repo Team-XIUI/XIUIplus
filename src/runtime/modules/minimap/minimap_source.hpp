@@ -29,6 +29,7 @@ namespace xiui
         std::array<party_position, 18> party_positions_{};
         uint64_t next_party_request_{};
         std::optional<int> floor_{};
+        auto InitializeFloorLookup(uintptr_t base, size_t size) -> void;
         auto Floor(float x, float height, float y) const -> std::optional<int>;
         auto SelectMap(uint16_t zone, uint64_t now, float x, float height, float y) -> const native_map_record*;
     };

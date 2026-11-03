@@ -4,6 +4,7 @@
 #include "ui/contour.hpp"
 
 #include <cmath>
+#include <cstring>
 #include <cstdio>
 #include <stdexcept>
 
@@ -17,6 +18,42 @@ namespace xiui
 {
     struct minimap_checks
     {
+        static auto CheckFloorLookup(void) -> void
+        {
+            std::array<uint8_t, 256> image{};
+            const auto base = reinterpret_cast<uintptr_t>(image.data());
+            constexpr std::array<uint8_t, 20> function{{0x8B, 0x54, 0x24, 0x08, 0x56, 0x8D, 0x44, 0x24, 0x10, 0x8B,
+                0xF1, 0x8B, 0x4C, 0x24, 0x10, 0x50, 0x8B, 0x44, 0x24, 0x0C}};
+            constexpr std::array<uint8_t, 14> caller{{0x8B, 0x0D, 0, 0, 0, 0, 0x56, 0x50, 0x57, 0xE8}};
+            std::copy(function.begin(), function.end(), image.begin() + 32);
+            std::copy(caller.begin(), caller.end(), image.begin() + 128);
+            const uintptr_t pointer = base + 248;
+            int32_t relative = 32 - (128 + 14);
+            std::memcpy(image.data() + 130, &pointer, sizeof(pointer));
+            std::memcpy(image.data() + 138, &relative, sizeof(relative));
+            minimap_source source;
+            source.InitializeFloorLookup(base, image.size());
+            Check(source.floor_function_ == base + 32 && source.terrain_pointer_ == pointer,
+                "floor discovery does not require client-specific instructions after the floor call or function prologue");
+            ++relative;
+            std::memcpy(image.data() + 138, &relative, sizeof(relative));
+            source.InitializeFloorLookup(base, image.size());
+            Check(source.floor_function_ == 0 && source.terrain_pointer_ == 0,
+                "floor discovery rejects a caller that does not target the verified function and clears stale addresses");
+            --relative;
+            std::memcpy(image.data() + 138, &relative, sizeof(relative));
+            const uintptr_t outside = base + image.size() - 1;
+            std::memcpy(image.data() + 130, &outside, sizeof(outside));
+            source.InitializeFloorLookup(base, image.size());
+            Check(source.floor_function_ == 0 && source.terrain_pointer_ == 0,
+                "floor discovery requires the complete terrain pointer inside the module");
+            std::memcpy(image.data() + 130, &pointer, sizeof(pointer));
+            std::copy(function.begin(), function.end(), image.begin() + 64);
+            source.InitializeFloorLookup(base, image.size());
+            Check(source.floor_function_ == 0 && source.terrain_pointer_ == 0,
+                "floor discovery still rejects ambiguous function signatures");
+        }
+
         static auto CheckSourceCache(const std::span<const native_map_record> records) -> void
         {
             minimap_source source; source.records_.assign(records.begin(), records.end());
@@ -62,6 +99,7 @@ auto RunMinimapChecks(void) -> bool
     using namespace xiui;
     try
     {
+        minimap_checks::CheckFloorLookup();
         const std::array<native_map_record, 6> records{{
             {100, 0, 1, 0, 1, 1, 0, 1, -312, -248},
             {238, 1, 1, 0, 4, 3, 0, 189, -240, -328},
@@ -166,6 +204,10 @@ auto RunMinimapChecks(void) -> bool
             !maps.Acquire(100, 0, false).enhanced && maps.Acquire(1, 0, true).known && !maps.Acquire(1, 0, true).enhanced &&
             !maps.Acquire(999, 0, true).known && !maps.Acquire(184, 99, true).known,
             "both embedded sets resolve by native floor ID with a regular fallback and no stale-map substitution");
+        Check(maps.Acquire(196, 1, true).known && maps.Acquire(196, 15, true).known &&
+            maps.Acquire(196, 16, true).known && maps.Acquire(196, 17, true).known &&
+            maps.Acquire(196, 14, true).known && !maps.Acquire(196, 14, true).enhanced,
+            "all five native Gusgen Mines floors have embedded artwork, including the regular-only floor fallback");
         for (int repeat = 0; repeat < 3; ++repeat)
             Check(!maps.Acquire(184, 99, true).known && maps.Acquire(184, 15, true).enhanced &&
                 !maps.Acquire(184, 15, false).enhanced && maps.Acquire(100, 0, true).enhanced,

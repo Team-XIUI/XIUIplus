@@ -77,11 +77,18 @@ namespace xiui
             }
             if (!complete) this->records_.clear();
         }
-        const auto caller = find("8B0D????????565057E8????????568D4C240C578D542412515250A1????????8B8850C3030051E8");
-        const auto function = find("8B542408568D4424108BF18B4C2410508B44240C68000020415152508BCEE8????????84C0750633C05EC20C00");
+        this->InitializeFloorLookup(base, size);
+    }
+
+    auto minimap_source::InitializeFloorLookup(const uintptr_t base, const size_t size) -> void
+    {
+        this->floor_function_ = this->terrain_pointer_ = 0;
+        // Match the floor call itself, independently of the native map display and collision implementation.
+        const auto caller = FindUniquePattern(base, size, "8B0D????????565057E8????????");
+        const auto function = FindUniquePattern(base, size, "8B542408568D4424108BF18B4C2410508B44240C");
         int32_t relative{}; uintptr_t pointer{};
         if (caller != 0 && function != 0 && Read(caller + 10, relative) && caller + 14 + relative == function &&
-            Read(caller + 2, pointer) && inside(pointer, 4))
+            Read(caller + 2, pointer) && size >= sizeof(uintptr_t) && pointer >= base && pointer - base <= size - sizeof(uintptr_t))
         { this->floor_function_ = function; this->terrain_pointer_ = pointer; }
     }
 

@@ -12,6 +12,8 @@ Default zoom is 4×. A versioned migration updates the old 3× starting value on
 
 **Keep intact:** Keep native zone/floor IDs and named option/INI identities stable. Decode asynchronously through the bounded cache. Burnt outlines and marker/cone hit tests must avoid repeated expensive distance work. Do not regenerate map assets for routine rendering changes.
 
+Dungeon floors use the native terrain lookup. Discovery matches the floor call and function prologue without depending on surrounding map-display code; both signatures must be unique, the call must target that function, and the terrain pointer must remain inside the client module. Map ownership and AllMaps do not gate the embedded artwork.
+
 **Focused check:** `./scripts/check.ps1 -Name minimap`.
 
 Hovering the visible map claims shared pointer capture for scroll-wheel zoom. Use the same shape/contour hit test for hover and wheel input; captions and transparent corners leave native input available.
