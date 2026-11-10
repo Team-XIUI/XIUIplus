@@ -42,7 +42,7 @@ Installation and build instructions are in [Development](development.md). For so
 - Live theme reload without compilation
 - C++ renderer hot reload without unloading the Ashita plugin
 - Persisted layout and settings
-- [XIUI+ Lua profile import](reference/lua-profile-import.md) through the profile three-dot menu → Import profile → XIUI+ Lua, with preview and new-profile creation
+- [XIUI, tHotBar and tCrossBar action import](reference/actionbars.md#importing) through Action Bars → Import, for macros and hotbar/crossbar palettes only
 - Per-element native game HUD visibility controls, independent of XIUI+ module visibility
 - Explicit Direct3D8 state capture and restoration
 
@@ -60,7 +60,7 @@ Existing installations migrate automatically when XIUI+ loads. Existing files in
 
 Open the three-dot menu beside the profile selector and choose **Share profile → Save file**. Attach the saved `.xiuiplus` file in Discord or another message. It includes your layout and module settings; character bindings, session totals and local controller-device settings stay private.
 
-To use a shared file, choose **Import profile → Choose file**, select the `.xiuiplus` or older `.xiui` file, choose a name and click **Import**. This creates and selects a separate profile while keeping your existing profiles. **Ctrl+O** opens the file chooser. **Paste old key** or **Ctrl+V** still accepts previously shared keys. Legacy XIUI Lua imports remain on the **XIUI Lua** tab.
+To use a shared file, choose **Import profile → Choose file**, select the `.xiuiplus` or older `.xiui` file, choose a name and click **Import**. This creates and selects a separate profile while keeping your existing profiles. **Ctrl+O** opens the file chooser. **Paste old key** or **Ctrl+V** still accepts previously shared keys. Import legacy XIUI macros and palettes separately through **Action Bars → Import**.
 
 File selection and processing run in the background. The dialog shows its status and keeps Cancel available; cancelling an import leaves your current profile untouched. File selection uses Windows mouse/keyboard controls. Large profiles use files instead of generating long clipboard keys.
 
@@ -78,7 +78,7 @@ File selection and processing run in the background. The dialog shows its status
 - `/xiuiplus controller` — open General → Input; `controller status` prints device and mapping observations
 - `/xiuiplus chat` — configure the Chat module; `chat show|hide|clear|status` controls it
 - `/xiuiplus compass` — configure and move the compass
-- `/xiuiplus extras` — configure Compass, World Info and Commands
+- `/xiuiplus extras` — configure Compass, World Info and other XIUI+ extras
 - `/xiuiplus chains` — configure the separate skillchain timing and follow-up display
 - `/xiuiplus chains status` — report Chains tracking and available actions
 - `/xiuiplus exp` — configure EXP, session rates, readouts, chains, goals, status and alerts
@@ -107,7 +107,9 @@ File selection and processing run in the background. The dialog shows its status
 - `/xiuiplus theme xiv1` / `/xiuiplus theme xi` — switch XIUI+'s theme while keeping saved layouts; `theme native` remains an alias for XI Theme
 - `/xiuiplus theme 1` through `/xiuiplus theme 8` — change Window Type; applies only to XIUI+ when Follow game is off
 - `/xiuiplus general` — configure native game HUD visibility
-- `/xiuiplus gamehud` — configure native game HUD visibility
+- `/xiuiplus nativeui edit` — edit the actual game-rendered native UI
+- `/xiuiplus nativeui reset` — restore all native HUD/menu positions while keeping visibility choices
+- `/xiuiplus gamehud` — open Native UI → HUD Windows
 - `/xiuiplus gamehud show all` — restore every native HUD element
 - `/xiuiplus gamehud hide all` — hide every supported native HUD element
 - `/xiuiplus gamehud status` — report native visibility support and active hides
@@ -145,7 +147,9 @@ Notifications preview in edit mode. **Screen anchor** keeps live rewards left of
 
 EXP includes native implementations of [Momentum's EXP features](https://github.com/KiplingFFXI/momentum): configurable rates and ETAs, session pause/reset/history, reward and loss statistics, merit tracking, chain bonuses/countdowns, goals, food/Dedication and EXP rings, Level Sync details and optional alerts. **Display** chooses and orders the additional fields and arranges the bar; **Tracking** groups rates, goals and sync planning. **General** includes pause/reset. The job readout shows main job/subjob and both levels. Added readouts use the normal bright HUD text with its gradient, outline and shadow. Rates need one active minute. Chain estimates use `~`; server-only values stay unknown without a validated status report. Existing bar styles, text effects and saved positions are retained. Dynamis remains outside the EXP module.
 
-**Extras → Commands → General → Window anchor** offers Top or Bottom for the native command window and its connected spell, ability and detail panels. Each panel keeps that edge aligned as its height changes. Existing profiles default to Bottom.
+**Native UI** groups the game's built-in HUD Windows, overhead names, macro palette controls and native menus/dialogs. Menus and Dialogs has separate pages for commands, spells/abilities, item details, merchants, auctions, bazaar comments, equipment/inspection, macro palettes and other dialogs. Existing command-menu positions and Top/Bottom anchors remain compatible; each group can now have an independent position.
+
+With Edit Mode on, the compact right-edge two-icon selector selects **XIUI Edit Mode** or **Native UI Edit Mode**. Native mode reveals the actual game-rendered HUD and outlines its active native windows. Drag supported outlines and use Show/Hide, or use controller Utilities and the movement picker. A window hidden with the editor keeps its native-position outline so it can be restored. Closed menus appear when the game opens them. Reset position clears custom placement while keeping visibility. Native clock/compass placement is unavailable when the client supplies no supported position control. [Native UI details](reference/game-hud.md).
 
 **Action Bars → Hotbars → Keybinds** and **Crossbar → Keybinds** open a slot list directly from the sidebar. Hotbars places it below Actions; Crossbar places it below Controller Setup. The bar menu and `/xiuiplus keybinds` open it too. Select a hotbar binding and press a key combination, or choose a crossbar slot's controller mapping. Clear removes the binding while retaining its action. See [Keybinds](reference/actionbars.md#keybinds).
 

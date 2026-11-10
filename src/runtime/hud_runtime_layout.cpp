@@ -35,7 +35,7 @@ namespace xiui
 
     auto hud_runtime::ProcessConfigScrollbarClick(void) -> bool
     {
-        const float x = static_cast<float>(this->mouse_x_), y = static_cast<float>(this->mouse_y_);
+        const float x = this->ConfigMouseX(), y = this->ConfigMouseY();
         const auto sidebar = this->ConfigSidebarScrollbar();
         const bool side = sidebar.Visible() && Contains(sidebar.track, x, y);
         const auto scrollbar = side ? sidebar : this->ConfigScrollbar();
@@ -68,10 +68,10 @@ namespace xiui
         if (!scrollbar.Visible()) return;
         if (this->config_.sidebar_scrolling)
         {
-            this->config_.sidebar_animation.scroll = static_cast<float>(scrollbar.PositionAt(static_cast<float>(this->mouse_y_), this->config_.scrollbar_grab));
+            this->config_.sidebar_animation.scroll = static_cast<float>(scrollbar.PositionAt(this->ConfigMouseY(), this->config_.scrollbar_grab));
             return;
         }
-        this->config_.scroll = scrollbar.PositionAt(static_cast<float>(this->mouse_y_), this->config_.scrollbar_grab) * (this->IsXIUIContributors() ? 1 : this->ConfigLayout().Columns());
+        this->config_.scroll = scrollbar.PositionAt(this->ConfigMouseY(), this->config_.scrollbar_grab) * (this->IsXIUIContributors() ? 1 : this->ConfigLayout().Columns());
         this->ClampOptionScroll();
     }
 
@@ -83,13 +83,14 @@ namespace xiui
             const bool dragging = this->interaction_ == interaction::option_scrollbar && this->config_.sidebar_scrolling == side;
             const bool hovered = this->interaction_ == interaction::none && !this->config_.choice_input.Opened() && !this->profile_name_.Focused() &&
                 !this->profile_dropdown_ && !this->profile_actions_ && !this->config_.header_menu_open &&
-                Contains(scrollbar.track, static_cast<float>(this->mouse_x_), static_cast<float>(this->mouse_y_));
+                Contains(scrollbar.track, this->ConfigMouseX(), this->ConfigMouseY());
             this->config_controls_.Scrollbar(scrollbar, hovered, dragging);
         }
     }
 
     auto hud_runtime::LayoutBounds(const hud_module& module) const -> rect
     {
+        if (this->NativeWindowIndex(module) < native_window_count) return module.State().bounds;
         const auto* chat = &module == &this->chat_ ? &this->chat_ : &module == &this->chat_second_ ? &this->chat_second_ : nullptr;
         if (chat != nullptr) return chat->VisualBounds(this->design_system_);
         const auto* party = &module == &this->party_ ? &this->party_ : &module == &this->alliance_first_ ? &this->alliance_first_ : &module == &this->alliance_second_ ? &this->alliance_second_ : nullptr;
@@ -125,6 +126,11 @@ namespace xiui
 
     auto hud_runtime::MovementSelectionModule(void) const -> hud_module*
     {
+        if (this->NativeEditMode())
+        {
+            if (this->config_.module == &this->commands_) return this->commands_.SelectedWindow();
+            if (this->config_.module == &this->game_hud_) return this->game_hud_.SelectedWindow();
+        }
         if (this->config_.basic) return this->config_.layout_selection;
         if (this->config_.module == &this->target_ && this->target_.ConfigView() == 1) return const_cast<target_child_module*>(&this->target_recipient_);
         if (this->config_.module == &this->target_ && this->target_.ConfigView() == 2) return const_cast<target_child_module*>(&this->subtarget_);
@@ -213,7 +219,7 @@ namespace xiui
             if (button.width <= 0) continue;
             const bool hovered = this->interaction_ == interaction::none && !Contains(this->ConfigVisibleBounds(), static_cast<float>(this->mouse_x_), static_cast<float>(this->mouse_y_)) &&
                 !this->ProfileSurface(viewport) && !this->config_.choice_input.Opened() &&
-                (this->config_.active_color == nullptr || !Contains(this->ConfigLayout().ColorEditor(viewport), static_cast<float>(this->mouse_x_), static_cast<float>(this->mouse_y_))) &&
+                (this->config_.active_color == nullptr || !Contains(this->ConfigColorBounds(viewport), static_cast<float>(this->mouse_x_), static_cast<float>(this->mouse_y_))) &&
                 Contains(button, static_cast<float>(this->mouse_x_), static_cast<float>(this->mouse_y_));
             const bool resize = this->MovementSelectionModule()->EditGrip() == edit_grip_kind::resize;
             if (index == 2) this->config_controls_.Button(button, resize ? i18n::Text("Resize") : i18n::Text("Scale"), style, hovered);

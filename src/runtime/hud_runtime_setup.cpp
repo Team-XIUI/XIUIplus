@@ -159,6 +159,23 @@ namespace xiui
         return items;
     }
 
+    auto hud_runtime::ApplySetupNativeVisibility(const hud_module& module) -> void
+    {
+        const auto shown = [&](const native_hud_element element, const bool visible) {
+            this->game_hud_.SetWindowShown(static_cast<size_t>(element), visible);
+        };
+        const bool enabled = module.State().enabled;
+        if (&module == &this->party_ && enabled) this->general_.SetPartyEnabled(true);
+        if (&module == &this->player_) shown(native_hud_element::player, !enabled);
+        if (&module == &this->target_) shown(native_hud_element::target, !enabled);
+        if (&module == &this->player_ || &module == &this->party_)
+            shown(native_hud_element::party, !this->player_.State().enabled || !this->party_.State().enabled || !this->general_.PartyEnabled());
+        if (&module == &this->chat_)
+            for (const auto element : {native_hud_element::chat1, native_hud_element::chat2, native_hud_element::chatlog}) shown(element, !enabled);
+        if (&module == &this->cast_bar_) shown(native_hud_element::castbar, !enabled);
+        if (&module == &this->buffs_) shown(native_hud_element::status, !enabled);
+    }
+
     auto hud_runtime::ActivateSetup(const ui::setup_control control) -> void
     {
         using item = ui::setup_control;
@@ -170,7 +187,11 @@ namespace xiui
             if (control == item::back && this->setup_.step == 0) return;
             if (control == item::next && this->setup_.step == 3 && this->chat_.State().enabled)
                 if (const auto layout = this->chat_.WindowLayout()) this->chat_.SetWindowLayout(*layout, this->window_config_.ChatWindowCount());
-            if (control == item::next && this->setup_.step >= 2 && this->setup_.step < 8) this->setup_.revealed |= 1u << (this->setup_.step - 2);
+            if (control == item::next && this->setup_.step >= 2 && this->setup_.step < 8)
+            {
+                this->setup_.revealed |= 1u << (this->setup_.step - 2);
+                this->ApplySetupNativeVisibility(*this->SetupModule());
+            }
             this->setup_.step = control == item::next ? std::min(size_t{8}, this->setup_.step + 1) : this->setup_.step - 1;
             this->setup_.focus = item::next;
         }
@@ -187,20 +208,12 @@ namespace xiui
             const bool enabled = control == item::enable;
             this->setup_.revealed |= 1u << (this->setup_.step - 2);
             module->State().enabled = enabled;
-            if (module == &this->player_) this->game_hud_.SetShown("player", !enabled);
-            if (module == &this->target_) this->game_hud_.SetShown("target", !enabled);
-            if (module == &this->party_)
-            {
-                if (enabled) this->general_.SetPartyEnabled(true);
-            }
-            if (module == &this->player_ || module == &this->party_)
-                this->game_hud_.SetShown("party", !this->player_.State().enabled || !this->party_.State().enabled || !this->general_.PartyEnabled());
             if (module == &this->chat_)
             {
                 if (enabled)
                     if (const auto layout = this->chat_.WindowLayout()) this->chat_.SetWindowLayout(*layout, this->window_config_.ChatWindowCount());
-                for (const auto* key : {"chat1", "chat2", "chatlog"}) this->game_hud_.SetShown(key, !enabled);
             }
+            this->ApplySetupNativeVisibility(*module);
         }
         else if (control >= item::castbar && control <= item::hotbars)
         {
@@ -210,12 +223,11 @@ namespace xiui
             const uint32_t bit = 1u << (index + 6);
             module->State().enabled = (this->setup_.revealed & bit) == 0 || !module->State().enabled;
             this->setup_.revealed |= bit;
-            if (control == item::castbar) this->game_hud_.SetShown("castbar", !module->State().enabled);
             if (control == item::buffs)
             {
                 this->debuffs_.State().enabled = module->State().enabled;
-                this->game_hud_.SetShown("status", !module->State().enabled);
             }
+            this->ApplySetupNativeVisibility(*module);
         }
         this->ui_sounds_.Select(::GetTickCount64());
         this->SaveSettings();
@@ -223,7 +235,9 @@ namespace xiui
 
     auto hud_runtime::FinishSetup(const bool settings) -> void
     {
-        if ((this->setup_.revealed & 1u) != 0 && !this->player_.State().enabled) this->game_hud_.SetShown("party", true);
+        const auto modules = this->SetupModules();
+        for (size_t index = 0; index < modules.size(); ++index)
+            if ((this->setup_.revealed & (1u << index)) != 0) this->ApplySetupNativeVisibility(*modules[index]);
         this->setup_.pending = this->setup_.open = false;
         this->setup_.pressed = ui::setup_control::none;
         ++this->controller_input_revision_;

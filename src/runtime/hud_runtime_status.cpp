@@ -129,7 +129,7 @@ namespace xiui
         if (this->ProfileSurface(viewport) || this->config_.choice_input.Opened() || this->interaction_ != interaction::none ||
             this->ChatAt(x, y) != nullptr || this->controller_surface_ == controller_surface::picker) return;
         if (this->editing_ && (Contains(this->ConfigVisibleBounds(), x, y) ||
-            (this->config_.active_color != nullptr && Contains(this->ConfigLayout().ColorEditor(viewport), x, y)))) return;
+            (this->config_.active_color != nullptr && Contains(this->ConfigColorBounds(viewport), x, y)))) return;
         if (this->TargetStatusVisible()) this->target_.RenderStatusTooltip(context, resources, x, y);
         if (this->ModuleDisplayed(this->pet_))
             this->pet_.RenderStatusTooltip(context, resources, x, y);

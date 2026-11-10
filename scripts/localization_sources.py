@@ -94,17 +94,19 @@ def source_messages(text, path=""):
         if namespace == "return" and "modules/actionbars/action_" in path:
             end = next((index for index in range(at + 1, len(words)) if words[index] == ";"), len(words))
             collect(at + 1, end, True)
-        if namespace == "module_config_section":
+        if namespace in ("module_config_section", "native_menu_window"):
             end = next((index for index in range(at + 1, len(words)) if words[index] == ";"), len(words))
             for index in range(at + 1, end - 3):
                 if words[index] == "{" and words[index + 1].startswith('"') and words[index + 2] == "," and words[index + 3].startswith('"'):
-                    collect(index + 1, index + 4)
+                    if namespace == "module_config_section": collect(index + 1, index + 4)
+                    elif index + 5 < end and words[index + 4] == "," and words[index + 5].startswith('"'): collect(index + 5, index + 6)
     return messages
 
 
 def referenced_messages(root):
     messages = {}
-    for path in sorted((Path(root) / "src/runtime").rglob("*")):
+    sources = list((Path(root) / "src/runtime").rglob("*")) + [Path(root) / "src/shared/native_menu_windows.hpp"]
+    for path in sorted(sources):
         if path.suffix not in (".cpp", ".hpp") or "resources" in path.parts:
             continue
         text = path.read_text(encoding="utf-8")

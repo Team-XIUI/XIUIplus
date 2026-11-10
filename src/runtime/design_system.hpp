@@ -311,7 +311,7 @@ namespace xiui::ui
             const design_system& design_;
             rect previous_;
         };
-        auto FocusButtons(const rect& bounds) const -> button_focus_scope { return {*this, bounds}; }
+        auto FocusButtons(const rect& bounds) const -> button_focus_scope { return {*this, this->transform_.Map(bounds)}; }
         class transform_scope
         {
         public:

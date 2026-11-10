@@ -15,7 +15,7 @@ namespace
     {
         return option.choice != nullptr && option.choice_count != 0 &&
             (option.selector != xiui::module_selector::none ||
-                (option.label != nullptr && std::strcmp(option.label, "Native filter group") == 0));
+                (option.label != nullptr && (std::strcmp(option.label, "Native filter group") == 0 || std::strcmp(option.label, "Native window") == 0)));
     }
 }
 
@@ -26,6 +26,8 @@ namespace xiui
         auto catalog = std::make_unique<hud_runtime>();
         catalog->LoadSettings(this->CaptureSettings());
         catalog->chat_filters_ = this->chat_filters_;
+        catalog->native_ui_ = this->native_ui_;
+        catalog->UpdateNativeWindows(this->hud_viewport_);
         this->config_.search_entries.clear();
         std::set<std::string> modules;
         static constexpr const char* groups[]{"General", "Appearance", "Effects", "Colors", "Text"};
@@ -233,7 +235,7 @@ namespace xiui
     {
         if (!this->editing_ || this->config_.basic || this->config_.collapsed) return 0;
         const ui::settings_search_layout layout{this->ConfigLayout(), this->config_.bounds};
-        const auto x = static_cast<float>(this->mouse_x_), y = static_cast<float>(this->mouse_y_);
+        const auto x = this->ConfigMouseX(), y = this->ConfigMouseY();
         const auto input = this->SettingsSearchBounds();
         if (this->config_.search_open && !this->config_.search_input.Editor().Text().empty() && input.width >= 70 &&
             Contains({input.x + input.width - 24, input.y, 24, input.height}, x, y)) return search_clear;
@@ -257,13 +259,14 @@ namespace xiui
 
     auto hud_runtime::DrawSettingsSearch(const D3DVIEWPORT8&) -> void
     {
+        const auto transform = this->design_system_.Transform(this->ConfigTransform());
         if (this->config_.basic || this->config_.collapsed) return;
         this->AnimateSettingsSearch(::GetTickCount64());
         const ui::settings_search_layout layout{this->ConfigLayout(), this->config_.bounds};
         const auto& theme = this->design_system_.GetTheme();
         auto text = theme.body_text; text.scale = 0.76f; text.alignment = ui::text_alignment::left;
         const auto input = this->SettingsSearchBounds();
-        const bool hovered = Contains(input, static_cast<float>(this->mouse_x_), static_cast<float>(this->mouse_y_));
+        const bool hovered = Contains(input, this->ConfigMouseX(), this->ConfigMouseY());
         if (this->config_.search_expansion == 0)
         {
             this->config_controls_.IconButton(input, ui::icon_glyph::search, hovered);
@@ -286,7 +289,7 @@ namespace xiui
             {
                 const ui::rect button{input.x + input.width - 24, input.y, 24, input.height};
                 this->config_controls_.IconButton(button, ui::icon_glyph::close,
-                    Contains(button, static_cast<float>(this->mouse_x_), static_cast<float>(this->mouse_y_)));
+                    Contains(button, this->ConfigMouseX(), this->ConfigMouseY()));
             }
         }
         if (!this->config_.search_open)
@@ -316,7 +319,7 @@ namespace xiui
             const auto& entry = this->config_.search_entries[this->config_.search_matches[index]];
             const auto bounds = layout.Row(row);
             this->config_controls_.NavigationItem(bounds, "", index == this->config_.search_selection,
-                Contains(bounds, static_cast<float>(this->mouse_x_), static_cast<float>(this->mouse_y_)));
+                Contains(bounds, this->ConfigMouseX(), this->ConfigMouseY()));
             this->config_controls_.Text(entry.label.c_str(), {bounds.x + 8, bounds.y + 1, bounds.width - 16, 21}, text);
             this->config_controls_.Text(entry.path.c_str(), {bounds.x + 8, bounds.y + 23, bounds.width - 16, 17}, caption);
         }

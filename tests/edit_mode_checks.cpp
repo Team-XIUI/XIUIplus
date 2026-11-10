@@ -78,8 +78,8 @@ namespace xiui
         hud.hud_viewport_ = viewport;
         auto follow = hud.general_.Option(hud.general_.ExtraSettingsStart());
         if (!check(hud.general_.FollowMovedModuleSettings() && follow.toggle &&
-            hud.general_.ConfigSectionContains(general_module::extra_settings_section, hud.general_.ExtraSettingsStart()),
-            "module settings follow stays enabled by default under Extra Settings")) return false;
+            hud.general_.ConfigSectionContains(general_module::appearance_section, hud.general_.ExtraSettingsStart()),
+            "module settings follow stays enabled by default under Config Settings")) return false;
         hud.config_.module = &hud.enemy_list_;
         *follow.toggle = false;
         hud.BeginScale(hud.player_);

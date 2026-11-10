@@ -200,6 +200,8 @@ namespace xiui
             this->available_ &= ~NativeHudBit(native_hud_element::connection);
         this->available_ |= NativeHudBit(native_hud_element::clock);
         if (this->hook_site_ != 0) this->menus_.Initialize(this->module_, this->module_size_);
+        this->menus_.SetHudSlots(this->slots_);
+        if (this->hook_site_ != 0) this->menus_.SetDrawMethod(this->hook_site_ - 14);
     }
 
     auto native_hud_controller::FindMacroDelay(void) -> void
@@ -388,6 +390,8 @@ namespace xiui
 
     auto native_hud_controller::Update(uint32_t hiddenMask, const native_menu_layout& layout) -> void
     {
+        const bool nativeEditing = (hiddenMask & native_edit_windows) != 0;
+        hiddenMask &= ~native_edit_windows;
         this->SetMacroHook((hiddenMask & native_keyboard_macro_palette) != 0);
         this->SetInstantMacroBar((hiddenMask & native_instant_macro_palette) != 0 && (hiddenMask & native_keyboard_macro_palette) == 0);
         hiddenMask &= ~native_instant_macro_palette;
@@ -395,12 +399,15 @@ namespace xiui
         hiddenMask = this->LoggedIn() ? hiddenMask & (this->available_ | transientMask) : 0;
         auto menuLayout = layout;
         menuLayout.enabled = menuLayout.enabled && this->LoggedIn();
+        this->menus_.SetEditing(nativeEditing && this->LoggedIn());
+        if (!this->LoggedIn()) menuLayout.windows = {};
         this->menus_.Update(menuLayout);
         if ((hiddenMask & NativeHudBit(native_hud_element::target)) == 0)
             this->RestoreTargetBox();
         const uint32_t windowMask = hiddenMask & ~(NativeHudBit(native_hud_element::compass) | NativeHudBit(native_hud_element::clock));
         this->hidden_.store(hiddenMask, std::memory_order_release);
-        if (!this->SetHook(windowMask != 0 || (menuLayout.enabled && this->menus_.State().menu_available)))
+        const bool customWindows = std::any_of(menuLayout.windows.begin(), menuLayout.windows.end(), [](const auto& window) { return window.enabled || window.hidden; });
+        if (!this->SetHook(windowMask != 0 || nativeEditing || ((menuLayout.enabled || customWindows) && this->menus_.State().menu_available)))
         {
             this->hidden_.store(0, std::memory_order_release);
             this->RestoreTargetBox();
@@ -417,12 +424,12 @@ namespace xiui
 
     auto native_hud_controller::ShouldHide(const uintptr_t primitive) -> bool
     {
+        this->menus_.BeforeDraw(primitive);
         if (this->menus_.ShouldHide(primitive))
         {
             this->skipped_.fetch_add(1, std::memory_order_relaxed);
             return true;
         }
-        this->menus_.BeforeDraw(primitive);
         const auto mask = this->hidden_.load(std::memory_order_acquire);
         uintptr_t owner{};
         if (mask == 0 || !Read(primitive + 0x0C, owner) || owner == 0)

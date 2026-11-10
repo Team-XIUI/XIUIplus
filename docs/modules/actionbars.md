@@ -12,6 +12,8 @@ The icon picker groups Game, original XIUI and Vincerno artwork with cached name
 
 **Custom** adds user PNG, JPEG, BMP, GIF, TIFF, ICO and static WebP images from `config/XIUIplus/icons/`, with Open folder and explicit Refresh. Slot menus expose Change icon for ordinary actions too. `resources/custom_icon_library.*` owns relative keys, bounded background scans/decoding and refresh generations; `resources/wic_image.*` shares WIC decoding with minimaps. WebP uses bundled libwebp; GIF/TIFF use the first frame/page. `game_icon_cache` uploads and evicts custom textures only before HUD drawing, with a 512-texture limit. Preserve filename/category text and saved assignments across scans. `xiui_custom_icon_smoke` covers files, alpha, paths and worker lifetime; `xiui_actionbars_ui_smoke --custom-icons-only` covers the picker, controller actions and persistence.
 
+Import reads XIUI, tHotBar and tCrossBar actions, shared macros and hotbar/crossbar palettes only. `action_import.*` owns the restricted data parser and atomic action-store commit; HUD settings, positions and controller configuration are outside this boundary. Native profile-file sharing remains separate. Focused check: `./scripts/check.ps1 -Name actions-import`.
+
 Global visuals are opt-in per hotbar. Preserve independent shapes, assignments, keys and positions; unlinking restores saved local visuals. The detailed guide records remaining Lua compatibility gaps.
 
 **Keep intact:** Keep native macro suppression separate from crossbar activation. All execution uses the validated executor. Pointer management can work over native menus; unclaimed keyboard/controller navigation remains native. Shared library edits must not silently assign slots.
@@ -34,7 +36,7 @@ Timed and untimed command macros use the same native macro queue mode for every 
 
 Replace native macros defaults off in code, resets and bundled setups. Preserve explicit saved choices.
 
-Users keeping native macros can enable **Instant native macro bar** in Extras → Native Menus. It changes the native Ctrl/Alt palette delay and preserves command waits and action cooldowns. It remains independent of hotbar visibility and pauses while Replace native macros is enabled; see [General](general.md).
+Native macro replacement and **Instant native macro bar** are grouped under Native UI → HUD Windows → Native Macro Bar. Instant mode changes the native Ctrl/Alt palette delay and preserves command waits and action cooldowns. It remains independent of hotbar visibility and pauses while Replace native macros is enabled; see [General](general.md).
 
 The Action Bars sidebar page follows the enabled state of all ten hotbars and the crossbar. Hide it only when all bars are disabled; global visual settings do not count as an enabled bar.
 
@@ -49,6 +51,8 @@ Locked bars require Shift when pressing to rearrange slots; unlocked bars allow 
 Actions & Macros is nonmodal to exposed hotbars: slot drags, bar locks and slot/bar menus remain usable with the library open. The library keeps its search, category, scroll, assignment context and draft behind child menus; dismissing a menu restores it. Window bounds take precedence over covered bars, and an active drag retains its press/release ownership. Existing slot actions and controller Cancel are shared with the child menus. Focused check: `xiui_actionbars_ui_smoke --library-bars-only`.
 
 Clicking a saved macro in Actions & Macros opens its editor without assigning or executing it. Dragging the entry still assigns it to a hotbar slot; controller Confirm retains destination placement and Actions opens the editor. Save, Cancel, Escape and deletion return to the existing library search, category, scroll and slot context. New macro, Single command and Game macro also remember that context while their independent editor is open. Save refreshes results immediately.
+
+Saving a catalog action under its original name replaces that action's default library result with the saved definition. Reopening, dragging and controller placement retain its target and other edits instead of creating another default action. Explicitly named variants remain separate, and catalog resources are unchanged.
 
 The standalone library has no assignment destination. Clicking a catalog action or saving a new library action opens/saves its shared definition without changing hotbar 1, slot 1. An explicit empty-slot picker retains its chosen destination; dragging and controller placement remain deliberate assignment paths. Preserve this distinction when returning from child editors or slot menus.
 

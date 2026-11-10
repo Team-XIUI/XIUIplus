@@ -1,6 +1,6 @@
 # Settings inventory
 
-Generated 2026-11-01. Source: runtime option metadata and shared layout.
+Generated 2026-11-09. Source: runtime option metadata and shared layout.
 Regenerate with `./scripts/update-docs.ps1`. Each bullet is one visual row; [empty] preserves paired controls.
 
 ## Player Bar
@@ -2540,7 +2540,6 @@ Regenerate with `./scripts/update-docs.ps1`. Each bullet is one visual row; [emp
 
 - Enabled | Lock slot positions
 - Action storage | Pet-aware assignments
-- Replace native macros
 
 ### Content
 
@@ -2614,7 +2613,6 @@ Regenerate with `./scripts/update-docs.ps1`. Each bullet is one visual row; [emp
 
 - Enabled | Lock slot positions
 - Action storage | Pet-aware assignments
-- Replace native macros
 
 ### Content
 
@@ -2688,7 +2686,6 @@ Regenerate with `./scripts/update-docs.ps1`. Each bullet is one visual row; [emp
 
 - Enabled | Lock slot positions
 - Action storage | Pet-aware assignments
-- Replace native macros
 
 ### Content
 
@@ -2762,7 +2759,6 @@ Regenerate with `./scripts/update-docs.ps1`. Each bullet is one visual row; [emp
 
 - Enabled | Lock slot positions
 - Action storage | Pet-aware assignments
-- Replace native macros
 
 ### Content
 
@@ -2836,7 +2832,6 @@ Regenerate with `./scripts/update-docs.ps1`. Each bullet is one visual row; [emp
 
 - Enabled | Lock slot positions
 - Action storage | Pet-aware assignments
-- Replace native macros
 
 ### Content
 
@@ -2910,7 +2905,6 @@ Regenerate with `./scripts/update-docs.ps1`. Each bullet is one visual row; [emp
 
 - Enabled | Lock slot positions
 - Action storage | Pet-aware assignments
-- Replace native macros
 
 ### Content
 
@@ -2984,7 +2978,6 @@ Regenerate with `./scripts/update-docs.ps1`. Each bullet is one visual row; [emp
 
 - Enabled | Lock slot positions
 - Action storage | Pet-aware assignments
-- Replace native macros
 
 ### Content
 
@@ -3058,7 +3051,6 @@ Regenerate with `./scripts/update-docs.ps1`. Each bullet is one visual row; [emp
 
 - Enabled | Lock slot positions
 - Action storage | Pet-aware assignments
-- Replace native macros
 
 ### Content
 
@@ -3132,7 +3124,6 @@ Regenerate with `./scripts/update-docs.ps1`. Each bullet is one visual row; [emp
 
 - Enabled | Lock slot positions
 - Action storage | Pet-aware assignments
-- Replace native macros
 
 ### Content
 
@@ -3206,7 +3197,6 @@ Regenerate with `./scripts/update-docs.ps1`. Each bullet is one visual row; [emp
 
 - Enabled | Lock slot positions
 - Action storage | Pet-aware assignments
-- Replace native macros
 
 ### Content
 
@@ -3280,7 +3270,6 @@ Regenerate with `./scripts/update-docs.ps1`. Each bullet is one visual row; [emp
 
 - Enabled | Lock slot positions
 - Action storage | Pet-aware assignments
-- Replace native macros
 
 ### Content
 
@@ -3364,7 +3353,6 @@ Regenerate with `./scripts/update-docs.ps1`. Each bullet is one visual row; [emp
 
 - Enabled | Lock slot positions
 - Action storage | Pet-aware assignments
-- Replace native macros
 
 ### Content
 
@@ -3448,7 +3436,6 @@ Regenerate with `./scripts/update-docs.ps1`. Each bullet is one visual row; [emp
 
 - Enabled | Lock slot positions
 - Action storage | Pet-aware assignments
-- Replace native macros
 
 ### Content
 
@@ -3532,7 +3519,6 @@ Regenerate with `./scripts/update-docs.ps1`. Each bullet is one visual row; [emp
 
 - Enabled | Lock slot positions
 - Action storage | Pet-aware assignments
-- Replace native macros
 
 ### Content
 
@@ -4013,9 +3999,9 @@ Regenerate with `./scripts/update-docs.ps1`. Each bullet is one visual row; [emp
 ### Appearance
 
 - Global Scale (%) | Reset global scale
-- Theme | Native Window Type
-- Status icon theme | Job icon theme
-- Dark backing opacity | Follow moved module settings
+- Theme | Window Type
+- Status icon theme | Follow game
+- Job icon theme | Dark backing opacity
 - Classic | XIV
 - XIVClassic
 
@@ -4029,8 +4015,9 @@ Regenerate with `./scripts/update-docs.ps1`. Each bullet is one visual row; [emp
 - Stroke outline | Outline color
 - Outer glow | Animated sheen
 
-### Config Text
+### Config Settings
 
+- Menu Scale (%) | Follow moved module settings
 - Config font | Config text size (px)
 - Letter spacing | [empty]
 - Drop shadow | Shadow color
@@ -4072,10 +4059,9 @@ Regenerate with `./scripts/update-docs.ps1`. Each bullet is one visual row; [emp
 - Player Bar | Buffs
 - Debuffs | Target
 - Compass | World Info
-- Commands | Blue Magic Learned
-- Phantom Roll | Ready Check
-- Magic Burst | Fishing
-- Native Menus | Chains
+- Blue Magic Learned | Phantom Roll
+- Ready Check | Magic Burst
+- Fishing | Chains
 - Target of Target | Subtarget
 
 ### Attribution
@@ -4101,27 +4087,34 @@ Regenerate with `./scripts/update-docs.ps1`. Each bullet is one visual row; [emp
 
 ### Visibility
 
-- Hide all UI | Hide overhead names
-- Apply to | Hide during events
-- Hide with menus | Hide Player in party
+- Hide all UI | Apply to
+- Hide during events | Hide with menus
+- Hide Player in party
 
-### Extra Settings
+## HUD Windows
 
-- Follow moved module settings
+### Visibility
 
-## Native Menus
+- Apply visibility choices | Hide native UI
+- Restore native UI | Corner radius
+- Player Bars | Party List
+- Alliance 1 | Alliance 2
+- Target Box | Cast Bar
+- Status Icons | Compass
+- Clock | Connection Info
+- Menu Title | Help Bar
+- Chat Window 1 | Chat Window 2
+- Expanded Chat
 
-### General
+### Window Placement
 
-- Native menu controls | Hide native UI
-- Restore native UI | Player bars
-- Party list | Alliance 1
-- Alliance 2 | Target box
-- Cast bar | Status icons
-- Compass | Clock
-- Connection info | Menu title
-- Help bar | Chat window 1
-- Chat window 2 | Expanded chat
+- Native window | Use custom position
+- Position X | Position Y
+- Restore native position | Reset All Native Windows
+
+### Native Macro Bar
+
+- Instant native macro bar | Replace native macros
 
 ## Chat
 
@@ -4404,10 +4397,11 @@ Regenerate with `./scripts/update-docs.ps1`. Each bullet is one visual row; [emp
 
 ### Appearance
 
-- Width | Edge style
-- Drop shadow | Frame
-- Background | Map opacity
-- Background opacity | Frame opacity
+- Minimap theme | Width
+- Edge style | Drop shadow
+- Frame | Background
+- Map opacity | Background opacity
+- Frame opacity
 
 ### Text
 
@@ -4566,11 +4560,196 @@ Regenerate with `./scripts/update-docs.ps1`. Each bullet is one visual row; [emp
 - Soft shadow | Stroke
 - Glow
 
-## Commands
+## Menus and Dialogs
 
-### General
+### Spells and Abilities
 
-- Move native menus | Window anchor
+- Native window | Use custom position
+- Hide window | [empty]
+- Position X | Position Y
+- Restore native position
+
+### Command Menu
+
+- Native window | Use custom position
+- Hide window | [empty]
+- Position X | Position Y
+- Restore native position
+
+### Item Details
+
+- Native window | Use custom position
+- Hide window | [empty]
+- Position X | Position Y
+- Restore native position
+
+### Merchants
+
+- Native window | Use custom position
+- Hide window | [empty]
+- Position X | Position Y
+- Restore native position
+
+### Auction House
+
+- Native window | Use custom position
+- Hide window | [empty]
+- Position X | Position Y
+- Restore native position
+
+### Bazaar Comments
+
+- Native window | Use custom position
+- Hide window | [empty]
+- Position X | Position Y
+- Restore native position
+
+### Equipment and Inspection
+
+- Native window | Use custom position
+- Hide window | [empty]
+- Position X | Position Y
+- Restore native position
+
+### Macro Palette
+
+- Native window | Use custom position
+- Hide window | [empty]
+- Position X | Position Y
+- Restore native position
+
+### Other Dialogs
+
+- Native window | Use custom position
+- Hide window | [empty]
+- Position X | Position Y
+- Restore native position
+
+### Main Menu
+
+- Native window | Use custom position
+- Hide window | [empty]
+- Position X | Position Y
+- Restore native position
+
+### Status Menus
+
+- Native window | Use custom position
+- Hide window | [empty]
+- Position X | Position Y
+- Restore native position
+
+### Inventory Menus
+
+- Native window | Use custom position
+- Hide window | [empty]
+- Position X | Position Y
+- Restore native position
+
+### Synthesis
+
+- Native window | Use custom position
+- Hide window | [empty]
+- Position X | Position Y
+- Restore native position
+
+### Party Menus
+
+- Native window | Use custom position
+- Hide window | [empty]
+- Position X | Position Y
+- Restore native position
+
+### Trade
+
+- Native window | Use custom position
+- Hide window | [empty]
+- Position X | Position Y
+- Restore native position
+
+### Search
+
+- Native window | Use custom position
+- Hide window | [empty]
+- Position X | Position Y
+- Restore native position
+
+### Linkshell
+
+- Native window | Use custom position
+- Hide window | [empty]
+- Position X | Position Y
+- Restore native position
+
+### Region Info
+
+- Native window | Use custom position
+- Hide window | [empty]
+- Position X | Position Y
+- Restore native position
+
+### Map
+
+- Native window | Use custom position
+- Hide window | [empty]
+- Position X | Position Y
+- Restore native position
+
+### Quests
+
+- Native window | Use custom position
+- Hide window | [empty]
+- Position X | Position Y
+- Restore native position
+
+### Missions
+
+- Native window | Use custom position
+- Hide window | [empty]
+- Position X | Position Y
+- Restore native position
+
+### Key Items
+
+- Native window | Use custom position
+- Hide window | [empty]
+- Position X | Position Y
+- Restore native position
+
+### Friends and Messages
+
+- Native window | Use custom position
+- Hide window | [empty]
+- Position X | Position Y
+- Restore native position
+
+### Game Configuration
+
+- Native window | Use custom position
+- Hide window | [empty]
+- Position X | Position Y
+- Restore native position
+
+### Mog House
+
+- Native window | Use custom position
+- Hide window | [empty]
+- Position X | Position Y
+- Restore native position
+
+### Help and Tutorials
+
+- Native window | Use custom position
+- Hide window | [empty]
+- Position X | Position Y
+- Restore native position
+
+### Emotes
+
+- Native window | Use custom position
+- Hide window | [empty]
+- Position X | Position Y
+- Restore native position
 
 ## Ready Check
 
@@ -4680,4 +4859,4 @@ Regenerate with `./scripts/update-docs.ps1`. Each bullet is one visual row; [emp
 
 ## Coverage
 
-74 registered modules, 593 distinct pages, 4786 controls across those pages, and 2044 selector/view combinations.
+358 registered modules, 620 distinct pages, 4940 controls across those pages, and 2355 selector/view combinations.

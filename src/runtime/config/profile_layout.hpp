@@ -35,7 +35,6 @@ namespace xiui::ui
         auto Source(void) const -> rect { return this->Row(170, std::max(18.0f, this->bounds_.height - 288)); }
         auto Browse(void) const -> rect { const auto source = this->Source(); return {source.x + 12, source.y + 12, 112, 28}; }
         auto Paste(void) const -> rect { return {this->bounds_.x + this->bounds_.width - 144, this->bounds_.y + 138, 120, 26}; }
-        auto ImportSource(size_t index) const -> rect { auto value = this->SourceLabel(); value.y -= 6; value.x += index * 120; value.width = 112; value.height = 26; return value; }
         auto Status(void) const -> rect { return this->Row(this->bounds_.height - 110, 22); }
         auto Error(void) const -> rect { return this->Row(this->extended_ ? this->bounds_.height - 86 : 125.0f, 28); }
     private:

@@ -1,5 +1,4 @@
 #include "hud_runtime.hpp"
-#include "config/lua_import_layout.hpp"
 
 #include "config/attributions.hpp"
 #include "config/contributor_list.hpp"
@@ -82,10 +81,19 @@ namespace xiui
         };
         if (area == region::utilities)
         {
+            if (this->config_.edit_mode)
+            {
+                add("edit-xiui", this->ConfigTransform().Inverse(this->EditModeSwitchItemBounds(this->config_.focus.viewport, false)), 11, this->EditModeSwitchHelp(false));
+                add("edit-native", this->ConfigTransform().Inverse(this->EditModeSwitchItemBounds(this->config_.focus.viewport, true)), 12, this->EditModeSwitchHelp(true));
+                if (this->NativeEditMode())
+                    if (const auto* module = this->MovementSelectionModule(); module != nullptr && this->NativeWindowIndex(*module) < native_window_count && this->ModuleDisplayed(*module))
+                        add("native-visibility", this->ConfigTransform().Inverse(this->NativeVisibilityButton(this->native_windows_[this->NativeWindowIndex(*module)])), 13, "Toggle selected native window");
+            }
             if (!this->config_.collapsed)
                 add("settings-mode", this->SettingsModeBounds(), 8, this->config_.basic ? "Advanced Settings" : "Basic Settings");
             if (!this->config_.collapsed)
-                add("edit-mode", layout.EditModeButton(), 9, this->config_.edit_mode ? "Edit Mode ON: show all enabled modules. Confirm turns previews off." : "Edit Mode OFF: show live modules and the selected preview. Confirm previews all enabled modules.");
+                add("edit-mode", layout.EditModeButton(), 9, this->NativeEditMode() ? "Native UI Edit Mode: show the game's native UI at its real positions. Confirm ends editing and restores saved visibility." :
+                    this->config_.edit_mode ? "Edit Mode ON: show all enabled modules. Confirm turns previews off." : "Edit Mode OFF: show live modules and the selected preview. Confirm previews all enabled modules.");
             add("language", layout.Language(), 10, "Language / \xE6\x97\xA5\xE6\x9C\xAC\xE8\xAA\x9E");
             add("input", layout.InputMode(), 0, "Input mode: Auto, Keyboard & Mouse, or Controller. Both devices remain available.");
             add("attribution", layout.HeaderAction(), 1, "Attribution");
@@ -402,6 +410,8 @@ namespace xiui
             else if (item.index == 6) this->BeginSettingsSearch();
             else if (item.index == 8) this->SetBasicSettings(!this->config_.basic);
             else if (item.index == 9) this->ToggleLayoutEditMode();
+            else if (item.index == 11 || item.index == 12) this->SetNativeEditMode(item.index == 12);
+            else if (item.index == 13 && this->MovementSelectionModule() != nullptr) this->ToggleNativeWindowVisibility(this->NativeWindowIndex(*this->MovementSelectionModule()));
             else if (item.index == 7 && this->MovementSelectionModule() != nullptr) this->BeginScale(*this->MovementSelectionModule(), true);
             else this->ExitEdit();
         }
@@ -457,7 +467,6 @@ namespace xiui
         {
             const bool share = this->profile_dialog_ == profile_dialog::share;
             const bool importing = this->profile_dialog_ == profile_dialog::import_profile;
-            if (importing && this->profile_import_lua_) return this->HandleLuaImportController(value);
             const bool deleting = this->profile_dialog_ == profile_dialog::delete_profile;
             const bool confirming = this->ConfirmingAction();
             if (value == action::cancel) this->CloseProfileControls();
@@ -470,7 +479,7 @@ namespace xiui
             {
                 const auto previous = focus.modal_item;
                 const int direction = Direction(value);
-                int next = std::clamp(static_cast<int>(focus.modal_item) + direction, 0, importing ? 6 : share || deleting || confirming ? 1 : 2);
+                int next = std::clamp(static_cast<int>(focus.modal_item) + direction, 0, importing ? 4 : share || deleting || confirming ? 1 : 2);
                 if (importing && next == 1 && !this->profile_import_) next += direction;
                 focus.modal_item = static_cast<uint8_t>(next);
                 if (previous != focus.modal_item) this->ui_sounds_.Play(ui::native_ui_sound::hover);
@@ -482,8 +491,7 @@ namespace xiui
                 else if (deleting) { if (focus.modal_item == 1) this->DeleteProfile(); }
                 else if (confirming) { if (focus.modal_item == 1) this->ApplyConfirmedAction(); }
                 else if (importing && focus.modal_item == 2) this->BrowseProfileFile(false);
-                else if (importing && focus.modal_item == 6) this->PasteProfileKey();
-                else if (importing && (focus.modal_item == 4 || focus.modal_item == 5)) this->SetProfileImportSource(focus.modal_item == 5);
+                else if (importing && focus.modal_item == 4) this->PasteProfileKey();
                 else if (focus.modal_item == 1)
                 {
                     if (this->profile_dialog_ == profile_dialog::rename) this->RenameProfile();
@@ -628,7 +636,7 @@ namespace xiui
         UNREFERENCED_PARAMETER(viewport);
         if (!this->visible_ || !this->editing_) return 0;
         const auto layout = this->ConfigLayout();
-        const float x = static_cast<float>(this->mouse_x_), y = static_cast<float>(this->mouse_y_);
+        const float x = this->ConfigMouseX(), y = this->ConfigMouseY();
         if (Contains(layout.InputMode(), x, y)) return 0xD100000000000001ULL;
         if (Contains(layout.Language(), x, y)) return 0xD100000000000002ULL;
         if (this->config_.header_menu_open)
@@ -651,6 +659,7 @@ namespace xiui
 
     auto hud_runtime::DrawHeaderControls(const D3DVIEWPORT8& viewport) -> void
     {
+        const auto transform = this->design_system_.Transform(this->ConfigTransform());
         const auto layout = this->ConfigLayout();
         const auto target = this->HeaderControlTarget(viewport);
         const int mode = this->general_.InputMode();
@@ -709,6 +718,7 @@ namespace xiui
         if (focus.modal_id != modal) { focus.modal_id = modal; focus.modal_item = 0; }
         this->RefreshControllerConfigFocus();
         if (focus.region == region::movement) this->DrawControllerMovement(viewport);
+        const auto transform = this->design_system_.Transform(this->ConfigTransform());
         this->config_.tooltip.clear();
         rect bounds{};
         std::string help;
@@ -722,18 +732,16 @@ namespace xiui
         else if (this->profile_name_.Focused())
         {
             const bool share = this->profile_dialog_ == profile_dialog::share, importing = this->profile_dialog_ == profile_dialog::import_profile;
-            const ui::profile_dialog_layout dialog{this->config_.bounds, viewport, share || importing};
+            const ui::profile_dialog_layout dialog{this->config_.bounds, this->ConfigViewport(viewport), share || importing};
             bounds = focus.modal_item == 0 ? dialog.Cancel() : focus.modal_item == 1 ? dialog.Create() : importing && focus.modal_item == 2 ? dialog.Browse() : dialog.Field();
-            if (importing && (focus.modal_item == 4 || focus.modal_item == 5)) bounds = dialog.ImportSource(focus.modal_item - 4);
-            if (importing && focus.modal_item == 6) bounds = dialog.Paste();
-            if (importing && this->profile_import_lua_)
-            { const ui::lua_import_layout luaLayout{this->config_.bounds, viewport}; bounds = luaLayout.Control(focus.modal_item); }
+            if (importing && focus.modal_item == 4) bounds = dialog.Paste();
             legend = this->ConfirmingAction() || this->profile_dialog_ == profile_dialog::delete_profile ?
                 "D-pad: choose action   Confirm: activate   Cancel: close" : "D-pad: choose action   Confirm: activate   Cancel: close   Keyboard: edit name";
         }
         else if (this->config_.choice_input.Opened())
         {
-            bounds = this->config_.choice_input.Row(this->config_.choice_input.Highlighted(), viewport);
+            bounds = this->config_.choice_input.Row(this->config_.choice_input.Highlighted(), this->ChoiceViewport(viewport));
+            if (this->module_menu_target_ != nullptr) bounds = this->ConfigTransform().Inverse(bounds);
             legend = "D-pad: choose   Confirm: apply   Actions: preview sound   Cancel: back";
         }
         else if (this->config_.slider_input.Focused() || this->config_.text_input.Focused())
@@ -743,7 +751,7 @@ namespace xiui
         }
         else if (this->config_.active_color != nullptr)
         {
-            const auto panel = this->ConfigLayout().ColorEditor(viewport);
+            const auto panel = this->ConfigLayout().ColorEditor(this->ConfigViewport(viewport));
             const ui::color_picker_layout picker{panel};
             bounds = focus.modal_item == 4 ? picker.Original() : focus.modal_item == 6 ? picker.Copy() : focus.modal_item == 7 ? picker.Close() : picker.Hex();
             static constexpr const char* channels[]{"Red", "Green", "Blue", "Alpha"};
@@ -766,6 +774,7 @@ namespace xiui
         {
             const auto items = this->ControllerConfigItems(focus.region);
             if (!items.empty()) { bounds = items[focus.item].bounds; help = items[focus.item].help; }
+            if (focus.region == region::movement) bounds = this->ConfigTransform().Inverse(bounds);
             if (focus.adjusting) legend = "Left/Right: adjust   Confirm: finish   Cancel: back   Actions: type value";
             else if (focus.region == region::options) legend = "D-pad: navigate   Confirm: edit   Actions: type value / color source   Next/Previous: region";
             if (this->config_.basic) legend = focus.adjusting ? "Left/Right: adjust   Confirm: done   Actions: type value" :

@@ -257,8 +257,9 @@ namespace xiui
         if (!check(finishTransfer() && !runtime.profile_import_ && runtime.profile_file_.empty(),
             "closing and reopening discards late results without changing the new dialog")) return false;
         if (!check(runtime.LoadProfileKey(completeKey), "legacy decoding starts in the background")) return false;
-        runtime.SetProfileImportSource(false);
-        if (!check(finishTransfer() && !runtime.profile_import_, "changing import source discards pending key results")) return false;
+        runtime.CloseProfileControls();
+        runtime.OpenProfileDialog(hud_runtime::profile_dialog::import_profile);
+        if (!check(finishTransfer() && !runtime.profile_import_, "closing import discards pending key results")) return false;
         if (!check(runtime.LoadProfileFile(sharedPath), "file import starts before a device reset")) return false;
         runtime.SetDevice(nullptr);
         if (!check(runtime.profile_name_.Focused() && finishTransfer() && runtime.profile_import_,

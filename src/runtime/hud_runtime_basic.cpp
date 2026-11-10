@@ -80,7 +80,7 @@ namespace xiui
         auto style = this->design_system_.GetTheme().body_text;
         style.scale = .76f; style.alignment = ui::text_alignment::center;
         const auto button = this->SettingsModeBounds();
-        const bool hovered = Contains(button, this->mouse_x_, this->mouse_y_);
+        const bool hovered = Contains(button, this->ConfigMouseX(), this->ConfigMouseY());
         this->config_controls_.IconButton(button, ui::icon_glyph::general, hovered);
         if (hovered)
         {
@@ -88,7 +88,7 @@ namespace xiui
             this->config_.tooltip_anchor = button;
         }
         const auto edit = this->ConfigLayout().EditModeButton();
-        const bool editHovered = Contains(edit, this->mouse_x_, this->mouse_y_);
+        const bool editHovered = Contains(edit, this->ConfigMouseX(), this->ConfigMouseY());
         this->config_controls_.Button(edit, "", style, editHovered);
         this->config_controls_.ButtonText(this->config_.edit_mode ? i18n::Text("Edit Mode  ON") : i18n::Text("Edit Mode  OFF"),
             {edit.x + 14, edit.y, edit.width - 14, edit.height}, style, editHovered);
@@ -96,7 +96,8 @@ namespace xiui
         this->design_system_.DrawSlotDots(std::span{&dot, 1});
         if (editHovered)
         {
-            this->config_.tooltip = this->config_.edit_mode ? "Hide inactive previews. You can still drag visible modules." : "Preview all enabled modules to arrange your HUD.";
+            this->config_.tooltip = this->NativeEditMode() ? "Native UI Edit Mode: show the game's native UI at its real positions. Confirm ends editing and restores saved visibility." :
+                this->config_.edit_mode ? "Hide inactive previews. You can still drag visible modules." : "Preview all enabled modules to arrange your HUD.";
             this->config_.tooltip_anchor = edit;
         }
     }
@@ -134,15 +135,16 @@ namespace xiui
 
     auto hud_runtime::DrawBasicSettings(const D3DVIEWPORT8& viewport) -> void
     {
+        const auto transform = this->design_system_.Transform(this->ConfigTransform());
         PrepareBasicPresetSamples(this->basic_preset_samples_, this->basic_preset_samples_ready_);
         const auto layout = this->ConfigLayout();
         const ui::basic_settings_layout basic{this->config_.bounds};
         const auto& theme = this->design_system_.GetTheme();
-        const auto hovered = [&](const rect& bounds) { return Contains(bounds, this->mouse_x_, this->mouse_y_); };
+        const auto hovered = [&](const rect& bounds) { return Contains(bounds, this->ConfigMouseX(), this->ConfigMouseY()); };
         const std::array<ui::container_fill, 2> fills{{
             {layout.HeaderBackground(), 0xD0000000 | ((theme.colors.chrome & 0xFEFEFE) >> 1)},
             {basic.FooterBackground(), (theme.colors.surface_raised & 0xFFFFFF) | 0x60000000}}};
-        this->config_controls_.Panel(this->ConfigVisibleBounds(), std::span{fills}.first(this->config_.collapsed ? 1 : fills.size()));
+        this->config_controls_.Panel(this->ConfigLogicalBounds(), std::span{fills}.first(this->config_.collapsed ? 1 : fills.size()));
         auto header = theme.accent_text; header.scale = .82f; header.alignment = ui::text_alignment::left;
         auto button = theme.body_text; button.scale = .76f; button.alignment = ui::text_alignment::center;
         auto title = theme.body_text; title.scale = .94f; title.alignment = ui::text_alignment::left;
@@ -151,7 +153,7 @@ namespace xiui
         if (this->design_system_.IsXiv1Theme())
         {
             const auto band = layout.HeaderBackground();
-            const auto panel = this->ConfigVisibleBounds();
+            const auto panel = this->ConfigLogicalBounds();
             this->container_renderer_.DrawXiv1TitleSeparator(this->design_system_, {panel.x + 7, band.y + band.height - 3, panel.width - 14, 4}, .65f);
         }
         this->config_controls_.Text(i18n::Text("Basic settings"), layout.HeaderTitle(), header);
@@ -196,7 +198,7 @@ namespace xiui
         auto themeLabel = button; themeLabel.alignment = ui::text_alignment::left;
         this->config_controls_.Text(i18n::Text(themeOption.label), {themeRow.x, themeRow.y, ui::basic_settings_layout::scale_label_width, themeRow.height}, themeLabel);
         this->config_controls_.Segmented(basic.ThemeChoices(), {themeOption.choices, themeOption.choice_count},
-            static_cast<size_t>(std::max(0, *themeOption.choice)), static_cast<float>(this->mouse_x_), static_cast<float>(this->mouse_y_));
+            static_cast<size_t>(std::max(0, *themeOption.choice)), this->ConfigMouseX(), this->ConfigMouseY());
         tooltip("Change window, bar and text styling while keeping your HUD layout.", basic.ThemeChoices());
 
         auto scale = this->general_.Option(this->general_.HudScaleStart());
@@ -223,18 +225,19 @@ namespace xiui
 
     auto hud_runtime::ProcessBasicSettingsClick(const D3DVIEWPORT8& viewport) -> bool
     {
-        const float x = static_cast<float>(this->mouse_x_), y = static_cast<float>(this->mouse_y_);
+        const float x = this->ConfigMouseX(), y = this->ConfigMouseY();
         const auto layout = this->ConfigLayout();
-        if (!Contains(this->ConfigVisibleBounds(), x, y)) return this->ProcessMovementToolbarClick(viewport);
+        if (!Contains(this->ConfigLogicalBounds(), x, y)) return this->ProcessMovementToolbarClick(viewport);
         if (Contains(this->SettingsModeBounds(), x, y)) { this->SetBasicSettings(false); return true; }
         if (Contains(layout.CloseButton(), x, y)) { this->BeginCloseInteraction(interaction::close_config, layout.CloseButton()); return true; }
         if (Contains(layout.HeaderAction(1), x, y)) { this->config_.collapsed = !this->config_.collapsed; return true; }
         if (Contains(layout.HeaderAction(), x, y)) { this->SetBasicSettings(false); this->SelectConfigModule(&this->general_); this->config_.section = general_module::attribution_section; return true; }
-        if (const auto edges = this->ConfigResizeEdges(x, y); edges != 0)
+        if (const auto edges = this->ConfigResizeEdges(static_cast<float>(this->mouse_x_), static_cast<float>(this->mouse_y_)); edges != 0)
         {
             this->FinishConfigInput(true, false); this->CloseProfileControls();
             this->interaction_ = interaction::resize_config; this->config_resize_edges_ = edges;
-            this->config_resize_original_ = this->config_.bounds; this->config_resize_pointer_ = {x, y};
+            this->config_resize_original_ = this->config_.bounds;
+            this->config_resize_pointer_ = {static_cast<float>(this->mouse_x_), static_cast<float>(this->mouse_y_)};
             return true;
         }
         if (this->config_.collapsed) return false;

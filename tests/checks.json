@@ -1,6 +1,12 @@
 {
   "checks": [
     {
+      "name": "native-ui",
+      "target": "xiui_config_input_smoke",
+      "arguments": ["--native-ui-only"],
+      "requires_arguments": false
+    },
+    {
       "name": "ashita-compat",
       "target": "xiui_ashita_compat_smoke",
       "arguments": [],
@@ -67,15 +73,15 @@
       "requires_arguments": false
     },
     {
-      "name": "hud-scaling",
-      "target": "xiui_config_input_smoke",
-      "arguments": ["--hud-scaling-only", "{root}/config/XIUIplus-defaults.ini"],
+      "name": "actions-import",
+      "target": "xiui_actionbars_data_smoke",
+      "arguments": ["--imports-only", "{root}/tests/fixtures/lua/1.8.4/populated.lua", "{root}/tests/fixtures/lua/1.8.5/populated.lua"],
       "requires_arguments": false
     },
     {
-      "name": "lua-profile-import",
+      "name": "hud-scaling",
       "target": "xiui_config_input_smoke",
-      "arguments": ["--lua-profile-import-only"],
+      "arguments": ["--hud-scaling-only", "{root}/config/XIUIplus-defaults.ini"],
       "requires_arguments": false
     },
     {

@@ -126,6 +126,7 @@ namespace xiui
         auto ContentConfigSectionContains(size_t, size_t) -> bool override;
         auto ContentOptionCount(void) const -> size_t override { return base_options + text_profile_option_count; }
         auto ContentOption(size_t) -> module_option override;
+        auto NativeKeysOptionIndex(void) const -> size_t { return native_keys; }
         auto OnContentOptionChanged(size_t) -> void override;
         auto ApplyTextDefaults(const ui::theme&) -> void override;
         auto VisitTextSettings(const text_settings_visitor& visitor) -> void override
@@ -416,6 +417,7 @@ namespace xiui
         auto UpdateLibraryMetrics(const ui::design_system&) -> void;
         auto DrawLibraryIcon(const action_slot&, const ui::rect&, const module_render_context&) const -> void;
         auto RebuildResults(void) -> void;
+        auto RebuildResults(std::span<const action_catalog_entry> catalog) -> void;
         auto EditLibraryEntry(size_t index) -> bool;
         auto CloseLibraryEditor(void) -> void;
         auto ChooseResult(size_t) -> void;

@@ -93,7 +93,6 @@ add_executable(xiui_config_input_smoke
     tests/window_input_checks.cpp
     tests/config_check_support.cpp
     tests/config_profile_checks.cpp
-    tests/lua_profile_checks.cpp
     tests/config_text_checks.cpp
     tests/config_navigation_checks.cpp
     tests/hud_scale_checks.cpp

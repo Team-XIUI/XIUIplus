@@ -1,6 +1,5 @@
 #include "hud_runtime.hpp"
 #include "ashita_compat.hpp"
-#include "config/lua_import_layout.hpp"
 #include "combat/server_rules.hpp"
 #include "input/keyboard_policy.hpp"
 #include "config/contributor_list.hpp"
@@ -229,7 +228,14 @@ namespace xiui
         this->modules_.Add(this->world_info_);
         for (auto& part : this->world_parts_) this->modules_.Add(part);
         this->modules_.Add(this->commands_);
-        this->extras_pages_ = {&this->compass_, &this->world_info_, &this->commands_, &this->blue_magic_, &this->phantom_roll_, &this->ready_check_, &this->magic_burst_, &this->fishing_, &this->game_hud_, &this->chains_};
+        this->extras_pages_ = {&this->compass_, &this->world_info_, &this->blue_magic_, &this->phantom_roll_, &this->ready_check_, &this->magic_burst_, &this->fishing_, &this->chains_};
+        for (size_t index = 0; index < this->native_windows_.size(); ++index)
+        {
+            this->native_windows_[index].Initialize(index);
+            this->modules_.Add(this->native_windows_[index]);
+        }
+        this->game_hud_.SetWindows(this->native_windows_);
+        this->commands_.SetWindows(std::span{this->native_windows_}.subspan(native_hud_window_count));
         this->ready_check_.SetSource(&this->party_source_);
         this->ready_check_.SetSounds(&this->ui_sounds_);
         this->modules_.Add(this->ready_check_);
@@ -242,10 +248,11 @@ namespace xiui
         this->general_.SetInventoryModule(this->inventory_[0]);
         this->general_.SetPartyModule(this->party_);
         this->general_.SetGameHudModule(this->game_hud_);
+        this->game_hud_.BindNativeOptions(this->general_, this->general_.NameplatesOption(), this->actionbars_, this->actionbars_.NativeKeysOptionIndex());
         this->party_.SetPresetAlliances(this->alliance_first_, this->alliance_second_);
         std::vector<hud_module*> configurable;
         for (const auto& page : this->ConfigPages())
-            if (page.primary != &this->general_)
+            if (page.primary != &this->general_ && page.primary != &this->game_hud_)
                 for (size_t index = 0; index < (page.primary == &this->party_ ? 1 : page.SectionCount()); ++index)
                     if (auto* module = page.SectionModule(index); std::find(configurable.begin(), configurable.end(), module) == configurable.end())
                         configurable.push_back(module);
@@ -253,7 +260,9 @@ namespace xiui
         configurable.push_back(&this->subtarget_);
         this->general_.SetModules(configurable);
         this->general_.SetTextModules(this->modules_.All());
-        this->general_.SetVisibilityModules(this->modules_.All());
+        std::vector<hud_module*> visibilityModules;
+        for (auto* module : this->modules_.All()) if (this->NativeWindowIndex(*module) == native_window_count) visibilityModules.push_back(module);
+        this->general_.SetVisibilityModules(visibilityModules);
         this->player_.SetTiming(&this->timing_source_); this->player_.SetSounds(&this->ui_sounds_);
         this->player_.SetMPPreview(&this->cast_cost_source_);
         this->player_.SetHealPrediction(&this->heal_prediction_source_);
@@ -644,15 +653,15 @@ namespace xiui
             }
         }
         if ((message == WM_LBUTTONDOWN || message == WM_LBUTTONDBLCLK) && this->config_.slider_input.Focused() &&
-            !Contains(this->config_.slider_bounds, static_cast<float>(cursor.x), static_cast<float>(cursor.y))) this->FinishConfigInput(true, false);
+            !Contains(this->ConfigTransform().Map(this->config_.slider_bounds), static_cast<float>(cursor.x), static_cast<float>(cursor.y))) this->FinishConfigInput(true, false);
         if ((message == WM_LBUTTONDOWN || message == WM_LBUTTONDBLCLK) && this->config_.text_input.Focused() &&
-            !Contains(this->config_.text_bounds, static_cast<float>(cursor.x), static_cast<float>(cursor.y))) this->FinishConfigInput(true, false);
+            !Contains(this->ConfigTransform().Map(this->config_.text_bounds), static_cast<float>(cursor.x), static_cast<float>(cursor.y))) this->FinishConfigInput(true, false);
         if (!this->editing_ && this->hud_target_pressed_)
         { this->mouse_route_ = "hud-target"; return this->HandleTargetMouse(message, blocked); }
         auto* chat = this->chat_pointer_ != nullptr ? this->chat_pointer_ : this->ChatAt(static_cast<float>(cursor.x), static_cast<float>(cursor.y));
         const bool overConfig = this->editing_ && (this->ProfileSurface(viewport) || this->config_.choice_input.Opened() || this->config_.header_menu_open || this->config_.search_open ||
             (this->mouse_captured_ && this->mouse_buttons_ != 0) || Contains(this->ConfigVisibleBounds(), static_cast<float>(cursor.x), static_cast<float>(cursor.y)) ||
-            (this->config_.active_color != nullptr && Contains(this->ConfigLayout().ColorEditor(viewport), static_cast<float>(cursor.x), static_cast<float>(cursor.y))));
+            (this->config_.active_color != nullptr && Contains(this->ConfigColorBounds(viewport), static_cast<float>(cursor.x), static_cast<float>(cursor.y))));
         if ((message == WM_LBUTTONDOWN || message == WM_LBUTTONDBLCLK) &&
             (chat == nullptr || overConfig)) this->chat_.Focus(false);
         if (chat != nullptr && (!blocked || this->chat_pointer_ != nullptr || this->ChatResizing()) &&
@@ -719,26 +728,14 @@ namespace xiui
             if (this->config_.collapsed) return captured;
             this->FinishConfigInput(true, false);
             const short delta = static_cast<short>((wParam >> 16) & 0xFFFF);
-            if (this->profile_name_.Focused())
-            {
-                if (this->profile_dialog_ == profile_dialog::share || this->profile_dialog_ == profile_dialog::import_profile)
-                {
-                    if (this->profile_dialog_ == profile_dialog::import_profile && this->profile_import_lua_)
-                    {
-                        const ui::lua_import_layout layout{this->config_.bounds, viewport};
-                        if (Contains(layout.Control(12), static_cast<float>(this->mouse_x_), static_cast<float>(this->mouse_y_))) this->profile_lua_report_.Scroll(-(delta / WHEEL_DELTA) * 3);
-                        return captured;
-                    }
-                }
-                return captured;
-            }
+            if (this->profile_name_.Focused()) return captured;
             if (this->profile_actions_) return captured;
-            if (this->profile_dropdown_ && Contains(this->ConfigLayout().ProfileMenu(this->profiles_.Entries().size()), static_cast<float>(this->mouse_x_), static_cast<float>(this->mouse_y_)))
+            if (this->profile_dropdown_ && Contains(this->ConfigLayout().ProfileMenu(this->profiles_.Entries().size()), this->ConfigMouseX(), this->ConfigMouseY()))
             {
                 this->profile_scroll_ = std::clamp(this->profile_scroll_ - delta / WHEEL_DELTA, 0, std::max(0, static_cast<int>(this->profiles_.Entries().size()) - 7));
                 return captured;
             }
-            if (!this->config_.basic && Contains(this->ConfigSidebarBounds(), static_cast<float>(this->mouse_x_), static_cast<float>(this->mouse_y_)))
+            if (!this->config_.basic && Contains(this->ConfigSidebarBounds(), this->ConfigMouseX(), this->ConfigMouseY()))
             {
                 this->config_.sidebar_animation.reveal = false;
                 this->config_.sidebar_animation.scroll -= static_cast<float>(delta / WHEEL_DELTA) * 48;
@@ -746,7 +743,7 @@ namespace xiui
                 return captured;
             }
             if (this->IsExperienceDisplay() && this->experience_display_.Scroll(this->experience_, this->ConfigLayout(),
-                static_cast<float>(this->mouse_x_), static_cast<float>(this->mouse_y_), delta / WHEEL_DELTA)) return captured;
+                this->ConfigMouseX(), this->ConfigMouseY(), delta / WHEEL_DELTA)) return captured;
             this->config_.scroll -= (delta / WHEEL_DELTA) * this->ConfigLayout().Columns();
             this->ClampOptionScroll();
             this->config_.active_color = nullptr;
@@ -1611,6 +1608,16 @@ namespace xiui
                     state.window_type + 1, state.window_type_available ? "following game" : "unavailable", this->commands_.State().enabled ? "enabled" : "disabled",
                     state.menu_count, this->commands_.AnchorsTop() ? "Top" : "Bottom", state.menu_available ? "available" : "unavailable",
                     this->native_assets_.MeterSkin() && this->container_renderer_.MeterBackground().texture != nullptr ? "available" : "unavailable");
+            if (::_stricmp(command, "commands status") == 0 && this->core_ != nullptr && this->core_->GetChatManager() != nullptr)
+                for (size_t index = 0; index < this->native_windows_.size(); ++index)
+                {
+                    const auto& window = this->native_windows_[index];
+                    if (!state.windows[index].live && !window.PositionKnown()) continue;
+                    const auto& bounds = window.State().bounds;
+                    const char* source = window.Placement().enabled ? "custom" : state.windows[index].live ? "native" : window.HasGeometry() ? "captured" : "not open";
+                    this->core_->GetChatManager()->Writef(1, false, "[XIUI+] Native %s: %.0f,%.0f %.0fx%.0f (%s).",
+                        window.DisplayName(), bounds.x, bounds.y, bounds.width, bounds.height, source);
+                }
             return true;
         }
         else if (::_stricmp(command, "world status") == 0 || ::_stricmp(command, "compass status") == 0)
@@ -1817,6 +1824,18 @@ namespace xiui
                 std::snprintf(text, sizeof(text), "[XIUI+] Enemy list: %zu tracked; %s.", this->enemy_list_.Count(), this->enemy_list_.State().enabled ? "enabled" : "disabled");
                 this->core_->GetChatManager()->Write(1, false, text);
             }
+            return true;
+        }
+        else if (::_stricmp(command, "nativeui reset") == 0)
+        {
+            this->ActivateConfigAction(this->game_hud_, game_hud_module::reset_positions_option);
+            message = i18n::Text("[XIUI+] All native window positions reset. Visibility choices kept.");
+        }
+        else if (::_stricmp(command, "nativeui") == 0 || ::_stricmp(command, "nativeui edit") == 0)
+        {
+            this->SetVisible(true); this->SetEditing(true); this->SetBasicSettings(false, false);
+            this->SelectConfigModule(&this->game_hud_);
+            if (::_stricmp(command, "nativeui edit") == 0) this->SetNativeEditMode(true);
             return true;
         }
         else if (::_strnicmp(command, "gamehud", 7) == 0 && (command[7] == '\0' || command[7] == ' '))
@@ -2181,7 +2200,7 @@ namespace xiui
         if (!this->layout_initialized_)
         {
             if (this->config_.bounds.x < 0.0f)
-                this->config_.bounds.x = std::max(8.0f, static_cast<float>(viewport.Width) - this->config_.bounds.width - 20.0f);
+                this->config_.bounds.x = std::max(8.0f, static_cast<float>(viewport.Width) - this->config_.bounds.width * this->ConfigScale() - 20.0f);
             if (this->chat_.State().bounds.y < 0.0f)
                 this->chat_.State().bounds.y = std::max(0.0f, static_cast<float>(viewport.Height) - this->chat_.State().bounds.height - 18.0f);
             if (this->compass_.State().bounds.x < 0) this->compass_.State().bounds.x = std::max(0.0f, viewport.Width - this->compass_.State().bounds.width - 24.0f);
@@ -2277,11 +2296,12 @@ namespace xiui
             module->State().maximum_width = std::max(module->State().minimum_width, static_cast<float>(viewport.Width));
         this->ResolveHudTransforms(viewport);
         auto visibleConfig = this->ConfigVisibleBounds();
-        clampRect(visibleConfig, std::min(this->ConfigLayout().MinimumWidth(), static_cast<float>(viewport.Width)),
-            std::min(this->config_.collapsed ? 32.0f : this->ConfigLayout().MinimumHeight(), static_cast<float>(viewport.Height)));
+        const auto configScale = this->ConfigScale();
+        clampRect(visibleConfig, std::min(this->ConfigLayout().MinimumWidth() * configScale, static_cast<float>(viewport.Width)),
+            std::min((this->config_.collapsed ? 32.0f : this->ConfigLayout().MinimumHeight()) * configScale, static_cast<float>(viewport.Height)));
         this->config_.bounds.x = visibleConfig.x; this->config_.bounds.y = visibleConfig.y;
-        this->config_.bounds.width = visibleConfig.width;
-        if (!this->config_.collapsed) this->config_.bounds.height = visibleConfig.height;
+        this->config_.bounds.width = visibleConfig.width / configScale;
+        if (!this->config_.collapsed) this->config_.bounds.height = visibleConfig.height / configScale;
     }
 
     auto hud_runtime::HudSoundTarget(void) -> uint64_t
@@ -2326,7 +2346,7 @@ namespace xiui
         {
             const auto x = static_cast<float>(this->mouse_x_), y = static_cast<float>(this->mouse_y_);
             const bool config = this->editing_ && (this->ProfileSurface(viewport) || this->config_.choice_input.Opened() || Contains(this->ConfigVisibleBounds(), x, y) ||
-                (this->config_.active_color != nullptr && Contains(this->ConfigLayout().ColorEditor(viewport), x, y)));
+                (this->config_.active_color != nullptr && Contains(this->ConfigColorBounds(viewport), x, y)));
             if (!config)
                 if (auto* chat = this->ChatAt(x, y); chat != nullptr) chat->SetHovered(Contains(chat->State().transform.Map(chat->State().bounds), x, y), x, y);
             target = config ? this->ConfigSoundTarget(viewport) : this->HudSoundTarget();
@@ -2440,7 +2460,7 @@ namespace xiui
             if (index && index == pressed) this->SelectChoiceInput(*index);
             return captured;
         }
-        if (this->config_.choice_input.HandleScrollPointer(message, static_cast<float>(this->mouse_x_), static_cast<float>(this->mouse_y_), viewport))
+        if (this->config_.choice_input.HandleScrollPointer(message, this->ChoiceMouseX(), this->ChoiceMouseY(), this->ChoiceViewport(viewport)))
         {
             if (message == WM_LBUTTONDOWN || message == WM_LBUTTONDBLCLK) this->mouse_down_ = true;
             else if (message == WM_LBUTTONUP) { this->mouse_down_ = false; this->FinishInteraction(); }
@@ -2449,14 +2469,14 @@ namespace xiui
         // Window messages own button transitions; frame polling must never create clicks.
         if ((message == WM_LBUTTONDOWN || message == WM_LBUTTONDBLCLK) && !this->mouse_down_)
         {
-            const bool preview = this->config_.choice_input.Opened() && this->config_.choice_input.PreviewAt(static_cast<float>(this->mouse_x_), static_cast<float>(this->mouse_y_), viewport);
+            const bool preview = this->config_.choice_input.Opened() && this->config_.choice_input.PreviewAt(this->ChoiceMouseX(), this->ChoiceMouseY(), this->ChoiceViewport(viewport));
             if (captured && !preview && this->ConfigSoundTarget(viewport) != 0) this->ui_sounds_.Select(::GetTickCount64());
             this->mouse_down_ = true;
             if (this->ProcessSettingsSearchClick(viewport)) return captured;
             if (this->ProcessChoiceClick(viewport)) return captured;
-            if (this->config_.slider_input.Focused() && Contains(this->config_.slider_bounds, static_cast<float>(this->mouse_x_), static_cast<float>(this->mouse_y_)))
+            if (this->config_.slider_input.Focused() && Contains(this->config_.slider_bounds, this->ConfigMouseX(), this->ConfigMouseY()))
             { this->config_.slider_input.SelectAll(); return captured; }
-            if (this->config_.text_input.Focused() && Contains(this->config_.text_bounds, static_cast<float>(this->mouse_x_), static_cast<float>(this->mouse_y_)))
+            if (this->config_.text_input.Focused() && Contains(this->config_.text_bounds, this->ConfigMouseX(), this->ConfigMouseY()))
             { this->config_.text_input.SelectAll(); return captured; }
             this->FinishConfigInput(true, false);
             if (captured && !this->ProcessConfigClick(viewport))
@@ -2488,7 +2508,7 @@ namespace xiui
     auto hud_runtime::BeginCloseInteraction(const interaction closing, const rect& button) -> void
     {
         this->interaction_ = closing;
-        this->close_button_ = button;
+        this->close_button_ = this->ConfigTransform().Map(button);
     }
 
     auto hud_runtime::FinishInteraction(void) -> void
@@ -2497,7 +2517,8 @@ namespace xiui
         const auto completed = this->interaction_;
         this->config_.sidebar_scrolling = false;
         if (completed == interaction::color_pick) this->config_.color_picker.EndDrag();
-        if (completed == interaction::drag_module && this->interaction_module_ != nullptr)
+        if (completed == interaction::drag_module && this->interaction_module_ != nullptr &&
+            (this->NativeWindowIndex(*this->interaction_module_) == native_window_count || this->drag_moved_))
             this->interaction_module_->OnPositionChanged();
         this->interaction_ = interaction::none;
         this->close_button_ = {};
@@ -2568,8 +2589,9 @@ namespace xiui
             const float y = static_cast<float>(this->mouse_y_);
             this->mouse_captured_ = this->satchel_pointer_release_ != 0 || this->actionbar_pointer_release_ != 0 || this->ActionBarsPointerOwns(x, y) ||
                 this->ProfileSurface(viewport) || this->config_.choice_input.Opened() || this->config_.header_menu_open || this->config_.search_open || this->interaction_ != interaction::none || Contains(this->ConfigVisibleBounds(), x, y) ||
-                (this->config_.active_color != nullptr && Contains(this->ConfigLayout().ColorEditor(viewport), x, y));
+                (this->config_.active_color != nullptr && Contains(this->ConfigColorBounds(viewport), x, y));
             if (const auto toolbar = this->MovementToolbar(viewport); toolbar && Contains(toolbar->bounds, x, y)) this->mouse_captured_ = true;
+            if (this->NativeEditTarget(viewport) != 0) this->mouse_captured_ = true;
             if (this->EditGripAt(x, y) != nullptr) this->mouse_captured_ = true;
             for (const auto* module : this->modules_.All())
                 this->mouse_captured_ = this->mouse_captured_ || (module->HasEditableBounds() && this->ModuleDisplayed(*module) && Contains(this->MovementBounds(*module), x, y));
@@ -2609,6 +2631,11 @@ namespace xiui
 
         if (tryPanel(this->config_.bounds, nullptr))
             return;
+        if (this->NativeEditMode())
+        {
+            if (auto* window = this->NativeWindowAt(x, y)) tryPanel(window->State().bounds, window);
+            return;
+        }
         auto& modules = this->modules_.All();
         if (auto* module = this->EditGripAt(x, y)) { this->BeginScale(*module); return; }
         for (auto module = modules.rbegin(); module != modules.rend(); ++module)
@@ -2659,7 +2686,7 @@ namespace xiui
         {
             if (this->mouse_down_)
             {
-                this->config_.color_picker.Update(this->ConfigLayout().ColorEditor(viewport), static_cast<float>(this->mouse_x_), static_cast<float>(this->mouse_y_));
+                this->config_.color_picker.Update(this->ConfigLayout().ColorEditor(this->ConfigViewport(viewport)), this->ConfigMouseX(), this->ConfigMouseY());
                 this->ApplyPickedColor();
             }
             return;
@@ -2826,6 +2853,7 @@ namespace xiui
         if (FAILED(this->device_->GetViewport(&viewport)))
             return;
         this->commands_.Update(snapshot.native_ui, static_cast<float>(viewport.Width), static_cast<float>(viewport.Height));
+        this->UpdateNativeWindows(viewport);
         this->container_renderer_.SetAppearanceTheme(this->general_.AppearanceTheme());
         this->design_system_.SetAppearanceTheme(this->general_.AppearanceTheme());
         this->target_.Settings().recipient.ApplyThemeDefaults(this->design_system_.IsXiv1Theme());
@@ -2877,7 +2905,10 @@ namespace xiui
             if (module->HasEditableBounds() && this->ModuleDisplayed(*module))
             {
                 this->design_system_.BeginContentBounds();
-                { const auto transform = this->design_system_.Transform(module->State().transform); module->Render(snapshot, this->ConfigPreview(*module) ? previewContext : context); }
+                {
+                    const auto transform = this->design_system_.Transform(module->State().transform);
+                    module->Render(snapshot, this->ConfigPreview(*module) ? previewContext : context);
+                }
                 const rect content = this->design_system_.EndContentBounds();
                 auto& state = module->State();
                 if (this->editing_)
@@ -2893,16 +2924,18 @@ namespace xiui
         {
             this->DrawScaleGrips();
             this->DrawMovementToolbar(viewport);
+            this->DrawNativeWindowButtons();
             this->DrawConfig(viewport);
             this->DrawColorEditor(viewport);
             this->DrawProfileOverlay(viewport);
             this->DrawChoiceInput(viewport);
             this->DrawHeaderControls(viewport);
             this->DrawSettingsSearch(viewport);
+            this->DrawEditModeSwitcher(viewport);
         }
         if (this->ContextVisible(this->equipment_) && this->equipment_.ShouldRender(snapshot) && !this->ProfileSurface(viewport) && properties != nullptr && ::GetForegroundWindow() == properties->GetFinalFantasyHwnd() &&
             (!this->editing_ || (!Contains(this->ConfigVisibleBounds(), static_cast<float>(this->mouse_x_), static_cast<float>(this->mouse_y_)) &&
-                (this->config_.active_color == nullptr || !Contains(this->ConfigLayout().ColorEditor(viewport), static_cast<float>(this->mouse_x_), static_cast<float>(this->mouse_y_))))))
+                (this->config_.active_color == nullptr || !Contains(this->ConfigColorBounds(viewport), static_cast<float>(this->mouse_x_), static_cast<float>(this->mouse_y_))))))
             this->equipment_.RenderTooltip(context, static_cast<float>(this->mouse_x_), static_cast<float>(this->mouse_y_));
         if (!this->editing_ && this->ContextVisible(this->chat_)) this->chat_.RenderHistory(snapshot, context);
         if (!this->editing_ && this->ContextVisible(this->chat_second_)) this->chat_second_.RenderHistory(snapshot, context);

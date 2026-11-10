@@ -1,5 +1,22 @@
 # Changelog
 
+## Unreleased
+
+- Setup: accepting Use XIUI+ with Next also hides its native counterpart, preventing duplicate chat and party/player windows after setup. Save choices even while native controls are not ready.
+
+- Native UI: add Reset All Native Windows under Window Placement and `/xiuiplus nativeui reset` to restore every native HUD/menu position while keeping visibility choices. Keep native macro replacement off by default.
+
+- Native UI editing: display the game's actual native HUD and party/menu rendering, with small labels and edit controls at native window coordinates. Remove recreated contents, sample frames and the placeholder grid. Only windows observed in the native draw path receive outlines; visibility choices resume when native editing ends.
+
+- Native UI: add a main configuration category for native HUD windows, overhead names, macro palette controls and menus/dialogs. Split command settings into named pages for spells/abilities, item details, merchants, auctions, bazaar comments, equipment/inspection, macro palettes and other dialogs.
+- Edit Mode: add a compact right-edge two-icon selector between XIUI and Native UI editing. Native windows/groups have labeled outlines, independent placement, Show/Hide controls and scoped position resets, with shared pointer/controller actions. Existing settings and shared command anchors remain compatible.
+
+- Configuration: unify Menu Scale, configuration text styling and Follow moved module settings under Config Settings in General's secondary navigation.
+- Imports: remove whole legacy XIUI Lua profile conversion. Import only actions, shared macros and hotbar/crossbar palettes through Action Bars → Import; keep current HUD appearance, layout and controller settings.
+- Configuration: add Menu Scale from 100% to 200% for large screens. Controls, spacing, text, menus and dialogs scale together independently of the HUD, and the choice stays local across profiles and presets.
+- Macro targets: reuse saved spell/action customizations in the library so reopening or assigning Cure III keeps a chosen target such as `<stpc>` instead of offering an identical default `<t>` action. Separately named variants remain available.
+- Treasure Pool: keep remaining loot visible during native pool refreshes and rapid drops. Fix occupied slots being hidden by lot-result packets, preserve rows through brief missing samples, and prevent actions on unconfirmed or replaced items.
+
 ## 0.1.41-alpha — 2026-11-03
 
 Changes since the last published release, 0.1.4-alpha:

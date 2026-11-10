@@ -44,6 +44,7 @@ namespace xiui
         this->inventory_enabled_ = store.ReadBool("modules", "inventory", true);
         this->party_enabled_ = store.ReadBool("modules", "party", true);
         this->hud_scale_ = std::clamp(store.ReadFloat("appearance.hud", "scale", 1), .5f, 2.0f);
+        this->menu_scale_ = std::clamp(store.ReadInt("session.config", "menu_scale", 0), 0, 4);
         this->follow_moved_module_settings_ = store.ReadBool("general", "follow_moved_module_settings", true);
         this->global_text_.Load(store);
         this->config_text_.Load(store);
@@ -76,6 +77,7 @@ namespace xiui
         store.WriteFloat("appearance", "xiv1_background_opacity", this->xiv1_background_opacity_);
         store.WriteInt("appearance", "theme", this->appearance_theme_);
         store.WriteFloat("appearance.hud", "scale", this->hud_scale_);
+        store.WriteInt("session.config", "menu_scale", this->menu_scale_);
         store.WriteBool("general", "follow_moved_module_settings", this->follow_moved_module_settings_);
         this->global_text_.Save(store);
         this->config_text_.Save(store);
@@ -98,6 +100,14 @@ namespace xiui
 
     auto general_module::ContentOption(const size_t index) -> module_option
     {
+        if (index == this->MenuScaleOption())
+        {
+            static constexpr const char* scales[]{"100%", "125%", "150%", "175%", "200%"};
+            auto option = module_option::Dropdown("Menu Scale (%)", "Scale the entire configuration window, including controls, spacing, text and dialogs. Independent of HUD scale; saved for this installation.",
+                &this->menu_scale_, scales, std::size(scales)).VerbatimChoices().Ordered(90, true);
+            option.group = module_option_group::appearance;
+            return option;
+        }
         if (index == this->FollowGameWindowTypeOption())
             return module_option::Toggle("Follow game", "Use the game's Window Type for XIUI+. Turn off to choose a separate type without changing native game windows.",
                 &this->follow_game_window_type_, module_option_group::appearance).Ordered(-39);
@@ -105,7 +115,7 @@ namespace xiui
             return module_option::Slider("XIV 1.0 background opacity", "Opacity of all XIV 1.0 window backgrounds. Combines with each module's opacity; frames and text retain their own settings.",
                 &this->xiv1_background_opacity_, 0, 1, .05f, module_option_group::appearance).Ordered(449).VisibleWhen(this->appearance_theme_ == ui::xiv1_appearance);
         if (index == this->ExtraSettingsStart())
-            return module_option::Toggle("Follow moved module settings", "Automatically select a module's settings when clicking or resizing it in edit mode. Turn off to keep the current settings page while arranging the HUD.", &this->follow_moved_module_settings_);
+            return module_option::Toggle("Follow moved module settings", "Automatically select a module's settings when clicking or resizing it in edit mode. Turn off to keep the current settings page while arranging the HUD.", &this->follow_moved_module_settings_).Ordered(91);
         if (index == this->AppearanceThemeOption())
             return module_option::Choice("Theme", "Global XIUI+ artwork and HUD presentation. XIV1.0 Theme uses navy windows, aged metal frames, copper gauges and serif text. Saved positions and styling are preserved.", &this->appearance_theme_, ui::appearance_themes, std::size(ui::appearance_themes), module_option_group::appearance).Ordered(-50);
         if (index >= this->HudScaleStart())
@@ -306,7 +316,8 @@ namespace xiui
     auto general_module::ContentConfigSectionContains(const size_t section, const size_t index) -> bool
     {
         if (index >= this->OptionCount()) return false;
-        if (index == this->ExtraSettingsStart()) return section == extra_settings_section;
+        if (index == this->NameplatesOption()) return false;
+        if (index == this->ExtraSettingsStart()) return section == appearance_section;
         if (index == this->Xiv1BackgroundOpacityOption()) return section == appearance_section;
         if (index >= this->HudScaleStart()) return section == appearance_section;
         if (index >= this->GameHudStart()) return section == game_hud_section;

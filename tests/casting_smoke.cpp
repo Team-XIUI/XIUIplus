@@ -119,7 +119,7 @@ namespace
         using namespace xiui;
         auto store = settings_store::FromIniText("[commands]\nenabled=1\nposition_initialized=1\n[layout.commands]\nx=100\ny=500\nwidth=112\nheight=168\n");
         command_menu_module module; module.Load(store);
-        auto anchor = Find(module, "Window anchor");
+        auto anchor = Find(module, "Shared anchor edge");
         Check(anchor.available && anchor.choice_count == 2 && std::strcmp(anchor.choices[0], "Top") == 0 &&
             std::strcmp(anchor.choices[1], "Bottom") == 0 && !module.AnchorsTop(), "top and bottom options are always available; legacy settings retain bottom anchoring");
         native_ui_state native{}; native.menu_available = native.menu_visible = true; native.width = 112; native.height = 400;

@@ -95,9 +95,6 @@ namespace xiui
         this->profile_file_.clear();
         this->profile_legacy_import_ = false;
         this->profile_import_.reset();
-        this->profile_import_lua_ = false;
-        this->profile_lua_path_.Cancel(); this->profile_lua_preview_.reset();
-        this->profile_lua_report_.Reset(); this->profile_lua_report_text_.clear(); this->profile_lua_status_.clear();
         this->profile_dialog_ = profile_dialog::create;
         this->profile_error_.clear();
         this->confirmation_module_ = nullptr;
@@ -247,25 +244,7 @@ namespace xiui
     {
         auto result = this->profile_transfer_.Take();
         if (!result || !this->profile_name_.Focused()) return;
-        if (result->cancelled)
-        {
-            if (!result->stopped && this->profile_import_lua_) this->profile_lua_status_ = "File selection cancelled. Choose Scan or Browse to try again.";
-            return;
-        }
-        if (result->kind == profile_transfer_kind::scan_lua || result->kind == profile_transfer_kind::stage_lua)
-        {
-            if (!result->error.empty()) { this->profile_lua_status_ = std::move(result->error); return; }
-            if (result->lua_staged) { this->FinishLuaImport(*result->lua_staged); return; }
-            if (result->lua_preview)
-            {
-                if (!result->path.empty()) this->profile_lua_path_.Open(ToUtf8(result->path.wstring()), 2048);
-                this->profile_lua_preview_ = std::move(result->lua_preview);
-                this->profile_lua_report_text_ = std::move(result->lua_report);
-                this->profile_lua_report_.Reset();
-                this->profile_lua_status_ = this->profile_lua_preview_->error.empty() ? "Review the report, then import as new profiles." : this->profile_lua_preview_->error;
-            }
-            return;
-        }
+        if (result->cancelled) return;
         if (!result->error.empty()) { this->profile_error_ = std::move(result->error); return; }
         this->profile_error_.clear();
         if (result->kind == profile_transfer_kind::export_file) this->profile_file_ = std::move(result->path);
@@ -345,13 +324,11 @@ namespace xiui
     auto hud_runtime::ProfileSoundTarget(const D3DVIEWPORT8& viewport) const -> uint64_t
     {
         if (!this->editing_ || this->config_.collapsed) return 0;
-        const auto x = static_cast<float>(this->mouse_x_), y = static_cast<float>(this->mouse_y_);
+        const auto x = this->ConfigMouseX(), y = this->ConfigMouseY();
         if (this->profile_name_.Focused())
         {
-            if (this->profile_dialog_ == profile_dialog::import_profile && this->profile_import_lua_)
-            { const auto target = this->LuaImportTarget(viewport); return target != 0 ? profile_target | target : 0; }
             const bool extended = this->profile_dialog_ == profile_dialog::share || this->profile_dialog_ == profile_dialog::import_profile;
-            const ui::profile_dialog_layout dialog{this->config_.bounds, viewport, extended};
+            const ui::profile_dialog_layout dialog{this->config_.bounds, this->ConfigViewport(viewport), extended};
             if (Contains(dialog.Cancel(), x, y)) return profile_target | 11;
             if (Contains(dialog.Close(), x, y)) return profile_target | 13;
             if (this->profile_transfer_.Busy()) return 0;
@@ -359,8 +336,6 @@ namespace xiui
             if (Contains(dialog.Create(), x, y) && (this->profile_dialog_ != profile_dialog::import_profile || this->profile_import_)) return profile_target | 12;
             if (this->profile_dialog_ == profile_dialog::import_profile && Contains(dialog.Browse(), x, y)) return profile_target | 14;
             if (this->profile_dialog_ == profile_dialog::import_profile && Contains(dialog.Paste(), x, y)) return profile_target | 15;
-            if (this->profile_dialog_ == profile_dialog::import_profile)
-                for (size_t i = 0; i < 2; ++i) if (Contains(dialog.ImportSource(i), x, y)) return profile_target | (16 + i);
             return 0;
         }
         if (this->profiles_.Ready() && Contains(this->ConfigLayout().ProfileSelector(), x, y)) return profile_target | 1;
@@ -384,12 +359,11 @@ namespace xiui
         const auto target = this->ProfileSoundTarget(viewport) & ~profile_target;
         if (this->profile_name_.Focused())
         {
-            if (this->profile_dialog_ == profile_dialog::import_profile && this->profile_import_lua_) return this->LuaImportClick(viewport);
             if (target == 10 && this->profile_dialog_ != profile_dialog::share) this->profile_name_.SelectAll();
             else if (target == 11 || target == 13)
             {
                 const bool extended = this->profile_dialog_ == profile_dialog::share || this->profile_dialog_ == profile_dialog::import_profile;
-                const ui::profile_dialog_layout dialog{this->config_.bounds, viewport, extended};
+                const ui::profile_dialog_layout dialog{this->config_.bounds, this->ConfigViewport(viewport), extended};
                 this->BeginCloseInteraction(interaction::close_profile, target == 11 ? dialog.Cancel() : dialog.Close());
             }
             else if (target == 12 && this->profile_dialog_ == profile_dialog::share) this->BrowseProfileFile(true);
@@ -399,7 +373,6 @@ namespace xiui
             else if (target == 12) this->CreateProfile();
             else if (target == 14) this->BrowseProfileFile(false);
             else if (target == 15) this->PasteProfileKey();
-            else if (target == 16 || target == 17) this->SetProfileImportSource(target == 17);
             return true;
         }
         if (target == 2)
@@ -444,8 +417,6 @@ namespace xiui
     auto hud_runtime::HandleProfileKey(const WPARAM key, const LPARAM flags) -> bool
     {
         if (!this->profile_name_.Focused() && !this->profile_dropdown_ && !this->profile_actions_) return false;
-        if (this->profile_name_.Focused() && this->profile_dialog_ == profile_dialog::import_profile && this->profile_import_lua_)
-            return this->HandleLuaImportKey(key, flags);
         if ((static_cast<uint32_t>(flags) & 0x80000000u) != 0) return true;
         const bool repeat = (static_cast<uint32_t>(flags) & 0x40000000u) != 0;
         if (key == VK_ESCAPE)
@@ -463,8 +434,6 @@ namespace xiui
         if (this->profile_name_.Focused())
         {
             if (this->profile_transfer_.Busy()) return true;
-            if (this->profile_dialog_ == profile_dialog::import_profile && key == VK_TAB && (::GetKeyState(VK_CONTROL) & 0x8000) != 0 && !repeat)
-            { this->SetProfileImportSource(true); return true; }
             if (this->profile_dialog_ == profile_dialog::delete_profile || this->ConfirmingAction())
             {
                 if (key == VK_TAB || key == VK_LEFT || key == VK_RIGHT)
@@ -528,7 +497,6 @@ namespace xiui
     auto hud_runtime::CreateProfile(void) -> bool
     {
         if (this->profile_transfer_.Busy()) return false;
-        if (this->profile_dialog_ == profile_dialog::import_profile && this->profile_import_lua_) return this->CreateLuaProfiles();
         if (this->profile_dialog_ == profile_dialog::import_profile && !this->profile_import_)
         { this->profile_error_ = "Choose a valid profile file first."; return false; }
         this->SaveSettings();
@@ -617,7 +585,7 @@ namespace xiui
     auto hud_runtime::DrawProfileControls(void) -> void
     {
         const auto selector = this->ConfigLayout().ProfileSelector(), add = this->ConfigLayout().ProfileAdd();
-        const auto x = static_cast<float>(this->mouse_x_), y = static_cast<float>(this->mouse_y_);
+        const auto x = this->ConfigMouseX(), y = this->ConfigMouseY();
         const auto* profileName = this->profiles_.Ready() ? this->profiles_.Current().name.c_str() : "Default";
         this->config_controls_.Dropdown(selector, profileName, this->profile_dropdown_, Contains(selector, x, y));
         this->config_controls_.IconButton(add, ui::icon_glyph::add, Contains(add, x, y));
@@ -632,9 +600,10 @@ namespace xiui
 
     auto hud_runtime::DrawProfileOverlay(const D3DVIEWPORT8& viewport) -> void
     {
+        const auto transform = this->design_system_.Transform(this->ConfigTransform());
         if (this->config_.collapsed) return;
         const auto& theme = this->design_system_.GetTheme();
-        const auto x = static_cast<float>(this->mouse_x_), y = static_cast<float>(this->mouse_y_);
+        const auto x = this->ConfigMouseX(), y = this->ConfigMouseY();
         auto body = theme.body_text; body.scale = 0.76f; body.alignment = ui::text_alignment::left;
         auto caption = theme.caption_text; caption.scale = 0.68f; caption.alignment = ui::text_alignment::left;
         if (this->profile_actions_)
@@ -666,8 +635,6 @@ namespace xiui
             if (!this->profile_error_.empty()) this->config_controls_.Tooltip(this->profile_error_.c_str(), this->ConfigLayout().ProfileSelector(), viewport);
             return;
         }
-        if (this->profile_dialog_ == profile_dialog::import_profile && this->profile_import_lua_)
-        { this->DrawLuaProfileImport(viewport); return; }
         this->design_system_.FillRect(this->config_.bounds, 0x66000000);
         const bool sharing = this->profile_dialog_ == profile_dialog::share;
         const bool importing = this->profile_dialog_ == profile_dialog::import_profile;
@@ -682,7 +649,7 @@ namespace xiui
         const bool resetting = this->profile_dialog_ == profile_dialog::reset_defaults;
         const bool extended = sharing || importing;
         const bool busy = this->profile_transfer_.Busy();
-        const ui::profile_dialog_layout dialog{this->config_.bounds, viewport, extended};
+        const ui::profile_dialog_layout dialog{this->config_.bounds, this->ConfigViewport(viewport), extended};
         const auto bounds = dialog.Bounds();
         this->config_controls_.Panel(bounds);
         auto title = body; title.scale = 0.9f;
@@ -691,7 +658,7 @@ namespace xiui
         const auto warningTitle = warning ? this->profile_name_.Editor().Text() + "?" : std::string{};
         this->config_controls_.Text(moduleReset ? i18n::Text("THIS WILL RESET ALL SETTINGS!") : warning ? warningTitle.c_str() : resetting ? i18n::Text("Reset to defaults?") : confirming ? i18n::Text("Apply changes?") : deleting ? i18n::Text("Delete profile?") : sharing ? i18n::Text("Share profile") : importing ? i18n::Text("Import profile") : duplicate ? i18n::Text("Duplicate profile") : renaming ? i18n::Text("Rename profile") : i18n::Text("Create profile"),
             dialog.Title(), title);
-        const char* help = confirming ? this->confirmation_message_.c_str() : deleting ? "Delete this profile and switch to Default?" : sharing ? "Save a profile file, then attach it to your message." : importing ? "Choose a profile file or an XIUI Lua setup to import." :
+        const char* help = confirming ? this->confirmation_message_.c_str() : deleting ? "Delete this profile and switch to Default?" : sharing ? "Save a profile file, then attach it to your message." : importing ? "Choose an XIUI+ profile file to import." :
             duplicate ? "Copy the selected profile into a separate setup." : renaming ? "Choose a new name for this profile." : "Start with your current layout and module settings.";
         if (warning)
         {
@@ -724,14 +691,7 @@ namespace xiui
         if (extended)
         {
             this->design_system_.FillRect({dialog.Field().x, bounds.y + 70, dialog.Field().width, 1}, theme.colors.border);
-            if (importing)
-            {
-                auto sourceStyle = caption; sourceStyle.alignment = ui::text_alignment::center;
-                if (busy) sourceStyle.top_color = sourceStyle.bottom_color = (sourceStyle.top_color & 0x00FFFFFF) | 0x80000000;
-                this->config_controls_.Button(dialog.ImportSource(0), i18n::Text("Profile file"), sourceStyle, !busy);
-                this->config_controls_.Button(dialog.ImportSource(1), i18n::Text("XIUI Lua"), sourceStyle, !busy && Contains(dialog.ImportSource(1), x, y));
-            }
-            else this->config_controls_.Text(i18n::Text("Profile file"), dialog.SourceLabel(), caption);
+            this->config_controls_.Text(i18n::Text("Profile file"), dialog.SourceLabel(), caption);
             const auto source = dialog.Source();
             this->design_system_.FillRoundedRect(source, (theme.colors.chrome & 0x00FFFFFF) | 0xE0000000, 4);
             const float inset = importing ? 136.0f : 12.0f;

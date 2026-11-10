@@ -105,6 +105,84 @@ namespace xiui
             Check(module.BeginBrowse(), "treasure can be entered again"); module.Update(nullptr, false);
             Check(!module.InputFocused(), "native ownership and hidden contexts suspend treasure browsing");
         }
+        static auto TreasureReconciliation(void) -> void
+        {
+            treasure_source source;
+            treasure_module module; module.SetSource(&source);
+            std::array<treasure_snapshot, treasure_source::capacity> slots{};
+            for (size_t slot = 0; slot < slots.size(); ++slot) slots[slot] = {100, 1, 1000 + static_cast<uint32_t>(slot)};
+            slots[0].members[0] = {1, 0};
+            source.Reconcile(slots, true, 1, 10000);
+            const auto generation = source.Entries()[0].generation;
+            const auto captured = source.Plan(0, generation, false, 10000);
+            Check(captured && module.ShouldRender({}), "a full pool appears automatically");
+            const auto original = slots;
+            slots = {};
+            source.Reconcile(slots, true, 1, 10001);
+            Check(source.Count() == 10 && module.ShouldRender({}) && !source.Plan(0, generation, false, 10001) &&
+                !source.MemberLot(0, generation, 1), "a missing native sample preserves the window while suspending stale decisions");
+            source.Reconcile(slots, true, 1, 10001);
+            Check(source.Count() == 10, "forced reads cannot advance the missing-item grace period");
+            slots = original;
+            source.Reconcile(slots, true, 1, 10100);
+            Check(source.Entries()[0].generation == generation && source.Plan(0, generation, false, 10100),
+                "native refresh recovery preserves item identity and restores decisions");
+
+            std::array<uint8_t, 60> result{}; result[20] = 0; result[21] = 1;
+            source.HandlePacket(0xD3, result, 10200);
+            source.Reconcile(slots, true, 1, 10201);
+            Check(source.Count() == 10 && source.Entries()[0].generation == generation,
+                "an identity-free outcome cannot suppress an occupied native slot");
+            slots[0] = {};
+            source.Reconcile(slots, true, 1, 10300);
+            source.Reconcile(slots, true, 1, 10600);
+            Check(source.Count() == 9 && module.ShouldRender({}), "confirmed removal affects only its own slot");
+
+            std::array<uint8_t, 28> drop{}; Put(drop, 16, uint16_t{100}); Put(drop, 24, uint32_t{2000});
+            source.HandlePacket(0xD2, drop, 10700);
+            slots[0] = {100, 1, 2000}; source.Reconcile(slots, true, 1, 10700);
+            Check(source.Entries()[0].generation != generation && !source.Queue(*captured, 10700, [](const auto&) {}),
+                "same-item slot reuse rejects a captured action from the previous drop");
+            const auto replaced = source.Entries()[0].generation;
+            const auto expiry = source.Entries()[0].expires;
+            Put(drop, 24, uint32_t{3000}); source.HandlePacket(0xD2, drop, 10800);
+            source.Reconcile(slots, true, 1, 10800);
+            Check(source.Entries()[0].generation == replaced && !source.Plan(0, replaced, false, 10800),
+                "a new drop awaiting native memory suspends actions without applying its timer to the previous item");
+            slots[0].drop = 3000; source.Reconcile(slots, true, 1, 10900);
+            Check(source.Entries()[0].generation != replaced && source.Entries()[0].expires != expiry &&
+                source.Plan(0, source.Entries()[0].generation, false, 10900), "native confirmation applies the new generation and timer together");
+            slots[0].drop = 4000; source.Reconcile(slots, true, 1, 11000);
+            Check(source.Plan(0, source.Entries()[0].generation, false, 11000).has_value(),
+                "native replacement remains actionable when its drop packet was missed");
+
+            for (uint8_t outcome = 1; outcome <= 3; ++outcome)
+            {
+                result[21] = outcome; source.HandlePacket(0xD3, result, 11100 + outcome);
+                source.Reconcile(slots, true, 1, 11200 + outcome);
+                Check(source.Count() == 10, "win, error and lost outcomes never create a permanent slot tombstone");
+            }
+            slots = {}; source.Reconcile(slots, true, 1, 12000); source.Reconcile(slots, true, 1, 12300);
+            Check(source.Count() == 0 && !module.ShouldRender({}), "a confirmed empty pool closes automatically");
+
+            source.Clear(); Put(drop, 24, uint32_t{0}); source.HandlePacket(0xD2, drop, 20000);
+            slots[0] = {100, 1, 0}; source.Reconcile(slots, true, 1, 20000);
+            const auto zeroTime = source.Entries()[0].generation;
+            source.HandlePacket(0xD2, drop, 20100); source.Reconcile(slots, true, 1, 20100);
+            Check(source.Entries()[0].generation == zeroTime && source.Entries()[0].expires == 320000,
+                "duplicate zero-time drops do not restart identity or countdown");
+            source.Reconcile(slots, true, 1, 320001);
+            Check(source.Count() == 1 && module.ShouldRender({}), "estimated timeout never removes an occupied native item");
+            source.Reconcile(slots, false, 0, 320002);
+            slots[0].lot = 65535; source.Reconcile(slots, true, 2, 320003);
+            Check(source.Entries()[0].generation != zeroTime, "temporary missing player identity cannot carry items into another character");
+            source.BeginZone();
+            Check(!source.Ready() && source.Count() == 0 && !module.ShouldRender({}), "zoning clears old slots and hides the pool immediately");
+            Put(drop, 24, uint32_t{5000}); source.HandlePacket(0xD2, drop, 330000);
+            slots[0].lot = 0; source.Reconcile(slots, true, 2, 330000);
+            Check(source.Plan(0, source.Entries()[0].generation, false, 330000).has_value() && source.Entries()[0].expires == 630000,
+                "clients with an unavailable native drop time still accept matching-item metadata and decisions");
+        }
         static auto Map(void) -> void
         {
             minimap_source source; source.state_.zone = 121;
@@ -171,7 +249,7 @@ auto RunPhoenixIntegrationChecks(void) -> bool
         snapshots[0].lot = 65535; pool.Reconcile(snapshots, true, 1, 13000);
         Check(!pool.Plan(0, pool.Entries()[0].generation, true, 13000), "native pass state prevents duplicate decisions");
         std::array<uint8_t, 60> solution{}; solution[20] = 0; solution[21] = 1; pool.HandlePacket(0xD3, solution, 14000);
-        pool.Reconcile(snapshots, true, 1, 14001); Check(pool.Count() == 0, "resolved entries do not return from an older native sample");
+        pool.Reconcile(snapshots, true, 1, 14001); Check(pool.Count() == 1, "native slot contents remain authoritative after an outcome");
 
         pool.Clear(); std::array<uint8_t, 28> drop{}; Put(drop, 16, uint16_t{100}); Put(drop, 24, uint32_t{5000}); drop[21] = 1;
         pool.HandlePacket(0xD2, drop, 20000); snapshots = {}; snapshots[0] = {100, 1, 5000}; pool.Reconcile(snapshots, true, 1, 20000);
@@ -208,6 +286,7 @@ auto RunPhoenixIntegrationChecks(void) -> bool
         Check(pool.QueueBatch(passes, 23001, [&](const auto& request) { Check(request.slot == 1 && request.pass, "Pass All retains the eligible prior lot"); }) == 1 &&
             pool.QueueBatch(passes, 23001, [](const auto&) {}) == 0, "batch submission silently skips stale and newly pending decisions");
         phoenix_integration_test::TreasureController(pool);
+        phoenix_integration_test::TreasureReconciliation();
         auto store = settings_store::FromIniText("[treasure]\nexpanded=0\n[layout.treasure]\nx=123\ny=234\n");
         treasure_module module; module.ApplyTextDefaults(ui::theme::CreateDefault()); module.SetSource(&pool); module.Load(store); module.Save(store);
         Check(module.State().bounds.x == 123 && !store.ReadBool("treasure", "expanded", true), "pool presentation persists without changing its anchor");

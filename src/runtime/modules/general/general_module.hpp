@@ -43,7 +43,7 @@ namespace xiui
         static constexpr size_t grid_option_count = 6;
         static constexpr size_t input_option_count = 7;
         inline static constexpr const char* input_modes[]{"Auto", "Keyboard & Mouse", "Controller"};
-        inline static constexpr const char* appearance_tabs[]{"Window", "Global Text", "Config Text", "Controller Focus", "HP Feedback"};
+        inline static constexpr const char* appearance_tabs[]{"Window", "Global Text", "Config Settings", "Controller Focus", "HP Feedback"};
         auto SetModules(std::span<hud_module* const> modules) -> void { this->modules_.assign(modules.begin(), modules.end()); }
         auto SetTextModules(std::span<hud_module* const> modules) -> void { this->text_modules_.assign(modules.begin(), modules.end()); }
         auto SetVisibilityModules(std::span<hud_module* const> modules) -> void { this->visibility_.SetModules(modules); }
@@ -89,6 +89,7 @@ namespace xiui
         auto ConfigText(void) const -> const ui::config_text_settings& { return this->config_text_; }
         auto AppearanceOption(size_t index) const -> bool
         {
+            if (index == this->MenuScaleOption() || index == this->ExtraSettingsStart()) return this->appearance_tab_ == 2;
             if (this->appearance_tab_ == 4) return index >= this->FeedbackStart() && index < this->NameplatesOption();
             if (this->appearance_tab_ == 3) return index >= this->FocusStart() && index < this->VisibilityStart();
             if (this->appearance_tab_ == 2) return index >= this->ConfigTextStart() && index < this->InputStart();
@@ -109,7 +110,9 @@ namespace xiui
         auto ExtraSettingsStart(void) const -> size_t { return this->HudScaleStart() + 6; }
         auto Xiv1BackgroundOpacityOption(void) const -> size_t { return this->ExtraSettingsStart() + 1; }
         auto FollowGameWindowTypeOption(void) const -> size_t { return this->ExtraSettingsStart() + 2; }
-        auto ContentOptionCount(void) const -> size_t override { return this->ExtraSettingsStart() + 3; }
+        auto MenuScaleOption(void) const -> size_t { return this->ExtraSettingsStart() + 3; }
+        auto MenuScale(void) const -> float { return 1.0f + .25f * std::clamp(this->menu_scale_, 0, 4); }
+        auto ContentOptionCount(void) const -> size_t override { return this->ExtraSettingsStart() + 4; }
         auto FollowMovedModuleSettings(void) const -> bool { return this->follow_moved_module_settings_; }
         auto HudPresetOption(size_t preset) const -> size_t
         {
@@ -173,6 +176,7 @@ namespace xiui
         float xiv1_background_opacity_{.4f};
         int appearance_theme_{};
         float hud_scale_{1};
+        int menu_scale_{};
         bool follow_moved_module_settings_{true};
         std::optional<size_t> preset_request_{};
         ui::layout_grid_settings grid_{};

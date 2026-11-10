@@ -1,5 +1,7 @@
 # Focused checks
 
+`native-ui` checks the main Native UI category, isolated edit modes, pointer/controller mode actions, independent position/visibility persistence and reset behavior. `xiui_native_hud_target_smoke --menus-only` covers native group movement, merchant/auction separation, suppression identity and restoring native coordinates.
+
 Choose the smallest check for the boundary changed. The default workflow does not require the complete suite or visual/gameplay checks; Cody verifies those in game.
 
 ```powershell
@@ -30,7 +32,9 @@ The wrapper builds only the selected target, then runs its catalogued arguments.
 - Config navigation memory: `config-memory` (mode, last page, scroll and window placement through close/reopen and reload).
 - Text: `config-text`, `global-text`, `text-rasterization`.
 - Installed directories and migration: `storage-paths` (byte preservation, inventories, source archives, conflicts, shared resources and interrupted-load retry).
-- Preferences/profiles: `settings` (dedicated store executable), `startup-settings` (disk-loaded positions and preferences through deferred viewport initialization and saving), `defaults` (passes the shipped INI automatically), `profile-sharing` (background files, cancellation, captured snapshots, corruption, failed writes, Unicode paths, controller routes, legacy keys and isolated imports), `profile-delete`, `party-presets`, `lua-profile-import` (release writer fixtures, strict data parsing, mixed damaged/valid discovery, background scans, staged cancellation and isolated persistence).
+- Preferences/profiles: `settings` (dedicated store executable), `startup-settings` (disk-loaded positions and preferences through deferred viewport initialization and saving), `defaults` (passes the shipped INI automatically), `profile-sharing` (background files, cancellation, captured snapshots, corruption, failed writes, Unicode paths, controller routes, legacy keys and isolated imports), `profile-delete`, `party-presets`.
+- Action imports: `actions-import` reads both XIUI release-writer fixtures plus tHotBar/tCrossBar examples, preserving shared macros, targets, palette context and existing HUD/controller preferences.
+
 - Controller: `controller-input` (host adapter/normalization), `controller-config` (shared config actions), `cursor-ownership` (pointer lifetime). Synthetic checks do not establish physical-device/native-keyboard acceptance.
 - Ashita: `ashita-compat` (4.16/4.30 virtual layouts, x86 calls, mouse normalization and separate plain/Shift trace retention). Standalone packaging also checks loader negotiation and actual initialization against normal, renamed and manually mapped cores with non-core handle hints, plus an SDK facade without Ashita version exports; see [compatibility](../docs/reference/ashita-compatibility.md).
 - Window focus and chat: `window-input` (hex editing, foreground draft/focus suspension, F â†’ Enter over the combat menu, native full-log fallback and menu handoff); `xiui_keyboard_suppression_smoke` covers DirectInput reads before WM delivery and returning a fresh Enter to gameplay. `controller-input` also checks native cycle press/hold/release in both backends.

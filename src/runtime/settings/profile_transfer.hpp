@@ -1,8 +1,6 @@
 #pragma once
 
 #include "profile_file.hpp"
-#include "lua_setup_import.hpp"
-#include "settings_profiles.hpp"
 
 #include <mutex>
 #include <atomic>
@@ -10,7 +8,7 @@
 
 namespace xiui
 {
-    enum class profile_transfer_kind { export_file, import_file, import_key, scan_lua, stage_lua };
+    enum class profile_transfer_kind { export_file, import_file, import_key };
 
     struct profile_transfer_request
     {
@@ -19,8 +17,6 @@ namespace xiui
         std::string name{}, key{};
         settings_store snapshot{""};
         bool browse{};
-        std::function<lua_setup_preview(const std::filesystem::path&, std::stop_token)> scan_lua{};
-        std::function<std::unique_ptr<settings_profiles::staged_import>(std::stop_token, std::string&)> stage_lua{};
     };
 
     struct profile_transfer_result
@@ -30,9 +26,6 @@ namespace xiui
         std::optional<shared_profile> profile{};
         std::string error{};
         bool cancelled{}, stopped{};
-        std::string lua_report{};
-        std::shared_ptr<lua_setup_preview> lua_preview{};
-        std::unique_ptr<settings_profiles::staged_import> lua_staged{};
     };
 
     // The worker owns its snapshot and picker; only Take() publishes back to the HUD.

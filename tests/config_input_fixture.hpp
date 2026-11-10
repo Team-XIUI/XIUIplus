@@ -99,6 +99,7 @@ namespace xiui
 {
     struct config_input_test
     {
+        static auto NativeUi(void) -> bool;
         inline static size_t preview_sounds{};
         inline static size_t hover_sounds{}, select_sounds{}, menu_sounds{};
         static inline uint32_t* window_record{};
@@ -127,7 +128,6 @@ namespace xiui
         static auto __cdecl PreviewSound(void) -> void;
         static auto ChatSoundPreview(void) -> bool;
         static auto ProfileSharing(void) -> bool;
-        static auto LuaProfileImport(void) -> bool;
         static auto ChatCustomization(void) -> bool;
         static auto ChatAlertInput(void) -> bool;
         static auto ConfigCollapse(void) -> bool;
@@ -170,6 +170,7 @@ namespace xiui
         static auto SettingsSearch(void) -> bool;
         static auto ConfigSidebar(void) -> bool;
         static auto ConfigResize(void) -> bool;
+        static auto ConfigWindowScaling(void) -> bool;
         static auto NotificationGroupsInput(void) -> bool;
         static auto MinimapEdgeButtons(void) -> bool;
         static auto AllUiVisibility(void) -> bool;

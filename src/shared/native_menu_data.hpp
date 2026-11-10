@@ -1,6 +1,7 @@
 #pragma once
 
 #include <cstdint>
+#include "native_window_data.hpp"
 
 namespace xiui
 {
@@ -11,6 +12,7 @@ namespace xiui
         uint32_t menu_count{};
         float x{}, y{}, width{}, height{};
         float reference_width{}, reference_height{};
+        std::array<native_window_state, native_window_count> windows{};
     };
 
     struct native_menu_layout
@@ -20,5 +22,6 @@ namespace xiui
         float viewport_width{}, viewport_height{};
         bool anchor_top{};
         float top{};
+        std::array<native_window_placement, native_window_count> windows{};
     };
 }

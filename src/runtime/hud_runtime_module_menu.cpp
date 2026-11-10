@@ -33,9 +33,14 @@ namespace xiui
             this->config_.choice_input.Opened() || this->ProfileSurface(viewport) || this->config_.header_menu_open || this->config_.search_open) return false;
         const auto x = static_cast<float>(this->mouse_x_), y = static_cast<float>(this->mouse_y_);
         if (Contains(this->ConfigVisibleBounds(), x, y) ||
-            (this->config_.active_color != nullptr && Contains(this->ConfigLayout().ColorEditor(viewport), x, y))) return false;
+            (this->config_.active_color != nullptr && Contains(this->ConfigColorBounds(viewport), x, y))) return false;
         if (const auto toolbar = this->MovementToolbar(viewport); toolbar && Contains(toolbar->bounds, x, y)) return false;
         if (this->actionbars_.DialogOpen() && this->ActionBarsPointerOwns(x, y)) return false;
+        if (this->NativeEditMode())
+        {
+            auto* window = this->NativeWindowAt(x, y);
+            return window != nullptr && this->OpenModuleMenu(*window, {x, y, 176, 0});
+        }
         const auto& modules = this->modules_.All();
         for (auto at = modules.rbegin(); at != modules.rend(); ++at)
             if (this->ModuleMenuAvailable(**at) && Contains(this->MovementBounds(**at), x, y))
@@ -46,6 +51,13 @@ namespace xiui
     auto hud_runtime::ResetModule(hud_module& module, const bool settings) -> bool
     {
         if (!this->ModuleMenuAvailable(module) || this->default_settings_text_.empty()) return false;
+        if (this->NativeWindowIndex(module) < native_window_count)
+        {
+            if (settings) module.ResetDefaults(this->design_system_.GetTheme());
+            else module.OnOptionChanged(4);
+            this->SaveSettings();
+            return true;
+        }
         auto baseline = std::make_unique<hud_runtime>();
         baseline->default_settings_text_ = this->default_settings_text_;
         baseline->LoadSettings(settings_store::FromIniText(this->default_settings_text_),

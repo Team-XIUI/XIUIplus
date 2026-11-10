@@ -42,12 +42,18 @@ namespace xiui
     {
         auto mask = this->visible_ ? this->game_hud_.HiddenMask() : (uint32_t{1} << native_hud_options.size()) - 1;
         if (this->SetupVisible()) mask = this->SetupNativeHudMask();
+        if (this->visible_ && this->NativeEditMode())
+        {
+            mask = 0;
+            for (size_t index = 0; index < native_hud_window_count; ++index)
+                if (this->config_.native_edit_hidden[index]) mask |= uint32_t{1} << index;
+        }
         // NPC dialogue uses the native logs even when XIUI replaces normal chat.
         if (this->visible_ && this->visibility_context_.event_active)
             mask &= ~(NativeHudBit(native_hud_element::chat1) | NativeHudBit(native_hud_element::chat2) | NativeHudBit(native_hud_element::chatlog));
         if (this->visible_ && this->visibility_context_.window_focus == native_window_focus::chatlog)
             mask &= ~NativeHudBit(native_hud_element::chatlog);
-        return mask | (this->actionbars_.ReplaceNativeMacros() ? native_keyboard_macro_palette :
+        return mask | (this->NativeEditMode() ? native_edit_windows : 0) | (this->actionbars_.ReplaceNativeMacros() ? native_keyboard_macro_palette :
             this->game_hud_.InstantMacroBar() ? native_instant_macro_palette : 0);
     }
 

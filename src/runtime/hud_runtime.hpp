@@ -50,7 +50,6 @@
 #include "modules/general/general_module.hpp"
 #include "modules/chat/chat_module.hpp"
 #include "modules/chat/chat_bubbles_module.hpp"
-#include "settings/lua_setup_import.hpp"
 #include "modules/compass/compass_module.hpp"
 #include "modules/minimap/minimap_module.hpp"
 #include "modules/minimap/minimap_source.hpp"
@@ -133,7 +132,7 @@ namespace xiui
         auto IsVisible(void) const -> bool;
         auto IsGpuShaderActive(void) const -> bool;
         auto NativeHudHiddenMask(void) const -> uint32_t;
-        auto MenuLayout(void) const -> native_menu_layout { return this->commands_.Layout(this->visible_); }
+        auto MenuLayout(void) const -> native_menu_layout;
 #if defined(XIUI_ENABLE_TEST_FAULTS)
         auto SetRenderFaultForTesting(bool enabled) -> void;
 #endif
@@ -289,7 +288,8 @@ namespace xiui
         world_info_module world_info_{};
         std::array<world_info_part_module, 4> world_parts_{{{this->world_info_, 0}, {this->world_info_, 1}, {this->world_info_, 2}, {this->world_info_, 3}}};
         command_menu_module commands_{};
-        std::array<hud_module*, 10> extras_pages_{};
+        std::array<native_window_module, native_window_count> native_windows_{};
+        std::array<hud_module*, 8> extras_pages_{};
         native_ui_state native_ui_{};
         module_visibility_source visibility_source_{};
         module_visibility_context visibility_context_{};
@@ -318,6 +318,7 @@ namespace xiui
         auto SetupNativeHudMask(void) const -> uint32_t;
         auto SetupBounds(const D3DVIEWPORT8& viewport) -> rect;
         auto SetupItems(const D3DVIEWPORT8& viewport) -> std::vector<ui::setup_item>;
+        auto ApplySetupNativeVisibility(const hud_module& module) -> void;
         auto ActivateSetup(ui::setup_control control) -> void;
         auto FinishSetup(bool settings = false) -> void;
         auto HandleSetupAction(controller_action action, bool repeated) -> bool;
@@ -337,12 +338,25 @@ namespace xiui
         bool controller_status_details_{};
         size_t controller_picker_index_{}, controller_party_group_{}, controller_equipment_slot_{}, controller_ready_button_{};
         std::string controller_hint_{};
-        auto ConfigVisibleBounds(void) const -> rect
+        auto ConfigLogicalBounds(void) const -> rect
         {
             auto bounds = this->config_.bounds;
             if (this->config_.collapsed) bounds.height = 32;
             return bounds;
         }
+        auto ConfigScale(void) const -> float;
+        auto ConfigTransform(void) const -> ui::hud_transform
+        { const auto scale = this->ConfigScale(); return ui::hud_transform::At(this->config_.bounds.x, this->config_.bounds.y, scale, scale); }
+        auto ConfigViewport(const D3DVIEWPORT8& viewport) const -> D3DVIEWPORT8;
+        auto ConfigMouseX(void) const -> float { return this->ConfigTransform().InverseX(static_cast<float>(this->mouse_x_)); }
+        auto ConfigMouseY(void) const -> float { return this->ConfigTransform().InverseY(static_cast<float>(this->mouse_y_)); }
+        auto ConfigVisibleBounds(void) const -> rect { return this->ConfigTransform().Map(this->ConfigLogicalBounds()); }
+        auto ConfigColorBounds(const D3DVIEWPORT8& viewport) const -> rect
+        { return this->ConfigTransform().Map(this->ConfigLayout().ColorEditor(this->ConfigViewport(viewport))); }
+        auto ChoiceTransform(void) const -> ui::hud_transform { return this->module_menu_target_ != nullptr ? ui::hud_transform{} : this->ConfigTransform(); }
+        auto ChoiceViewport(const D3DVIEWPORT8& viewport) const -> D3DVIEWPORT8;
+        auto ChoiceMouseX(void) const -> float { return this->ChoiceTransform().InverseX(static_cast<float>(this->mouse_x_)); }
+        auto ChoiceMouseY(void) const -> float { return this->ChoiceTransform().InverseY(static_cast<float>(this->mouse_y_)); }
         i18n::language language_{i18n::language::english};
         std::string settings_path_{};
         std::string default_settings_text_{};
@@ -362,12 +376,6 @@ namespace xiui
         std::filesystem::path profile_file_{};
         profile_transfer profile_transfer_{};
         std::optional<settings_store> profile_import_{};
-        bool profile_import_lua_{}, profile_lua_activate_{}, profile_lua_links_{}, profile_lua_controls_{}, profile_lua_done_{};
-        ui::text_input profile_lua_path_{};
-        std::shared_ptr<const lua_setup_preview> profile_lua_preview_{};
-        size_t profile_lua_selection_{SIZE_MAX};
-        std::string profile_lua_report_text_{}, profile_lua_status_{};
-        ui::share_key_view profile_lua_report_{};
         int profile_scroll_{};
         size_t profile_keyboard_selection_{};
         hud_module* confirmation_module_{};
@@ -596,21 +604,6 @@ namespace xiui
         auto ActivateConfigAction(hud_module& module, size_t option) -> bool;
         auto ApplyConfirmedAction(void) -> bool;
         auto OpenProfileDialog(profile_dialog mode) -> bool;
-        auto SetProfileImportSource(bool lua) -> void;
-        auto PreviewLuaProfiles(bool browse = false) -> bool;
-        static auto PrepareLuaProfiles(const std::filesystem::path& path, const std::string& defaults, std::stop_token stop) -> lua_setup_preview;
-        auto FinishLuaImport(settings_profiles::staged_import& staged) -> bool;
-        auto LuaImportControlAvailable(size_t index) const -> bool;
-        auto BrowseLuaProfile() -> void;
-        auto CreateLuaProfiles() -> bool;
-        auto CycleLuaProfile(int direction) -> void;
-        auto LuaImportReady() const -> bool;
-        auto LuaImportClick(const D3DVIEWPORT8& viewport) -> bool;
-        auto LuaImportTarget(const D3DVIEWPORT8& viewport) const -> uint64_t;
-        auto ActivateLuaImportControl(size_t index) -> void;
-        auto HandleLuaImportKey(WPARAM key, LPARAM flags) -> bool;
-        auto HandleLuaImportController(controller_action action) -> bool;
-        auto DrawLuaProfileImport(const D3DVIEWPORT8& viewport) -> void;
         auto ProfileActionAvailable(size_t index) const -> bool;
         auto OpenProfileAction(size_t index) -> bool;
         auto MoveProfileAction(int direction) -> void;
@@ -641,6 +634,21 @@ namespace xiui
         auto MovementToolbarTarget(const D3DVIEWPORT8& viewport) const -> uint64_t;
         auto ProcessMovementToolbarClick(const D3DVIEWPORT8& viewport) -> bool;
         auto DrawMovementToolbar(const D3DVIEWPORT8& viewport) -> void;
+        auto NativeEditMode(void) const -> bool { return this->editing_ && this->config_.edit_mode && this->config_.native_edit; }
+        auto NativeWindowIndex(const hud_module& module) const -> size_t;
+        auto NativeWindowAt(float x, float y) -> native_window_module*;
+        auto SetNativeEditMode(bool native) -> void;
+        auto UpdateNativeWindows(const D3DVIEWPORT8& viewport) -> void;
+        auto EditModeSwitchBounds(const D3DVIEWPORT8& viewport) const -> rect;
+        auto EditModeSwitchItemBounds(const D3DVIEWPORT8& viewport, bool native) const -> rect;
+        auto EditModeSwitchHelp(bool native) const -> const char*;
+        auto NativeVisibilityButton(const native_window_module& module) const -> rect;
+        auto ToggleNativeWindowVisibility(size_t index) -> void;
+        auto ProcessNativeEditClick(const D3DVIEWPORT8& viewport) -> bool;
+        auto NativeEditTarget(const D3DVIEWPORT8& viewport) const -> uint64_t;
+        auto DrawEditModeSwitcher(const D3DVIEWPORT8& viewport) -> void;
+        auto DrawNativeWindowButtons(void) -> void;
+        auto NativeWindowHidden(size_t index) const -> bool;
         auto ClampLayout(const D3DVIEWPORT8& viewport) -> void;
 
         struct config_page
@@ -693,7 +701,7 @@ namespace xiui
                 return false;
             }
         };
-        static constexpr size_t config_page_count = 15;
+        static constexpr size_t config_page_count = 16;
         auto ConfigPages(void) -> std::array<config_page, config_page_count>;
         auto ConfigPageVisible(const config_page& page) const -> bool;
         auto VisibleConfigPages(void) const -> std::vector<config_page>;

@@ -82,14 +82,14 @@ namespace xiui
     auto hud_runtime::ProcessChoiceClick(const D3DVIEWPORT8& viewport) -> bool
     {
         if (!this->config_.choice_input.Opened()) return false;
-        const auto index = this->config_.choice_input.IndexAt(static_cast<float>(this->mouse_x_), static_cast<float>(this->mouse_y_), viewport);
+        const auto index = this->config_.choice_input.IndexAt(this->ChoiceMouseX(), this->ChoiceMouseY(), this->ChoiceViewport(viewport));
         if (this->module_menu_target_ != nullptr)
         {
             this->module_menu_pressed_ = index;
             if (!index) this->CloseChoiceInput();
             return true;
         }
-        if (index && this->config_.choice_input.PreviewAt(static_cast<float>(this->mouse_x_), static_cast<float>(this->mouse_y_), viewport))
+        if (index && this->config_.choice_input.PreviewAt(this->ChoiceMouseX(), this->ChoiceMouseY(), this->ChoiceViewport(viewport)))
         {
             this->PreviewChoiceInput(*index);
             return true;
@@ -102,13 +102,14 @@ namespace xiui
     auto hud_runtime::ChoiceSoundTarget(const D3DVIEWPORT8& viewport) const -> uint64_t
     {
         if (!this->config_.choice_input.Opened()) return 0;
-        const auto index = this->config_.choice_input.IndexAt(static_cast<float>(this->mouse_x_), static_cast<float>(this->mouse_y_), viewport);
-        const bool preview = this->config_.choice_input.PreviewAt(static_cast<float>(this->mouse_x_), static_cast<float>(this->mouse_y_), viewport);
+        const auto index = this->config_.choice_input.IndexAt(this->ChoiceMouseX(), this->ChoiceMouseY(), this->ChoiceViewport(viewport));
+        const bool preview = this->config_.choice_input.PreviewAt(this->ChoiceMouseX(), this->ChoiceMouseY(), this->ChoiceViewport(viewport));
         return index ? 0xE000000000000000ULL | (static_cast<uint64_t>(*index + 1) << 1) | (preview ? 1 : 0) : 0;
     }
 
     auto hud_runtime::DrawChoiceInput(const D3DVIEWPORT8& viewport) -> void
     {
-        this->config_controls_.ChoiceMenu(this->config_.choice_input, viewport, static_cast<float>(this->mouse_x_), static_cast<float>(this->mouse_y_));
+        const auto transform = this->design_system_.Transform(this->ChoiceTransform());
+        this->config_controls_.ChoiceMenu(this->config_.choice_input, this->ChoiceViewport(viewport), this->ChoiceMouseX(), this->ChoiceMouseY());
     }
 }

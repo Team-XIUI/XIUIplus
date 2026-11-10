@@ -126,6 +126,33 @@ namespace xiui
             "finishing releases temporary visibility and restores normal native preferences")) return false;
         resumed->LoadSetup(hud.CaptureSettings(), false); resumed->setup_.open = false; resumed->UpdateSetup();
         if (!check(!resumed->setup_.open, "finished setup stays finished after reload")) return false;
+        resumed->LoadSettings(hud.CaptureSettings());
+        resumed->game_hud_.SetAvailable(0); resumed->game_hud_.ShowAll();
+        *resumed->game_hud_.Option(0).toggle = false;
+        resumed->player_.State().enabled = resumed->chat_.State().enabled = resumed->party_.State().enabled = true;
+        resumed->general_.SetPartyEnabled(false);
+        resumed->setup_.pending = resumed->setup_.open = true; resumed->setup_.revealed = 0;
+        const auto acceptedBounds = resumed->player_.State().bounds;
+        for (const size_t step : {size_t{2}, size_t{3}, size_t{5}})
+        {
+            resumed->setup_.step = step;
+            resumed->ActivateSetup(control::next);
+        }
+        const auto replacements = playerHud | chatMask;
+        if (!check(resumed->general_.PartyEnabled() && (resumed->game_hud_.HiddenMask() & replacements) == replacements &&
+            !resumed->game_hud_.Option(static_cast<size_t>(native_hud_element::party) + 1).available,
+            "Next accepts preselected XIUI+ replacements and saves native hides even before native controls are ready")) return false;
+        resumed->game_hud_.ShowAll(); resumed->setup_.step = 8; resumed->ActivateSetup(control::next);
+        const auto accepted = resumed->CaptureSettings(); resumed->LoadSettings(accepted);
+        if (!check((resumed->NativeHudHiddenMask() & replacements) == replacements &&
+            (resumed->NativeHudHiddenMask() & NativeHudBit(native_hud_element::target)) == 0 &&
+            resumed->player_.State().bounds.x == acceptedBounds.x && resumed->player_.State().bounds.y == acceptedBounds.y,
+            "Finish persists accepted native hides across reload without changing unvisited visibility or HUD positions")) return false;
+        resumed->setup_.pending = resumed->setup_.open = true; resumed->setup_.revealed = 0;
+        resumed->setup_.step = 3; resumed->chat_.State().enabled = false; resumed->ActivateSetup(control::next);
+        resumed->FinishSetup();
+        if (!check((resumed->game_hud_.HiddenMask() & chatMask) == 0 && (resumed->game_hud_.HiddenMask() & playerHud) == playerHud,
+            "accepting the game chat restores all native logs while keeping earlier unvisited player and party choices")) return false;
         hud.BeginSetup();
         for (size_t step = 0; step < ui::setup_pages.size(); ++step)
         {

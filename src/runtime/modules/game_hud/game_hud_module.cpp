@@ -8,6 +8,7 @@ namespace xiui
     {
         this->preferences_ = this->defaults_;
         this->instant_macro_bar_ = this->default_instant_macro_bar_;
+        this->visibility_edits_ |= (uint32_t{1} << native_hud_window_count) - 1;
     }
 
     auto game_hud_module::SetDefaults(const settings_store& store) -> void
@@ -45,8 +46,19 @@ namespace xiui
 
     auto game_hud_module::ContentOption(const size_t index) -> module_option
     {
+        if (index == reset_positions_option)
+            return module_option::Action("Reset All Native Windows", "Restore default positions for every native HUD window, menu and dialog. Visibility choices are kept.", "Reset all").Ordered(5);
+        if (index == instant_macro_option + 7) return this->names_ != nullptr ? this->names_->Option(this->name_option_) : module_option{};
+        if (index == instant_macro_option + 8) return this->macros_ != nullptr ? this->macros_->Option(this->macro_option_) : module_option{};
+        if (index == instant_macro_option + 1)
+        {
+            static const auto labels = [] { std::array<const char*, native_hud_window_count> result{}; for (size_t i = 0; i < result.size(); ++i) result[i] = native_hud_options[i].label; return result; }();
+            return module_option::Dropdown("Native window", "Choose a native HUD window. Position controls require a rectangle captured from the actual game UI.", &this->selected_window_, labels.data(), labels.size()).Ordered(-100);
+        }
+        if (index > instant_macro_option + 1)
+            return this->SelectedWindow() != nullptr ? this->SelectedWindow()->Option(index - instant_macro_option - 2) : module_option{};
         if (index == 0)
-            return module_option::Toggle("Native menu controls", "Apply the native HUD visibility choices below.", &this->preferences_.enabled).Ordered(-100);
+            return module_option::Toggle("Apply visibility choices", "Apply the native HUD visibility choices below.", &this->preferences_.enabled).Ordered(-100);
         if (index == instant_macro_option)
         {
             const bool available = (this->available_ & native_instant_macro_palette) != 0;
@@ -76,6 +88,13 @@ namespace xiui
 
     auto game_hud_module::OnContentOptionChanged(const size_t index) -> void
     {
+        if (index == 0 || index == hide_all_option || index == show_all_option) this->visibility_edits_ |= (uint32_t{1} << native_hud_window_count) - 1;
+        else if (index >= 1 && index <= native_hud_window_count) this->visibility_edits_ |= uint32_t{1} << (index - 1);
+        if (index == reset_positions_option)
+            for (auto& window : this->windows_) window.OnOptionChanged(4);
+        else if (index == instant_macro_option + 7 && this->names_ != nullptr) this->names_->OnOptionChanged(this->name_option_);
+        else if (index == instant_macro_option + 8 && this->macros_ != nullptr) this->macros_->OnOptionChanged(this->macro_option_);
+        else if (index > instant_macro_option + 1 && this->SelectedWindow() != nullptr) this->SelectedWindow()->OnOptionChanged(index - instant_macro_option - 2);
         if (index == hide_all_option) this->HideAll();
         else if (index == show_all_option) this->ShowAll();
     }
@@ -83,7 +102,9 @@ namespace xiui
     auto game_hud_module::ConfigSections(void) const -> std::span<const module_config_section>
     {
         static constexpr module_config_section sections[]{
-            {"General", "Choose which native game windows are visible.", "general"}};
+            {"Visibility", "Choose which native game windows are visible.", "general"},
+            {"Window Placement", "Select a native HUD window, set its position or restore its normal placement. Native UI Edit Mode provides draggable outlines.", "placement"},
+            {"Native Macro Bar", "Control the native macro palette and its replacement by XIUI+ action bars.", "macros"}};
         return sections;
     }
 
@@ -91,9 +112,10 @@ namespace xiui
     {
         for (size_t index = 0; index < native_hud_options.size(); ++index)
         {
-            if (key == native_hud_options[index].key && (this->available_ & (uint32_t{1} << index)) != 0)
+            if (key == native_hud_options[index].key)
             {
                 this->preferences_.shown[index] = shown;
+                this->visibility_edits_ |= uint32_t{1} << index;
                 return true;
             }
         }

@@ -66,7 +66,7 @@ namespace xiui
         const auto selector = this->ElementSelector();
         if (!selector.Enabled()) return 0;
         const auto layout = this->ElementSelectorLayout(selector, this->ConfigLayout());
-        const auto index = layout.IndexAt(static_cast<float>(this->mouse_x_), static_cast<float>(this->mouse_y_));
+        const auto index = layout.IndexAt(this->ConfigMouseX(), this->ConfigMouseY());
         return index ? (static_cast<uint64_t>(reinterpret_cast<uintptr_t>(this->config_.module)) << 32) | (0x60000 + selector.option_index * 16 + *index) : 0;
     }
 
@@ -74,7 +74,7 @@ namespace xiui
     {
         const auto selector = this->ElementSelector();
         const auto layout = this->ElementSelectorLayout(selector, this->ConfigLayout());
-        const auto index = layout.IndexAt(static_cast<float>(this->mouse_x_), static_cast<float>(this->mouse_y_));
+        const auto index = layout.IndexAt(this->ConfigMouseX(), this->ConfigMouseY());
         if (!index) return false;
         if (!selector.Enabled() || *index == selector.selected) return true;
         this->FinishConfigInput(true);
@@ -109,7 +109,7 @@ namespace xiui
         for (size_t i = 0; i < layout.count; ++i)
         {
             const auto& bounds = layout.tabs[i];
-            const bool hovered = Contains(bounds, static_cast<float>(this->mouse_x_), static_cast<float>(this->mouse_y_));
+            const bool hovered = Contains(bounds, this->ConfigMouseX(), this->ConfigMouseY());
             const bool highlighted = selector.Enabled() && (selector.selected == i || hovered);
             if (const auto status = selector.Status(i); status.has_value())
             {

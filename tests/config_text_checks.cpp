@@ -14,14 +14,32 @@ namespace xiui
             const bool press = runtime.ProcessPointerMessage(WM_LBUTTONDOWN, MK_LBUTTON, viewport);
             return runtime.ProcessPointerMessage(WM_LBUTTONUP, 0, viewport) && press;
         };
-        if (!check(click(ui::config_controls::Segment(runtime.ConfigLayout().ContentTabs(), 2, std::size(general_module::appearance_tabs))) &&
-            runtime.general_.AppearanceTab() == 2 && ControlCount(runtime) == ui::config_text_settings::option_count && runtime.GroupOptionIndex(0) == runtime.general_.ConfigTextStart() &&
-            runtime.GroupOptionIndex(1) == runtime.general_.ConfigTextStart() + 15,
-            "Appearance exposes Config Text independently of Window and Global Text")) return false;
+        const auto topics = runtime.ConfigTopicRows();
+        const auto settings = std::find_if(topics.begin(), topics.end(), [](const auto& row) { return std::strcmp(row.label, "Config Settings") == 0; });
+        if (!check(settings != topics.end() && click(runtime.ConfigLayout().Submenu(static_cast<size_t>(settings - topics.begin()), topics.size())) &&
+            runtime.general_.AppearanceTab() == 2 && runtime.MatchesConfigOption(runtime.general_.MenuScaleOption()) &&
+            runtime.MatchesConfigOption(runtime.general_.ExtraSettingsStart()) && runtime.GroupOptionIndex(0) == runtime.general_.MenuScaleOption() &&
+            runtime.GroupOptionIndex(1) == runtime.general_.ExtraSettingsStart() && runtime.GroupOptionIndex(2) == runtime.general_.ConfigTextStart() &&
+            runtime.GroupOptionIndex(3) == runtime.general_.ConfigTextStart() + 15,
+            "Config Settings unifies menu scale, editing behavior, font and text size in one secondary-column destination")) return false;
+        runtime.general_.SelectAppearanceTab(0);
+        if (!check(!runtime.MatchesConfigOption(runtime.general_.MenuScaleOption()) && !runtime.MatchesConfigOption(runtime.general_.ExtraSettingsStart()) &&
+            std::none_of(topics.begin(), topics.end(), [](const auto& row) { return row.id == "general/extra-settings" || std::strcmp(row.label, "Config Text") == 0; }),
+            "window appearance and the secondary menu have no duplicate configuration destinations")) return false;
+        runtime.general_.SelectAppearanceTab(2);
         auto& hud = runtime.player_.Settings().name_text.style; hud.font = 2; hud.letter_spacing = 0.75f; hud.scale = 1.1f;
-        if (!check(click(ui::config_layout::ChoiceButton(runtime.ConfigLayout().OptionRow(0))) && runtime.config_.choice_input.Opened(),
+        if (!check(click(ui::config_layout::ChoiceButton(runtime.ConfigLayout().OptionRow(2))) && runtime.config_.choice_input.Opened(),
             "Config font opens the shared four-family dropdown")) return false;
         runtime.SelectChoiceInput(3);
+        runtime.BuildSettingsSearch();
+        for (const auto index : {runtime.general_.MenuScaleOption(), runtime.general_.ExtraSettingsStart(), runtime.general_.ConfigTextStart()})
+        {
+            const auto found = std::find_if(runtime.config_.search_entries.begin(), runtime.config_.search_entries.end(), [&](const auto& entry) {
+                return entry.module == "general" && entry.option == index;
+            });
+            if (!check(found != runtime.config_.search_entries.end() && found->path.find("Config Settings") != std::string::npos && found->appearance_tab == 2,
+                "settings search uses the unified Config Settings destination")) return false;
+        }
         *runtime.general_.Option(runtime.general_.ConfigTextStart() + 1).slider = 1.5f;
         runtime.general_.OnOptionChanged(runtime.general_.ConfigTextStart() + 1);
         const auto size = runtime.general_.Option(runtime.general_.ConfigTextStart() + 15);

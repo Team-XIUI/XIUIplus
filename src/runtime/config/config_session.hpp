@@ -1,6 +1,7 @@
 #pragma once
 
 #include "modules/module.hpp"
+#include "native_window_data.hpp"
 #include "config_layout.hpp"
 #include "color_picker.hpp"
 #include "choice_dropdown.hpp"
@@ -19,6 +20,9 @@ namespace xiui
         hud_module* module{};
         bool basic{};
         bool edit_mode{}, preview_selected{};
+        bool native_edit{};
+        std::array<bool, native_window_count> native_edit_hidden{};
+        ui::settings_sidebar_animation::transition native_edit_slide{};
         hud_module* advanced_module{};
         hud_module* layout_selection{};
         size_t advanced_section{}, advanced_scroll{};

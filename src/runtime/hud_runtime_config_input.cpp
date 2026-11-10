@@ -17,6 +17,7 @@ namespace xiui
     auto hud_runtime::ConfigSoundTarget(const D3DVIEWPORT8& viewport) -> uint64_t
     {
         if (!this->visible_ || !this->editing_) return 0;
+        if (const auto target = this->NativeEditTarget(viewport)) return target;
         if (const auto target = this->HeaderControlTarget(viewport); target != 0 || this->config_.header_menu_open) return target;
         if (const auto target = this->SettingsSearchTarget(viewport); target != 0 || this->config_.search_open) return target;
         this->NormalizeConfigSelection();
@@ -24,23 +25,23 @@ namespace xiui
         if (const auto target = this->ProfileSoundTarget(viewport)) return target;
         if (this->ProfileSurface(viewport)) return 0;
         this->NormalizeConfigSelection();
-        const auto x = static_cast<float>(this->mouse_x_), y = static_cast<float>(this->mouse_y_);
+        const auto x = this->ConfigMouseX(), y = this->ConfigMouseY();
         const auto layout = this->ConfigLayout();
         if (!this->config_.collapsed && Contains(layout.EditModeButton(), x, y)) return 0xD300000000000002ULL;
         if (Contains(this->SettingsModeBounds(), x, y)) return 0xD300000000000001ULL;
         if (this->config_.basic && !this->config_.collapsed)
             for (size_t row = 0; row < ui::basic_settings_layout::control_count; ++row)
                 if (Contains(this->BasicSettingBounds(row), x, y)) return 0xD300000000000010ULL + row;
-        if (this->config_.active_color != nullptr && Contains(layout.ColorEditor(viewport), x, y))
+        if (this->config_.active_color != nullptr && Contains(layout.ColorEditor(this->ConfigViewport(viewport)), x, y))
         {
-            const auto part = ui::color_picker::HitTest(layout.ColorEditor(viewport), x, y);
+            const auto part = ui::color_picker::HitTest(layout.ColorEditor(this->ConfigViewport(viewport)), x, y);
             return part == ui::color_picker::part::none ? 0 : 0x10000 + static_cast<uint64_t>(part);
         }
-        if (!Contains(this->ConfigVisibleBounds(), x, y)) return this->MovementToolbarTarget(viewport);
+        if (!Contains(this->ConfigLogicalBounds(), x, y)) return this->MovementToolbarTarget(viewport);
         if (Contains(layout.CloseButton(), x, y)) return 1;
         if (Contains(layout.HeaderAction(), x, y)) return 3;
         if (Contains(layout.HeaderAction(1), x, y)) return 4;
-        if (this->ConfigResizeEdges(x, y) != 0) return 5;
+        if (this->ConfigResizeEdges(static_cast<float>(this->mouse_x_), static_cast<float>(this->mouse_y_)) != 0) return 5;
         if (const auto input = this->HeaderControlTarget(viewport); input != 0) return input;
         if (this->config_.basic) return 0;
         if (Contains(layout.SidebarToggle(), x, y)) return 6;
@@ -100,19 +101,20 @@ namespace xiui
 
     auto hud_runtime::ProcessConfigClick(const D3DVIEWPORT8& viewport) -> bool
     {
+        if (this->ProcessNativeEditClick(viewport)) return true;
         if (this->ProcessHeaderControlClick(viewport)) return true;
         if (this->ProcessProfileClick(viewport)) return true;
-        if (!this->config_.collapsed && Contains(this->ConfigLayout().EditModeButton(), this->mouse_x_, this->mouse_y_))
+        if (!this->config_.collapsed && Contains(this->ConfigLayout().EditModeButton(), this->ConfigMouseX(), this->ConfigMouseY()))
         { this->ToggleLayoutEditMode(); return true; }
         if (this->config_.basic) return this->ProcessBasicSettingsClick(viewport);
-        if (Contains(this->SettingsModeBounds(), this->mouse_x_, this->mouse_y_)) { this->SetBasicSettings(true); return true; }
+        if (Contains(this->SettingsModeBounds(), this->ConfigMouseX(), this->ConfigMouseY())) { this->SetBasicSettings(true); return true; }
         this->NormalizeConfigSelection();
-        const float x = static_cast<float>(this->mouse_x_);
-        const float y = static_cast<float>(this->mouse_y_);
+        const float x = this->ConfigMouseX();
+        const float y = this->ConfigMouseY();
 
         if (this->config_.active_color != nullptr)
         {
-            const auto editor = this->ConfigLayout().ColorEditor(viewport);
+            const auto editor = this->ConfigLayout().ColorEditor(this->ConfigViewport(viewport));
             if (Contains(editor, x, y))
             {
                 const auto part = ui::color_picker::HitTest(editor, x, y);
@@ -142,21 +144,21 @@ namespace xiui
             this->config_.active_color = nullptr;
         }
 
-        const auto config = this->ConfigVisibleBounds();
+        const auto config = this->ConfigLogicalBounds();
         if (!Contains(config, x, y))
         {
             this->config_.active_color = nullptr;
             return this->ProcessMovementToolbarClick(viewport);
         }
 
-        if (const auto edges = this->ConfigResizeEdges(x, y); edges != 0)
+        if (const auto edges = this->ConfigResizeEdges(static_cast<float>(this->mouse_x_), static_cast<float>(this->mouse_y_)); edges != 0)
         {
             this->CloseProfileControls(); this->CloseChoiceInput(); this->config_.header_menu_open = false;
             this->config_.active_color = nullptr; this->config_.active_slider = nullptr;
             this->interaction_ = interaction::resize_config;
             this->config_resize_edges_ = edges;
             this->config_resize_original_ = this->config_.bounds;
-            this->config_resize_pointer_ = {x, y};
+            this->config_resize_pointer_ = {static_cast<float>(this->mouse_x_), static_cast<float>(this->mouse_y_)};
             return true;
         }
 
@@ -390,6 +392,7 @@ namespace xiui
 
     auto hud_runtime::ResolveCursorShape(const D3DVIEWPORT8& viewport) const -> cursor_shape
     {
+        if (this->NativeEditTarget(viewport) != 0) return cursor_shape::hand;
         if (this->ActionBarsPointerOwns(static_cast<float>(this->mouse_x_), static_cast<float>(this->mouse_y_)))
             return this->actionbars_.PointerCursor(static_cast<float>(this->mouse_x_), static_cast<float>(this->mouse_y_));
         if (this->SettingsSearchTarget(viewport) != 0) return cursor_shape::hand;
@@ -397,14 +400,14 @@ namespace xiui
         if (this->HeaderControlTarget(viewport) != 0) return cursor_shape::hand;
         if (this->config_.header_menu_open) return cursor_shape::arrow;
         if (this->config_.choice_input.Opened())
-            return this->config_.choice_input.IndexAt(static_cast<float>(this->mouse_x_), static_cast<float>(this->mouse_y_), viewport) ? cursor_shape::hand : cursor_shape::arrow;
+            return this->config_.choice_input.IndexAt(this->ChoiceMouseX(), this->ChoiceMouseY(), this->ChoiceViewport(viewport)) ? cursor_shape::hand : cursor_shape::arrow;
         if (this->profile_name_.Focused())
         {
             return this->ProfileSoundTarget(viewport) != 0 ? cursor_shape::hand : cursor_shape::arrow;
         }
         if (this->ProfileSoundTarget(viewport) != 0) return cursor_shape::hand;
         if (this->profile_dropdown_) return cursor_shape::arrow;
-        if (Contains(this->SettingsModeBounds(), this->mouse_x_, this->mouse_y_)) return cursor_shape::hand;
+        if (Contains(this->SettingsModeBounds(), this->ConfigMouseX(), this->ConfigMouseY())) return cursor_shape::hand;
         switch (this->interaction_)
         {
         case interaction::drag_module:
@@ -425,34 +428,35 @@ namespace xiui
             break;
         }
 
-        const float x = static_cast<float>(this->mouse_x_);
-        const float y = static_cast<float>(this->mouse_y_);
-        if (const auto edges = this->ConfigResizeEdges(x, y); edges != 0)
+        const float screenX = static_cast<float>(this->mouse_x_);
+        const float screenY = static_cast<float>(this->mouse_y_);
+        if (const auto edges = this->ConfigResizeEdges(screenX, screenY); edges != 0)
             return (edges & (ui::resize_left | ui::resize_right)) != 0
                 ? ((edges & (ui::resize_top | ui::resize_bottom)) != 0 ? cursor_shape::resize_diagonal : cursor_shape::resize_horizontal)
                 : cursor_shape::resize_vertical;
         const auto previewCursor = [&] {
-            if (const auto toolbar = this->MovementToolbar(viewport); toolbar && Contains(toolbar->bounds, x, y))
+            if (const auto toolbar = this->MovementToolbar(viewport); toolbar && Contains(toolbar->bounds, screenX, screenY))
                 return this->MovementToolbarTarget(viewport) != 0 ? cursor_shape::hand : cursor_shape::arrow;
-            if (this->EditGripAt(x, y) != nullptr) return cursor_shape::resize_diagonal;
+            if (this->EditGripAt(screenX, screenY) != nullptr) return cursor_shape::resize_diagonal;
             const auto& modules = this->modules_.All();
             for (auto module = modules.rbegin(); module != modules.rend(); ++module)
-                if ((*module)->HasEditableBounds() && (*module)->CanMove() && this->ModuleDisplayed(**module) && Contains(this->MovementBounds(**module), x, y))
+                if ((*module)->HasEditableBounds() && (*module)->CanMove() && this->ModuleDisplayed(**module) && Contains(this->MovementBounds(**module), screenX, screenY))
                     return cursor_shape::move;
             return cursor_shape::arrow;
         };
+        const float x = this->ConfigMouseX(), y = this->ConfigMouseY();
         const auto layout = this->ConfigLayout();
         if (this->config_.collapsed)
         {
             if (Contains(layout.CloseButton(), x, y) || Contains(layout.HeaderAction(), x, y) || Contains(layout.HeaderAction(1), x, y) ||
                 (!this->config_.basic && Contains(layout.SidebarToggle(), x, y))) return cursor_shape::hand;
-            if (Contains(this->ConfigHeaderDragArea(), x, y)) return cursor_shape::move;
-            if (Contains(this->ConfigVisibleBounds(), x, y)) return cursor_shape::arrow;
+            if (Contains(this->ConfigHeaderDragArea(), screenX, screenY)) return cursor_shape::move;
+            if (Contains(this->ConfigLogicalBounds(), x, y)) return cursor_shape::arrow;
             return previewCursor();
         }
         if (this->config_.active_color != nullptr)
         {
-            const auto editor = layout.ColorEditor(viewport);
+            const auto editor = layout.ColorEditor(this->ConfigViewport(viewport));
             if (Contains(editor, x, y))
                 return ui::color_picker::HitTest(editor, x, y) == ui::color_picker::part::none ? cursor_shape::arrow : cursor_shape::hand;
         }
@@ -468,8 +472,8 @@ namespace xiui
                 if (Contains(row, x, y)) return index == 2 && !Contains(ui::basic_settings_layout{this->config_.bounds}.ScaleValue(), x, y)
                     ? cursor_shape::resize_horizontal : cursor_shape::hand;
             }
-            if (Contains(this->ConfigHeaderDragArea(), x, y)) return cursor_shape::move;
-            return Contains(this->ConfigVisibleBounds(), x, y) ? cursor_shape::arrow : previewCursor();
+            if (Contains(this->ConfigHeaderDragArea(), screenX, screenY)) return cursor_shape::move;
+            return Contains(this->ConfigLogicalBounds(), x, y) ? cursor_shape::arrow : previewCursor();
         }
 
         const auto scrollbar = this->ConfigScrollbar();
@@ -527,9 +531,9 @@ namespace xiui
             }
         }
 
-        if (Contains(this->ConfigHeaderDragArea(), x, y))
+        if (Contains(this->ConfigHeaderDragArea(), screenX, screenY))
             return cursor_shape::move;
-        if (Contains(this->ConfigVisibleBounds(), x, y))
+        if (Contains(this->ConfigLogicalBounds(), x, y))
             return cursor_shape::arrow;
 
         return previewCursor();
@@ -549,7 +553,7 @@ namespace xiui
             return;
         const rect track = this->config_.basic ? ui::basic_settings_layout{this->config_.bounds}.ScaleTrack() :
             ui::config_layout::SliderTrack(this->config_.slider_row);
-        const float ratio = std::clamp((static_cast<float>(this->mouse_x_) - track.x) / std::max(1.0f, track.width), 0.0f, 1.0f);
+        const float ratio = std::clamp((this->ConfigMouseX() - track.x) / std::max(1.0f, track.width), 0.0f, 1.0f);
         float value = this->config_.slider_minimum + (this->config_.slider_maximum - this->config_.slider_minimum) * ratio;
         *this->config_.active_slider = ui::slider_value_input::Normalize(value, this->config_.slider_minimum, this->config_.slider_maximum, this->config_.slider_step);
         if (this->config_.module != nullptr)

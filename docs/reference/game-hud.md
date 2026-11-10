@@ -4,9 +4,21 @@ For a temporary clean view, use **General → Visibility → Hide all UI** or `/
 
 Hiding XIUI+ and every supported native HUD element together exits edit mode and releases XIUI+ input focus. `/xiuiplus show` restores XIUI+ and the previous native visibility choices; `/xiuiplus toggleui` toggles between them. Module enable switches, layouts and individual native settings remain unchanged. The hidden state survives runtime hot reloads and resets when the plugin is unloaded.
 
-Open `/xiuiplus gamehud`, or select **Extras → Native Menus** in configuration. **Hide all** hides every supported native HUD element and enables Native menu controls. **Show all** restores every element. Both actions update the individual visibility switches and save through the normal settings path. XIUI+ modules retain their visibility and positions.
+Open `/xiuiplus gamehud`, or select **Native UI → HUD Windows → Visibility** in configuration. **Hide all** hides every supported native HUD element and enables Apply visibility choices. **Show all** restores every element. Both actions update the individual visibility switches and save through the normal settings path. XIUI+ modules retain their visibility and positions.
 
-Each element has a visibility toggle: on leaves it available to the game, off hides it. Missing values and this section's reset use the shipped XIUI+ preset: native player/party/alliance frames, target, cast bar, status icons, compass, clock/weather and chat start hidden; connection, title and help remain available. Explicit saved choices take priority. **Native menu controls** pauses or resumes the selected hides without clearing them. Module enable state does not override these toggles.
+Each element has a visibility toggle: on leaves it available to the game, off hides it. Missing values and this section's reset use the shipped XIUI+ preset: native player/party/alliance frames, target, cast bar, status icons, compass, clock/weather and chat start hidden; connection, title and help remain available. Explicit saved choices take priority. **Apply visibility choices** pauses or resumes the selected hides without clearing them. Module enable state does not override these toggles. Overhead names are controlled here through the existing game name-display setting. Native palette replacement and opening delay are grouped under **Native Macro Bar**.
+
+## Editing native positions
+
+Turn Edit Mode on, then select the top icon for **XIUI Edit Mode** or the bottom icon for **Native UI Edit Mode** in the compact right-edge selector. Both icons stay visible, with a highlight that slides to the selected mode. Hover help names each icon. It reveals the actual native HUD and labels windows observed in the native draw path. Windows hidden with the editor keep their native-position outlines and Show buttons. Closed menus stay in the settings list. Drag a supported outline, or use Configuration's controller movement picker. Controller Utilities can switch editors and toggle the selected native window. **XIUI Edit Mode** returns to XIUI HUD editing; switching modes does not move either layout.
+
+**HUD Windows → Window Placement** offers a window selector, independent screen-pixel position and Reset position. Native compass/clock visibility is supported; position controls stay unavailable where no supported native rectangle exists. **Menus and Dialogs** includes the minus-key Main Menu and its submenu families, alongside spells/abilities, equipment/inspection, merchants, auctions and other dialogs. Choose the exact **Native window** within a category. The Status selector and its results, equipment, storage, gil and item details each have independent controls. Character Status carries its EXP bar and text, and equipment carries its native numeric labels; see [native menu ownership](../modules/commands.md).
+
+Custom placement saves in `native.<element>` preferences, independently of HUD/configuration scale. Reset position clears only placement. **HUD Windows → Window Placement → Reset All Native Windows** restores default positions for every native HUD window, menu and dialog, including closed windows, while keeping visibility choices. Older shared placements migrate to individual positions while preserving native offsets. Moving one window does not move other windows in its category. The editor selection itself is transient. Moving/hiding artwork leaves native input and game actions intact.
+
+Native UI Edit Mode reveals the game's own HUD renderer without changing saved visibility choices. Existing inactive windows, including the minus-key Main Menu, draw through the native renderer without opening their input menus. Play Time uses the game's chat output rather than a separate window. XIUI+ adds Title Case labels, edit outlines and Show/Hide controls. Status Icons outlines encompass the populated icon components, including multiple rows. Context windows the client has not created remain in settings until available; no sample contents or invented positions are drawn.
+
+Positions come from validated native rectangles and owner slots. Captured rectangles remain available for position settings, but a cached rectangle alone never creates an on-screen window. Show/Hide applies to the selected native window; leaving native editing restores the saved visibility policy. Macro execution/replacement ownership remains unchanged. `/xiuiplus nativeui edit` enters native editing directly. `/xiuiplus commands status` reports native, captured, custom or unopened geometry.
 
 The section includes player HP/MP/TP bars, party, both alliance lists, target box, cast bar, status icons, compass, clock, connection information, menu title, help bar, both chat windows, and expanded chat. **Chat window 1** hides or restores both the main log and its typing input. Unavailable controls are labeled and cannot be changed. These settings affect the game's built-in HUD; XIUI+ modules retain their own Enabled options. Hiding the target box preserves the native main-target and sub-target arrows above entities.
 
@@ -19,8 +31,9 @@ During NPC events/cutscenes, XIUI+ temporarily stops suppressing all three nativ
 Development commands:
 
 - `/xiuiplus gamehud` opens this config section.
+- `/xiuiplus nativeui reset` restores every native HUD, menu and dialog position while keeping visibility choices.
 - `/xiuiplus gamehud show all` restores every element.
-- `/xiuiplus gamehud hide all` hides every supported element and enables Native menu controls.
+- `/xiuiplus gamehud hide all` hides every supported element and enables Apply visibility choices.
 - `/xiuiplus gamehud hide <element>` hides one supported element.
 - `/xiuiplus gamehud show <element>` restores one element.
 - `/xiuiplus gamehud status` reports supported controls, active hides, and suppressed draws.

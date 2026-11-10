@@ -2,6 +2,8 @@
 
 Shows observed treasure entries, lot history and explicit Lot/Pass actions. Reward notifications remain separate.
 
+Read all ten native slots independently of the aggregate pool status, which can lag during drops and distribution. Native slot contents own removal; identity-free outcome packets must not permanently suppress occupied slots. Missing slots retain presentation for 300 ms while decisions and member indicators are suspended. Recovery preserves generation and history; confirmed absence removes only that slot. New drop metadata must match the native item and its drop time when available. Zoning clears the previous pool, and estimated countdown expiry never removes an item.
+
 Container opacity defaults to 0.35. A one-time migration replaces the old 0.95 default (including slider rounding) while preserving other custom opacities.
 
 Show member decisions defaults on under General. While the pool is visible, party/alliance name rows show the highlighted item's native decision: `[---]` waiting, `[Pass]` passed, or `[number]` lotted. Pointer hover and controller navigation select the inspected item without taking a treasure action. The selected pool row is highlighted, and the same context reaches both alliance groups. Data is keyed by server ID and item generation; unavailable, out-of-zone and non-player members have no indicator. Empty pools, zoning and hidden/disabled pool presentation clear the context.
@@ -10,6 +12,6 @@ Show member decisions defaults on under General. While the pool is visible, part
 
 **Keep intact:** Revalidate slot generation/identity before acting. Pointer controls work over ordinary native menus, while unclaimed keyboard/controller input remains native. Opening or viewing details must not lot/pass; held confirmation must not repeat requests.
 
-**Focused check:** `./scripts/check.ps1 -Name treasure-input`.
+**Focused checks:** `./scripts/check.ps1 -Name phoenix` covers native reconciliation, rapid slot reuse and batch identity. `./scripts/check.ps1 -Name treasure-input` covers input and member decisions.
 
 [Shared foundations](../foundations.md) · [Check commands](../../tests/README.md)

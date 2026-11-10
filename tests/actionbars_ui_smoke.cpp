@@ -240,8 +240,57 @@ namespace xiui
         }
         static auto Overlaps(const ui::rect& a, const ui::rect& b) -> bool
         { return std::min(a.x + a.width, b.x + b.width) - std::max(a.x, b.x) > 0.01f && std::min(a.y + a.height, b.y + b.height) - std::max(a.y, b.y) > 0.01f; }
+        static auto MacroTargetPersistence(void) -> void
+        {
+            action_store store; action_executor executor; actionbars_module module;
+            store.SetContext({3, 0, {}}); module.Initialize(nullptr, &store, &executor);
+            module.ApplyTextDefaults(ui::theme::CreateDefault()); module.viewport_ = {0, 0, 1280, 900};
+            module.NewDraft(action_kind::macro);
+            module.SelectEditorChoice(actionbars_module::command_kind, static_cast<int>(action_kind::spell));
+            module.SetFieldValue(actionbars_module::field_name, "Cure III");
+            Click(module, ControlBounds(module, "<t>"));
+            Check(module.setup_choice_input_.Opened(), "spell target opens the shared dropdown");
+            Click(module, module.setup_choice_input_.Row(2, module.SetupViewport()));
+            Check(module.draft_.target == "<stpc>", "pointer selection commits the player subtarget to the draft");
+            Click(module, ControlBounds(module, "Save"));
+            const auto saved = store.Resolve(action_surface::hotbar, 0, 0);
+            Check(store.ExpandMacro(saved).target == "<stpc>", "saving a new shared Cure III retains its chosen target");
+            const std::array<action_catalog_entry, 2> catalog{{{action_kind::spell, 3, "Cure III", "spell:3", 46, 0, 3, true},
+                {action_kind::spell, 144, "Fire", "spell:144", 24, 0, 144, true}}};
+            module.OpenLibrary(false); module.RebuildResults(catalog);
+            Check(module.results_.size() == 2 && module.results_[0].macro_id == saved.macro_id && module.results_[0].target == "<stpc>" &&
+                module.results_[1].target == "<t>", "the library reuses the saved target instead of showing an identical uncustomized spell");
+            Click(module, ControlBounds(module, "Cure III"));
+            Check(module.draft_.target == "<stpc>" && !module.editor_new_, "reopening Cure III edits its saved definition instead of creating another default");
+            module.ActivateControl(actionbars_module::command_target);
+            module.HandleKey(VK_DOWN, 0); module.HandleKey(VK_DOWN, static_cast<LPARAM>(0x80000000u));
+            module.HandleKey(VK_RETURN, 0); module.HandleKey(VK_RETURN, static_cast<LPARAM>(0x80000000u));
+            Check(module.draft_.target == "<stnpc>", "keyboard selection commits a different target");
+            module.focused_control_ = actionbars_module::command_save;
+            module.HandleControllerAction(controller_action::confirm, false);
+            settings_store snapshot{""}; store.Save(snapshot);
+            action_store restored; restored.SetContext(store.Context()); restored.Load(settings_store::FromIniText(snapshot.ToIniText()));
+            Check(restored.ExpandMacro(restored.Resolve(action_surface::hotbar, 0, 0)).target == "<stnpc>",
+                "edited shared targets survive settings save and reload");
+            module.Initialize(nullptr, &restored, &executor); module.OpenLibrary(false); module.RebuildResults(catalog);
+            Check(module.results_.size() == 2 && module.results_[0].target == "<stnpc>", "reloaded library results retain the customized target");
+            module.BeginControllerBrowse(); module.OpenLibrary(false); module.RebuildResults(catalog);
+            module.focused_control_ = Control(module, "Cure III");
+            module.HandleControllerAction(controller_action::confirm, false);
+            module.selected_.slot = 1; module.HandleControllerAction(controller_action::confirm, false);
+            Check(restored.ExpandMacro(restored.Resolve(action_surface::hotbar, 0, 1)).target == "<stnpc>",
+                "controller placement assigns the saved target rather than the catalog default");
+            module.CloseDialog(); module.OpenLibrary(false); module.RebuildResults(catalog);
+            Click(module, ControlBounds(module, "Cure III"));
+            module.SetFieldValue(actionbars_module::field_label, "Party Cure III");
+            Click(module, ControlBounds(module, "Save")); module.RebuildResults(catalog);
+            Check(module.results_.size() == 3 && module.results_[0].macro_id.empty() && module.results_[0].target == "<t>" &&
+                module.results_[2].label == "Party Cure III" && module.results_[2].target == "<stnpc>",
+                "separately named variants coexist with the original catalog action");
+        }
         static auto MacroEditor(void) -> void
         {
+            MacroTargetPersistence();
             action_store store; action_executor executor; actionbars_module module;
             store.SetContext({2, 0, {}}); module.Initialize(nullptr, &store, &executor); module.ApplyTextDefaults(ui::theme::CreateDefault());
             module.viewport_ = {0, 0, 1280, 900}; module.workspace_bounds_[2] = {100, 80, 480, 548};

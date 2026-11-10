@@ -4,6 +4,12 @@ using namespace xiui::config_checks;
 
 int main(int argc, char** argv)
 {
+    if (argc == 2 && std::strcmp(argv[1], "--native-ui-only") == 0)
+    {
+        if (!xiui::config_input_test::NativeUi()) return 1;
+        std::puts("Native UI navigation, edit isolation, pointer/controller modes, independent movement, visibility and persistence passed.");
+        return 0;
+    }
     if (argc == 2 && std::strcmp(argv[1], "--window-theme-only") == 0)
     {
         if (!xiui::config_input_test::WindowTheme()) return 1;
@@ -67,12 +73,6 @@ int main(int argc, char** argv)
     {
         if (!xiui::config_input_test::ViewportLayout(argv[2])) return 1;
         std::puts("First-load viewport fitting, missing positions, saved layouts and position-only recovery passed.");
-        return 0;
-    }
-    if (argc == 2 && std::strcmp(argv[1], "--lua-profile-import-only") == 0)
-    {
-        if (!xiui::config_input_test::LuaProfileImport()) return 1;
-        std::puts("XIUI Lua profile conversion, discovery, preview, controller routing and isolated import checks passed.");
         return 0;
     }
     if (argc == 2 && std::strcmp(argv[1], "--startup-wiring-only") == 0)

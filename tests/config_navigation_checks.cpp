@@ -1,9 +1,190 @@
 #include "config_input_fixture.hpp"
-#include "config/lua_import_layout.hpp"
+#include "config/config_window_resize.hpp"
 
 namespace xiui
 {
     using namespace config_checks;
+
+    auto config_input_test::NativeUi(void) -> bool
+    {
+        hud_runtime runtime;
+        const D3DVIEWPORT8 viewport{0, 0, 1920, 1080, 0, 1};
+        runtime.hud_viewport_ = runtime.config_.focus.viewport = viewport;
+        runtime.editing_ = runtime.config_.edit_mode = true;
+        runtime.config_.bounds = {600, 50, 1100, 600};
+        runtime.general_.grid_.snap_elements = false;
+        runtime.game_hud_.SetAvailable((uint32_t{1} << native_hud_window_count) - 1);
+        runtime.native_ui_.menu_available = true;
+        runtime.native_ui_.reference_width = 1920; runtime.native_ui_.reference_height = 1080;
+        runtime.native_ui_.windows[0] = {true, true, 50, 300, 200, 80, true};
+        runtime.game_hud_.SetWindowShown(1, false);
+        for (size_t index = native_hud_window_count; index < native_window_count; ++index) runtime.native_ui_.windows[index].movable = true;
+        runtime.UpdateNativeWindows(viewport);
+        const auto pages = runtime.ConfigPages();
+        const auto native = std::find_if(pages.begin(), pages.end(), [](const auto& page) { return std::strcmp(page.id, "native-ui") == 0; });
+        const auto extras = std::find_if(pages.begin(), pages.end(), [](const auto& page) { return std::strcmp(page.id, "extras") == 0; });
+        if (!check(native != pages.end() && native->Contains(&runtime.game_hud_) && native->Contains(&runtime.commands_) &&
+            extras != pages.end() && !extras->Contains(&runtime.game_hud_) && !extras->Contains(&runtime.commands_),
+            "native HUD and dialog controls have one main Native UI category")) return false;
+        const auto player = runtime.player_.State().bounds;
+        auto& window = runtime.native_windows_[0];
+        const auto click = [&](const ui::rect& bounds) {
+            runtime.mouse_x_ = static_cast<int>(bounds.x + bounds.width * .5f); runtime.mouse_y_ = static_cast<int>(bounds.y + bounds.height * .5f);
+            const bool down = runtime.ProcessPointerMessage(WM_LBUTTONDOWN, MK_LBUTTON, viewport);
+            return runtime.ProcessPointerMessage(WM_LBUTTONUP, 0, viewport) && down;
+        };
+        const auto switchBounds = runtime.EditModeSwitchBounds(viewport);
+        if (!check(switchBounds.width == 28 && switchBounds.height == 60 && switchBounds.x + switchBounds.width == viewport.Width &&
+            !runtime.ModuleDisplayed(window) && click(runtime.EditModeSwitchItemBounds(viewport, true)) && runtime.NativeEditMode() &&
+            runtime.ModuleDisplayed(window) && !runtime.ModuleDisplayed(runtime.player_) && runtime.config_.module == &runtime.game_hud_,
+            "native edit switch owns its pointer gesture and isolates the two layout surfaces")) return false;
+        if (!check((runtime.NativeHudHiddenMask() & NativeHudBit(native_hud_element::party)) == 0 && !runtime.game_hud_.Shown(1),
+            "native editing reveals the real party renderer without changing its saved visibility")) return false;
+        const auto selectedAt = runtime.config_.native_edit_slide.started;
+        if (!check(click(runtime.EditModeSwitchItemBounds(viewport, true)) && runtime.config_.native_edit_slide.started == selectedAt &&
+            click(runtime.EditModeSwitchItemBounds(viewport, false)) && !runtime.NativeEditMode() &&
+            click(runtime.EditModeSwitchItemBounds(viewport, true)) && runtime.NativeEditMode() &&
+            runtime.config_.native_edit_slide.Value(runtime.config_.native_edit_slide.started + 160) == 1,
+            "the two edge icons select their own mode and the highlight slides to the selected icon")) return false;
+        runtime.UpdateNativeWindows(viewport);
+        runtime.native_windows_.back().State().bounds = {0, 0, 1920, 1080};
+        if (!check(runtime.NativeWindowAt(60, 340) == &window, "smaller native outlines stay selectable over large overlapping dialog groups")) return false;
+        runtime.mouse_x_ = 60; runtime.mouse_y_ = 340;
+        runtime.BeginPanelInteraction(viewport); runtime.mouse_down_ = true;
+        runtime.mouse_x_ += 70; runtime.mouse_y_ += 20; runtime.UpdateInteraction(viewport);
+        runtime.UpdateNativeWindows(viewport);
+        if (!check(runtime.interaction_module_ == &window && window.State().bounds.x == 120 && window.State().bounds.y == 320 &&
+            runtime.MenuLayout().windows[0].enabled && runtime.MenuLayout().windows[0].x == 120,
+            "native drags survive fresh game snapshots and publish their own position")) return false;
+        runtime.mouse_down_ = false; runtime.FinishInteraction();
+        if (!check(window.Placement().enabled && runtime.player_.State().bounds.x == player.x && runtime.player_.State().bounds.y == player.y,
+            "native placement commits without moving the XIUI replacement")) return false;
+        const bool shown = runtime.game_hud_.Shown(0);
+        if (!check(click(runtime.NativeVisibilityButton(window)) && runtime.game_hud_.Shown(0) != shown && runtime.ModuleDisplayed(window),
+            "hiding a native HUD window keeps its editor outline available for restoring it")) return false;
+        const auto saved = runtime.CaptureSettings(); hud_runtime restored; restored.LoadSettings(settings_store::FromIniText(saved.ToIniText()));
+        if (!check(restored.native_windows_[0].Placement().enabled && restored.native_windows_[0].Placement().x == 120 &&
+            restored.game_hud_.Shown(0) == runtime.game_hud_.Shown(0) && !restored.config_.native_edit,
+            "native positions and hides persist while editor mode stays transient")) return false;
+        window.OnOptionChanged(4);
+        if (!check(!window.Placement().enabled && runtime.game_hud_.Shown(0) != shown,
+            "resetting native placement keeps visibility choices")) return false;
+        runtime.native_ui_.windows[0].live = false; runtime.UpdateNativeWindows(viewport);
+        if (!check(window.PositionKnown() && window.State().bounds.x == 50 && window.State().bounds.y == 300 && window.State().bounds.width == 200 &&
+            restored.native_windows_[0].HasGeometry(), "closed native windows retain captured geometry and persist it for future previews")) return false;
+        const auto merchant = native_hud_window_count + static_cast<size_t>(native_dialog::merchant);
+        if (!check(!runtime.native_windows_[merchant].PositionKnown() && !runtime.native_windows_[merchant].CanMove() &&
+            !runtime.ModuleDisplayed(runtime.native_windows_[merchant]) && runtime.native_windows_[merchant].State().bounds.width == 0 &&
+            !runtime.MenuLayout().windows[merchant].enabled, "unopened menus have no fabricated editor frame or position")) return false;
+        runtime.native_ui_.windows[merchant] = {true, true, 420, 460, 300, 200, true}; runtime.UpdateNativeWindows(viewport);
+        if (!check(runtime.native_windows_[merchant].PositionKnown() && runtime.native_windows_[merchant].State().bounds.x == 420 &&
+            runtime.native_windows_[merchant].State().bounds.y == 460 && runtime.ModuleDisplayed(runtime.native_windows_[merchant]),
+            "only client-rendered menus receive an editor outline at their real position")) return false;
+        const auto emotes = native_hud_window_count + NativeMenuWindowIndex("evitem  ", 2);
+        const bool playerHidden = runtime.NativeWindowHidden(0);
+        runtime.native_ui_.windows[emotes] = {true, true, 1400, 300, 260, 200, true}; runtime.UpdateNativeWindows(viewport);
+        runtime.ToggleNativeWindowVisibility(emotes); runtime.UpdateNativeWindows(viewport);
+        if (!check(emotes >= 64 && runtime.NativeWindowHidden(emotes) && runtime.MenuLayout().windows[emotes].hidden &&
+            runtime.NativeWindowHidden(0) == playerHidden, "submenu visibility beyond 64 windows stays independent of HUD visibility")) return false;
+        runtime.ToggleNativeWindowVisibility(emotes);
+        runtime.commands_.SelectSection(static_cast<size_t>(native_dialog::status));
+        auto selector = runtime.commands_.ContentOption(2);
+        const auto selectNative = [&](const char* label) {
+            for (size_t choice = 0; choice < selector.choice_count; ++choice)
+                if (std::strcmp(selector.ChoiceText(choice), label) == 0) { *selector.choice = static_cast<int>(choice); return runtime.commands_.SelectedWindow(); }
+            return static_cast<native_window_module*>(nullptr);
+        };
+        auto* statusSelector = selectNative("Status Menu");
+        auto* statusResult = selectNative("Character Status");
+        auto* profileResult = selectNative("Profile");
+        auto* combatResult = selectNative("Combat Skills");
+        auto* currencyResult = selectNative("Currencies 2");
+        if (!check(statusSelector && statusResult && profileResult && combatResult && currencyResult && statusSelector != statusResult &&
+            statusResult != profileResult && profileResult != combatResult && currencyResult != combatResult,
+            "Status navigation selects the submenu and distinct result windows instead of a category-sized target")) return false;
+        runtime.FocusModuleConfig(*combatResult);
+        if (!check(runtime.config_.section == static_cast<size_t>(native_dialog::status) && runtime.commands_.SelectedWindow() == combatResult,
+            "clicking an individual native result focuses its exact settings and shared movement controls")) return false;
+        restored.LoadSettings(runtime.CaptureSettings()); restored.commands_.SelectSection(static_cast<size_t>(native_dialog::status));
+        if (!check(std::strcmp(restored.commands_.SelectedWindow()->Id(), combatResult->Id()) == 0,
+            "the selected individual window survives settings persistence")) return false;
+        runtime.SelectConfigModule(&runtime.game_hud_); runtime.game_hud_.SelectWindow(0);
+
+        auto legacy = settings_store::FromIniText("");
+        legacy.WriteBool("native.statusmenu", "custom_position", true); legacy.WriteFloat("native.statusmenu", "x", 100); legacy.WriteFloat("native.statusmenu", "y", 200);
+        legacy.WriteRect("native.statusmenu.native", {16, 48, 1888, 248});
+        native_window_module splitMenu, splitResult, unseenResult;
+        splitMenu.Initialize(native_hud_window_count + NativeMenuWindowIndex("statcom "));
+        splitResult.Initialize(native_hud_window_count + NativeMenuWindowIndex("persona "));
+        unseenResult.Initialize(native_hud_window_count + NativeMenuWindowIndex("joblevel"));
+        splitMenu.Load(legacy); splitResult.Load(legacy); unseenResult.Load(legacy);
+        splitMenu.Update({true, true, 1792, 48, 112, 218, true}, 1, 1, 2560, 1440);
+        splitResult.Update({true, true, 16, 48, 112, 248, true}, 1, 1, 2560, 1440);
+        if (!check(splitMenu.Placement().x == 1876 && splitMenu.Placement().y == 200 && splitResult.Placement().x == 100 && splitResult.Placement().y == 200,
+            "splitting an old group retains each native window's relative offset without collapsing them onto one position")) return false;
+        auto splitSaved = settings_store::FromIniText(""); splitMenu.Save(splitSaved); splitResult.Save(splitSaved); unseenResult.Save(splitSaved);
+        native_window_module laterResult; laterResult.Initialize(native_hud_window_count + NativeMenuWindowIndex("joblevel")); laterResult.Load(splitSaved);
+        laterResult.Update({true, true, 130, 48, 252, 200, true}, 1, 1, 2560, 1440);
+        if (!check(laterResult.Placement().x == 214 && laterResult.Placement().y == 200,
+            "unopened result windows preserve the original migration offset across a later reload")) return false;
+        auto oldShared = settings_store::FromIniText(""); oldShared.WriteBool("commands", "enabled", true); oldShared.WriteBool("commands", "position_initialized", true);
+        oldShared.WriteRect("layout.commands", {300, 500, 434, 200}); oldShared.WriteRect("native.commands.native", {16, 760, 112, 168});
+        native_window_module oldCommand, oldSpells;
+        oldCommand.Initialize(native_hud_window_count + NativeMenuWindowIndex("playermo")); oldSpells.Initialize(native_hud_window_count + NativeMenuWindowIndex("magic   "));
+        oldCommand.Load(oldShared); oldSpells.Load(oldShared);
+        oldCommand.Update({true, true, 16, 760, 112, 168, true}, 1, 1, 1920, 1080); oldSpells.Update({true, true, 130, 400, 320, 360, true}, 1, 1, 1920, 1080);
+        if (!check(oldCommand.Placement().x == 300 && oldCommand.Placement().y == 532 && oldSpells.Placement().x == 414 && oldSpells.Placement().y == 340 && !runtime.MenuLayout().enabled,
+            "legacy shared anchors migrate to independent command and spell positions without retaining a live coupling")) return false;
+        runtime.SetNativeEditMode(false);
+        if (!check((runtime.NativeHudHiddenMask() & NativeHudBit(native_hud_element::party)) != 0, "leaving native editing restores saved native visibility")) return false;
+        runtime.native_ui_.windows[0].live = true; runtime.native_ui_.windows[0].visible = true;
+        runtime.config_.focus.active = true; runtime.config_.focus.region = config_controller_region::utilities; runtime.config_.focus.id = "edit-native";
+        runtime.HandleControllerConfig(controller_action::confirm, true);
+        if (!check(!runtime.NativeEditMode(), "held controller Confirm cannot switch editors")) return false;
+        runtime.HandleControllerConfig(controller_action::confirm, false);
+        if (!check(runtime.NativeEditMode(), "fresh controller Confirm uses the same editor switch")) return false;
+        runtime.ToggleNativeWindowVisibility(0); runtime.UpdateNativeWindows(viewport);
+        runtime.config_.focus.id = "native-visibility";
+        runtime.HandleControllerConfig(controller_action::confirm, false);
+        if (!check(runtime.game_hud_.Shown(0) == shown, "controller can show the selected native window through the shared action")) return false;
+        runtime.SelectConfigModule(&runtime.commands_); runtime.SelectConfigTopic(static_cast<size_t>(native_dialog::merchant));
+        const auto commandTopics = runtime.ConfigTopicRows();
+        runtime.GroupOptionSlots();
+        if (!check(commandTopics.size() == native_dialog_labels.size() && runtime.commands_.SelectedWindow() == &runtime.native_windows_[native_hud_window_count + 3] &&
+            runtime.game_hud_.ConfigSectionContains(2, game_hud_module::instant_macro_option) &&
+            !runtime.general_.ConfigSectionContains(general_module::visibility_section, runtime.general_.NameplatesOption()),
+            "dialog groups, native macros and overhead names belong to the Native UI settings")) return false;
+        runtime.BuildSettingsSearch();
+        const auto result = std::find_if(runtime.config_.search_entries.begin(), runtime.config_.search_entries.end(), [](const auto& entry) {
+            return entry.module == "gamehud" && entry.label == "Position X" && entry.path.find("Party List") != std::string::npos;
+        });
+        if (!check(result != runtime.config_.search_entries.end() && !result->selectors.empty() && result->path.starts_with("Native UI"),
+            "native placement search preserves the selected window and its main category")) return false;
+        restored.LoadSettings(legacy);
+        const auto unopened = native_hud_window_count + NativeMenuWindowIndex("joblevel");
+        for (size_t index = 0; index < native_window_count; ++index)
+            if (index != unopened) restored.native_windows_[index].OnPositionChanged();
+        restored.game_hud_.SetAvailable((uint32_t{1} << native_hud_window_count) - 1);
+        restored.game_hud_.SetWindowShown(1, false); restored.native_windows_[emotes].SetHidden(true);
+        const auto xiuiPosition = restored.player_.State().bounds;
+        const auto reset = game_hud_module::reset_positions_option;
+        if (!check(restored.CaptureSettings().ReadBool(restored.native_windows_[unopened].Id(), "split_pending", false) &&
+            restored.game_hud_.ConfigSectionContains(1, reset) && !restored.game_hud_.ConfigSectionContains(0, reset) &&
+            restored.game_hud_.Option(reset).kind == module_option_kind::action && restored.HandleCommand("nativeui reset"),
+            "Window Placement and nativeui reset share the reset action covering unopened legacy windows")) return false;
+        if (!check(std::none_of(restored.native_windows_.begin(), restored.native_windows_.end(), [](const auto& item) { return item.Placement().enabled; }) &&
+            !restored.game_hud_.Shown(1) && restored.native_windows_[emotes].Hidden() &&
+            restored.player_.State().bounds.x == xiuiPosition.x && restored.player_.State().bounds.y == xiuiPosition.y,
+            "reset all clears every native HUD and dialog override while retaining visibility and XIUI positions")) return false;
+        const auto resetSaved = restored.CaptureSettings(); restored.LoadSettings(resetSaved);
+        restored.native_windows_[unopened].Update({true, true, 130, 48, 252, 200, true}, 1, 1, 1920, 1080);
+        if (!check(std::none_of(restored.native_windows_.begin(), restored.native_windows_.end(), [](const auto& item) { return item.Placement().enabled; }) &&
+            restored.native_windows_[unopened].Placement().x == 130 && restored.native_windows_[unopened].Placement().y == 48 &&
+            !restored.game_hud_.Shown(1) && restored.native_windows_[emotes].Hidden(),
+            "bulk reset persists and opening a previously unseen window cannot reapply legacy offsets")) return false;
+        runtime.editing_ = false;
+        return true;
+    }
 
     auto config_input_test::ConfigMemory(void) -> bool
     {
@@ -103,6 +284,7 @@ namespace xiui
         };
         for (auto* module : runtime.modules_.All())
         {
+            if (runtime.NativeWindowIndex(*module) < native_window_count) continue;
             runtime.config_.module = module;
             const auto originalView = module->ConfigView();
             for (size_t view = 0; view < std::max<size_t>(1, module->ConfigViews().size()); ++view)
@@ -138,7 +320,7 @@ namespace xiui
                 if (sectionOrder.empty()) sectionOrder.push_back(0);
                 for (const size_t section : sectionOrder)
                 {
-                    if (module == &runtime.general_ && section == general_module::game_hud_section) continue;
+                    if (module == &runtime.general_ && (section == general_module::game_hud_section || section == general_module::extra_settings_section)) continue;
                     runtime.config_.section = section;
                     runtime.config_.group = module_option_group::general;
                     const auto title = module->ConfigSections().empty() ? std::string{"General"} : ui::SettingsTopicPath(module->ConfigSections(), section, module != &runtime.general_);
@@ -155,7 +337,7 @@ namespace xiui
                             if (!runtime.MatchesConfigOption(index)) continue;
                             const auto option = module->Option(index);
                             const bool selector = option.selector != module_selector::none ||
-                                (option.label != nullptr && (std::strcmp(option.label, "Status order") == 0 || std::strcmp(option.label, "Native filter group") == 0));
+                                (option.label != nullptr && (std::strcmp(option.label, "Status order") == 0 || std::strcmp(option.label, "Native filter group") == 0 || std::strcmp(option.label, "Native window") == 0));
                             if (!selector || option.choice == nullptr) continue;
                             const auto original = *option.choice;
                             for (size_t choice = 0; choice < option.choice_count; ++choice)
@@ -202,7 +384,7 @@ namespace xiui
         const auto globalTopics = runtime.general_.ConfigSections();
         for (size_t section = 0; section < globalTopics.size(); ++section)
         {
-            if (section == general_module::attribution_section || section == general_module::game_hud_section) continue;
+            if (section == general_module::attribution_section || section == general_module::game_hud_section || section == general_module::extra_settings_section) continue;
             runtime.SelectConfigTopic(section);
             const auto rows = runtime.ConfigTopicRows();
             const auto id = std::string{"general/"} + std::string{globalTopics[section].Id()} + (section == general_module::appearance_section ? "/0" : "");
@@ -259,7 +441,7 @@ namespace xiui
         runtime.SelectConfigTopic(general_module::appearance_section);
         const auto globalRows = runtime.ConfigTopicRows();
         const auto configText = std::find_if(globalRows.begin(), globalRows.end(), [](const auto& row) { return row.id == "general/appearance/2"; });
-        if (!check(configText != globalRows.end(), "Global Config Text has a second-column topic")) return false;
+        if (!check(configText != globalRows.end() && std::strcmp(configText->label, "Config Settings") == 0, "Global Config Settings has one second-column topic")) return false;
         const auto configTextBounds = runtime.ConfigLayout().Submenu(static_cast<size_t>(configText - globalRows.begin()), globalRows.size());
         runtime.mouse_x_ = static_cast<int>(configTextBounds.x + 8); runtime.mouse_y_ = static_cast<int>(configTextBounds.y + configTextBounds.height * .5f);
         runtime.ProcessPointerMessage(WM_LBUTTONDOWN, MK_LBUTTON, globalViewport);
@@ -275,6 +457,10 @@ namespace xiui
         auto globalRestored = std::make_unique<hud_runtime>(); globalRestored->LoadConfigSelection(globalSelection);
         if (!check(globalRestored->IsGeneralAppearance() && globalRestored->general_.AppearanceTab() == 2,
             "Global topic selection survives saved navigation")) return false;
+        auto oldSelection = settings_store::FromIniText("[session.config]\nmodule=general\ntopic_id=extra-settings\nsection=7\n");
+        globalRestored->LoadConfigSelection(oldSelection);
+        if (!check(globalRestored->IsGeneralAppearance() && globalRestored->general_.AppearanceTab() == 2,
+            "the retired Extra Settings destination reopens Config Settings")) return false;
         const auto attribution = runtime.ConfigLayout().HeaderAction();
         runtime.mouse_x_ = static_cast<int>(attribution.x + attribution.width * .5f);
         runtime.mouse_y_ = static_cast<int>(attribution.y + attribution.height * .5f);
@@ -297,10 +483,10 @@ namespace xiui
         runtime.config_.focus.active = false;
         runtime.SelectConfigModule(&runtime.game_hud_);
         const auto extrasRows = settleGlobal();
-        const auto nativeMenus = std::find_if(extrasRows.begin(), extrasRows.end(), [](const auto& row) { return row.id == "extras/8"; });
+        const auto nativeMenus = std::find_if(extrasRows.begin(), extrasRows.end(), [](const auto& row) { return row.id == "native-ui/0"; });
         if (!check(nativeMenus != extrasRows.end() && nativeMenus->available && nativeMenus->selected &&
-            std::strcmp(nativeMenus->label, "Native Menus") == 0 && runtime.ConfigTopicRows().empty(),
-            "Native Menus is a direct Extras destination")) return false;
+            std::strcmp(nativeMenus->label, "HUD Windows") == 0 && !runtime.ConfigTopicRows().empty(),
+            "native HUD controls belong to the Native UI category")) return false;
         if (!check(runtime.ConfigLayout().OptionRow(0).y == runtime.config_.bounds.y + ui::config_layout::grid_y,
             "pages without tabs or a topic column start directly below the header")) return false;
         const auto legacyMenus = settings_store::FromIniText("[session.config]\nbasic=false\nmodule=general\ntopic_id=game-hud\nsection=6\n");
@@ -810,17 +996,8 @@ namespace xiui
                 {
                     runtime.profile_dialog_ = surface < 3 ? hud_runtime::profile_dialog::share : hud_runtime::profile_dialog::import_profile;
                     runtime.profile_name_.Open("Close ownership");
-                    runtime.profile_import_lua_ = surface >= 3;
-                    if (surface < 3)
-                    {
-                        const ui::profile_dialog_layout dialog{runtime.config_.bounds, viewport, true};
-                        button = surface == 1 ? dialog.Close() : dialog.Cancel();
-                    }
-                    else
-                    {
-                        const ui::lua_import_layout dialog{runtime.config_.bounds, viewport};
-                        button = surface == 3 ? dialog.Close() : dialog.Control(0);
-                    }
+                    const ui::profile_dialog_layout dialog{runtime.config_.bounds, viewport, true};
+                    button = surface == 1 || surface == 3 ? dialog.Close() : dialog.Cancel();
                 }
                 if (!check(send(WM_LBUTTONDOWN, MK_LBUTTON, button.x + 3, button.y + 3) && opened() && input.blocked,
                     "submenu close waits for release while blocking native mouse input")) return false;
@@ -1169,11 +1346,10 @@ namespace xiui
             "World Info keeps its text selector alongside the profile controls")) return false;
         click(runtime.ConfigLayout().Section(0, 3));
         if (!check(runtime.config_.section == 0, "different Extras sections do not inherit unrelated indices")) return false;
-        click(runtime.ConfigLayout().Section(1, 3));
-        click(runtime.ConfigLayout().Submenu(2, 3));
-        click(runtime.ConfigLayout().Section(2, 3));
-        return check(runtime.config_.section == 0 && visit(runtime.commands_),
-            "Commands has only its populated General section without an invalid selection");
+        runtime.SelectConfigModule(&runtime.commands_);
+        runtime.SelectConfigTopic(static_cast<size_t>(native_dialog::merchant));
+        return check(runtime.config_.section == static_cast<size_t>(native_dialog::merchant) && visit(runtime.commands_),
+            "native merchant settings have an independent populated section");
     }
 
     auto config_input_test::SettingsSearch(void) -> bool
@@ -1305,8 +1481,10 @@ namespace xiui
         runtime.mouse_x_ = static_cast<int>(category.x + category.width * 0.5f); runtime.mouse_y_ = static_cast<int>(category.y + category.height * 0.5f);
         runtime.DrawConfig(viewport);
         if (!check(runtime.config_.tooltip == pages[2].name && runtime.config_.tooltip_anchor.x == category.x &&
-            runtime.ProcessConfigClick(viewport) && pages[2].Contains(runtime.config_.module),
+            runtime.ProcessConfigClick(viewport) && pages[2].Contains(runtime.config_.module) &&
+            runtime.config_.sidebar_collapsed == (pages[2].SectionCount() <= 1),
             "compact category icons retain name tooltips and their normal click action")) return false;
+        if (!runtime.config_.sidebar_collapsed) runtime.ToggleConfigSidebar(viewport);
         const auto saved = runtime.CaptureSettings(); hud_runtime restored; restored.LoadSettings(saved);
         if (!check(restored.config_.sidebar_collapsed && restored.config_.bounds.width == 920,
             "sidebar preference reloads without changing the user's window width")) return false;
@@ -1327,8 +1505,116 @@ namespace xiui
             "content reflow preserves the focused setting");
     }
 
+    auto config_input_test::ConfigWindowScaling(void) -> bool
+    {
+        hud_runtime runtime;
+        runtime.editing_ = true; runtime.config_.basic = false;
+        const D3DVIEWPORT8 viewport{0, 0, 3840, 2160, 0, 1};
+        runtime.hud_viewport_ = runtime.config_.focus.viewport = viewport;
+        runtime.config_.bounds = {120, 80, 1100, 600};
+        runtime.SelectConfigModule(&runtime.general_); runtime.config_.section = general_module::appearance_section;
+        runtime.config_.group = module_option_group::appearance; runtime.general_.SelectAppearanceTab(2);
+        const auto scaleIndex = runtime.general_.MenuScaleOption();
+        const auto option = runtime.general_.Option(scaleIndex);
+        if (!check(option.kind == module_option_kind::dropdown && option.choice_count == 5 && runtime.ConfigScale() == 1 &&
+            runtime.MatchesConfigOption(scaleIndex), "Menu Scale is a Config Settings control with five choices and a 100% default")) return false;
+        const auto original = runtime.config_.bounds;
+        const auto player = runtime.player_.State().bounds;
+        for (int index = 0; index < 5; ++index)
+        {
+            option.SetChoice(index);
+            const auto visible = runtime.ConfigVisibleBounds();
+            const float scale = 1 + .25f * index;
+            if (!check(visible.x == original.x && visible.y == original.y && visible.width == original.width * scale &&
+                visible.height == original.height * scale && runtime.config_.bounds.width == original.width,
+                "menu scaling grows the whole window around its saved position without changing authored dimensions")) return false;
+        }
+        option.SetChoice(2);
+        const auto pointAt = [&](const ui::rect& logical) {
+            const auto screen = runtime.ConfigTransform().Map(logical);
+            runtime.mouse_x_ = static_cast<int>(screen.x + screen.width * .5f);
+            runtime.mouse_y_ = static_cast<int>(screen.y + screen.height * .5f);
+        };
+        const auto click = [&](const ui::rect& logical) {
+            pointAt(logical);
+            runtime.ProcessPointerMessage(WM_LBUTTONDOWN, MK_LBUTTON, viewport);
+            runtime.ProcessPointerMessage(WM_LBUTTONUP, 0, viewport);
+        };
+        click(runtime.ConfigLayout().Language());
+        if (!check(runtime.config_.header_menu_open && runtime.config_.language_menu,
+            "the scaled header retains its pointer target")) return false;
+        runtime.config_.header_menu_open = false;
+        runtime.config_.choice_module = &runtime.general_; runtime.config_.choice_option = scaleIndex;
+        runtime.config_.choice_input.Open(option, runtime.ConfigLayout().HeaderTitle());
+        click(runtime.config_.choice_input.Row(3, runtime.ConfigViewport(viewport)));
+        if (!check(runtime.ConfigScale() == 1.75f && !runtime.config_.choice_input.Opened(),
+            "the scaled dropdown changes menu size through the shared pointer action")) return false;
+        runtime.config_.choice_module = &runtime.general_; runtime.config_.choice_option = scaleIndex;
+        runtime.config_.choice_input.Open(option, runtime.ConfigLayout().HeaderTitle());
+        runtime.HandleControllerConfig(controller_action::down, false);
+        runtime.HandleControllerConfig(controller_action::confirm, true);
+        if (!check(runtime.ConfigScale() == 1.75f && runtime.config_.choice_input.Opened(),
+            "held controller Confirm cannot apply a scale choice")) return false;
+        runtime.HandleControllerConfig(controller_action::confirm, false);
+        if (!check(runtime.ConfigScale() == 2 && !runtime.config_.choice_input.Opened(),
+            "fresh controller Confirm applies the same menu scale")) return false;
+        const auto snapshot = runtime.CaptureSettings();
+        general_module restored; restored.Load(snapshot);
+        if (!check(restored.MenuScale() == 2 && snapshot.Preferences("").ReadInt("session.config", "menu_scale", -1) == -1,
+            "menu scale persists locally and stays out of shared profiles and HUD presets")) return false;
+        restored.ResetDefaults(ui::theme::CreateDefault());
+        if (!check(restored.MenuScale() == 2, "resetting HUD defaults retains the installation's menu scale")) return false;
+
+        option.SetChoice(2); runtime.config_.focus.active = false;
+        pointAt(runtime.ConfigLayout().ResizeGrip());
+        if (!check(runtime.ResolveCursorShape(viewport) == hud_runtime::cursor_shape::resize_diagonal &&
+            runtime.ProcessPointerMessage(WM_LBUTTONDOWN, MK_LBUTTON, viewport) && runtime.interaction_ == hud_runtime::interaction::resize_config,
+            "the scaled resize grip advertises and owns resizing")) return false;
+        runtime.mouse_x_ += 150; runtime.mouse_y_ += 90;
+        runtime.ProcessPointerMessage(WM_MOUSEMOVE, MK_LBUTTON, viewport);
+        runtime.ProcessPointerMessage(WM_LBUTTONUP, 0, viewport);
+        if (!check(runtime.config_.bounds.width == original.width + 100 && runtime.config_.bounds.height == original.height + 60,
+            "scaled pointer resize converts screen movement once")) return false;
+        runtime.config_.bounds = original;
+        runtime.ApplyConfigResize(original, ui::resize_left, 150, 0, viewport);
+        if (!check(runtime.config_.bounds.x == original.x + 150 && runtime.config_.bounds.width == original.width - 100 &&
+            runtime.ConfigVisibleBounds().x + runtime.ConfigVisibleBounds().width == original.x + original.width * 1.5f,
+            "left-edge resizing keeps the opposite screen edge anchored")) return false;
+        runtime.config_.bounds = original;
+        pointAt(runtime.ConfigLayout().HeaderDragArea(0));
+        runtime.BeginPanelInteraction(viewport); runtime.mouse_down_ = true;
+        runtime.mouse_x_ += 90; runtime.mouse_y_ += 60; runtime.UpdateInteraction(viewport);
+        runtime.mouse_down_ = false; runtime.FinishInteraction();
+        if (!check(runtime.config_.bounds.x == original.x + 90 && runtime.config_.bounds.y == original.y + 60,
+            "dragging scaled configuration follows physical pointer movement")) return false;
+        runtime.config_.collapsed = true;
+        if (!check(runtime.ConfigVisibleBounds().height == 48, "the collapsed title bar retains menu scale")) return false;
+        runtime.config_.collapsed = false;
+        runtime.SetBasicSettings(true, false);
+        click(runtime.ConfigLayout().Language());
+        if (!check(runtime.config_.header_menu_open && runtime.ConfigScale() == 1.5f,
+            "Basic settings share the scaled header and input geometry")) return false;
+        runtime.config_.header_menu_open = false;
+        D3DCOLOR pickedColor{};
+        runtime.config_.active_color = &pickedColor;
+        const auto color = runtime.ConfigColorBounds(viewport);
+        if (!check(color.x >= 0 && color.y >= 0 && color.x + color.width <= viewport.Width && color.y + color.height <= viewport.Height,
+            "scaled color dialogs stay within the physical viewport")) return false;
+        runtime.config_.active_color = nullptr;
+        runtime.module_menu_target_ = &runtime.player_;
+        if (!check(runtime.ChoiceTransform().Identity(), "HUD module context menus retain screen coordinates")) return false;
+        runtime.module_menu_target_ = nullptr;
+        option.SetChoice(4); runtime.hud_viewport_ = {0, 0, 1280, 720, 0, 1};
+        runtime.ClampLayout(runtime.hud_viewport_);
+        const auto visible = runtime.ConfigVisibleBounds();
+        return check(visible.x >= 0 && visible.y >= 0 && visible.x + visible.width <= 1280.01f && visible.y + visible.height <= 720.01f &&
+            runtime.general_.HudScale() == 1 && runtime.player_.State().bounds.x == player.x && runtime.player_.State().bounds.y == player.y,
+            "smaller viewports keep Configuration reachable while HUD scale and positions remain independent");
+    }
+
     auto config_input_test::ConfigResize(void) -> bool
     {
+        if (!ConfigWindowScaling()) return false;
         hud_runtime runtime;
         runtime.editing_ = true;
         runtime.config_.bounds = {40, 40, 1100, 600};

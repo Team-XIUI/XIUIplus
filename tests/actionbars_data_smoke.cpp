@@ -118,6 +118,8 @@ return T{
         const auto duplicate = PreviewActionImport("return { Default = { ['1'] = { ActionType='Command', Macro={'/echo a'} }, ['1'] = { ActionType='Command', Macro={'/echo b'} } } }");
         Check(duplicate.Valid() && duplicate.conflicts != 0 && duplicate.palettes[0].actions.hotbar[0][0].lines[0] == "/echo b", "duplicate literal bindings report conflicts without overwriting existing palettes");
         const auto xiui = PreviewActionImport(R"lua(return {
+ globalScale=2, fontSize=18, playerBarEnabled=false, windowPositions={PlayerBar={x=900,y=800}},
+ controller={enabled=true,triggerThreshold=99}, readyCheckSoundFile='unrelated.wav',
  hotbarBar1 = { x=1.5, slotActions={['15:0:palette:Test']={ [1]={macroRef=12,macroPaletteKey=15}, [2]={actionType='ws',action='Fast Blade',target='t'} }} },
  hotbarCrossbar = { slotActions={['15:0:palette:Test']={ L2x2={ [8]={actionType='pet', action='Assault',target='t'} } }} },
  macroDB={ [15]={ {id=12,actionType='macro',displayName='Summon',macroText='/ma "Ifrit" <me>\n/wait 1\n/echo ready'} } },
@@ -125,6 +127,18 @@ return T{
         Check(xiui.Valid() && xiui.actions == 3 && xiui.palettes.size() == 2 && xiui.palettes[0].name == "Test", "XIUI+ keeps equally named hotbar and crossbar palettes independent");
         Check(xiui.palettes[1].actions.hotbar[0][0].lines.size() == 3 && xiui.palettes[0].actions.crossbar[4][7].name == "Assault", "XIUI+ macro references resolve from their source library");
         Check(xiui.source_context && xiui.palettes[0].job == 15 && xiui.palettes[0].subjob == 0, "XIUI+ imports preserve source job and shared-subjob context");
+        action_store actionsOnly; actionsOnly.SetContext({15, 0, {}});
+        const auto existing = actionsOnly.AllPalettes().front().id;
+        auto settings = settings_store::FromIniText("[appearance.hud]\nscale=1.250\n[player]\nenabled=1\n[layout.player]\nx=42\ny=84\n[controller.crossbar]\nenabled=0\n");
+        Check(CommitActionImport(actionsOnly, xiui) == 2, "XIUI settings files import through the action-only boundary");
+        actionsOnly.Save(settings);
+        Check(settings.ReadFloat("appearance.hud", "scale", 0) == 1.25f && settings.ReadBool("player", "enabled", false) &&
+            settings.ReadRect("layout.player", {}).x == 42 && settings.ReadRect("layout.player", {}).y == 84 &&
+            !settings.ReadBool("controller.crossbar", "enabled", true) &&
+            std::any_of(actionsOnly.AllPalettes().begin(), actionsOnly.AllPalettes().end(), [&](const auto& palette) { return palette.id == existing; }),
+            "action imports preserve HUD size, module visibility, positions, controller configuration and existing palettes");
+        Check(!PreviewActionImport("return { globalScale=2, playerBarEnabled=false, windowPositions={PlayerBar={x=900,y=800}} }").Valid(),
+            "settings-only XIUI Lua files cannot create a full profile or an empty action import");
         const auto jobFile = PreviewActionImport(source, "C:/example/bindings/WAR.lua");
         Check(jobFile.source_context && jobFile.palettes[0].job == 1 && jobFile.palettes[0].subjob == 0, "tBar job filenames preserve their source job context");
         const auto petImport = PreviewActionImport(R"lua(return {
@@ -393,7 +407,8 @@ int main(int argc, char** argv)
     try {
         if (argc == 2 && std::strcmp(argv[1], "--japanese-names-only") == 0)
         { JapaneseNames(); std::puts("Japanese/English resource lookup, command names and encoding checks passed."); return 0; }
-        for (int i = 1; i < argc; ++i)
+        const bool importsOnly = argc > 1 && std::strcmp(argv[1], "--imports-only") == 0;
+        for (int i = importsOnly ? 2 : 1; i < argc; ++i)
         {
             std::ifstream file{argv[i], std::ios::binary}; Check(static_cast<bool>(file), "open real writer fixture");
             const std::string text{std::istreambuf_iterator<char>{file}, {}};
@@ -402,6 +417,7 @@ int main(int argc, char** argv)
             xiui::action_store migrated; Check(xiui::CommitActionImport(migrated, preview) == 4, "real writer fixture commits atomically");
             std::printf("Saved-profile fixture: %s; %zu actions, %zu library entries, %zu sets.\n", argv[i], preview.actions, preview.macros.size(), preview.palettes.size());
         }
+        if (importsOnly) { Imports(); MigrationData(); std::puts("XIUI, tHotBar and tCrossBar action-only imports and preservation checks passed."); return 0; }
         Storage(); Imports(); MigrationData(); ExecutionBoundaries(); MacroPresentation(); NativeEventWaits(); MacroIconInference(); JapaneseNames(); NativePaletteBoundaries(); std::puts("Action palette, macro, import and execution boundary checks passed."); return 0; }
     catch (const std::exception& error) { std::fprintf(stderr, "%s\n", error.what()); return 1; }
 }

@@ -9,7 +9,7 @@ Start with a [short module note](../modules/README.md). Open these guides when t
 - [Configuration](configuration.md): shared navigation, search, editors and responsive geometry.
 - [Settings organization](settings.md): preference presentation and ownership; [generated inventory](settings-inventory.md).
 - [Party presets](party-presets.md): Classic/XIV application, confirmation and preservation rules.
-- [XIUI+ Lua profiles](lua-profile-import.md): setup discovery, conversion preview, preserved state and import reports.
+- [Legacy actions and palettes](actionbars.md#importing): XIUI, tHotBar and tCrossBar macros and assignments without importing HUD settings.
 
 ## Detailed feature behavior
 

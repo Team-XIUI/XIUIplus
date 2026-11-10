@@ -72,4 +72,6 @@ All shared drawing primitives pass through the scoped design-system transform. T
 
 Local scale values use portable `hud.scale.<stable-element-id>` sections. Global Scale uses `appearance.hud`; Basic/Advanced uses local `session.config`. Missing values load as 100%. The immutable XIUI2 sharing baseline remains unchanged.
 
+Configuration has its own **Menu Scale (%)** under Global → Config Settings. It enlarges the settings window and its dialogs from 100% to 200% independently of Global Scale. See [Configuration](configuration.md) for local persistence and viewport fitting.
+
 Focused check: `./scripts/check.ps1 -Name hud-scaling`. It covers geometry, shared gestures, committed snapshots, representative input regions, mode navigation, explicit preset ownership, and persistence. Cody verifies visual/gameplay behavior and physical controller acceptance.

@@ -15,6 +15,7 @@ namespace xiui
 {
     auto hud_runtime::DrawConfig(const D3DVIEWPORT8& viewport) -> void
     {
+        const auto transform = this->design_system_.Transform(this->ConfigTransform());
         rect buttonFocus{};
         if (this->config_.focus.active && !this->config_.focus.moving && !this->config_.focus.resizing &&
             !this->profile_name_.Focused() && !this->config_.choice_input.Opened() &&
@@ -30,7 +31,7 @@ namespace xiui
         this->NormalizeConfigSelection();
         this->ClampOptionScroll();
         const auto layout = this->ConfigLayout();
-        const auto panel = this->ConfigVisibleBounds();
+        const auto panel = this->ConfigLogicalBounds();
         const auto& theme = this->design_system_.GetTheme();
         const std::array<ui::container_fill, 5> fills{{
             {layout.HeaderBackground(), 0xD0000000 | ((theme.colors.chrome & 0xFEFEFE) >> 1)},
@@ -49,14 +50,14 @@ namespace xiui
         }
         this->config_controls_.Text(i18n::Text("CONFIGURATION"), layout.HeaderTitle(), headerStyle);
         const auto sidebarToggle = layout.SidebarToggle();
-        const bool sidebarHovered = Contains(sidebarToggle, static_cast<float>(this->mouse_x_), static_cast<float>(this->mouse_y_));
+        const bool sidebarHovered = Contains(sidebarToggle, this->ConfigMouseX(), this->ConfigMouseY());
         this->config_controls_.IconButton(sidebarToggle, this->config_.sidebar_collapsed ? ui::icon_glyph::arrow_right : ui::icon_glyph::arrow_left, sidebarHovered);
         const rect close = layout.CloseButton();
-        const bool closeHovered = Contains(close, static_cast<float>(this->mouse_x_), static_cast<float>(this->mouse_y_));
+        const bool closeHovered = Contains(close, this->ConfigMouseX(), this->ConfigMouseY());
         this->config_controls_.IconButton(close, ui::icon_glyph::close, closeHovered);
 
         const auto attribution = layout.HeaderAction();
-        const bool attributionHovered = Contains(attribution, static_cast<float>(this->mouse_x_), static_cast<float>(this->mouse_y_));
+        const bool attributionHovered = Contains(attribution, this->ConfigMouseX(), this->ConfigMouseY());
         this->config_controls_.IconButton(attribution, ui::icon_glyph::attribution, attributionHovered ||
             (this->config_.module == &this->general_ && this->config_.section == general_module::attribution_section));
         const char* tooltip = attributionHovered ? "Attribution" : nullptr;
@@ -67,7 +68,7 @@ namespace xiui
             tooltipAnchor = sidebarToggle;
         }
         const auto collapse = layout.HeaderAction(1);
-        const bool collapseHovered = Contains(collapse, static_cast<float>(this->mouse_x_), static_cast<float>(this->mouse_y_));
+        const bool collapseHovered = Contains(collapse, this->ConfigMouseX(), this->ConfigMouseY());
         this->config_controls_.IconButton(collapse, this->config_.collapsed ? ui::icon_glyph::add : ui::icon_glyph::minus, collapseHovered || this->config_.collapsed);
         if (collapseHovered)
         {
@@ -85,8 +86,8 @@ namespace xiui
             if (row.bounds.y + row.bounds.height <= sidebarBounds.y || row.bounds.y >= sidebarBounds.y + sidebarBounds.height) continue;
             const auto clip = this->design_system_.Clip({row.bounds.x, std::max(row.bounds.y, sidebarBounds.y), row.bounds.width,
                 std::min(row.bounds.y + row.bounds.height, sidebarBounds.y + sidebarBounds.height) - std::max(row.bounds.y, sidebarBounds.y)});
-            const bool hovered = row.available && Contains(sidebarBounds, static_cast<float>(this->mouse_x_), static_cast<float>(this->mouse_y_)) &&
-                Contains(row.bounds, static_cast<float>(this->mouse_x_), static_cast<float>(this->mouse_y_));
+            const bool hovered = row.available && Contains(sidebarBounds, this->ConfigMouseX(), this->ConfigMouseY()) &&
+                Contains(row.bounds, this->ConfigMouseX(), this->ConfigMouseY());
             if (row.child) this->config_controls_.NavigationItem(row.bounds, row.label, row.selected, hovered, row.available);
             else this->config_controls_.NavigationButton(row.bounds, row.id.c_str(), row.label, row.selected, hovered, this->config_.sidebar_collapsed);
             if (hovered) { tooltip = row.help != nullptr ? row.help : row.label; tooltipAnchor = row.bounds; }
@@ -101,7 +102,7 @@ namespace xiui
             for (size_t index = 0; index < topics.size(); ++index)
             {
                 const auto bounds = ui::SettingsTopicBounds(layout.Submenu(index, topics.size()), topics[index]);
-                const bool hovered = Contains(bounds, static_cast<float>(this->mouse_x_), static_cast<float>(this->mouse_y_));
+                const bool hovered = Contains(bounds, this->ConfigMouseX(), this->ConfigMouseY());
                 this->config_controls_.NavigationItem(bounds, topics[index].label, topics[index].selected, hovered);
                 if (topics[index].parent)
                     this->config_controls_.Text(topics[index].selected ? "-" : "+", {bounds.x + bounds.width - 16, bounds.y, 12, bounds.height}, theme.caption_text);
@@ -116,7 +117,7 @@ namespace xiui
                 const auto group = categories.groups[index];
                 const rect bounds = layout.Category(index, categories.count);
                 const bool active = this->config_.group == group;
-                const bool hovered = Contains(bounds, static_cast<float>(this->mouse_x_), static_cast<float>(this->mouse_y_));
+                const bool hovered = Contains(bounds, this->ConfigMouseX(), this->ConfigMouseY());
                 auto style = active ? theme.accent_text : theme.caption_text;
                 style.scale = 0.72f;
                 style.alignment = ui::text_alignment::center;
@@ -128,7 +129,7 @@ namespace xiui
         {
             if (this->IsAttribution())
                 this->config_controls_.Segmented(layout.ContentTabs(), ui::attribution_views, this->general_.AttributionView(),
-                    static_cast<float>(this->mouse_x_), static_cast<float>(this->mouse_y_));
+                    this->ConfigMouseX(), this->ConfigMouseY());
             if (this->IsInventorySettings())
             {
                 std::array<const char*, inventory_groups.size()> names{};
@@ -139,10 +140,10 @@ namespace xiui
                     if (this->config_.module == this->inventory_pages_[index]) selected = index;
                 }
                 this->config_controls_.Segmented(layout.ContentTabs(), names, selected,
-                    static_cast<float>(this->mouse_x_), static_cast<float>(this->mouse_y_));
+                    this->ConfigMouseX(), this->ConfigMouseY());
             }
             if (this->IsExperienceDisplay()) this->experience_display_.Draw(this->experience_, this->config_controls_, this->design_system_,
-                layout, static_cast<float>(this->mouse_x_), static_cast<float>(this->mouse_y_));
+                layout, this->ConfigMouseX(), this->ConfigMouseY());
             this->DrawElementSelector();
             if (this->IsXIUIContributors()) this->DrawContributorList();
             else
@@ -158,7 +159,7 @@ namespace xiui
                         continue;
                     const module_option option = this->config_.module->Option(optionIndex);
                     const rect optionRow = layout.OptionRow(visibleIndex);
-                    const bool hovered = Contains(optionRow, static_cast<float>(this->mouse_x_), static_cast<float>(this->mouse_y_));
+                    const bool hovered = Contains(optionRow, this->ConfigMouseX(), this->ConfigMouseY());
                     const bool editingValue = this->config_.slider_input.Focused() && this->config_.slider_module == this->config_.module && this->config_.slider_option == optionIndex;
                     if (editingValue) this->config_.slider_bounds = ui::config_layout::SliderValue(optionRow);
                     const bool editingText = this->config_.text_input.Focused() && this->config_.text_module == this->config_.module && this->config_.text_option == optionIndex;
@@ -166,26 +167,26 @@ namespace xiui
                     int hoveredButton = -1;
                     if (hovered && option.kind == module_option_kind::toggle_buttons)
                         for (size_t index = 0; index < option.choice_count; ++index)
-                            if (Contains(ui::config_layout::ToggleButton(optionRow, index, option.choice_count), static_cast<float>(this->mouse_x_), static_cast<float>(this->mouse_y_)))
+                            if (Contains(ui::config_layout::ToggleButton(optionRow, index, option.choice_count), this->ConfigMouseX(), this->ConfigMouseY()))
                                 hoveredButton = static_cast<int>(index);
                     this->config_controls_.Option(optionRow, option, hovered, this->config_.active_color == option.color,
                         editingValue ? &this->config_.slider_input : nullptr, editingText ? &this->config_.text_input : nullptr,
                         this->config_.choice_input.Opened() && this->config_.choice_module == this->config_.module && this->config_.choice_option == optionIndex, hoveredButton);
                     if (option.available && option.kind == module_option_kind::choice && option.choice_count > 1 && hovered &&
-                        Contains(ui::config_layout::ChoiceButton(optionRow), static_cast<float>(this->mouse_x_), static_cast<float>(this->mouse_y_)))
+                        Contains(ui::config_layout::ChoiceButton(optionRow), this->ConfigMouseX(), this->ConfigMouseY()))
                     {
-                        tooltip = Contains(ui::config_layout::ChoicePrevious(optionRow), static_cast<float>(this->mouse_x_), static_cast<float>(this->mouse_y_))
+                        tooltip = Contains(ui::config_layout::ChoicePrevious(optionRow), this->ConfigMouseX(), this->ConfigMouseY())
                             ? "Previous choice" : "Next choice";
                         tooltipAnchor = ui::config_layout::ChoiceButton(optionRow);
                     }
                     if (option.available && option.kind == module_option_kind::slider && hovered &&
-                        Contains(ui::config_layout::SliderValue(optionRow), static_cast<float>(this->mouse_x_), static_cast<float>(this->mouse_y_)))
+                        Contains(ui::config_layout::SliderValue(optionRow), this->ConfigMouseX(), this->ConfigMouseY()))
                     {
                         tooltip = editingValue && this->config_.slider_input.Invalid() ? "Enter a valid number, or press Escape to cancel." : "Click to type a value. Enter applies; Escape cancels.";
                         tooltipAnchor = ui::config_layout::SliderValue(optionRow);
                     }
                     const rect helpBounds = option.kind == module_option_kind::toggle_buttons ? rect{optionRow.x, optionRow.y, optionRow.width, 25} : ui::config_layout::Description(optionRow);
-                    if (hovered && Contains(helpBounds, static_cast<float>(this->mouse_x_), static_cast<float>(this->mouse_y_)))
+                    if (hovered && Contains(helpBounds, this->ConfigMouseX(), this->ConfigMouseY()))
                     {
                         tooltip = option.description;
                         tooltipAnchor = optionRow;
@@ -222,7 +223,7 @@ namespace xiui
         this->DrawConfigScrollbar();
         this->DrawControllerInputStatus();
         const auto grip = layout.ResizeGrip();
-        const bool resizeHovered = Contains(grip, static_cast<float>(this->mouse_x_), static_cast<float>(this->mouse_y_));
+        const bool resizeHovered = Contains(grip, this->ConfigMouseX(), this->ConfigMouseY());
         const auto gripColor = resizeHovered || this->interaction_ == interaction::resize_config || this->config_.focus.resizing
             ? theme.colors.control_selected : theme.colors.muted;
         for (int row = 0; row < 3; ++row)
@@ -254,7 +255,7 @@ namespace xiui
             const auto header = layout.Header(group);
             if (layout.Visible(header)) this->config_controls_.Text(i18n::Text(ui::contributor_groups[group]), header, heading);
         }
-        const float x = static_cast<float>(this->mouse_x_), y = static_cast<float>(this->mouse_y_);
+        const float x = this->ConfigMouseX(), y = this->ConfigMouseY();
         const auto hovered = layout.MemberAt(x, y);
         for (size_t index = 0; index < ui::xiui_contributors.size(); ++index)
         {
@@ -278,17 +279,19 @@ namespace xiui
 
     auto hud_runtime::DrawConfigTooltip(const D3DVIEWPORT8& viewport) -> void
     {
+        const auto transform = this->design_system_.Transform(this->ConfigTransform());
         if (!this->GameWindowFocused() || this->config_.search_open || this->config_.header_menu_open || this->config_.choice_input.Opened() ||
             this->profile_name_.Focused() || this->profile_dropdown_ || this->profile_actions_) return;
         if (!this->config_.tooltip.empty() && this->interaction_ == interaction::none)
-            this->config_controls_.Tooltip(this->config_.tooltip.c_str(), this->config_.tooltip_anchor, viewport);
+            this->config_controls_.Tooltip(this->config_.tooltip.c_str(), this->config_.tooltip_anchor, this->ConfigViewport(viewport));
     }
 
     auto hud_runtime::DrawColorEditor(const D3DVIEWPORT8& viewport) -> void
     {
+        const auto transform = this->design_system_.Transform(this->ConfigTransform());
         if (this->config_.active_color == nullptr) return;
-        const auto panel = this->ConfigLayout().ColorEditor(viewport);
-        const float x = static_cast<float>(this->mouse_x_), y = static_cast<float>(this->mouse_y_);
+        const auto panel = this->ConfigLayout().ColorEditor(this->ConfigViewport(viewport));
+        const float x = this->ConfigMouseX(), y = this->ConfigMouseY();
         this->config_.color_picker.Draw(this->design_system_, this->config_controls_, panel, x, y);
         if (!Contains(panel, x, y)) return;
         this->config_.tooltip.clear();

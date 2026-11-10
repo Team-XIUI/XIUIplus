@@ -26,6 +26,8 @@ namespace xiui
 {
     auto hud_runtime::ConfigPreview(const hud_module& module) const -> bool
     {
+        if (const auto index = this->NativeWindowIndex(module); index < native_window_count) return this->NativeEditMode() && this->native_windows_[index].OnScreen();
+        if (this->NativeEditMode()) return false;
         if (!this->editing_) return false;
         if (this->config_.edit_mode) return true;
         if (!this->config_.preview_selected || this->config_.basic) return false;
@@ -36,6 +38,8 @@ namespace xiui
 
     auto hud_runtime::ModuleDisplayed(const hud_module& module) const -> bool
     {
+        if (const auto index = this->NativeWindowIndex(module); index < native_window_count) return this->NativeEditMode() && this->native_windows_[index].OnScreen();
+        if (this->NativeEditMode()) return false;
         return this->ContextVisible(module) && (this->ConfigPreview(module) ? module.PreviewVisible() : module.ShouldRender(this->layout_snapshot_));
     }
 
@@ -47,7 +51,7 @@ namespace xiui
         const float x = static_cast<float>(this->mouse_x_), y = static_cast<float>(this->mouse_y_);
         return !Contains(this->ConfigVisibleBounds(), x, y) && !this->config_.choice_input.Opened() &&
             !this->config_.search_open && !this->ProfileSurface(this->hud_viewport_) &&
-            (this->config_.active_color == nullptr || !Contains(this->ConfigLayout().ColorEditor(this->hud_viewport_), x, y)) &&
+            (this->config_.active_color == nullptr || !Contains(this->ConfigColorBounds(this->hud_viewport_), x, y)) &&
             (Contains(this->MovementBounds(module), x, y) || Contains(this->ScaleGrip(module), x, y));
     }
 

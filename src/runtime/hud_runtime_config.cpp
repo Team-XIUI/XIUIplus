@@ -2,6 +2,7 @@
 #include "config/contributor_list.hpp"
 #include "config/option_layout.hpp"
 #include "config/config_window_resize.hpp"
+#include "config/config_window_scale.hpp"
 #include "input/keyboard_policy.hpp"
 #include "ui/sound_choices.hpp"
 
@@ -13,6 +14,15 @@
 
 namespace xiui
 {
+    auto hud_runtime::ConfigScale(void) const -> float
+    { return ui::ConfigWindowScale(this->general_.MenuScale(), this->hud_viewport_); }
+
+    auto hud_runtime::ConfigViewport(const D3DVIEWPORT8& viewport) const -> D3DVIEWPORT8
+    { return ui::ConfigWindowViewport(viewport, this->ConfigTransform()); }
+
+    auto hud_runtime::ChoiceViewport(const D3DVIEWPORT8& viewport) const -> D3DVIEWPORT8
+    { return ui::ConfigWindowViewport(viewport, this->ChoiceTransform()); }
+
     auto hud_runtime::ToggleConfigSidebar(const D3DVIEWPORT8& viewport) -> void
     {
         this->FinishConfigInput(true, false);
@@ -23,7 +33,7 @@ namespace xiui
         this->config_.sidebar_collapsed = !this->config_.sidebar_collapsed;
         const auto layout = this->ConfigLayout();
         if (!this->config_.collapsed && viewport.Width != 0 && viewport.Height != 0)
-            this->config_.bounds = ui::ResizeConfigWindow(this->config_.bounds, ui::resize_bottom, 0, 0, layout.MinimumWidth(), layout.MinimumHeight(), viewport);
+            this->ApplyConfigResize(this->config_.bounds, ui::resize_bottom, 0, 0, viewport);
         if (!this->IsXIUIContributors())
         {
             const auto slots = this->GroupOptionSlots();
@@ -39,16 +49,18 @@ namespace xiui
     auto hud_runtime::ConfigHeaderDragArea(void) const -> rect
     {
         const float searchWidth = this->config_.basic || this->config_.collapsed ? 0 : this->SettingsSearchBounds().width;
-        return this->ConfigLayout().HeaderDragArea(searchWidth);
+        return this->ConfigTransform().Map(this->ConfigLayout().HeaderDragArea(searchWidth));
     }
 
-    auto hud_runtime::ConfigResizeEdges(const float x, const float y) const -> uint8_t
+    auto hud_runtime::ConfigResizeEdges(const float screenX, const float screenY) const -> uint8_t
     {
+        const auto transform = this->ConfigTransform();
+        const float x = transform.InverseX(screenX), y = transform.InverseY(screenY);
         if (!this->editing_ || this->config_.collapsed || this->profile_name_.Focused() || this->profile_dropdown_ ||
             this->profile_actions_ || this->config_.choice_input.Opened() || this->config_.header_menu_open) return 0;
         const auto& bounds = this->config_.bounds;
         if (!Contains(bounds, x, y)) return 0;
-        if (this->config_.active_color != nullptr && Contains(this->ConfigLayout().ColorEditor(this->config_.focus.viewport), x, y)) return 0;
+        if (this->config_.active_color != nullptr && Contains(this->ConfigLayout().ColorEditor(this->ConfigViewport(this->config_.focus.viewport)), x, y)) return 0;
         if (Contains(this->ConfigLayout().ResizeGrip(), x, y)) return ui::resize_right | ui::resize_bottom;
         constexpr float edge = 5;
         uint8_t result{};
@@ -65,7 +77,11 @@ namespace xiui
         const auto layout = this->ConfigLayout();
         const auto before = this->config_.bounds;
         const auto firstOption = this->GroupOptionIndex(static_cast<size_t>(std::max(0, this->config_.scroll)));
-        this->config_.bounds = ui::ResizeConfigWindow(original, edges, dx, dy, layout.MinimumWidth(), layout.MinimumHeight(), viewport);
+        const auto scale = this->ConfigScale();
+        const auto transform = ui::hud_transform::At(original.x, original.y, scale, scale);
+        auto resized = ui::ResizeConfigWindow(original, edges, dx / scale, dy / scale, layout.MinimumWidth(), layout.MinimumHeight(), ui::ConfigWindowViewport(viewport, transform));
+        resized.x = transform.X(resized.x); resized.y = transform.Y(resized.y);
+        this->config_.bounds = resized;
         if (before.x == this->config_.bounds.x && before.y == this->config_.bounds.y &&
             before.width == this->config_.bounds.width && before.height == this->config_.bounds.height) return;
         if (layout.Columns() != this->ConfigLayout().Columns() && !this->IsXIUIContributors())
@@ -81,6 +97,17 @@ namespace xiui
 
     auto hud_runtime::FocusModuleConfig(hud_module& module) -> void
     {
+        if (const auto index = this->NativeWindowIndex(module); index < native_window_count)
+        {
+            this->FinishConfigInput(false);
+            this->config_.module = index < native_hud_window_count ? static_cast<hud_module*>(&this->game_hud_) : static_cast<hud_module*>(&this->commands_);
+            this->config_.section = index < native_hud_window_count ? 1 : static_cast<size_t>(native_menu_windows[index - native_hud_window_count].category);
+            if (index < native_hud_window_count) this->game_hud_.SelectWindow(index);
+            else this->commands_.SelectWindow(index - native_hud_window_count);
+            this->config_.scroll = 0;
+            this->config_.group = module_option_group::general;
+            return;
+        }
         this->config_.preview_selected = true;
         if (this->config_.basic) { this->config_.layout_selection = &module; return; }
         if (&module == &this->world_target_scale_) { this->FocusModuleConfig(this->target_); this->target_.SelectConfigView(3); this->config_.section = 1; return; }
@@ -145,19 +172,20 @@ namespace xiui
             {"experience", this->experience_.DisplayName(), &this->experience_},
             {"inventory", "Inventory", &this->inventory_[0], &this->satchel_, &this->equipment_, this->inventory_config_members_, this->inventory_.size(), "Dots", 1},
             {"minimap", "Minimap", &this->minimap_},
+            {"native-ui", "Native UI", &this->game_hud_, &this->commands_},
             {"notifications", this->notifications_.DisplayName(), &this->notifications_},
             {"party", "Party", &this->party_, &this->alliance_first_, &this->alliance_second_},
             {"pet", "Pet", &this->pet_, &this->pet_target_, nullptr, this->pet_config_members_},
             {"player", this->player_.DisplayName(), &this->player_},
             {"statuses", "Status Effects", &this->buffs_, &this->debuffs_},
             {"target", this->target_.DisplayName(), &this->target_, &this->target_recipient_, &this->subtarget_},
-            {"extras", "Extras", &this->compass_, &this->world_info_, &this->commands_, this->extras_pages_}}};
+            {"extras", "Extras", &this->compass_, &this->world_info_, nullptr, this->extras_pages_}}};
     }
 
     auto hud_runtime::ConfigPageVisible(const config_page& page) const -> bool
     {
         if (this->config_.search_revealed_module == this->config_.module && page.Contains(this->config_.search_revealed_module)) return true;
-        if (page.primary == &this->general_ || page.primary == &this->compass_) return true;
+        if (page.primary == &this->general_ || page.primary == &this->compass_ || page.primary == &this->game_hud_) return true;
         if (page.primary == &this->actionbars_)
         {
             for (size_t index = 0; index <= action_bar_count; ++index)
@@ -274,7 +302,7 @@ namespace xiui
 
     auto hud_runtime::ConfigTopicRows(void) const -> std::vector<ui::settings_topic_row>
     {
-        if (this->config_.module == nullptr || this->config_.module == &this->game_hud_) return {};
+        if (this->config_.module == nullptr) return {};
         if (this->config_.module == &this->general_)
         {
             if (this->IsAttribution() || (this->IsGeneralAppearance() && this->general_.AppearanceTab() >= 3)) return {};
@@ -282,13 +310,14 @@ namespace xiui
             const auto sections = this->general_.ConfigSections();
             for (size_t section = 0; section < sections.size(); ++section)
             {
-                if (section == general_module::attribution_section || section == general_module::game_hud_section) continue;
+                if (section == general_module::attribution_section || section == general_module::game_hud_section || section == general_module::extra_settings_section) continue;
                 const auto& topic = sections[section];
                 const auto id = std::string{"general/"} + std::string{topic.Id()};
                 const bool selected = this->config_.section == section;
                 if (section == general_module::appearance_section)
                     for (size_t tab = 0; tab < 3; ++tab)
-                        rows.push_back({id + "/" + std::to_string(tab), tab == 0 ? "Appearance" : general_module::appearance_tabs[tab], topic.description,
+                        rows.push_back({id + "/" + std::to_string(tab), tab == 0 ? "Appearance" : general_module::appearance_tabs[tab],
+                            tab == 2 ? "Configuration window scale, text styling and editing behavior." : topic.description,
                             section, false, false, selected && this->general_.AppearanceTab() == tab, static_cast<int>(tab)});
                 else rows.push_back({id, topic.name, topic.description, section, false, false, selected});
             }
@@ -467,6 +496,8 @@ namespace xiui
 
     auto hud_runtime::NormalizeConfigSelection(void) -> void
     {
+        if (this->config_.module == &this->general_ && this->config_.section == general_module::extra_settings_section)
+        { this->config_.section = general_module::appearance_section; this->general_.SelectAppearanceTab(2); }
         if (this->config_.module == &this->general_ && this->config_.section == general_module::game_hud_section)
         { this->config_.module = &this->game_hud_; this->config_.section = 0; }
         if (this->module_menu_target_ != nullptr && !this->ModuleMenuAvailable(*this->module_menu_target_)) this->CloseChoiceInput();

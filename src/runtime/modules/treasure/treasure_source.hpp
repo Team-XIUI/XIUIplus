@@ -37,7 +37,7 @@ namespace xiui
     public:
         static constexpr size_t capacity = 10;
         auto Clear(void) -> void;
-        auto BeginZone(void) -> void { this->ready_ = false; this->clock_known_ = false; this->next_update_ = 0; }
+        auto BeginZone(void) -> void { this->Clear(); }
         auto Update(IAshitaCore* core, uint64_t now, bool force = false) -> void;
         auto Reconcile(const std::array<treasure_snapshot, capacity>& slots, bool ready, uint32_t player, uint64_t now) -> void;
         auto HandlePacket(uint16_t id, std::span<const uint8_t> data, uint64_t now) -> void;
@@ -56,8 +56,7 @@ namespace xiui
         struct drop_event { uint32_t item{}, start{}; uint64_t serial{}, expires{}; };
         std::array<treasure_entry, capacity> entries_{};
         std::array<drop_event, capacity> drops_{};
-        std::array<uint64_t, capacity> applied_{};
-        std::array<std::pair<uint32_t, uint32_t>, capacity> resolved_{};
+        std::array<uint64_t, capacity> applied_{}, missing_until_{};
         uint64_t sequence_{}, next_update_{}, clock_at_{};
         uint32_t player_{}, clock_start_{};
         bool ready_{}, clock_known_{};

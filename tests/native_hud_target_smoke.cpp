@@ -39,6 +39,13 @@ namespace xiui
     struct native_menu_test
     {
         static inline int calls{};
+        static inline native_menu_controller* drawing_controller{};
+        static inline int draw_calls{};
+        static auto __fastcall Draw(void* self, void*) -> void
+        {
+            ++draw_calls;
+            drawing_controller->BeforeDraw(reinterpret_cast<uintptr_t>(self));
+        }
         static auto __fastcall Position(void* self, void*, const int x, const int y) -> void
         {
             const std::array<int16_t, 2> coordinates{static_cast<int16_t>(x), static_cast<int16_t>(y)};
@@ -50,13 +57,16 @@ namespace xiui
             ++calls;
         }
 
+        static auto __fastcall Frame(void* self, void*, int16_t* result) -> void
+        { std::memcpy(result, static_cast<uint8_t*>(self) + 0x3A, 8); }
+
         static auto Anchors(void) -> bool
         {
             const auto link = [](auto& bytes, const size_t at, const auto address) { const auto p = reinterpret_cast<uintptr_t>(address); std::memcpy(bytes.data() + at, &p, 4); };
             struct panel
             {
                 std::array<uint8_t, 0xD4> primitive{}, resource{};
-                std::array<uint8_t, 0x180> owner{};
+                std::array<uint8_t, 0x200> owner{};
                 std::array<uint8_t, 24> node{}, component_node{};
                 std::array<uint8_t, 0x60> component{};
                 std::array<uint8_t, 32> definition{};
@@ -70,7 +80,7 @@ namespace xiui
                 {
                     std::array<int16_t, 2> result{}; std::memcpy(result.data(), primitive.data() + 0x52, 4); return result;
                 }
-            } command, magic, details, money;
+            } command, magic, details, money, storage;
             const auto initialize = [&](panel& value, const char* name, const std::array<int16_t, 4>& frame, const uint8_t anchor)
             {
                 link(value.primitive, 4, value.resource.data()); link(value.primitive, 0xC, value.owner.data());
@@ -255,6 +265,222 @@ namespace xiui
             controller.Update({});
             if (!check(magic.Coordinates() == std::array<int16_t, 2>{16, 872},
                 "disabling command movement restores bazaar comments")) return false;
+            initialize(command, "menu    shop    ", {16, 48, 272, 238}, 0);
+            initialize(magic, "menu    shopsell", {16, 256, 128, 296}, 2);
+            initialize(details, "menu    iteminfo", {16, 240, 382, 296}, 0);
+            initialize(money, "menu    aucmain ", {400, 50, 600, 400}, 0);
+            command.primitive[0x70] = magic.primitive[0x70] = details.primitive[0x70] = money.primitive[0x70] = 0;
+            native_menu_layout independent{}; independent.viewport_width = 1920; independent.viewport_height = 1080;
+            const auto merchant = native_hud_window_count + NativeMenuWindowIndex("shop    ");
+            independent.windows[merchant] = {true, false, 300, 350};
+            controller.Update(independent);
+            if (!check(command.Coordinates() == std::array<int16_t, 2>{300, 350} && magic.Coordinates() == std::array<int16_t, 2>{16, 256} &&
+                details.Coordinates() == std::array<int16_t, 2>{16, 240} && money.Coordinates() == std::array<int16_t, 2>{400, 50},
+                "moving a merchant item list leaves its menu, details and auction window independent")) return false;
+            controller.Update(independent);
+            if (!check(command.Coordinates() == std::array<int16_t, 2>{300, 350}, "native custom positions do not accumulate offsets")) return false;
+            independent.windows[merchant].hidden = true; controller.Update(independent);
+            if (!check(controller.ShouldHide(reinterpret_cast<uintptr_t>(command.primitive.data())) &&
+                !controller.ShouldHide(reinterpret_cast<uintptr_t>(magic.primitive.data())) &&
+                !controller.ShouldHide(reinterpret_cast<uintptr_t>(money.primitive.data())), "hiding a merchant item list leaves the other windows visible")) return false;
+            link(command.owner, 8, magic.primitive.data());
+            if (!check(!controller.ShouldHide(reinterpret_cast<uintptr_t>(command.primitive.data())), "replaced native owners are never hidden through stale snapshots")) return false;
+            link(command.owner, 8, command.primitive.data());
+            Position(command.primitive.data(), nullptr, 24, 60); controller.BeforeDraw(reinterpret_cast<uintptr_t>(command.primitive.data()));
+            controller.Update({});
+            if (!check(command.Coordinates() == std::array<int16_t, 2>{24, 60} && magic.Coordinates() == std::array<int16_t, 2>{16, 256} &&
+                details.Coordinates() == std::array<int16_t, 2>{16, 240}, "clearing native custom placement restores the latest game coordinates")) return false;
+            controller.Update(independent); command.primitive[0x70] = 1; controller.Update(independent);
+            if (!check(command.Coordinates() == std::array<int16_t, 2>{24, 60}, "closing an attached custom-positioned native window restores its game coordinates")) return false;
+            controller.Shutdown();
+            initialize(command, "menu    gaugewin", {140, 580, 380, 640}, 0);
+            command.primitive[0x70] = 1;
+            const uintptr_t noMenus{}; std::memcpy(manager.data(), &noMenus, 4);
+            uintptr_t playerOwner = reinterpret_cast<uintptr_t>(command.owner.data());
+            controller.manager_ = reinterpret_cast<uintptr_t>(manager.data());
+            controller.reposition_ = reinterpret_cast<uintptr_t>(&Position); controller.state_.menu_available = true;
+            controller.hud_slots_[0] = reinterpret_cast<uintptr_t>(&playerOwner);
+            controller.Update({});
+            const auto geometry = controller.State().windows[0];
+            if (!check(geometry.live && !geometry.visible && geometry.x == 140 && geometry.y == 580 && geometry.width == 240 && geometry.height == 60,
+                "closed HUD owners supply real geometry even outside the active menu list")) return false;
+            native_menu_layout hudPlacement{}; hudPlacement.viewport_width = 1920; hudPlacement.viewport_height = 1080;
+            hudPlacement.windows[0] = {true, false, 400, 600}; command.primitive[0x70] = 0;
+            controller.Update(hudPlacement);
+            if (!check(!controller.State().windows[0].visible, "an allocated native owner is not treated as a rendered window")) return false;
+            controller.BeforeDraw(reinterpret_cast<uintptr_t>(command.primitive.data())); controller.Update(hudPlacement);
+            if (!check(command.Coordinates() == std::array<int16_t, 2>{400, 600} && controller.State().windows[0].visible,
+                "HUD owner geometry and movement use the same native coordinate space")) return false;
+            controller.Update({});
+            if (!check(command.Coordinates() == std::array<int16_t, 2>{140, 580}, "HUD owner placement restores the actual native position")) return false;
+            controller.Shutdown();
+
+            initialize(command, "menu    menuwind", {1792, 48, 1904, 250}, 1);
+            command.primitive[0x70] = 1;
+            controller.manager_ = reinterpret_cast<uintptr_t>(manager.data());
+            controller.reposition_ = reinterpret_cast<uintptr_t>(&Position); controller.state_.menu_available = true;
+            uintptr_t menuOwner = reinterpret_cast<uintptr_t>(command.owner.data());
+            const auto mainMenu = native_hud_window_count + static_cast<size_t>(native_dialog::main_menu);
+            controller.dialog_slots_[static_cast<size_t>(native_dialog::main_menu)] = reinterpret_cast<uintptr_t>(&menuOwner);
+            controller.SetDrawMethod(reinterpret_cast<uintptr_t>(&Draw)); controller.SetEditing(true);
+            drawing_controller = &controller; draw_calls = 0;
+            native_menu_layout mainPlacement{}; mainPlacement.viewport_width = 1920; mainPlacement.viewport_height = 1080;
+            mainPlacement.windows[mainMenu] = {true, false, 1200, 100};
+            controller.Update(mainPlacement); controller.BeforeDraw(0);
+            if (!check(draw_calls == 1 && command.primitive[0x70] == 1 && command.Coordinates() == std::array<int16_t, 2>{1200, 100},
+                "inactive main menus use native drawing and custom placement without opening input or recursing")) return false;
+            controller.Update(mainPlacement);
+            if (!check(controller.State().windows[mainMenu].visible, "client-rendered inactive menus receive editor outlines")) return false;
+            controller.SetEditing(false); controller.BeforeDraw(0); controller.Update({});
+            if (!check(draw_calls == 1 && !controller.State().windows[mainMenu].visible && command.Coordinates() == std::array<int16_t, 2>{1792, 48},
+                "leaving native editing stops inactive rendering and restores native positions")) return false;
+            controller.Shutdown(); drawing_controller = nullptr;
+
+            initialize(command, "menu    buff    ", {156, 95, 396, 99}, 0);
+            command.primitive[0x70] = 0;
+            command.component = {}; command.component[0] = 1;
+            const std::array<int16_t, 4> icon{158, 97, 24, 24}; const int16_t iconIndex = 1;
+            std::memcpy(command.component.data() + 0x2A, icon.data(), sizeof(icon));
+            std::memcpy(command.component.data() + 0x3A, &iconIndex, sizeof(iconIndex));
+            const int one = 1, capacity = 36;
+            std::memcpy(command.owner.data() + 0x40, &one, 4); std::memcpy(command.owner.data() + 0x48, &capacity, 4);
+            std::memcpy(command.owner.data() + 0x54, &one, 4);
+            controller.manager_ = reinterpret_cast<uintptr_t>(manager.data()); controller.state_.menu_available = true;
+            controller.hud_slots_[static_cast<size_t>(native_hud_element::status)] = reinterpret_cast<uintptr_t>(&menuOwner);
+            controller.Update({});
+            const auto status = controller.State().windows[static_cast<size_t>(native_hud_element::status)];
+            if (!check(status.live && status.x == 159 && status.y == 98 && status.width == 24 && status.height == 24,
+                "status bounds follow rendered icon components instead of the four-pixel native frame")) return false;
+            link(command.component_node, 0, magic.component_node.data()); magic.component = {}; magic.component[0] = 1;
+            const std::array<int16_t, 4> secondIcon{184, 123, 24, 24}; const int16_t secondIndex = 2; const int two = 2;
+            std::memcpy(magic.component.data() + 0x2A, secondIcon.data(), sizeof(secondIcon));
+            std::memcpy(magic.component.data() + 0x3A, &secondIndex, sizeof(secondIndex));
+            std::memcpy(command.owner.data() + 0x40, &two, 4);
+            controller.Update({});
+            if (!check(controller.State().windows[static_cast<size_t>(native_hud_element::status)].width == 50 &&
+                controller.State().windows[static_cast<size_t>(native_hud_element::status)].height == 50,
+                "status bounds encompass every populated icon row and column")) return false;
+            controller.Shutdown();
+
+            command = {}; magic = {}; details = {}; money = {}; storage = {};
+            initialize(command, "menu    equip   ", {130, 48, 312, 238}, 0);
+            initialize(magic, "menu    persona ", {16, 48, 128, 238}, 0);
+            initialize(storage, "menu    inventor", {314, 48, 496, 238}, 0);
+            initialize(details, "menu    iteminfo", {130, 240, 496, 296}, 2);
+            initialize(money, "menu    money   ", {16, 240, 128, 296}, 0);
+            link(manager, 0, command.node.data()); link(command.node, 0, magic.node.data()); link(magic.node, 0, storage.node.data());
+            link(storage.node, 0, details.node.data()); link(details.node, 0, money.node.data());
+            std::array<uint8_t, 0x20> equipmentTable{};
+            link(equipmentTable, 0x10, &Draw); link(command.owner, 0, equipmentTable.data());
+            for (size_t index = 0; index < 10; ++index)
+            {
+                const std::array<int16_t, 2> offset{static_cast<int16_t>(16 + index * 3), static_cast<int16_t>(162 + index % 2 * 13)};
+                std::memcpy(command.owner.data() + 0x88 + index * 0x20 + 8, offset.data(), sizeof(offset));
+            }
+            controller.manager_ = reinterpret_cast<uintptr_t>(manager.data()); controller.state_.menu_available = true;
+            controller.reposition_ = reinterpret_cast<uintptr_t>(&Position); controller.equipment_draw_ = reinterpret_cast<uintptr_t>(&Draw);
+            const auto equipment = native_hud_window_count + static_cast<size_t>(native_dialog::equipment);
+            native_menu_layout equipmentLayout{}; equipmentLayout.viewport_width = 1920; equipmentLayout.viewport_height = 1080;
+            equipmentLayout.windows[equipment] = {true, false, 300, 350};
+            controller.Update(equipmentLayout);
+            std::array<int16_t, 2> numberPosition{}, defensePosition{};
+            std::memcpy(numberPosition.data(), command.owner.data() + 0x8C, sizeof(numberPosition));
+            std::memcpy(defensePosition.data(), command.owner.data() + 0x1AC, sizeof(defensePosition));
+            if (!check(command.Coordinates() == std::array<int16_t, 2>{300, 350} && magic.Coordinates() == std::array<int16_t, 2>{16, 48} &&
+                storage.Coordinates() == std::array<int16_t, 2>{314, 48} && details.Coordinates() == std::array<int16_t, 2>{130, 240} &&
+                money.Coordinates() == std::array<int16_t, 2>{16, 240} && numberPosition == std::array<int16_t, 2>{316, 512} &&
+                defensePosition == std::array<int16_t, 2>{343, 525} &&
+                controller.State().windows[equipment].width == 182 && controller.State().windows[equipment].height == 190,
+                "equipment carries its stat values while status, storage, details and gil remain independent")) return false;
+            equipmentLayout.windows[equipment].hidden = true; controller.Update(equipmentLayout);
+            if (!check(controller.ShouldHide(reinterpret_cast<uintptr_t>(command.primitive.data())), "equipment artwork hides independently")) return false;
+            for (auto* panel : {&magic, &storage, &details, &money})
+                if (!check(!controller.ShouldHide(reinterpret_cast<uintptr_t>(panel->primitive.data())), "hiding equipment leaves adjacent native windows visible")) return false;
+            controller.Update({});
+            std::memcpy(numberPosition.data(), command.owner.data() + 0x8C, sizeof(numberPosition));
+            if (!check(command.Coordinates() == std::array<int16_t, 2>{130, 48} && numberPosition == std::array<int16_t, 2>{146, 210},
+                "restoring equipment also restores its native numeric text coordinates")) return false;
+            controller.Shutdown();
+            for (const auto& [resource, expected] : std::array<std::pair<const char*, native_dialog>, 12>{{
+                {"persona ", native_dialog::status}, {"inventor", native_dialog::inventory}, {"mgcmenu ", native_dialog::actions},
+                {"joblevel", native_dialog::status}, {"prty5us ", native_dialog::party_menu}, {"scresult", native_dialog::search},
+                {"scanlist", native_dialog::map}, {"link12  ", native_dialog::linkshell}, {"conq3pts", native_dialog::region},
+                {"quest01 ", native_dialog::quests}, {"conf7   ", native_dialog::native_config}, {"query   ", native_dialog::other}}})
+            {
+                std::array<char, 16> name{}; std::memcpy(name.data(), "menu    ", 8); std::memcpy(name.data() + 8, resource, 8);
+                if (!check(controller.WindowIndex(0, name, native_window_count) < native_window_count &&
+                    native_menu_windows[controller.WindowIndex(0, name, native_window_count) - native_hud_window_count].category == expected,
+                    "Main Menu windows retain their navigation categories without sharing placement")) return false;
+            }
+            controller.Shutdown();
+            command = {}; magic = {}; details = {}; money = {}; storage = {};
+            initialize(command, "menu    statcom2", {1792, 48, 1904, 266}, 1);
+            initialize(magic, "menu    persona ", {16, 48, 128, 238}, 0);
+            initialize(details, "menu    level   ", {16, 208, 128, 296}, 0);
+            initialize(money, "menu    profile ", {130, 48, 382, 226}, 0);
+            initialize(storage, "menu    btlskill", {130, 48, 382, 196}, 0);
+            link(manager, 0, command.node.data()); link(command.node, 0, magic.node.data()); link(magic.node, 0, details.node.data());
+            link(details.node, 0, money.node.data()); link(money.node, 0, storage.node.data());
+            std::array<uint8_t, 0x20> cachedTable{}, skillsTable{};
+            link(cachedTable, 4, &Draw); link(cachedTable, 0x10, &Position);
+            link(details.owner, 0, cachedTable.data()); link(money.owner, 0, cachedTable.data());
+            std::array<uint8_t, 32> cacheCode{};
+            const std::array<uint8_t, 8> prefix{0x8D, 0x41, 0x18, 0x8B, 0x49, 0x08, 0x50, 0xE8};
+            std::memcpy(cacheCode.data(), prefix.data(), prefix.size()); cacheCode[12] = 0xC3;
+            const auto relative = static_cast<int32_t>(reinterpret_cast<uintptr_t>(&Frame) - reinterpret_cast<uintptr_t>(cacheCode.data()) - 12);
+            std::memcpy(cacheCode.data() + 8, &relative, 4); link(skillsTable, 4, cacheCode.data()); link(skillsTable, 0x10, &Position); link(storage.owner, 0, skillsTable.data());
+            controller.manager_ = reinterpret_cast<uintptr_t>(manager.data()); controller.state_.menu_available = true;
+            controller.reposition_ = reinterpret_cast<uintptr_t>(&Position); controller.frame_read_ = reinterpret_cast<uintptr_t>(&Frame);
+            controller.cached_frame_init_[0] = reinterpret_cast<uintptr_t>(&Draw);
+            controller.module_ = reinterpret_cast<uintptr_t>(cacheCode.data()); controller.module_size_ = cacheCode.size();
+            const auto statusMenu = native_hud_window_count + NativeMenuWindowIndex("statcom2");
+            const auto character = native_hud_window_count + NativeMenuWindowIndex("persona ");
+            const auto profile = native_hud_window_count + NativeMenuWindowIndex("profile ");
+            const auto skills = native_hud_window_count + NativeMenuWindowIndex("btlskill");
+            native_menu_layout statusLayout{}; statusLayout.viewport_width = 1920; statusLayout.viewport_height = 1080;
+            statusLayout.windows[statusMenu] = {true, false, 1300, 400}; statusLayout.windows[character] = {true, false, 300, 350};
+            statusLayout.windows[profile] = {true, false, 600, 100}; statusLayout.windows[skills] = {true, false, 1000, 200};
+            details.owner[0x1C] = 0x7F; controller.Update(statusLayout);
+            std::array<int16_t, 4> cachedExp{}, cachedProfile{}, cachedSkills{};
+            std::memcpy(cachedExp.data(), details.owner.data() + 0x14, 8); std::memcpy(cachedProfile.data(), money.owner.data() + 0x14, 8);
+            std::memcpy(cachedSkills.data(), storage.owner.data() + 0x18, 8);
+            if (!check(command.Coordinates() == std::array<int16_t, 2>{1300, 400} && magic.Coordinates() == std::array<int16_t, 2>{300, 350} &&
+                details.Coordinates() == std::array<int16_t, 2>{300, 510} && money.Coordinates() == std::array<int16_t, 2>{600, 100} &&
+                storage.Coordinates() == std::array<int16_t, 2>{1000, 200} && cachedExp == std::array<int16_t, 4>{300, 510, 412, 598} &&
+                cachedProfile == std::array<int16_t, 4>{600, 100, 852, 278} && cachedSkills == std::array<int16_t, 4>{1000, 200, 1252, 348} && details.owner[0x1C] == 0x7F &&
+                controller.State().windows[character].width == 112 && controller.State().windows[character].height == 248 &&
+                controller.State().windows[statusMenu].width == 112,
+                "Status selector and every result move independently; EXP, profile and skill contents use their native cached rectangles")) return false;
+            statusLayout.windows[statusMenu].hidden = true; controller.Update(statusLayout);
+            if (!check(controller.ShouldHide(reinterpret_cast<uintptr_t>(command.primitive.data())) &&
+                !controller.ShouldHide(reinterpret_cast<uintptr_t>(magic.primitive.data())) && !controller.ShouldHide(reinterpret_cast<uintptr_t>(details.primitive.data())),
+                "hiding the Status selector leaves the result and EXP visible")) return false;
+            controller.Update({}); std::memcpy(cachedExp.data(), details.owner.data() + 0x14, 8);
+            if (!check(cachedExp == std::array<int16_t, 4>{16, 208, 128, 296}, "restoring status also restores the EXP contents")) return false;
+            controller.Shutdown();
+            std::array<char, 16> currencyName{}; std::memcpy(currencyName.data(), "menu    evitem  ", 16);
+            link(command.owner, 0, cachedTable.data()); link(cachedTable, 0x10, &Draw); controller.currency_draw_ = reinterpret_cast<uintptr_t>(&Draw);
+            std::array<size_t, 3> currencyPages{};
+            for (uint8_t page = 0; page < 3; ++page)
+            {
+                command.owner[0x88] = page; currencyPages[page] = controller.WindowIndex(reinterpret_cast<uintptr_t>(command.owner.data()), currencyName, native_window_count);
+            }
+            if (!check(currencyPages[0] != currencyPages[1] && currencyPages[1] != currencyPages[2] && currencyPages[0] != currencyPages[2],
+                "Key Items, Currencies and Currencies 2 retain independent identities despite sharing a native DAT")) return false;
+            command = {}; initialize(command, "menu    evitem  ", {16, 48, 382, 296}, 0); link(command.owner, 0, cachedTable.data());
+            command.owner[0x88] = 1; link(manager, 0, command.node.data());
+            controller.manager_ = reinterpret_cast<uintptr_t>(manager.data()); controller.state_.menu_available = true;
+            controller.reposition_ = reinterpret_cast<uintptr_t>(&Position);
+            native_menu_layout currencyLayout{}; currencyLayout.viewport_width = 1920; currencyLayout.viewport_height = 1080;
+            currencyLayout.windows[currencyPages[1]] = {true, true, 500, 100}; controller.Update(currencyLayout);
+            if (!check(command.Coordinates() == std::array<int16_t, 2>{500, 100} && controller.ShouldHide(reinterpret_cast<uintptr_t>(command.primitive.data())),
+                "Currencies keeps its own placement and hide")) return false;
+            command.owner[0x88] = 2;
+            if (!check(!controller.ShouldHide(reinterpret_cast<uintptr_t>(command.primitive.data())), "a reused currency window cannot inherit the previous page's hide")) return false;
+            controller.Update(currencyLayout);
+            if (!check(command.Coordinates() == std::array<int16_t, 2>{16, 48}, "an unpositioned currency page restores the game's coordinates after a positioned page")) return false;
+            currencyLayout.windows[currencyPages[2]] = {true, false, 700, 300}; controller.Update(currencyLayout);
+            if (!check(command.Coordinates() == std::array<int16_t, 2>{700, 300}, "Currencies 2 applies its independent saved position")) return false;
             controller.Shutdown();
             return true;
         }

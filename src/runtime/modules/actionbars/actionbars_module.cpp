@@ -431,6 +431,7 @@ namespace xiui
         if (this->view_ == global_view && !VisualOption(index)) return false;
         if (index == use_global) return this->view_ < action_bar_count && topic == "layout";
         if (index == keybinds) return topic == "keybinds";
+        if (index == native_keys) return false;
         if (index == edit || index == palettes || index == import) return false;
         if (index == bar_selector) return this->view_ < action_bar_count;
         if (index == bank) return this->view_ == action_bar_count && topic == "layout";
@@ -498,7 +499,7 @@ namespace xiui
         case locked: return module_option::Toggle("Lock slot positions", "Locked bars require Shift-drag to move actions. Unlocked bars allow click-drag. Click to activate; right-click for slot options.", &bar.locked).Ordered(-90);
         case edit: { auto option = module_option::Action("Actions & macros", "Open Actions & Macros from the destination tabs.", "Open library").Ordered(-70); option.available = false; return option; }
         case palettes: { auto option = module_option::Action("Action sets", "Open Action Sets from the destination tabs.", "Manage sets").Ordered(-60); option.available = false; return option; }
-        case import: { auto option = module_option::Action("Import Lua / tHotBar / tCrossBar", "Open Import from the destination tabs.", "Preview import"); option.available = false; return option; }
+        case import: { auto option = module_option::Action("Import XIUI / tHotBar / tCrossBar", "Import macros and palettes from XIUI, tHotBar or tCrossBar saved data.", "Preview import"); option.available = false; return option; }
         case scope: return module_option::Choice("Action storage", "Choose which job context supplies the action sets. A new context starts with a copy; existing contexts keep their saved actions.", &this->storage_scope_, scopes, 3);
         case pet_aware: return module_option::Toggle("Pet-aware assignments", "Use matching pet overrides when available. The editor can save actions for the current pet.", &this->storage_pet_);
         case columns: return module_option::Slider("Columns", "Wrap normal bars into a grid.", &bar.columns, 1, 12, 1).Ordered(110, true).VisibleWhen(this->view_ != action_bar_count && this->shape_ == 6);
@@ -768,9 +769,12 @@ namespace xiui
     }
     auto actionbars_module::RebuildResults(void) -> void
     {
+        this->RebuildResults(this->executor_ ? this->executor_->Catalog(this->core_) : std::span<const action_catalog_entry>{});
+    }
+    auto actionbars_module::RebuildResults(const std::span<const action_catalog_entry> catalog) -> void
+    {
         this->results_.clear();
-        if (!this->executor_) return;
-        const auto catalog = this->executor_->Catalog(this->core_); const auto query = Lower(Trim(this->query_));
+        const auto query = Lower(Trim(this->query_));
         for (size_t index = 0; index < catalog.size(); ++index)
         {
             const auto& entry = catalog[index];
@@ -780,11 +784,21 @@ namespace xiui
             action_slot action; action.kind = entry.kind; action.id = entry.id; action.name = entry.name;
             action.icon = entry.icon;
             this->PrepareAction(action);
+            if (this->store_)
+            {
+                const auto macros = this->store_->Macros();
+                // Reuse saved catalog customizations instead of offering an identical default action.
+                for (auto macro = macros.rbegin(); macro != macros.rend(); ++macro)
+                    if (macro->definition.kind == entry.kind && (macro->definition.id != 0 ? macro->definition.id == entry.id : macro->definition.name == entry.name) && macro->name == entry.name &&
+                        (macro->definition.label.empty() || macro->definition.label == entry.name))
+                    { action = macro->definition; action.macro_id = macro->id; action.inherit_appearance = true; break; }
+            }
             this->results_.push_back(std::move(action));
         }
         if (this->store_)
             for (const auto& macro : this->store_->Macros())
             {
+                if (std::any_of(this->results_.begin(), this->results_.end(), [&](const auto& action) { return action.macro_id == macro.id; })) continue;
                 if (!query.empty() && Lower(macro.name).find(query) == std::string::npos) continue;
                 action_slot action = macro.definition;
                 if (action.Empty()) { action.kind = action_kind::macro; action.name = macro.name; action.icon = macro.icon; action.lines = macro.lines; }
@@ -1922,7 +1936,7 @@ namespace xiui
             case dialog::name: title = this->name_action_ == command_copy ? "Duplicate palette" : this->name_action_ == command_rename ? "Rename palette" : "New palette"; break;
             case dialog::delete_palette: title = "Delete palette?"; break;
             case dialog::delete_macro: title = "Delete shared macro?"; break;
-            case dialog::import: title = "Import action palettes"; break;
+            case dialog::import: title = "Import macros and palettes"; break;
             case dialog::setup: title = "Controller Setup"; break;
             case dialog::keybinds: title = "Keybinds"; break;
             case dialog::icons: title = "Choose Icon"; break;
@@ -1966,14 +1980,14 @@ namespace xiui
             float y = bounds.y + 164;
             if (this->import_preview_.Valid())
             {
-                const auto summary = std::to_string(this->import_preview_.actions) + " actions  /  " + std::to_string(this->import_preview_.palettes.size()) + " new palettes";
+                const auto summary = i18n::Format("%zu actions / %zu macros / %zu new palettes", this->import_preview_.actions, this->import_preview_.macros.size(), this->import_preview_.palettes.size());
                 controls.Text(summary.c_str(), {bounds.x + 16, y, bounds.width - 32, 26}, managementText); y += 32;
                 for (const auto& palette : this->import_preview_.palettes)
                 { if (y > bounds.y + bounds.height - 130) break; controls.Text(palette.name.c_str(), {bounds.x + 24, y, bounds.width - 48, 24}, captionText); y += 24; }
                 for (const auto& warning : this->import_preview_.warnings)
                 { if (y > bounds.y + bounds.height - 106) break; controls.Text(warning.c_str(), {bounds.x + 16, y, bounds.width - 32, 24}, captionText); y += 24; }
             }
-            else controls.Text(i18n::Text("Choose a Lua XIUI+, tHotBar or tCrossBar data file.\nThe preview reads assignments without running Lua.\nImport always creates new palettes."), {bounds.x + 16, y, bounds.width - 32, 88}, managementText);
+            else controls.Text(i18n::Text("Choose an XIUI, tHotBar or tCrossBar Lua data file.\nImports actions, macros and palettes only.\nYour HUD layout, appearance and controller settings are kept."), {bounds.x + 16, y, bounds.width - 32, 88}, managementText);
         }
         const auto controlList = this->Controls();
         const auto library = this->dialog_ == dialog::picker ? this->LibraryLayout() : library_layout{};
