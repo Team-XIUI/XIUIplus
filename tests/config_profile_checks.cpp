@@ -646,9 +646,68 @@ namespace xiui
             for (const auto* axis : {"x", "y"})
                 if (!check(actual.ReadInt(section.c_str(), axis, -1) == expected.ReadInt(section.c_str(), axis, -1),
                     ("deferred startup preserves saved " + section + "." + axis).c_str())) return false;
-        return check(!actual.ReadBool("equipment", "enabled", true) && !actual.ReadBool("player", "show_identity", true) &&
+        if (!check(!actual.ReadBool("equipment", "enabled", true) && !actual.ReadBool("player", "show_identity", true) &&
             actual.ReadBool("game_hud", "show_clock", false) == expected.ReadBool("game_hud", "show_clock", false),
-            "deferred startup preserves module and native clock preferences");
+            "deferred startup preserves module and native clock preferences")) return false;
+
+        auto edge = std::make_unique<hud_runtime>();
+        edge->default_settings_text_ = text; edge->LoadSettings(defaults, size); edge->EnsureLayout(viewport);
+        edge->editing_ = edge->config_.edit_mode = true; edge->config_.bounds = {700, 500, 1100, 600};
+        edge->general_.grid_.snap_elements = false;
+        for (auto* module : edge->modules_.All()) module->State().enabled = false;
+        for (auto* module : {static_cast<hud_module*>(&edge->minimap_), static_cast<hud_module*>(&edge->treasure_), static_cast<hud_module*>(&edge->experience_)})
+        {
+            module->State().enabled = true; module->State().bounds = {100, 100, 540, 200};
+            module->State().content_bounds = {8, 8, 524, 184};
+            edge->ResolveHudTransforms(viewport);
+            edge->mouse_x_ = 150; edge->mouse_y_ = 150; edge->BeginPanelInteraction(viewport); edge->FinishInteraction();
+            if (!check(!module->State().position_initialized, "clicking a HUD element without moving it retains automatic placement")) return false;
+            edge->mouse_x_ = 150; edge->mouse_y_ = 150; edge->BeginPanelInteraction(viewport); edge->mouse_down_ = true;
+            edge->mouse_x_ = -100; edge->mouse_y_ = -60; edge->UpdateInteraction(viewport);
+            const auto section = std::string{"layout."} + module->LayoutId();
+            const auto pending = edge->CaptureSettings().ReadRect(section.c_str(), {});
+            const auto visual = edge->MovementBounds(*module);
+            if (!check(edge->interaction_module_ == module && pending.x == 100 && pending.y == 100,
+                "autosaving a pointer drag retains the last committed position")) return false;
+            edge->mouse_down_ = false; edge->FinishInteraction();
+            const auto savedEdge = edge->CaptureSettings();
+            auto cold = std::make_unique<hud_runtime>(); cold->default_settings_text_ = text;
+            cold->LoadSettings(settings_store::FromIniText(savedEdge.ToIniText())); cold->EnsureLayout(viewport);
+            const auto restored = std::find_if(cold->modules_.All().begin(), cold->modules_.All().end(), [&](const auto* candidate) {
+                return std::strcmp(candidate->Id(), module->Id()) == 0;
+            });
+            if (!check(restored != cold->modules_.All().end(), "cold startup retains the moved module's stable identity")) return false;
+            auto* restoredModule = *restored;
+            const auto restoredVisual = cold->MovementBounds(*restoredModule);
+            if (!check(savedEdge.ReadBool(section.c_str(), "position_initialized", false) &&
+                std::abs(visual.x - restoredVisual.x) < .01f && std::abs(visual.y - restoredVisual.y) < .01f,
+                "Minimap, Treasure Pool and EXP keep edge placements after a cold deferred startup")) return false;
+            module->State().bounds = {100, 100, 540, 200};
+            auto& focus = edge->config_.focus;
+            focus.moving = focus.fine = true; focus.moving_id = module->Id(); focus.viewport = viewport;
+            focus.move_original = module->State().bounds; focus.move_desired = {-50, -40, 540, 200};
+            edge->HandleControllerMove(controller_action::up, false);
+            const auto controllerPending = edge->CaptureSettings().ReadRect(section.c_str(), {});
+            if (!check(controllerPending.x == 100 && controllerPending.y == 100, "controller movement also saves its committed position until Confirm")) return false;
+            edge->FinishControllerMove(true);
+            const auto committed = edge->CaptureSettings(); cold->LoadSettings(committed); cold->EnsureLayout(viewport);
+            if (!check(restoredModule->State().bounds.x == module->State().bounds.x && restoredModule->State().bounds.y == module->State().bounds.y,
+                "controller-confirmed edge positions survive reloading")) return false;
+            module->State().enabled = false;
+        }
+        auto negative = settings_store::FromIniText(text);
+        for (const auto* section : {"layout.minimap", "layout.treasure"})
+        {
+            negative.WriteInt(section, "y", -64);
+            edge->LoadSettings(negative, size); edge->EnsureLayout(viewport);
+            const auto& state = std::strcmp(section, "layout.minimap") == 0 ? edge->minimap_.State() : edge->treasure_.State();
+            if (!check(state.bounds.y == -64 && state.position_initialized, "legacy negative dragged anchors are retained instead of replaced with automatic defaults")) return false;
+            negative.WriteInt(section, "y", -1); negative.WriteBool(section, "position_initialized", true);
+            edge->LoadSettings(negative, size); edge->EnsureLayout(viewport);
+            const auto& exact = std::strcmp(section, "layout.minimap") == 0 ? edge->minimap_.State() : edge->treasure_.State();
+            if (!check(exact.bounds.y == -1, "an explicitly saved minus-one position is distinct from automatic placement")) return false;
+        }
+        return true;
     }
 
     auto config_input_test::ViewportLayout(const char* source) -> bool
@@ -657,26 +716,29 @@ namespace xiui
         const std::string text{std::istreambuf_iterator<char>{file}, {}};
         const auto defaults = settings_store::FromIniText(text);
         if (!check(ReadLayoutViewport(defaults) == layout_viewport{2560, 1440}, "captured defaults record their actual reference viewport")) return false;
+        const auto playerDefault = defaults.ReadRect("layout.player", {}), chatDefault = defaults.ReadRect("layout.chat", {});
+        const auto secondDefault = defaults.ReadRect("layout.chat2", {}), expDefault = defaults.ReadRect("layout.exp", {});
         hud_runtime runtime; runtime.default_settings_text_ = text;
         for (const auto size : {layout_viewport{1920, 1080}, layout_viewport{1280, 720}, layout_viewport{2560, 1440}, layout_viewport{2560, 1080}})
         {
             runtime.LoadSettings(defaults);
             runtime.EnsureLayout({0, 0, 0, 0, 0, 1});
-            if (!check(!runtime.layout_initialized_ && runtime.player_.State().bounds.x == 982,
+            if (!check(!runtime.layout_initialized_ && runtime.player_.State().bounds.x == playerDefault.x,
                 "a startup placeholder viewport cannot clamp or save the layout")) return false;
             const D3DVIEWPORT8 viewport{0, 0, static_cast<DWORD>(size.width), static_cast<DWORD>(size.height), 0, 1};
             runtime.EnsureLayout(viewport);
             const auto player = runtime.player_.State().bounds;
             const auto chat = runtime.chat_.State().bounds;
             const auto second = runtime.chat_second_.State().bounds;
-            if (!check(player.x == 982 + (size.width - 2560) / 2 && player.y == 1309 + size.height - 1440 &&
-                chat.x == 8 && chat.y == 1209 + size.height - 1440 &&
-                second.y + second.height == chat.y && runtime.experience_.State().bounds.y == 1401 + size.height - 1440,
+            if (!check(player.x == playerDefault.x + (size.width - 2560) / 2 && player.y == playerDefault.y + size.height - 1440 &&
+                chat.x == chatDefault.x && chat.y == chatDefault.y + size.height - 1440 &&
+                chat.y - second.y - second.height == chatDefault.y - secondDefault.y - secondDefault.height &&
+                runtime.experience_.State().bounds.y == expDefault.y + size.height - 1440,
                 "first load retains the central HUD and stacked chat offsets at the real window resolution")) return false;
             for (const auto* module : {static_cast<hud_module*>(&runtime.player_), static_cast<hud_module*>(&runtime.minimap_),
                 static_cast<hud_module*>(&runtime.equipment_), static_cast<hud_module*>(&runtime.inventory_[0])})
             {
-                const auto& bounds = module->State().bounds;
+                const auto bounds = runtime.MovementBounds(*module);
                 if (!check(bounds.x >= 0 && bounds.y >= 0 && bounds.x + bounds.width <= size.width && bounds.y + bounds.height <= size.height,
                     "core first-load modules fit inside windowed and wide viewports")) return false;
             }
@@ -685,13 +747,13 @@ namespace xiui
             if (!check(ReadLayoutViewport(saved) == size && runtime.player_.State().bounds.x == player.x && runtime.chat_.State().bounds.y == chat.y,
                 "the fitted viewport and positions survive reload without repeated scaling")) return false;
             const auto refitted = FitLayoutViewport(saved, defaults, {2560, 1440}).ReadRect("layout.player", {});
-            if (!check(refitted.x == 982 && refitted.y == 1309,
+            if (!check(refitted.x == playerDefault.x && refitted.y == playerDefault.y,
                 "untouched fitted positions resolve from the authored preset when the resolution changes")) return false;
         }
         const layout_viewport window{1920, 1080};
         auto partial = settings_store::FromIniText("[layout.player]\nx=123\nwidth=577\nheight=76\n");
         const auto fitted = FitLayoutViewport(partial, defaults, window);
-        if (!check(fitted.ReadInt("layout.player", "x", 0) == 123 && fitted.ReadInt("layout.player", "y", 0) == 949,
+        if (!check(fitted.ReadInt("layout.player", "x", 0) == 123 && fitted.ReadInt("layout.player", "y", 0) == playerDefault.y - 360,
             "a missing axis gets a viewport-aware default without replacing its saved partner")) return false;
         auto custom = settings_store::FromIniText("[layout.player]\nx=300\ny=400\nwidth=577\nheight=76\n");
         if (!check(FitLayoutViewport(custom, defaults, window).ReadRect("layout.player", {}).x == 300 &&
@@ -700,17 +762,29 @@ namespace xiui
         WriteLayoutViewport(custom, {2560, 1440});
         const auto moved = FitLayoutViewport(custom, defaults, window).ReadRect("layout.player", {});
         if (!check(moved.x == 300 && moved.y == 400, "moved modules retain their saved positions even when the viewport changes")) return false;
+        auto pinned = defaults; pinned.WriteBool("layout.player", "position_initialized", true);
+        const auto pinnedPosition = FitLayoutViewport(pinned, defaults, window).ReadRect("layout.player", {});
+        if (!check(pinnedPosition.x == playerDefault.x && pinnedPosition.y == playerDefault.y, "manually accepted preset coordinates stay pinned when the viewport changes")) return false;
+        OverlayProfilePreferences(pinned, defaults);
+        if (!check(!pinned.ReadBool("layout.player", "position_initialized", true) &&
+            FitLayoutViewport(pinned, defaults, window).ReadRect("layout.player", {}).x == playerDefault.x - 320,
+            "applying a preset clears prior manual placement metadata before fitting its coordinates")) return false;
+        auto partialPinned = defaults; partialPinned.WriteInt("layout.minimap", "y", -1);
+        partialPinned.WriteBool("layout.minimap", "position_initialized", true);
+        OverlayProfilePreferences(partialPinned, settings_store::FromIniText("[layout.minimap]\nx=123\n"));
+        if (!check(partialPinned.ReadBool("layout.minimap", "position_initialized", false) && partialPinned.ReadInt("layout.minimap", "y", 0) == -1,
+            "a partial legacy layout overlay preserves its untouched manual axis")) return false;
         custom.WriteInt("layout.viewport", "width", 0); custom.WriteInt("layout.viewport", "height", 0);
         auto overlay = runtime.CaptureSettings(); OverlayProfilePreferences(overlay, custom);
         if (!check(!ReadLayoutViewport(overlay).Valid(), "legacy profile positions cannot inherit another profile's viewport")) return false;
         if (!check(FitLayoutAxis(2160, 400, 2560, 1920) == 1520 && FitLayoutAxis(1080, 400, 2560, 1920) == 760 &&
             FitLayoutAxis(-1, 400, 2560, 1920) == -1, "saved right, center and automatic anchors remain meaningful at another resolution")) return false;
-        runtime.LoadSettings(defaults, window); runtime.player_.State().bounds.x = 20;
+        runtime.LoadSettings(defaults, window); runtime.player_.State().bounds.x = 20; runtime.player_.State().position_initialized = true;
         runtime.player_.Settings().name_text.style.top_color = 0xFF123456;
         const auto width = runtime.player_.State().bounds.width;
         if (!check(runtime.HandleCommand("layout defaults"), "position-only recovery uses the shared command route")) return false;
         runtime.EnsureLayout({0, 0, 1920, 1080, 0, 1});
-        return check(runtime.player_.State().bounds.x == 662 && runtime.player_.State().bounds.width == width &&
+        return check(runtime.player_.State().bounds.x == playerDefault.x - 320 && !runtime.player_.State().position_initialized && runtime.player_.State().bounds.width == width &&
             runtime.player_.Settings().name_text.style.top_color == 0xFF123456,
             "recovering initial positions keeps current dimensions, appearance and action preferences");
     }

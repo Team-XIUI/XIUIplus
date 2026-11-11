@@ -42,6 +42,7 @@ namespace xiui
         };
 
         auto Id(void) const -> const char* override;
+        auto LayoutId(void) const -> const char* override { return "exp"; }
         auto DisplayName(void) const -> const char* override;
         auto State(void) -> module_state& override;
         auto State(void) const -> const module_state& override;

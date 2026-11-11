@@ -2,6 +2,8 @@
 
 ## Unreleased
 
+- Position saving: keep Minimap, Treasure Pool and other moved HUD elements at their saved edge positions after startup. Distinguish manual placement from automatic defaults, commit visible anchors, and keep unfinished mouse drags out of autosaves.
+
 - Visibility: fix Hide during events leaving XIUI+ visible in cutscenes when native event data disagrees with the player's cutscene status. Preserve native dialogue and restore the HUD when the cutscene ends.
 
 - Setup: accepting Use XIUI+ with Next also hides its native counterpart, preventing duplicate chat and party/player windows after setup. Save choices even while native controls are not ready.

@@ -502,16 +502,21 @@ namespace xiui
             return item.id == "settings-mode";
         }), "collapsed Basic settings cannot focus or click the hidden footer button")) return false;
         hover.config_.edit_mode = true;
-        hover.commands_.State().enabled = true;
-        hover.commands_.State().bounds = {400,400,112,168}; hover.commands_.State().scale = {2,2};
+        const auto commandIndex = native_hud_window_count + NativeMenuWindowIndex("playermo");
+        auto& commandWindow = hover.native_windows_[commandIndex];
+        hover.native_ui_.menu_available = true;
+        hover.native_ui_.reference_width = 2560; hover.native_ui_.reference_height = 1440;
+        hover.native_ui_.windows[commandIndex] = {true, true, 400, 400, 112, 168, true};
+        hover.SetNativeEditMode(true); hover.UpdateNativeWindows(viewport); hover.FocusModuleConfig(commandWindow);
+        commandWindow.State().scale = {2,2};
         *hover.general_.Option(hover.general_.HudScaleStart()).slider = 1.5f;
         hover.ResolveHudTransforms(viewport);
-        hover.config_.layout_selection = &hover.commands_;
-        if (!check(hover.ModuleDisplayed(hover.commands_), "Commands movement fixture has a visible edit preview")) return false;
+        hover.config_.layout_selection = &commandWindow;
+        if (!check(hover.ModuleDisplayed(commandWindow), "Command Menu movement fixture uses the actual native window")) return false;
         const auto commandToolbar = hover.MovementToolbar(viewport);
-        hover.BeginScale(hover.commands_);
-        if (!check(!hover.commands_.SupportsScale() && hover.commands_.OptionCount() == hover.commands_.ContentOptionCount() &&
-            hover.commands_.EditGrip() == edit_grip_kind::none && hover.commands_.State().transform.Identity() &&
+        hover.BeginScale(commandWindow);
+        if (!check(!commandWindow.SupportsScale() && commandWindow.OptionCount() == commandWindow.ContentOptionCount() &&
+            commandWindow.EditGrip() == edit_grip_kind::none && commandWindow.State().transform.Identity() &&
             commandToolbar && commandToolbar->Button(2).width == 0 && hover.scale_gesture_.module == nullptr,
             "Commands remain movable at native size without scale settings, grips, toolbar actions or keyboard gestures")) return false;
         return true;

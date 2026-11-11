@@ -71,6 +71,7 @@ namespace xiui
                 {
                     module.State().bounds.x = defaults->State().bounds.x;
                     module.State().bounds.y = defaults->State().bounds.y;
+                    module.State().position_initialized = false;
                     module.OnPositionChanged();
                 }
                 module.State().content_bounds = {};

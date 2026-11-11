@@ -88,6 +88,24 @@ namespace xiui
         }
     }
 
+    auto hud_runtime::CommitModulePosition(hud_module& module) -> void
+    {
+        const bool ready = layout_viewport{static_cast<int>(this->hud_viewport_.Width), static_cast<int>(this->hud_viewport_.Height)}.Valid();
+        if (ready) this->ResolveHudTransforms(this->hud_viewport_);
+        auto& state = module.State();
+        if (module.SupportsScale() && module.PositionBoundsReady())
+        {
+            if (ready)
+            {
+                state.bounds.x = state.transform.X(state.bounds.x);
+                state.bounds.y = state.transform.Y(state.bounds.y);
+            }
+            state.position_initialized = true;
+        }
+        module.OnPositionChanged();
+        if (ready) this->ResolveHudTransforms(this->hud_viewport_);
+    }
+
     auto hud_runtime::LayoutBounds(const hud_module& module) const -> rect
     {
         if (this->NativeWindowIndex(module) < native_window_count) return module.State().bounds;
@@ -187,7 +205,7 @@ namespace xiui
             changed = this->CenterModuleLayout(*this->MovementSelectionModule(), 1, viewport) || changed;
         if (Contains(toolbar->Button(2), static_cast<float>(this->mouse_x_), static_cast<float>(this->mouse_y_))) this->BeginScale(*this->MovementSelectionModule(), true);
         if (changed)
-            this->MovementSelectionModule()->OnPositionChanged();
+            this->CommitModulePosition(*this->MovementSelectionModule());
         return true;
     }
 

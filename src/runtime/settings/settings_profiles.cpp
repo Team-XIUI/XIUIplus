@@ -17,6 +17,13 @@ namespace xiui
     auto OverlayProfilePreferences(const settings_store& target, const settings_store& source) -> void
     {
         target.OverlayPreferences(source);
+        for (const auto& section : LayoutSections(source))
+        {
+            const bool partial = source.ReadString(section.c_str(), "x").empty() || source.ReadString(section.c_str(), "y").empty();
+            target.WriteBool(section.c_str(), "position_initialized", source.ReadBool(section.c_str(), "position_initialized",
+                (partial && target.ReadBool(section.c_str(), "position_initialized", false)) ||
+                source.ReadFloat(section.c_str(), "x", -1) < -1 || source.ReadFloat(section.c_str(), "y", -1) < -1));
+        }
         if (!LayoutSections(source).empty())
         {
             const auto viewport = ReadLayoutViewport(source);

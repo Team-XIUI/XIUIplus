@@ -166,6 +166,9 @@ namespace xiui
         ui::hud_scale scale{};
         ui::hud_scale scale_checkpoint{};
         ui::hud_transform transform{};
+        bool position_initialized{};
+
+        auto AutomaticPosition(float coordinate) const -> bool { return !this->position_initialized && coordinate < 0; }
 
         auto EditBounds(void) const -> ui::rect
         {
@@ -248,6 +251,7 @@ namespace xiui
         virtual ~hud_module(void) = default;
 
         virtual auto Id(void) const -> const char* = 0;
+        virtual auto LayoutId(void) const -> const char* { return this->Id(); }
         virtual auto DisplayName(void) const -> const char* = 0;
         virtual auto State(void) -> module_state& = 0;
         virtual auto State(void) const -> const module_state& = 0;

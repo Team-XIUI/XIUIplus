@@ -70,7 +70,7 @@ namespace xiui
         {
             const auto bounds = source.ReadRect(section.c_str(), defaults.ReadRect(section.c_str(), {}));
             auto preset = defaults.ReadRect(section.c_str(), {});
-            const auto scaleSection = std::string{"hud.scale."} + section.substr(7);
+            const auto scaleSection = std::string{"hud.scale."} + (section == "layout.exp" ? "experience" : section.substr(7));
             const auto global = std::clamp(source.ReadFloat("appearance.hud", "scale", 1), .5f, 2.0f);
             preset.width *= global * std::clamp(source.ReadFloat(scaleSection.c_str(), "x", 1), .25f, 3.0f);
             preset.height *= global * std::clamp(source.ReadFloat(scaleSection.c_str(), "y", 1), .25f, 3.0f);
@@ -82,7 +82,8 @@ namespace xiui
                     horizontal ? preset.width : preset.height, horizontal ? baseline.width : baseline.height, extent);
                 return position == std::lround(expected) || position == std::lround(std::clamp(expected, 0.0f, std::max(0.0f, extent - size)));
             };
-            const bool untouched = hasPreset && reference.Valid() && baseline.Valid() && matches(true) && matches(false);
+            const bool untouched = !source.ReadBool(section.c_str(), "position_initialized", false) &&
+                hasPreset && reference.Valid() && baseline.Valid() && matches(true) && matches(false);
             for (const auto* axis : {"x", "y"})
             {
                 const bool missing = source.ReadString(section.c_str(), axis).empty();
@@ -102,8 +103,11 @@ namespace xiui
     inline auto RestoreDefaultLayoutPositions(const settings_store& target, const settings_store& defaults) -> void
     {
         for (const auto& section : LayoutSections(defaults))
+        {
+            target.WriteBool(section.c_str(), "position_initialized", false);
             for (const auto* axis : {"x", "y"})
                 if (const auto value = defaults.ReadString(section.c_str(), axis); !value.empty()) target.WriteString(section.c_str(), axis, value);
+        }
         WriteLayoutViewport(target, ReadLayoutViewport(defaults));
     }
 }

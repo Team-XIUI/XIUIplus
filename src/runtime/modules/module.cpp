@@ -692,6 +692,10 @@ namespace xiui
 
     auto hud_module::LoadScale(const settings_store& store) -> void
     {
+        const auto layout = std::string{"layout."} + this->LayoutId();
+        this->State().position_initialized = store.ReadBool(layout.c_str(), "position_initialized",
+            store.ReadFloat(layout.c_str(), "x", -1) < -1 || store.ReadFloat(layout.c_str(), "y", -1) < -1);
+        this->State().content_bounds = {};
         const auto section = std::string{"hud.scale."} + this->Id();
         auto& scale = this->State().scale;
         const bool locked = !this->SupportsNonUniformScale() || store.ReadInt(section.c_str(), "version", 0) < 2 || store.ReadBool(section.c_str(), "locked", true);
@@ -702,6 +706,7 @@ namespace xiui
     auto hud_module::SaveScale(const settings_store& store) const -> void
     {
         if (!this->SupportsScale()) return;
+        store.WriteBool((std::string{"layout."} + this->LayoutId()).c_str(), "position_initialized", this->State().position_initialized);
         const auto section = std::string{"hud.scale."} + this->Id();
         const auto& scale = this->State().scale;
         store.WriteFloat(section.c_str(), "x", scale.x); store.WriteFloat(section.c_str(), "y", scale.y);

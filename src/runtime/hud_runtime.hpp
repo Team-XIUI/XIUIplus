@@ -399,6 +399,7 @@ namespace xiui
         std::array<bool, 256> scale_key_release_{};
         D3DVIEWPORT8 hud_viewport_{0, 0, 2560, 1440, 0, 1};
         auto ResolveHudTransforms(const D3DVIEWPORT8& viewport) -> void;
+        auto CommitModulePosition(hud_module& module) -> void;
         auto LayoutBounds(const hud_module& module) const -> rect;
         auto ScaleGrip(const hud_module& module) const -> rect;
         auto EditGripAt(float x, float y) const -> hud_module*;

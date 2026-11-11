@@ -12,6 +12,8 @@ Show member decisions defaults on under General. While the pool is visible, part
 
 **Keep intact:** Revalidate slot generation/identity before acting. Pointer controls work over ordinary native menus, while unclaimed keyboard/controller input remains native. Opening or viewing details must not lot/pass; held confirmation must not repeat requests.
 
+Placement uses the shared committed-position path and `layout.treasure.position_initialized`. Content-driven height changes and viewport reachability do not replace the authored anchor. Pending mouse/controller movement saves the last committed position; confirmed edge placement survives startup independently of the current item count.
+
 **Focused checks:** `./scripts/check.ps1 -Name phoenix` covers native reconciliation, rapid slot reuse and batch identity. `./scripts/check.ps1 -Name treasure-input` covers input and member decisions.
 
 [Shared foundations](../foundations.md) · [Check commands](../../tests/README.md)

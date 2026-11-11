@@ -672,7 +672,7 @@ namespace xiui
             const bool consumed = chat->HandleMouse(message, wParam, static_cast<float>(cursor.x), static_cast<float>(cursor.y), this->editing_, this->design_system_,
                 {static_cast<float>(viewport.X), static_cast<float>(viewport.Y), static_cast<float>(viewport.Width), static_cast<float>(viewport.Height)}, save,
                 this->core_ != nullptr ? this->core_->GetChatManager() : nullptr);
-            if (save) this->SaveSettings();
+            if (save) { if (resizing) this->CommitModulePosition(*chat); this->SaveSettings(); }
             if (!this->editing_) this->SetChatMouseCapture(consumed || this->ChatAt(static_cast<float>(cursor.x), static_cast<float>(cursor.y)) != nullptr);
             if (consumed)
             {
@@ -2138,16 +2138,27 @@ namespace xiui
         this->heal_prediction_source_.Save(store);
         for (const auto* module : this->modules_.All()) module->Save(store);
         for (const auto* module : this->modules_.All()) module->SaveScale(store);
+        if (this->interaction_ == interaction::drag_module && this->interaction_module_ != nullptr)
+        {
+            const auto section = std::string{"layout."} + this->interaction_module_->LayoutId();
+            store.WriteInt(section.c_str(), "x", static_cast<int>(std::lround(this->drag_origin_.x)));
+            store.WriteInt(section.c_str(), "y", static_cast<int>(std::lround(this->drag_origin_.y)));
+        }
         if (this->scale_gesture_.module != nullptr)
         {
             const auto section = std::string{"hud.scale."} + this->scale_gesture_.module->Id();
             store.WriteFloat(section.c_str(), "x", this->scale_gesture_.original.x);
             store.WriteFloat(section.c_str(), "y", this->scale_gesture_.original.y);
-            store.WriteRect((std::string{"layout."} + this->scale_gesture_.module->Id()).c_str(), this->scale_gesture_.original_bounds);
+            store.WriteRect((std::string{"layout."} + this->scale_gesture_.module->LayoutId()).c_str(), this->scale_gesture_.original_bounds);
         }
         this->combat_settings_.Save(store);
         if (this->config_.focus.moving)
-            store.WriteRect((std::string{"layout."} + this->config_.focus.moving_id).c_str(), this->config_.focus.move_original);
+            for (const auto* module : this->modules_.All())
+                if (this->config_.focus.moving_id == module->Id())
+                {
+                    store.WriteRect((std::string{"layout."} + module->LayoutId()).c_str(), this->config_.focus.move_original);
+                    break;
+                }
         store.WriteRect("layout.config", this->config_.bounds);
         if (this->config_.focus.resizing)
             store.WriteRect("layout.config", this->config_.focus.resize_original);
@@ -2201,66 +2212,66 @@ namespace xiui
         {
             if (this->config_.bounds.x < 0.0f)
                 this->config_.bounds.x = std::max(8.0f, static_cast<float>(viewport.Width) - this->config_.bounds.width * this->ConfigScale() - 20.0f);
-            if (this->chat_.State().bounds.y < 0.0f)
+            if (this->chat_.State().AutomaticPosition(this->chat_.State().bounds.y))
                 this->chat_.State().bounds.y = std::max(0.0f, static_cast<float>(viewport.Height) - this->chat_.State().bounds.height - 18.0f);
-            if (this->compass_.State().bounds.x < 0) this->compass_.State().bounds.x = std::max(0.0f, viewport.Width - this->compass_.State().bounds.width - 24.0f);
-            if (this->minimap_.State().bounds.x < 0) this->minimap_.State().bounds.x = std::max(0.0f, viewport.Width - this->minimap_.State().bounds.width - 24.0f);
-            if (this->minimap_.State().bounds.y < 0) this->minimap_.State().bounds.y = 90;
-            if (this->compass_.State().bounds.y < 0) this->compass_.State().bounds.y = std::max(0.0f, viewport.Height - this->compass_.State().bounds.height - 24.0f);
+            if (this->compass_.State().AutomaticPosition(this->compass_.State().bounds.x)) this->compass_.State().bounds.x = std::max(0.0f, viewport.Width - this->compass_.State().bounds.width - 24.0f);
+            if (this->minimap_.State().AutomaticPosition(this->minimap_.State().bounds.x)) this->minimap_.State().bounds.x = std::max(0.0f, viewport.Width - this->minimap_.State().bounds.width - 24.0f);
+            if (this->minimap_.State().AutomaticPosition(this->minimap_.State().bounds.y)) this->minimap_.State().bounds.y = 90;
+            if (this->compass_.State().AutomaticPosition(this->compass_.State().bounds.y)) this->compass_.State().bounds.y = std::max(0.0f, viewport.Height - this->compass_.State().bounds.height - 24.0f);
             auto& satchel = this->satchel_.State().bounds;
-            if (satchel.x < 0) satchel.x = std::max(8.0f, (viewport.Width - satchel.width) * 0.5f);
-            if (satchel.y < 0) satchel.y = std::max(8.0f, (viewport.Height - satchel.height) * 0.5f);
+            if (this->satchel_.State().AutomaticPosition(satchel.x)) satchel.x = std::max(8.0f, (viewport.Width - satchel.width) * 0.5f);
+            if (this->satchel_.State().AutomaticPosition(satchel.y)) satchel.y = std::max(8.0f, (viewport.Height - satchel.height) * 0.5f);
             for (size_t i = 0; i <= action_bar_count; ++i)
             {
                 auto& bar = this->actionbars_.BarState(i).bounds;
-                if (bar.x < 0) bar.x = std::max(8.0f, (viewport.Width - bar.width) * 0.5f);
-                if (bar.y < 0) bar.y = std::max(8.0f, viewport.Height * 0.76f - (i % 3) * 52.0f);
+                if (this->actionbars_.BarState(i).AutomaticPosition(bar.x)) bar.x = std::max(8.0f, (viewport.Width - bar.width) * 0.5f);
+                if (this->actionbars_.BarState(i).AutomaticPosition(bar.y)) bar.y = std::max(8.0f, viewport.Height * 0.76f - (i % 3) * 52.0f);
             }
-            if (this->world_info_.State().bounds.x < 0) this->world_info_.State().bounds.x = std::max(0.0f, viewport.Width - this->world_info_.State().bounds.width - 24.0f);
-            if (this->world_info_.State().bounds.y < 0) this->world_info_.State().bounds.y = std::max(0.0f, this->compass_.State().bounds.y - this->world_info_.State().bounds.height - 10.0f);
+            if (this->world_info_.State().AutomaticPosition(this->world_info_.State().bounds.x)) this->world_info_.State().bounds.x = std::max(0.0f, viewport.Width - this->world_info_.State().bounds.width - 24.0f);
+            if (this->world_info_.State().AutomaticPosition(this->world_info_.State().bounds.y)) this->world_info_.State().bounds.y = std::max(0.0f, this->compass_.State().bounds.y - this->world_info_.State().bounds.height - 10.0f);
             this->world_info_.InitializeParts();
             for (size_t i = 0; i < this->inventory_.size(); ++i)
             {
                 auto& bounds = this->inventory_[i].State().bounds;
-                if (bounds.x < 0) bounds.x = std::max(16.0f, viewport.Width - bounds.width - 32);
-                if (bounds.y < 0) bounds.y = std::min(80.0f + i * 100.0f, std::max(0.0f, viewport.Height - bounds.height - 16));
+                if (this->inventory_[i].State().AutomaticPosition(bounds.x)) bounds.x = std::max(16.0f, viewport.Width - bounds.width - 32);
+                if (this->inventory_[i].State().AutomaticPosition(bounds.y)) bounds.y = std::min(80.0f + i * 100.0f, std::max(0.0f, viewport.Height - bounds.height - 16));
             }
             auto& equipment = this->equipment_.State().bounds;
-            if (equipment.x < 0) equipment.x = std::max(16.0f, this->inventory_[0].State().bounds.x - equipment.width - 20);
-            if (equipment.y < 0) equipment.y = this->inventory_[0].State().bounds.y;
+            if (this->equipment_.State().AutomaticPosition(equipment.x)) equipment.x = std::max(16.0f, this->inventory_[0].State().bounds.x - equipment.width - 20);
+            if (this->equipment_.State().AutomaticPosition(equipment.y)) equipment.y = this->inventory_[0].State().bounds.y;
             auto& gil = this->gil_.State().bounds;
-            if (gil.x < 0) gil.x = std::max(16.0f, viewport.Width - gil.width - 32);
-            if (gil.y < 0) gil.y = std::max(16.0f, viewport.Height - gil.height - 150);
+            if (this->gil_.State().AutomaticPosition(gil.x)) gil.x = std::max(16.0f, viewport.Width - gil.width - 32);
+            if (this->gil_.State().AutomaticPosition(gil.y)) gil.y = std::max(16.0f, viewport.Height - gil.height - 150);
             auto& readyCheck = this->ready_check_.State().bounds;
-            if (readyCheck.x < 0) readyCheck.x = std::max(0.0f, (viewport.Width - readyCheck.width) * 0.5f);
-            if (readyCheck.y < 0) readyCheck.y = std::max(0.0f, (viewport.Height - readyCheck.height) * 0.4f);
+            if (this->ready_check_.State().AutomaticPosition(readyCheck.x)) readyCheck.x = std::max(0.0f, (viewport.Width - readyCheck.width) * 0.5f);
+            if (this->ready_check_.State().AutomaticPosition(readyCheck.y)) readyCheck.y = std::max(0.0f, (viewport.Height - readyCheck.height) * 0.4f);
             auto& treasure = this->treasure_.State().bounds;
-            if (treasure.x < 0) treasure.x = std::max(0.0f, viewport.Width - treasure.width - 24);
-            if (treasure.y < 0) treasure.y = std::max(0.0f, viewport.Height * 0.2f);
+            if (this->treasure_.State().AutomaticPosition(treasure.x)) treasure.x = std::max(0.0f, viewport.Width - treasure.width - 24);
+            if (this->treasure_.State().AutomaticPosition(treasure.y)) treasure.y = std::max(0.0f, viewport.Height * 0.2f);
             auto& blueMagic = this->blue_magic_.State().bounds;
-            if (blueMagic.x < 0) blueMagic.x = std::max(0.0f, (viewport.Width - blueMagic.width) * 0.5f);
-            if (blueMagic.y < 0) blueMagic.y = std::max(0.0f, (viewport.Height - blueMagic.height) * 0.25f);
+            if (this->blue_magic_.State().AutomaticPosition(blueMagic.x)) blueMagic.x = std::max(0.0f, (viewport.Width - blueMagic.width) * 0.5f);
+            if (this->blue_magic_.State().AutomaticPosition(blueMagic.y)) blueMagic.y = std::max(0.0f, (viewport.Height - blueMagic.height) * 0.25f);
             auto& phantomRoll = this->phantom_roll_.State().bounds;
             auto& magicBurst = this->magic_burst_.State().bounds;
-            if (magicBurst.x < 0) magicBurst.x = std::max(0.0f, (viewport.Width - magicBurst.width) * 0.5f + 160);
-            if (magicBurst.y < 0) magicBurst.y = std::max(0.0f, viewport.Height * 0.45f);
+            if (this->magic_burst_.State().AutomaticPosition(magicBurst.x)) magicBurst.x = std::max(0.0f, (viewport.Width - magicBurst.width) * 0.5f + 160);
+            if (this->magic_burst_.State().AutomaticPosition(magicBurst.y)) magicBurst.y = std::max(0.0f, viewport.Height * 0.45f);
             auto& chains = this->chains_.State().bounds;
-            if (chains.x < 0) chains.x = std::max(0.0f, magicBurst.x - chains.width - 24);
-            if (chains.y < 0) chains.y = std::max(0.0f, viewport.Height * 0.35f);
-            if (phantomRoll.x < 0) phantomRoll.x = std::max(0.0f, (viewport.Width - phantomRoll.width) * 0.5f);
-            if (phantomRoll.y < 0) phantomRoll.y = std::max(0.0f, (viewport.Height - phantomRoll.height) * 0.65f);
+            if (this->chains_.State().AutomaticPosition(chains.x)) chains.x = std::max(0.0f, magicBurst.x - chains.width - 24);
+            if (this->chains_.State().AutomaticPosition(chains.y)) chains.y = std::max(0.0f, viewport.Height * 0.35f);
+            if (this->phantom_roll_.State().AutomaticPosition(phantomRoll.x)) phantomRoll.x = std::max(0.0f, (viewport.Width - phantomRoll.width) * 0.5f);
+            if (this->phantom_roll_.State().AutomaticPosition(phantomRoll.y)) phantomRoll.y = std::max(0.0f, (viewport.Height - phantomRoll.height) * 0.65f);
             auto& castBar = this->cast_bar_.State().bounds;
             auto& fishing = this->fishing_.State().bounds;
-            if (fishing.x < 0) fishing.x = std::max(0.0f, (viewport.Width - fishing.width) * 0.5f);
-            if (fishing.y < 0) fishing.y = std::max(0.0f, viewport.Height * 0.6f);
-            if (castBar.x < 0) castBar.x = std::max(0.0f, (viewport.Width - castBar.width) * 0.5f);
-            if (castBar.y < 0) castBar.y = std::max(0.0f, viewport.Height * 0.68f);
+            if (this->fishing_.State().AutomaticPosition(fishing.x)) fishing.x = std::max(0.0f, (viewport.Width - fishing.width) * 0.5f);
+            if (this->fishing_.State().AutomaticPosition(fishing.y)) fishing.y = std::max(0.0f, viewport.Height * 0.6f);
+            if (this->cast_bar_.State().AutomaticPosition(castBar.x)) castBar.x = std::max(0.0f, (viewport.Width - castBar.width) * 0.5f);
+            if (this->cast_bar_.State().AutomaticPosition(castBar.y)) castBar.y = std::max(0.0f, viewport.Height * 0.68f);
             auto& castCost = this->cast_cost_.State().bounds;
-            if (castCost.x < 0) castCost.x = std::max(0.0f, (viewport.Width - castCost.width) * 0.5f);
-            if (castCost.y < 0) castCost.y = castBar.y + castBar.height + 16;
+            if (this->cast_cost_.State().AutomaticPosition(castCost.x)) castCost.x = std::max(0.0f, (viewport.Width - castCost.width) * 0.5f);
+            if (this->cast_cost_.State().AutomaticPosition(castCost.y)) castCost.y = castBar.y + castBar.height + 16;
             auto& recast = this->recast_.State().bounds;
-            if (recast.x < 0) recast.x = std::max(16.0f, viewport.Width - recast.width - 32);
-            if (recast.y < 0) recast.y = std::max(16.0f, viewport.Height * 0.35f);
+            if (this->recast_.State().AutomaticPosition(recast.x)) recast.x = std::max(16.0f, viewport.Width - recast.width - 32);
+            if (this->recast_.State().AutomaticPosition(recast.y)) recast.y = std::max(16.0f, viewport.Height * 0.35f);
             this->layout_initialized_ = true;
         }
         if (this->chat_second_.WindowVisible())
@@ -2268,8 +2279,8 @@ namespace xiui
             this->chat_second_.EnsureWindowDefaults();
             auto& second = this->chat_second_.State().bounds;
             const auto& main = this->chat_.State().bounds;
-            if (second.x < 0) second.x = main.x;
-            if (second.y < 0)
+            if (this->chat_second_.State().AutomaticPosition(second.x)) second.x = main.x;
+            if (this->chat_second_.State().AutomaticPosition(second.y))
             {
                 second.y = main.y - second.height - 32;
                 if (second.y < 0 && main.y + main.height + second.height + 32 <= viewport.Height)
@@ -2517,9 +2528,8 @@ namespace xiui
         const auto completed = this->interaction_;
         this->config_.sidebar_scrolling = false;
         if (completed == interaction::color_pick) this->config_.color_picker.EndDrag();
-        if (completed == interaction::drag_module && this->interaction_module_ != nullptr &&
-            (this->NativeWindowIndex(*this->interaction_module_) == native_window_count || this->drag_moved_))
-            this->interaction_module_->OnPositionChanged();
+        if (completed == interaction::drag_module && this->interaction_module_ != nullptr && this->drag_moved_)
+            this->CommitModulePosition(*this->interaction_module_);
         this->interaction_ = interaction::none;
         this->close_button_ = {};
         this->interaction_module_ = nullptr;

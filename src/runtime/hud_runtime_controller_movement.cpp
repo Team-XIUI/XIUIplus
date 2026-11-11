@@ -36,8 +36,8 @@ namespace xiui
             if (focus.moving_id == candidate->Id()) { module = candidate; break; }
         if (module != nullptr)
         {
-            if (!apply) module->State().bounds = focus.move_original;
-            module->OnPositionChanged();
+            if (apply) this->CommitModulePosition(*module);
+            else { module->State().bounds = focus.move_original; module->OnPositionChanged(); }
         }
         this->config_.collapsed = focus.move_collapsed;
         focus.moving = false; focus.fine = false;

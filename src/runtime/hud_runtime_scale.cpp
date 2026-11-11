@@ -135,8 +135,8 @@ namespace xiui
             gesture.module->State().content_bounds = {};
             if (apply) gesture.module->OnBoundsResized(gesture.original_bounds);
         }
-        else if (apply && (gesture.module->State().bounds.x != gesture.original_bounds.x || gesture.module->State().bounds.y != gesture.original_bounds.y))
-            gesture.module->OnPositionChanged();
+        if (apply && (gesture.module->State().bounds.x != gesture.original_bounds.x || gesture.module->State().bounds.y != gesture.original_bounds.y))
+            this->CommitModulePosition(*gesture.module);
         if (this->interaction_ == interaction::scale_module) { this->interaction_ = interaction::none; this->interaction_module_ = nullptr; }
         gesture.module->State().scale_checkpoint = gesture.module->State().scale;
         this->ResolveHudTransforms(this->hud_viewport_);
