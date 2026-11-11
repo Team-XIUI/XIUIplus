@@ -21,6 +21,11 @@ namespace xiui
         auto SetSource(pet_source* source) -> void { this->source_ = source; }
         auto SetRecasts(const recast_source* source) -> void { this->recasts_ = source; }
         auto SetDisplayAllowed(bool allowed) -> void { this->Main().target_allowed_ = allowed; }
+        auto CharmEstimatesShown(void) const -> bool
+        {
+            const auto& charm = this->types_[static_cast<size_t>(pet_kind::charm)];
+            return !this->target_ && this->state_.enabled && charm.enabled && charm.lifetime && charm.estimate_lifetime;
+        }
         auto HasEditableBounds(void) const -> bool override { return !this->target_ || !this->Main().target_settings_.snapped; }
         auto PreviewVisible(void) const -> bool override;
         auto PositionBoundsReady(void) const -> bool override { return this->PreviewVisible(); }

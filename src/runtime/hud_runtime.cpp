@@ -2149,9 +2149,21 @@ namespace xiui
         for (const auto* module : this->modules_.All()) module->SaveScale(store);
         if (this->interaction_ == interaction::drag_module && this->interaction_module_ != nullptr)
         {
-            const auto section = std::string{"layout."} + this->interaction_module_->LayoutId();
-            store.WriteInt(section.c_str(), "x", static_cast<int>(std::lround(this->drag_origin_.x)));
-            store.WriteInt(section.c_str(), "y", static_cast<int>(std::lround(this->drag_origin_.y)));
+            // Native windows persist positions in their own native.* section.
+            if (const auto* native = this->interaction_module_; this->NativeWindowIndex(*native) < native_window_count)
+            {
+                if (!store.ReadString(native->Id(), "x").empty())
+                {
+                    store.WriteFloat(native->Id(), "x", this->drag_origin_.x);
+                    store.WriteFloat(native->Id(), "y", this->drag_origin_.y);
+                }
+            }
+            else
+            {
+                const auto section = std::string{"layout."} + this->interaction_module_->LayoutId();
+                store.WriteInt(section.c_str(), "x", static_cast<int>(std::lround(this->drag_origin_.x)));
+                store.WriteInt(section.c_str(), "y", static_cast<int>(std::lround(this->drag_origin_.y)));
+            }
         }
         if (this->scale_gesture_.module != nullptr)
         {
@@ -2822,6 +2834,7 @@ namespace xiui
         this->heal_prediction_source_.Update(this->core_, this->party_source_, this->player_cast_source_, this->cast_cost_source_, now);
         this->recast_source_.Update(this->core_, now);
         this->pet_source_.SetRules(this->combat_settings_.Rules());
+        this->pet_source_.SetCharmChecks(this->pet_.CharmEstimatesShown());
         this->pet_source_.Update(this->core_, this->combat_source_, now);
         this->ready_check_.Update(this->core_, now);
         this->inventory_source_.Update(this->core_, now);

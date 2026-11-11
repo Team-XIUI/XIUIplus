@@ -225,8 +225,8 @@ auto RunPhoenixIntegrationChecks(void) -> bool
         Check(combat.Find(100) && combat.Find(100)->statuses[0].earliest == 40000 && combat.Find(100)->statuses[0].expires == 130000,
             "Phoenix Paralyze carries a base duration range");
         ui::status_strip_settings strip; strip.timers = true; strip.crowd_control_only = false;
-        Check(ui::StatusTimerText(combat.Find(100)->statuses[0], 10000, strip) == "30-120" &&
-            ui::StatusTimerText(combat.Find(100)->statuses[0], 50000, strip) == "<80", "ranged estimates never pretend an exact deadline");
+        Check(ui::StatusTimerText(combat.Find(100)->statuses[0], 10000, strip) == "30-02:00" &&
+            ui::StatusTimerText(combat.Find(100)->statuses[0], 50000, strip) == "<01:20", "ranged estimates never pretend an exact deadline");
         combat.Prune(130000);
         Check(combat.Find(100)->statuses.size() == 1 && ui::StatusTimerText(combat.Find(100)->statuses[0], 130000, strip) == "?", "passing a Phoenix base duration does not invent wear-off");
         combat.ApplyStatus(100, 4, 0, 204, 130001); Check(combat.Find(100)->statuses.empty(), "wear-off clears a ranged estimate immediately");

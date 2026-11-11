@@ -99,6 +99,8 @@ namespace xiui
                 for (const auto& bonus : charm_equipment_bonuses)
                     if (item.ready && item.id == bonus.id && (bonus.id != 13667 || (this->rules_ == server_rules::horizon && player->GetSubJob() == 9))) this->charm_.gear += bonus.ranks;
             }
+        // Only send the level check while a Charm estimate would be displayed.
+        if (!this->charm_checks_) return true;
         std::array<uint8_t, 16> check{};
         std::memcpy(check.data() + 4, &target, 4); std::memcpy(check.data() + 8, &index, 4);
         this->charm_.check_pending = this->charm_.check_owned = true;

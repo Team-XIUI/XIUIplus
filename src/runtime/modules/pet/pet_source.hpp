@@ -39,6 +39,7 @@ namespace xiui
         auto Clear(void) -> void { this->state_ = {}; this->next_update_ = 0; this->charm_ = {}; }
         auto SetRules(server_rules value) -> void { if (this->rules_ != value) { this->Clear(); this->rules_ = value; } }
         auto SetBonusCharisma(float value) -> void { this->bonus_charisma_ = std::clamp(value, 0.0f, 500.0f); }
+        auto SetCharmChecks(bool enabled) -> void { this->charm_checks_ = enabled; }
         auto HandlePacket(IAshitaCore* core, uint16_t id, std::span<const uint8_t> data, uint64_t now, const combat_action_packet* action) -> bool;
         auto HandleOutgoingPacket(IAshitaCore* core, uint16_t id, std::span<const uint8_t> data, uint64_t now, bool injected) -> void;
         auto Update(IAshitaCore* core, const combat_source& combat, uint64_t now) -> void;
@@ -53,6 +54,7 @@ namespace xiui
         IResourceManager* resources_{};
         server_rules rules_{};
         float bonus_charisma_{};
+        bool charm_checks_{};
         struct charm_observation
         {
             uint32_t target{}, index{}, owner{}, zone{}, level{}, gear{};

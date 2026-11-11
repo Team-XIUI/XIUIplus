@@ -56,6 +56,10 @@ namespace xiui
         if (!check(runtime.interaction_module_ == &window && window.State().bounds.x == 120 && window.State().bounds.y == 320 &&
             runtime.MenuLayout().windows[0].enabled && runtime.MenuLayout().windows[0].x == 120,
             "native drags survive fresh game snapshots and publish their own position")) return false;
+        const auto pendingNative = runtime.CaptureSettings();
+        if (!check(pendingNative.ReadString((std::string{"layout."} + window.Id()).c_str(), "x").empty() &&
+            pendingNative.ReadFloat(window.Id(), "x", 0) == 50 && pendingNative.ReadFloat(window.Id(), "y", 0) == 300,
+            "autosaving a native drag keeps its committed position without creating a layout section")) return false;
         runtime.mouse_down_ = false; runtime.FinishInteraction();
         if (!check(window.Placement().enabled && runtime.player_.State().bounds.x == player.x && runtime.player_.State().bounds.y == player.y,
             "native placement commits without moving the XIUI replacement")) return false;
