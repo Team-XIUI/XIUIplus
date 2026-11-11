@@ -382,7 +382,8 @@ namespace xiui
             const auto equipment = native_hud_window_count + static_cast<size_t>(native_dialog::equipment);
             native_menu_layout equipmentLayout{}; equipmentLayout.viewport_width = 1920; equipmentLayout.viewport_height = 1080;
             equipmentLayout.windows[equipment] = {true, false, 300, 350};
-            controller.Update(equipmentLayout);
+            link(manager, 0, static_cast<void*>(nullptr)); controller.Update(equipmentLayout);
+            link(manager, 0, command.node.data()); controller.BeforeDraw(reinterpret_cast<uintptr_t>(command.primitive.data()));
             std::array<int16_t, 2> numberPosition{}, defensePosition{};
             std::memcpy(numberPosition.data(), command.owner.data() + 0x8C, sizeof(numberPosition));
             std::memcpy(defensePosition.data(), command.owner.data() + 0x1AC, sizeof(defensePosition));
@@ -440,7 +441,9 @@ namespace xiui
             native_menu_layout statusLayout{}; statusLayout.viewport_width = 1920; statusLayout.viewport_height = 1080;
             statusLayout.windows[statusMenu] = {true, false, 1300, 400}; statusLayout.windows[character] = {true, false, 300, 350};
             statusLayout.windows[profile] = {true, false, 600, 100}; statusLayout.windows[skills] = {true, false, 1000, 200};
-            details.owner[0x1C] = 0x7F; controller.Update(statusLayout);
+            details.owner[0x1C] = 0x7F;
+            link(manager, 0, static_cast<void*>(nullptr)); controller.Update(statusLayout);
+            link(manager, 0, command.node.data()); controller.BeforeDraw(reinterpret_cast<uintptr_t>(magic.primitive.data()));
             std::array<int16_t, 4> cachedExp{}, cachedProfile{}, cachedSkills{};
             std::memcpy(cachedExp.data(), details.owner.data() + 0x14, 8); std::memcpy(cachedProfile.data(), money.owner.data() + 0x14, 8);
             std::memcpy(cachedSkills.data(), storage.owner.data() + 0x18, 8);
@@ -477,11 +480,74 @@ namespace xiui
                 "Currencies keeps its own placement and hide")) return false;
             command.owner[0x88] = 2;
             if (!check(!controller.ShouldHide(reinterpret_cast<uintptr_t>(command.primitive.data())), "a reused currency window cannot inherit the previous page's hide")) return false;
-            controller.Update(currencyLayout);
-            if (!check(command.Coordinates() == std::array<int16_t, 2>{16, 48}, "an unpositioned currency page restores the game's coordinates after a positioned page")) return false;
+            controller.BeforeDraw(reinterpret_cast<uintptr_t>(command.primitive.data()));
+            if (!check(command.Coordinates() == std::array<int16_t, 2>{16, 48}, "a reused currency page restores native coordinates before its first draw")) return false;
             currencyLayout.windows[currencyPages[2]] = {true, false, 700, 300}; controller.Update(currencyLayout);
             if (!check(command.Coordinates() == std::array<int16_t, 2>{700, 300}, "Currencies 2 applies its independent saved position")) return false;
+            command.owner[0x88] = 1; controller.BeforeDraw(reinterpret_cast<uintptr_t>(command.primitive.data()));
+            if (!check(command.Coordinates() == std::array<int16_t, 2>{500, 100} && controller.ShouldHide(reinterpret_cast<uintptr_t>(command.primitive.data())),
+                "returning to a reused page applies its position and visibility on the same draw")) return false;
             controller.Shutdown();
+
+            for (size_t index = 0; index < std::size(native_menu_windows); ++index)
+            {
+                command = {}; magic = {}; link(manager, 0, static_cast<void*>(nullptr));
+                controller.manager_ = reinterpret_cast<uintptr_t>(manager.data()); controller.state_.menu_available = true;
+                controller.reposition_ = reinterpret_cast<uintptr_t>(&Position);
+                native_menu_layout placement{}; placement.viewport_width = 1920; placement.viewport_height = 1080;
+                const auto window = native_hud_window_count + index;
+                const bool hidden = (index % 2) != 0;
+                placement.windows[window] = {true, hidden, 500, 300};
+                controller.Update(placement);
+                if ((index % 2) == 0) controller.BeforeDraw(0);
+                const auto name = std::string{"menu    "} + native_menu_windows[index].resource;
+                initialize(command, name.c_str(), {16, 48, 128, 216}, 0);
+                if (native_menu_windows[index].variant != 0)
+                {
+                    link(command.owner, 0, cachedTable.data()); controller.currency_draw_ = reinterpret_cast<uintptr_t>(&Draw);
+                    command.owner[0x88] = native_menu_windows[index].variant;
+                }
+                if ((index % 3) != 0) link(manager, 0, command.node.data());
+                controller.BeforeDraw(reinterpret_cast<uintptr_t>(command.primitive.data()));
+                const auto message = std::string{"first draw applies the saved placement and visibility for "} + native_menu_windows[index].key;
+                if (!check(command.Coordinates() == std::array<int16_t, 2>{500, 300} &&
+                    controller.ShouldHide(reinterpret_cast<uintptr_t>(command.primitive.data())) == hidden, message.c_str())) return false;
+                link(manager, 0, command.node.data());
+                Position(command.primitive.data(), nullptr, 24, 60);
+                controller.BeforeDraw(reinterpret_cast<uintptr_t>(command.primitive.data()));
+                if (!check(command.Coordinates() == std::array<int16_t, 2>{500, 300}, "native coordinate resets are reapplied before drawing without an intermediate offset")) return false;
+                controller.Update({});
+                if (!check(command.Coordinates() == std::array<int16_t, 2>{24, 60}, "reset restores the most recent native baseline")) return false;
+                controller.Shutdown();
+            }
+
+            for (size_t index = 0; index < native_hud_window_count; ++index)
+            {
+                if (index == static_cast<size_t>(native_hud_element::compass) || index == static_cast<size_t>(native_hud_element::clock)) continue;
+                command = {}; link(manager, 0, static_cast<void*>(nullptr));
+                controller.manager_ = reinterpret_cast<uintptr_t>(manager.data()); controller.state_.menu_available = true;
+                controller.reposition_ = reinterpret_cast<uintptr_t>(&Position);
+                uintptr_t owner{}; controller.hud_slots_[index] = reinterpret_cast<uintptr_t>(&owner);
+                native_menu_layout placement{}; placement.viewport_width = 1920; placement.viewport_height = 1080;
+                placement.windows[index] = {true, false, 500, 300}; controller.Update(placement);
+                const auto name = std::string{"menu    "} + (native_hud_options[index].resource ? native_hud_options[index].resource : "partywin");
+                initialize(command, name.c_str(), {16, 48, 128, 216}, 0); owner = reinterpret_cast<uintptr_t>(command.owner.data());
+                if (index == static_cast<size_t>(native_hud_element::status))
+                {
+                    controller.BeforeDraw(reinterpret_cast<uintptr_t>(command.primitive.data()));
+                    if (!check(command.Coordinates() == std::array<int16_t, 2>{16, 48}, "unavailable icon geometry never produces an invalid position")) return false;
+                    const int count = 1, capacity = 32, first = 1;
+                    std::memcpy(command.owner.data() + 0x40, &count, 4); std::memcpy(command.owner.data() + 0x48, &capacity, 4);
+                    std::memcpy(command.owner.data() + 0x54, &first, 4); command.component[0] = 1;
+                    const std::array<int16_t, 4> icon{15, 47, 24, 24};
+                    std::memcpy(command.component.data() + 0x2A, icon.data(), sizeof(icon));
+                    const int16_t componentIndex = 1; std::memcpy(command.component.data() + 0x3A, &componentIndex, 2);
+                }
+                controller.BeforeDraw(reinterpret_cast<uintptr_t>(command.primitive.data()));
+                const auto message = std::string{"a newly allocated HUD owner uses its placement before drawing: "} + native_hud_options[index].key;
+                if (!check(command.Coordinates() == std::array<int16_t, 2>{500, 300}, message.c_str())) return false;
+                controller.Shutdown();
+            }
             return true;
         }
 

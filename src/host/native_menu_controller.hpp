@@ -53,10 +53,14 @@ namespace xiui
         native_ui_state state_{};
         native_menu_layout layout_{};
         int offset_x_{}, anchor_y_{};
-        bool editing_{}, replay_pending_{}, replaying_{};
+        bool editing_{}, replay_pending_{}, replaying_{}, prepare_pending_{};
 
         auto Move(menu& value, bool enabled) -> void;
+        static auto ObservePosition(menu& value, const std::array<int16_t, 2>& current) -> void;
         auto UpdateWindows(void) -> void;
+        auto RefreshWindows(const std::array<bool, native_window_count>& drawn, uintptr_t pending = 0) -> void;
+        auto ReadWindow(uintptr_t primitive, menu& value) const -> bool;
+        auto UpdateMenus(void) -> void;
         auto DrawInactive(uintptr_t current) -> void;
         auto UpdateEditorMain(void) -> void;
         auto DestroyEditorMain(void) -> void;

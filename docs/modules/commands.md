@@ -18,6 +18,8 @@ The host validates primitive/resource/owner and logical page identity before mov
 
 Native Edit Mode adds labels, outlines and Show/Hide controls to actual native submissions. Existing inactive primitives use the client renderer without opening input menus. The minus-key Main Menu also has an isolated native DAT instance while closed or suspended behind a submenu. It never joins the game's input manager and is destroyed when editing ends or the real menu is visible. Other context windows require the client's data and geometry. Never create sample results or cached-rectangle placeholder frames.
 
+Opening windows acquire their saved position and visibility before their first native draw. The render preparation pass discovers complete groups, including Character Status/EXP and equipment content; a validated draw-time fallback handles primitives created later in that pass. Page reuse and game coordinate resets use the same discovery and positioning code without clearing frame-submission history.
+
 Saved positions use `native.<window>` preferences. A versioned split migration turns older family placements into individual positions while retaining each window's native relative offset. Pending offsets persist for unopened windows. The old shared command anchor is converted to independent placements and is not exported as live runtime coupling. Resetting a window clears only that window's placement; its siblings stay unchanged.
 
 **Focused checks:** `native-ui` and `xiui_native_hud_target_smoke --menus-only` cover independent selectors/results, content coordinates, native page reuse, visibility, restoration, migration and controller routes.

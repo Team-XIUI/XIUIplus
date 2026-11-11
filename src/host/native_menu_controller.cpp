@@ -188,15 +188,20 @@ namespace xiui
         return Read(resource + 0x46, name) && this->WindowIndex(owner, name, native_window_count) == value.window;
     }
 
+    auto native_menu_controller::ObservePosition(menu& value, const std::array<int16_t, 2>& current) -> void
+    {
+        if (value.moved)
+            for (size_t axis = 0; axis < current.size(); ++axis)
+                if (current[axis] != value.applied[axis]) value.original[axis] = current[axis];
+    }
+
     auto native_menu_controller::Move(menu& value, const bool enabled) -> void
     {
         if (!this->IsAttached(value)) return;
         std::array<int16_t, 2> current{};
         if (!Read(value.primitive + 0x52, current)) return;
         if (!value.moved) value.original = current;
-        else
-            for (size_t axis = 0; axis < current.size(); ++axis)
-                if (current[axis] != value.applied[axis]) value.original[axis] = current[axis];
+        this->ObservePosition(value, current);
         auto target = value.original;
         if (enabled)
         {
@@ -224,15 +229,14 @@ namespace xiui
         this->state_.menu_visible = false; this->state_.menu_count = 0;
         if (!this->state_.menu_available) return;
 
-        std::array<int16_t, 2> resolution{};
-        if (Read(this->manager_ + 0x80, resolution) && resolution[0] >= 320 && resolution[1] >= 240)
-        {
-            this->state_.reference_width = static_cast<float>(resolution[0]);
-            this->state_.reference_height = static_cast<float>(resolution[1]);
-        }
-
         this->UpdateWindows();
+        this->prepare_pending_ = true;
+        this->UpdateMenus();
+    }
 
+    auto native_menu_controller::UpdateMenus(void) -> void
+    {
+        const auto& layout = this->layout_;
         uintptr_t node{};
         if (!Read(this->manager_, node)) return;
         const auto previous = this->menus_;
@@ -307,9 +311,10 @@ namespace xiui
         {
             uintptr_t current{};
             if (Read(this->hud_slots_[index], current) && current == owner) return index;
-            if (native_hud_options[index].resource != nullptr && std::string_view{name.data() + 8, 8} == native_hud_options[index].resource) return index;
         }
         if (std::string_view{name.data(), 8} != "menu    ") return native_window_count;
+        for (size_t index = 0; index < this->hud_slots_.size(); ++index)
+            if (native_hud_options[index].resource != nullptr && std::string_view{name.data() + 8, 8} == native_hud_options[index].resource) return index;
         const std::string_view id{name.data() + 8, 8};
         if (id == "inline  ") return static_cast<size_t>(native_hud_element::chat1);
         if (id == "evitem  " && this->currency_draw_ != 0)
@@ -327,14 +332,13 @@ namespace xiui
         if (!this->IsAttached(value)) return;
         std::array<int16_t, 2> current{};
         if (!Read(value.primitive + 0x52, current)) return;
-        if (value.moved)
-            for (size_t axis = 0; axis < current.size(); ++axis)
-                if (current[axis] != value.applied[axis]) value.original[axis] = current[axis];
+        this->ObservePosition(value, current);
         auto placement = this->layout_.windows[value.window];
         if (restore) placement.enabled = false;
         auto target = value.original;
         if (placement.enabled)
         {
+            if (!this->state_.windows[value.window].live) return;
             const float scaleX = this->layout_.viewport_width > 0 && this->state_.reference_width > 0 ? this->state_.reference_width / this->layout_.viewport_width : 1;
             const float scaleY = this->layout_.viewport_height > 0 && this->state_.reference_height > 0 ? this->state_.reference_height / this->layout_.viewport_height : 1;
             const std::array<float, 2> position{placement.x * scaleX, placement.y * scaleY};
@@ -394,6 +398,36 @@ namespace xiui
         this->drawn_ = {};
         this->last_submitted_ = this->submitted_; this->submitted_ = {};
         this->replay_pending_ = this->editing_ && this->draw_method_ != 0;
+        this->RefreshWindows(drawn);
+    }
+
+    auto native_menu_controller::ReadWindow(const uintptr_t primitive, menu& value) const -> bool
+    {
+        uintptr_t resource{}, owner{}, attached{};
+        std::array<char, 16> name{};
+        std::array<int16_t, 4> frame{};
+        std::array<int16_t, 2> position{};
+        uint8_t closed{};
+        if (!Read(primitive + 4, resource) || resource == 0 || !Read(resource + 0x46, name) ||
+            !Read(primitive + 0xC, owner) || owner == 0 || !Read(owner + 8, attached) || attached != primitive ||
+            !Read(primitive + 0x70, closed) || !Read(primitive + 0x3A, frame) || frame[2] <= frame[0] || frame[3] <= frame[1] ||
+            !Read(primitive + 0x52, position)) return false;
+        const auto index = this->WindowIndex(owner, name, native_window_count);
+        if (index >= native_window_count) return false;
+        value = {primitive, owner, resource, position, position, false, DetailPanel(name), index, !closed};
+        return true;
+    }
+
+    auto native_menu_controller::RefreshWindows(const std::array<bool, native_window_count>& drawn, const uintptr_t pending) -> void
+    {
+        uintptr_t node{};
+        if (!Read(this->manager_, node)) return;
+        std::array<int16_t, 2> resolution{};
+        if (Read(this->manager_ + 0x80, resolution) && resolution[0] >= 320 && resolution[1] >= 240)
+        {
+            this->state_.reference_width = static_cast<float>(resolution[0]);
+            this->state_.reference_height = static_cast<float>(resolution[1]);
+        }
         const auto previous = this->windows_;
         const size_t previousCount = this->window_count_;
         this->window_count_ = 0; this->state_.windows = {};
@@ -402,11 +436,10 @@ namespace xiui
             this->origins_[index] = {32000, 32000};
             this->state_.windows[index].movable = index >= native_hud_window_count || this->hud_slots_[index] != 0;
         }
-        uintptr_t node{};
-        if (!Read(this->manager_, node)) return;
         size_t detailOwner = native_hud_window_count + static_cast<size_t>(native_dialog::details);
         const auto keep = [&](const uintptr_t primitive, const uintptr_t owner, const uintptr_t resource, const size_t index, const bool detail, const bool open) {
-            if (this->window_count_ == this->windows_.size()) return;
+            if (this->window_count_ == this->windows_.size() ||
+                std::any_of(this->windows_.begin(), this->windows_.begin() + this->window_count_, [&](const auto& value) { return value.primitive == primitive; })) return;
             std::array<int16_t, 2> current{};
             if (!Read(primitive + 0x52, current)) return;
             auto& value = this->windows_[this->window_count_++];
@@ -423,6 +456,8 @@ namespace xiui
                     }
                     break;
                 }
+            // Capture native resets before computing the shared window origin.
+            this->ObservePosition(value, current);
             if (!value.moved)
             {
                 value.original = current;
@@ -483,6 +518,9 @@ namespace xiui
                 keep(primitive, reinterpret_cast<uintptr_t>(this->editor_main_owner_.data()), resource,
                     native_hud_window_count + static_cast<size_t>(native_dialog::main_menu), false, true);
         }
+        menu submitted{};
+        if (pending != 0 && this->ReadWindow(pending, submitted))
+            keep(submitted.primitive, submitted.owner, submitted.resource, submitted.window, submitted.detail, submitted.open);
         for (size_t at = 0; at < this->window_count_; ++at)
         {
             auto& value = this->windows_[at];
@@ -553,16 +591,46 @@ namespace xiui
 
     auto native_menu_controller::BeforeDraw(const uintptr_t primitive) -> void
     {
+        if (this->state_.menu_available && !this->replaying_)
+        {
+            bool refresh = this->prepare_pending_;
+            if (!refresh)
+            {
+                const auto end = this->windows_.begin() + this->window_count_;
+                const auto known = std::find_if(this->windows_.begin(), end, [&](const auto& value) { return value.primitive == primitive && this->IsAttached(value); });
+                if (known == end)
+                {
+                    menu submitted{};
+                    refresh = this->ReadWindow(primitive, submitted);
+                }
+                else
+                {
+                    std::array<int16_t, 2> position{};
+                    uint8_t closed{};
+                    refresh = !this->state_.windows[known->window].live ||
+                        (Read(primitive + 0x70, closed) && !closed && !known->open) ||
+                        (known->moved && Read(primitive + 0x52, position) && position != known->applied);
+                }
+            }
+            if (refresh)
+            {
+                this->prepare_pending_ = false;
+                auto drawn = this->drawn_;
+                for (size_t index = 0; index < drawn.size(); ++index) drawn[index] |= this->state_.windows[index].visible;
+                this->RefreshWindows(drawn, primitive);
+                this->UpdateMenus();
+            }
+        }
         this->DrawInactive(primitive);
         for (size_t index = 0; index < this->window_count_; ++index)
             if (this->windows_[index].primitive == primitive && this->IsAttached(this->windows_[index]))
             {
                 this->drawn_[this->windows_[index].window] = true;
                 if (!this->replaying_) this->submitted_[this->windows_[index].window] = true;
+                if (this->layout_.windows[this->windows_[index].window].enabled || this->windows_[index].moved)
+                { this->MoveWindow(this->windows_[index]); return; }
+                break;
             }
-        for (size_t i = 0; i < this->window_count_; ++i)
-            if (this->windows_[i].primitive == primitive && this->layout_.windows[this->windows_[i].window].enabled)
-            { this->MoveWindow(this->windows_[i]); return; }
         for (size_t i = 0; i < this->count_; ++i)
             if (this->menus_[i].primitive == primitive) { this->Move(this->menus_[i], this->layout_.enabled); break; }
     }
@@ -620,7 +688,7 @@ namespace xiui
         this->count_ = 0; this->module_ = this->manager_ = this->config_slot_ = this->reposition_ = this->comment_draw_ = this->draw_method_ = 0;
         this->window_count_ = 0; this->windows_ = {}; this->hud_slots_ = {}; this->dialog_slots_ = {}; this->drawn_ = {};
         this->module_size_ = 0; this->state_ = {}; this->layout_ = {};
-        this->editing_ = this->replay_pending_ = this->replaying_ = false; this->submitted_ = {}; this->last_submitted_ = {};
+        this->editing_ = this->replay_pending_ = this->replaying_ = this->prepare_pending_ = false; this->submitted_ = {}; this->last_submitted_ = {};
         this->DestroyEditorMain();
         this->primitive_create_ = this->primitive_destroy_ = this->primitive_bind_ = this->primitive_select_ = this->resource_find_ = this->main_draw_ = this->main_record_ = 0;
         this->equipment_draw_ = this->frame_read_ = this->currency_draw_ = 0; this->cached_frame_init_ = {};
