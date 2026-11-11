@@ -69,6 +69,7 @@ namespace xiui
         auto Read(IAshitaCore* core, bool nativeMenuOpen) const -> module_visibility_context;
 
     private:
+        auto ReadEvent(module_visibility_context& context) const -> void;
         uintptr_t menu_slot_{};
         uintptr_t event_slot_{};
         uintptr_t event_owner_slot_{};

@@ -36,7 +36,7 @@ XIV 1.0 background opacity defaults to 40% and is adjustable under Appearance â†
 
 **Start in:** [general_module.cpp](../../src/runtime/modules/general/general_module.cpp), [global_text.cpp](../../src/runtime/config/global_text.cpp), [module_visibility.hpp](../../src/runtime/config/module_visibility.hpp), [hud_runtime_visibility.cpp](../../src/runtime/hud_runtime_visibility.cpp).
 
-**Keep intact:** Global text changes only the chosen property across HUD profiles. Presentation mode must not change native device settings. Event visibility uses the complete native predicate, not its system-enable byte. Explicit Hide all releases focus; only an explicit Window Type change with Follow game enabled may write the native setting.
+**Keep intact:** Global text changes only the chosen property across HUD profiles. Presentation mode must not change native device settings. Event visibility combines the local player's cutscene status with the complete native event predicate, not its system-enable byte alone. Inactive or unavailable native event data must not cancel an active player cutscene. Explicit Hide all releases focus; only an explicit Window Type change with Follow game enabled may write the native setting.
 
 **Focused check:** `./scripts/check.ps1 -Name global-text`, `input-mode` or `all-ui-visibility`, according to the change.
 

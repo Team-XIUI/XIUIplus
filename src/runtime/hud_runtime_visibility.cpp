@@ -188,6 +188,18 @@ namespace xiui
         this->interface_object_ = operand("8B4424046A016A0050B9????????E8????????F6D81BC040C3", 10);
     }
 
+    auto module_visibility_source::ReadEvent(module_visibility_context& context) const -> void
+    {
+        uint8_t enabled{};
+        uintptr_t owner{};
+        uint16_t entity{}, player{};
+        // The native enable byte alone does not establish an active event.
+        context.event_available = ::Read(this->event_slot_, enabled) && enabled <= 1 &&
+            ::Read(this->event_owner_slot_, owner) && ::Read(this->event_entity_slot_, entity) && ::Read(this->player_entity_slot_, player);
+        if (context.event_available) context.event_active = context.event_active || (enabled == 1 && owner != 0 && entity == player);
+        context.dialogue_active = context.dialogue_active || context.event_active;
+    }
+
     auto module_visibility_source::Read(IAshitaCore* core, const bool nativeMenuOpen) const -> module_visibility_context
     {
         module_visibility_context context{};
@@ -214,14 +226,8 @@ namespace xiui
                         break;
                     }
         }
+        this->ReadEvent(context);
         uint8_t value{};
-        uintptr_t eventOwner{};
-        uint16_t eventEntity{}, playerEntity{};
-        // The native enable byte alone does not establish an active event.
-        context.event_available = ::Read(this->event_slot_, value) && value <= 1 &&
-            ::Read(this->event_owner_slot_, eventOwner) && ::Read(this->event_entity_slot_, eventEntity) && ::Read(this->player_entity_slot_, playerEntity);
-        if (context.event_available) context.event_active = value == 1 && eventOwner != 0 && eventEntity == playerEntity;
-        context.dialogue_active = context.dialogue_active || context.event_active;
         context.interface_available = this->interface_object_ != 0 && ::Read(this->interface_object_ + 0xB4, value) && value <= 1;
         if (context.interface_available) context.interface_hidden = value == 1;
         std::array<char, 16> name{};

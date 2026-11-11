@@ -2,6 +2,8 @@
 
 ## Unreleased
 
+- Visibility: fix Hide during events leaving XIUI+ visible in cutscenes when native event data disagrees with the player's cutscene status. Preserve native dialogue and restore the HUD when the cutscene ends.
+
 - Setup: accepting Use XIUI+ with Next also hides its native counterpart, preventing duplicate chat and party/player windows after setup. Save choices even while native controls are not ready.
 
 - Native UI: add Reset All Native Windows under Window Placement and `/xiuiplus nativeui reset` to restore every native HUD/menu position while keeping visibility choices. Keep native macro replacement off by default.

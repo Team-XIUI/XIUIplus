@@ -1599,6 +1599,22 @@ namespace xiui
         eventContext = visibilitySource.Read(nullptr, false);
         if (!check(!eventContext.event_available && !eventContext.event_active,
             "an incomplete native event predicate cannot manufacture an active event")) return false;
+        struct native_event_case { uint8_t enabled; uintptr_t owner; uint16_t entity; bool readable; };
+        const std::array<native_event_case, 5> cutscenes{{
+            {1, 0, 102, true}, {1, 1, 103, true}, {0, 1, 102, true}, {2, 1, 102, true}, {1, 1, 102, false}}};
+        for (const auto& native : cutscenes)
+        {
+            eventEnabled = native.enabled; eventOwner = native.owner; eventEntity = native.entity;
+            visibilitySource.event_owner_slot_ = native.readable ? reinterpret_cast<uintptr_t>(&eventOwner) : 0;
+            eventContext = {}; eventContext.event_active = true;
+            visibilitySource.ReadEvent(eventContext);
+            if (!check(eventContext.event_active && eventContext.dialogue_active,
+                "inactive, mismatched or unavailable native event data cannot cancel the player's active cutscene")) return false;
+        }
+        eventEnabled = 1; eventOwner = 0; eventEntity = playerEntity;
+        visibilitySource.event_owner_slot_ = reinterpret_cast<uintptr_t>(&eventOwner);
+        if (!check(!visibilitySource.Read(nullptr, false).event_active,
+            "ending the player's cutscene restores idle visibility without latching the event system's enable byte")) return false;
 
         hud_runtime runtime;
         runtime.actionbars_.Load(settings_store::FromIniText("[actionbars]\nreplace_native_macros=0\n"));
@@ -1607,7 +1623,7 @@ namespace xiui
         runtime.world_info_.State().enabled = false;
         const auto nativeMask = runtime.NativeHudHiddenMask();
         const auto nativeChat = NativeHudBit(native_hud_element::chat1) | NativeHudBit(native_hud_element::chat2) | NativeHudBit(native_hud_element::chatlog);
-        runtime.visibility_context_.event_active = true;
+        runtime.visibility_context_ = eventContext;
         if (!check(!runtime.ContextVisible(runtime.chat_) && !runtime.ContextVisible(runtime.chat_second_) &&
             runtime.NativeHudHiddenMask() == (nativeMask & ~nativeChat) && (nativeMask & nativeChat) == nativeChat,
             "NPC events restore every native dialogue log while replacement chat is hidden and other HUD choices remain active")) return false;
