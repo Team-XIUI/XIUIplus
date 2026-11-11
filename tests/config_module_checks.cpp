@@ -1708,6 +1708,9 @@ namespace xiui
         runtime.config_.bounds = {40, 40, 1100, 600};
         runtime.config_.module = &runtime.pet_;
         const D3DVIEWPORT8 viewport{0, 0, 1280, 720, 0, 1};
+        runtime.hud_viewport_ = runtime.config_.focus.viewport = viewport;
+        runtime.ConfigSidebarRows();
+        for (auto& [id, transition] : runtime.config_.sidebar_animation.pages) transition.started = 0;
         const auto selectedOnly = [&](const size_t selected) {
             const auto page = runtime.ActiveConfigPage();
             if (!check(runtime.config_.module == &runtime.pet_ && runtime.pet_.ConfigView() == selected,
@@ -1720,19 +1723,23 @@ namespace xiui
         const auto count = runtime.ActiveConfigPage().SectionCount();
         for (size_t selected = 0; selected < count; ++selected)
         {
-            const auto bounds = runtime.ConfigLayout().Section(selected, count);
+            const auto rows = runtime.ConfigSidebarRows();
+            const auto row = std::find_if(rows.begin(), rows.end(), [&](const auto& item) { return item.id == "pet/" + std::to_string(selected); });
+            if (!check(row != rows.end() && row->available, "the current sidebar exposes each Pet settings view")) return false;
+            const auto bounds = row->bounds;
             runtime.mouse_x_ = static_cast<int>(bounds.x + bounds.width * 0.5f);
             runtime.mouse_y_ = static_cast<int>(bounds.y + bounds.height * 0.5f);
             runtime.ProcessPointerMessage(WM_LBUTTONDOWN, MK_LBUTTON, viewport);
             runtime.ProcessPointerMessage(WM_LBUTTONUP, 0, viewport);
             if (!selectedOnly(selected)) return false;
         }
-        runtime.config_.focus.region = config_controller_region::sections;
+        runtime.config_.focus.region = config_controller_region::categories;
         for (size_t selected = count; selected-- > 0;)
         {
-            const auto items = runtime.ControllerConfigItems(config_controller_region::sections);
-            if (!check(items.size() == count, "controller exposes all Pet settings tabs")) return false;
-            runtime.ActivateControllerConfigItem(items[selected], controller_action::confirm, false);
+            const auto items = runtime.ControllerConfigItems(config_controller_region::categories);
+            const auto item = std::find_if(items.begin(), items.end(), [&](const auto& value) { return value.id == "pet/" + std::to_string(selected); });
+            if (!check(item != items.end(), "controller exposes each Pet sidebar destination")) return false;
+            runtime.ActivateControllerConfigItem(*item, controller_action::confirm, false);
             if (!selectedOnly(selected)) return false;
         }
         const auto page = runtime.ActiveConfigPage();

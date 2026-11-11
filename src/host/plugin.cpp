@@ -397,20 +397,17 @@ namespace xiui
         UNREFERENCED_PARAMETER(dataChunk);
         if (!injected && !blocked && (id == 0x000A || id == 0x000B || id == 0x0017 || id == 0x001D || id == 0x001E || id == 0x001F || id == 0x0020 || id == 0x0021 || id == 0x0096 || id == 0x0097 ||
             id == 0x0028 || id == 0x0029 || id == 0x002D || id == 0x0050 || id == 0x0055 || id == 0x00A0 || id == 0x00D2 || id == 0x00D3 || id == 0x00DC))
-            this->runtime_.HandlePacket(id, data, size);
+            return this->runtime_.HandlePacket(id, data, size);
         return false;
     }
 
     auto plugin::HandleOutgoingPacket(uint16_t id, uint32_t size, const uint8_t* data, uint8_t* modified, uint32_t sizeChunk, const uint8_t* dataChunk, bool injected, bool blocked) -> bool
     {
-        UNREFERENCED_PARAMETER(id);
-        UNREFERENCED_PARAMETER(size);
-        UNREFERENCED_PARAMETER(data);
         UNREFERENCED_PARAMETER(modified);
         UNREFERENCED_PARAMETER(sizeChunk);
         UNREFERENCED_PARAMETER(dataChunk);
-        UNREFERENCED_PARAMETER(injected);
-        UNREFERENCED_PARAMETER(blocked);
+        if (!blocked && (id == 0x001A || id == 0x00DD))
+            this->runtime_.HandleOutgoingPacket(id, data, size, injected);
         return false;
     }
 

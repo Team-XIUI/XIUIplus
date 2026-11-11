@@ -84,6 +84,7 @@ namespace xiui
     pet_module::pet_module(const bool target) : target_(target)
     {
         if (target) this->state_.bounds = {24, 520, 280, 75};
+        this->types_[static_cast<size_t>(pet_kind::charm)].estimate_lifetime = true;
         this->ResetPortraitDefaults();
         const auto theme = ui::theme::CreateDefault();
         this->ApplyMeterDefaults(theme.meter); this->ApplyTextDefaults(theme);
@@ -130,6 +131,7 @@ namespace xiui
             return;
         }
         this->types_ = {}; this->target_settings_ = {}; this->avatar_portraits_ = {}; this->selected_avatar_ = 0; this->state_.enabled = false;
+        this->types_[static_cast<size_t>(pet_kind::charm)].estimate_lifetime = true;
         this->ResetPortraitDefaults();
         this->EndControllerStatus(); this->status_hits_.clear();
         this->ApplyMeterDefaults(theme.meter); this->ApplyTextDefaults(theme);
@@ -163,7 +165,9 @@ namespace xiui
             type.portrait = store.ReadBool(section.c_str(), "portrait", true);
             type.lifetime = store.ReadBool(section.c_str(), "lifetime", true);
             type.split_values = store.ReadBool(section.c_str(), "split_values", false); type.align_bottom = store.ReadBool(section.c_str(), "align_bottom", false);
-            type.estimate_lifetime = store.ReadBool(section.c_str(), "estimate_lifetime", false);
+            const bool charm = index == static_cast<size_t>(pet_kind::charm);
+            type.estimate_lifetime = store.ReadBool(section.c_str(), "estimate_lifetime", charm);
+            if (charm && store.ReadInt("pet", "charm_timer_version", 0) < 1) type.estimate_lifetime = true;
             type.bonus_charisma = std::clamp(store.ReadFloat(section.c_str(), "bonus_charisma", 0), 0.0f, 500.0f);
             type.recast_style.Load(store, section + ".recasts");
             const auto number = [&](const char* key, float fallback, float minimum, float maximum) {
@@ -211,6 +215,7 @@ namespace xiui
         for (size_t index = 0; index < target.text.size(); ++index)
             target.text[index] = LoadTextProfile(store, (std::string{"text.pet.target."} + text_keys[index]).c_str(), target.text[index]);
         this->animations_ = {}; this->target_animation_ = {};
+        if (this->source_) this->source_->SetBonusCharisma(this->types_[static_cast<size_t>(pet_kind::charm)].bonus_charisma);
     }
     auto pet_module::Save(const settings_store& store) const -> void
     {
@@ -219,6 +224,7 @@ namespace xiui
         store.WriteBool("pet", "enabled", this->state_.enabled); store.WriteInt("pet", "selected_type", static_cast<int>(this->view_));
         store.WriteInt("pet", "selected_avatar", this->selected_avatar_);
         store.WriteInt("pet", "portrait_preset_version", 1);
+        store.WriteInt("pet", "charm_timer_version", 1);
         for (size_t index = 0; index < this->avatar_portraits_.size(); ++index)
             this->avatar_portraits_[index].Save(store, std::string{"pet.portrait."} + std::string{ui::avatar_portrait_keys[index]});
         for (size_t index = 0; index < pet_kind_count; ++index)
@@ -303,7 +309,7 @@ namespace xiui
             {
             case 0: return module_option::Slider("Resource width", "Width of the selected resource meter; zero follows the pet window.", &type.resource_width[type.resource], 0, 1200, 1);
             case 1: return module_option::Toggle("Independent resource text", "Use separate HP, MP and TP value text profiles.", &type.split_values);
-            case 2: return module_option::Toggle("Estimated remaining lifetime", "Show a labeled estimate when jug duration or observed Charm level/stat data is available. Unknown deadlines stay unknown.", &type.estimate_lifetime).VisibleWhen(lifetimeType);
+            case 2: return module_option::Toggle("Estimated remaining lifetime", "Show an estimate from jug durations or a successful Charm's checked mob level, charisma and Charm+ gear. Charm automatically checks its target; unknown durations stay unavailable.", &type.estimate_lifetime).VisibleWhen(lifetimeType);
             case 3: return module_option::Slider("Charm bonus charisma", "Additional charisma used by future charm duration estimates.", &type.bonus_charisma, 0, 500, 1).VisibleWhen(this->view_ == static_cast<size_t>(pet_kind::charm));
             default: return module_option::Toggle("Anchor bottom", "Keep the bottom edge fixed as pet contents change height.", &type.align_bottom);
             }
@@ -340,7 +346,7 @@ namespace xiui
         case 18: return module_option::Slider("Row spacing", "Space between resources and ability timers.", &type.spacing, 0, 24, 1);
         case 19: return module_option::Toggle("Pet portrait", "Use XIUI+'s original pet artwork when available.", &type.portrait).Ordered(-50);
         case 20: return module_option::Slider("Portrait size", "Base image size in pixels; each avatar's scale adjusts this independently.", &type.portrait_size, 16, 512, 1).Ordered(100, true).VisibleWhen(type.portrait);
-        case 21: return module_option::Toggle("Lifetime information", "Show Lifetime unavailable for Jug/Charmed pets; native memory supplies no remaining deadline.", &type.lifetime).VisibleWhen(lifetimeType);
+        case 21: return module_option::Toggle("Lifetime information", "Show estimated remaining lifetime when enabled and available, or Lifetime unavailable when the duration is unknown.", &type.lifetime).VisibleWhen(lifetimeType);
         case 22: return module_option::Dropdown("Portrait position", "Inline reserves space beside the name. Overlay positions the image from the Pet window's top-left without moving text or bars.", &type.portrait_position, portraitPositions, 2).Ordered(150).VisibleWhen(type.portrait || type.icon);
         case 23: return module_option::Dropdown("Avatar image", "Choose an avatar or spirit to preview and customize. Each image retains its own scale, opacity, offsets and clipping; gameplay follows your summoned pet.", &this->selected_avatar_, ui::avatar_portrait_names, std::size(ui::avatar_portrait_names)).Ordered(-30).VisibleWhen(type.portrait || type.icon);
         case 24: return module_option::Slider("Image scale", "Scale the selected image while preserving its proportions.", &portraitStyle.scale, 0.1f, 4, 0.05f).Ordered(101).VisibleWhen(type.portrait || type.icon);
@@ -474,9 +480,9 @@ namespace xiui
     }
     auto pet_module::LifetimeLabel(const uint64_t observedSince, const uint64_t now, const bool elapsed) -> std::string
     {
-        auto text = std::string{"Lifetime unavailable"};
+        auto text = std::string{i18n::Text("Lifetime unavailable")};
         if (elapsed && observedSince != 0 && now >= observedSince)
-            text += "  Observed " + FormatRecastTime(static_cast<float>((now - observedSince) / 1000), false);
+            text = i18n::Format("Lifetime unavailable  Observed %s", FormatRecastTime(static_cast<float>((now - observedSince) / 1000), false).c_str());
         return text;
     }
     auto pet_module::Render(const hud_snapshot&, const module_render_context& context) -> void
@@ -585,16 +591,18 @@ namespace xiui
         }
         if (settings.distance || (settings.elapsed && !lifetime))
         {
-            std::string details = pet_kind_names[static_cast<size_t>(kind)];
+            std::string details = i18n::Text(pet_kind_names[static_cast<size_t>(kind)]);
             if (actual && settings.distance && snapshot.pet.distance_known)
             { char value[32]{}; std::snprintf(value, sizeof(value), "  %.1f y", snapshot.pet.distance); details += value; }
             if (actual && settings.elapsed && !lifetime && now >= snapshot.observed_since)
-                details += "  Observed " + FormatRecastTime(static_cast<float>((now - snapshot.observed_since) / 1000), false);
+                details += "  " + i18n::Format("Observed %s", FormatRecastTime(static_cast<float>((now - snapshot.observed_since) / 1000), false).c_str());
             context.DrawText(details.c_str(), {x, y, width, lineHeight(2)}, {x, y, width, lineHeight(2)}, settings.text[2]); y += lineHeight(2) + settings.spacing;
         }
         if (lifetime)
         {
-            const auto text = actual && settings.estimate_lifetime && snapshot.estimated_expires ? (snapshot.estimated_expires > now ? "Estimated " + FormatRecastTime(static_cast<float>(snapshot.estimated_expires - now) / 1000, false) : std::string{"Lifetime estimate elapsed"}) : LifetimeLabel(actual ? snapshot.observed_since : 0, now, settings.elapsed);
+            const auto text = actual && settings.estimate_lifetime && snapshot.estimated_expires ? (snapshot.estimated_expires > now ?
+                i18n::Format("Estimated %s", FormatRecastTime(static_cast<float>(snapshot.estimated_expires - now) / 1000, false).c_str()) :
+                std::string{i18n::Text("Lifetime estimate elapsed")}) : LifetimeLabel(actual ? snapshot.observed_since : 0, now, settings.elapsed);
             const ui::rect at{x, y, width, lineHeight(2)}; context.DrawText(text.c_str(), at, at, settings.text[2]); y += lineHeight(2) + settings.spacing;
         }
         this->status_bounds_ = {x, y, width, 0}; this->drawn_kind_ = kind;

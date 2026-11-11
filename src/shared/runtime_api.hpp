@@ -11,7 +11,7 @@
 
 namespace xiui
 {
-    inline constexpr uint32_t runtime_abi_version = 27;
+    inline constexpr uint32_t runtime_abi_version = 28;
 
     struct world_party_anchor
     {
@@ -92,7 +92,8 @@ namespace xiui
         BOOL (__stdcall* capture_state)(void* instance, runtime_state* state){};
         BOOL (__stdcall* apply_state)(void* instance, const runtime_state* state){};
         BOOL (__stdcall* handle_mouse)(void* instance, uint32_t message, WPARAM wParam, LPARAM lParam, BOOL blocked){};
-        void (__stdcall* handle_packet)(void* instance, uint16_t id, const uint8_t* data, uint32_t size){};
+        BOOL (__stdcall* handle_packet)(void* instance, uint16_t id, const uint8_t* data, uint32_t size){};
+        void (__stdcall* handle_outgoing_packet)(void* instance, uint16_t id, const uint8_t* data, uint32_t size, BOOL injected){};
         BOOL (__stdcall* handle_command)(void* instance, const char* command){};
         BOOL (__stdcall* toggle_edit)(void* instance){};
         BOOL (__stdcall* exit_edit)(void* instance){};

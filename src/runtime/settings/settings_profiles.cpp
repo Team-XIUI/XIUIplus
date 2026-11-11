@@ -53,6 +53,8 @@ namespace xiui
                 target.WriteInt(section, "container_opacity_version", source.ReadInt(section, "container_opacity_version", 0));
         if (!source.ReadString("satchel", "slot_background_opacity").empty())
             target.WriteInt("satchel", "slot_background_version", source.ReadInt("satchel", "slot_background_version", 0));
+        if (!source.ReadString("pet.charm", "estimate_lifetime").empty())
+            target.WriteInt("pet", "charm_timer_version", source.ReadInt("pet", "charm_timer_version", 0));
         if (!source.ReadString("notifications.group2", "enabled").empty())
             target.WriteInt("notifications", "group2_enabled_version", source.ReadInt("notifications", "group2_enabled_version", 0));
         if (!source.ReadString("target.target_of_target", "placement").empty() || !source.ReadString("target.target_of_target", "arrow").empty())

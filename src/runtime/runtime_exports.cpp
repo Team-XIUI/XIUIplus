@@ -134,9 +134,14 @@ namespace
         });
     }
 
-    auto __stdcall handle_packet(void* instance, const uint16_t id, const uint8_t* data, const uint32_t size) -> void
+    auto __stdcall handle_packet(void* instance, const uint16_t id, const uint8_t* data, const uint32_t size) -> BOOL
     {
-        guard_void(instance, [=](xiui::hud_runtime& runtime) { runtime.HandlePacket(id, data, size); });
+        return guard_bool(instance, [=](xiui::hud_runtime& runtime) { return runtime.HandlePacket(id, data, size); });
+    }
+
+    auto __stdcall handle_outgoing_packet(void* instance, const uint16_t id, const uint8_t* data, const uint32_t size, const BOOL injected) -> void
+    {
+        guard_void(instance, [=](xiui::hud_runtime& runtime) { runtime.HandleOutgoingPacket(id, data, size, injected != FALSE); });
     }
 
     auto __stdcall handle_chat(void* instance, const xiui::chat_event* event) -> void
@@ -279,6 +284,7 @@ extern "C" __declspec(dllexport) auto __stdcall XiuiGetRuntimeApi(const uint32_t
     result.apply_state = &apply_state;
     result.handle_mouse = &handle_mouse;
     result.handle_packet = &handle_packet;
+    result.handle_outgoing_packet = &handle_outgoing_packet;
     result.handle_command = &handle_command;
     result.toggle_edit = &toggle_edit;
     result.exit_edit = &exit_edit;

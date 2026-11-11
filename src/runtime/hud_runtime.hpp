@@ -118,7 +118,8 @@ namespace xiui
         }
 
         auto PostNotification(notification_event event) -> void;
-        auto HandlePacket(uint16_t id, const uint8_t* data, uint32_t size) -> void;
+        auto HandlePacket(uint16_t id, const uint8_t* data, uint32_t size) -> bool;
+        auto HandleOutgoingPacket(uint16_t id, const uint8_t* data, uint32_t size, bool injected) -> void;
         auto HandleCommand(const char* command) -> bool;
         auto ToggleEdit(void) -> bool;
         auto ExitEdit(void) -> void;

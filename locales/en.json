@@ -2642,7 +2642,7 @@
   "Show HP inside the recipient's bar.": "Show HP inside the recipient's bar.",
   "Show HP, MP and TP above their values in the XI theme. XIV 1.0 includes its own resource labels.": "Show HP, MP and TP above their values in the XI theme. XIV 1.0 includes its own resource labels.",
   "Show HP, MP, and TP.": "Show HP, MP, and TP.",
-  "Show Lifetime unavailable for Jug/Charmed pets; native memory supplies no remaining deadline.": "Show Lifetime unavailable for Jug/Charmed pets; native memory supplies no remaining deadline.",
+  "Show estimated remaining lifetime when enabled and available, or Lifetime unavailable when the duration is unknown.": "Show estimated remaining lifetime when enabled and available, or Lifetime unavailable when the duration is unknown.",
   "Show N at the top of this north-up map.": "Show N at the top of this north-up map.",
   "Show Pet Target's native frame and background in attached or independent placement.": "Show Pet Target's native frame and background in attached or independent placement.",
   "Show Recast above the list.": "Show Recast above the list.",
@@ -2653,7 +2653,7 @@
   "Show a burst window for your selected enemy after an observed skillchain.": "Show a burst window for your selected enemy after an observed skillchain.",
   "Show a fading cone in the direction your character faces.": "Show a fading cone in the direction your character faces.",
   "Show a few sample effects and countdowns in edit mode only.": "Show a few sample effects and countdowns in edit mode only.",
-  "Show a labeled estimate when jug duration or observed Charm level/stat data is available. Unknown deadlines stay unknown.": "Show a labeled estimate when jug duration or observed Charm level/stat data is available. Unknown deadlines stay unknown.",
+  "Show an estimate from jug durations or a successful Charm's checked mob level, charisma and Charm+ gear. Charm automatically checks its target; unknown durations stay unavailable.": "Show an estimate from jug durations or a successful Charm's checked mob level, charisma and Charm+ gear. Charm automatically checks its target; unknown durations stay unavailable.",
   "Show a matching chevron beside the selected entry.": "Show a matching chevron beside the selected entry.",
   "Show a second notification stack and its edit preview. Disabled assignments use Group 1 until re-enabled.": "Show a second notification stack and its edit preview. Disabled assignments use Group 1 until re-enabled.",
   "Show a slot name when no item is equipped.": "Show a slot name when no item is equipped.",
@@ -3543,5 +3543,10 @@
   "[XIUI+] Unsupported or unavailable Ashita interface (%.2f); XIUI+ was not initialized.": "[XIUI+] Unsupported or unavailable Ashita interface (%.2f); XIUI+ was not initialized.",
   "[x] Activate single import": "[x] Activate single import",
   "[x] Controller options": "[x] Controller options",
-  "[x] Link unassigned chars": "[x] Link unassigned chars"
+  "[x] Link unassigned chars": "[x] Link unassigned chars",
+  "Lifetime unavailable": "Lifetime unavailable",
+  "Lifetime unavailable  Observed %s": "Lifetime unavailable  Observed %s",
+  "Lifetime estimate elapsed": "Lifetime estimate elapsed",
+  "Estimated %s": "Estimated %s",
+  "Observed %s": "Observed %s"
 }

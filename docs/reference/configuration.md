@@ -16,6 +16,8 @@ Visual settings share one Appearance entry with indented categories such as Size
 
 The Pet tabs select the pet type whose settings you are editing, with only the current tab selected. Avatar / spirit, Jug pet, Charmed pet, Wyvern and Automaton retain independent settings; Pet Target opens the shared target settings. Visibility is controlled by Enabled and Show this pet type. `xiui_config_input_smoke --pet-tabs-only` checks exclusive selection through pointer and controller actions.
 
+Charmed pet estimates start after a successful observed Charm, using an automatic target-level check, player level, charisma and Charm+ equipment. They are enabled by default; Estimated remaining lifetime and Lifetime information control the timer. Familiar extends the current estimate. Unknown durations, including pets charmed before XIUI+ loaded, remain unavailable. Jug pets keep their separate settings and duration data.
+
 **Global → Config Settings → Config text size (px)** adjusts configuration text live from 8–18 pixels, next to Config font. The default is 14 pixels; headings and help text keep their relative sizes. This saves with profiles, resets with defaults and leaves HUD text sizes independent.
 
 **Global → Config Settings → Menu Scale (%)** enlarges the entire configuration window in 25% steps from 100% to 200%, including controls, spacing, text, menus and dialogs. Basic and Advanced share the same scale. Config text size remains an independent preference. The window keeps its position when space permits and fits the game viewport; smaller screens may limit the effective scale. The choice stays local to this installation across profiles, HUD presets and resets. HUD elements retain their own scales and positions.

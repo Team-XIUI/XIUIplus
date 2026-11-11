@@ -1,12 +1,95 @@
 #include "modules/pet/pet_module.hpp"
+#include "modules/pet/pet_lifetimes.hpp"
+#include "settings/settings_profiles.hpp"
 
 #include <cstdio>
+#include <cstring>
 
 namespace xiui
 {
     struct pet_hud_test
     {
         static auto Check(bool value, const char* message) -> bool { if (!value) std::printf("FAIL: %s\n", message); return value; }
+        static auto CharmTracking(void) -> bool
+        {
+            if (!Check(PetKind(9, 10, 0x110, "Walking Sapling") == pet_kind::charm &&
+                PetKind(9, 10, 0x100, "Walking Sapling") == pet_kind::charm && PetKind(9, 10, 0, "Walking Sapling") == pet_kind::charm &&
+                PetKind(1, 9, 0x110, "Wild Rabbit") == pet_kind::charm && PetKind(9, 0, 0x110, "Courier Carrie") == pet_kind::jug &&
+                PetKind(14, 9, 0x100, "Azure") == pet_kind::wyvern && PetKind(18, 9, 0x100, "Automaton") == pet_kind::automaton &&
+                PetKind(15, 9, 0x100, "Carbuncle") == pet_kind::avatar && PetKind(15, 9, 0x100, "Unknown Avatar") == pet_kind::avatar &&
+                PetKind(15, 9, 0x110, "Walking Sapling") == pet_kind::charm,
+                "jug names and monster flags separate charmed pets from summoned pets, including Ally-marked charms and /BST")) return false;
+            pet_source source;
+            const auto prepare = [&] {
+                source.charm_ = {};
+                source.charm_.owner = 0x01020304; source.charm_.zone = 100; source.charm_.main_job = 9;
+                source.charm_.target = 0x12345678; source.charm_.index = 17; source.charm_.attempted = 1000;
+                source.charm_.player_level = 75; source.charm_.charisma = 100; source.charm_.bonus_charisma = 20; source.charm_.gear = 4;
+                source.charm_.check_pending = source.charm_.check_owned = true;
+            };
+            prepare();
+            std::array<uint8_t, 28> reply{};
+            const auto put = [&](const size_t offset, const uint32_t value) { std::memcpy(reply.data() + offset, &value, 4); };
+            put(4, source.charm_.owner); put(8, source.charm_.target); put(12, 75); put(16, 0x40); reply[24] = 0xAE;
+            put(4, 7);
+            if (!Check(!source.ObserveCheck(reply, 1100) && source.charm_.check_pending, "another player's check cannot satisfy or consume the pending level check")) return false;
+            put(4, source.charm_.owner); put(8, 7);
+            if (!Check(!source.ObserveCheck(reply, 1100) && source.charm_.check_pending, "a different target cannot supply a Charm level")) return false;
+            put(8, source.charm_.target); reply[24] = 1;
+            if (!Check(!source.ObserveCheck(reply, 1100) && source.charm_.check_pending, "unrelated battle messages cannot masquerade as level replies")) return false;
+            reply[24] = 0xAE;
+            if (!Check(!source.ObserveCheck(std::span{reply}.first(25), 1100), "truncated check replies remain unconsumed")) return false;
+            if (!Check(source.ObserveCheck(reply, 1100) && source.charm_.level == 75 && !source.charm_.check_pending && source.charm_.started == 0,
+                "an owned targeted check records the exact level without starting a timer before Charm succeeds")) return false;
+            combat_action charm{}; charm.actor = source.charm_.owner; charm.category = 6; charm.parameter = 52 + 512; charm.target_count = 1;
+            charm.targets[0].id = source.charm_.target; charm.targets[0].message = 136;
+            source.ObserveAction(charm, 1200);
+            pet_snapshot sample{}; sample.ready = true; sample.owner = source.charm_.owner; sample.zone = 100; sample.main_job = 9;
+            sample.pet.id = source.charm_.target; sample.pet.index = 17; sample.pet.name = "Walking Sapling"; sample.kind = pet_kind::jug;
+            source.Publish(sample, 1250);
+            const auto deadline = 1200 + uint64_t{CharmLifetimeSeconds(75, 75, 100, 20, 4)} * 1000;
+            if (!Check(source.State().kind == pet_kind::charm && source.State().estimated_expires == deadline && deadline == 361200,
+                "confirmed Charm overrides ambiguous classification and estimates from success time, checked level, CHR and Charm+ gear")) return false;
+            source.SetBonusCharisma(500); source.Publish(sample, 1300);
+            if (!Check(source.State().estimated_expires == deadline, "later settings and refreshes do not restart or recalculate the active Charm")) return false;
+            auto familiar = charm; familiar.parameter = 24 + 512; familiar.targets[0].message = 108;
+            pet_source earlyFamiliar; earlyFamiliar.charm_ = source.charm_;
+            earlyFamiliar.ObserveAction(familiar, 1350); earlyFamiliar.Publish(sample, 1400);
+            if (!Check(earlyFamiliar.State().estimated_expires == deadline + 1500000,
+                "Familiar received before the first pet sample is retained with the confirmed Charm")) return false;
+            auto otherAbility = familiar; otherAbility.parameter = 8 + 512; source.ObserveAction(otherAbility, 1400);
+            otherAbility = familiar; otherAbility.targets[0].message = 137; source.ObserveAction(otherAbility, 1400);
+            if (!Check(source.State().estimated_expires == deadline, "unrelated or failed abilities cannot extend Charm")) return false;
+            source.ObserveAction(familiar, 1500); source.Publish(sample, 1550);
+            if (!Check(source.State().estimated_expires == deadline + 1500000, "successful Familiar extends the current charmed pet by the Lua data's 25 minutes")) return false;
+            prepare(); source.ObserveAction(charm, 1600); source.Publish(sample, 1650);
+            if (!Check(source.State().estimated_expires == 0, "re-charming the same entity clears its old deadline while the new level is pending")) return false;
+            source.ObserveAction(familiar, 1700);
+            source.HandleOutgoingPacket(nullptr, 0xDD, {}, 1750, false);
+            if (!Check(!source.ObserveCheck(reply, 1800) && source.charm_.level == 75, "a manual check keeps its output visible while still supplying a matching level")) return false;
+            source.Publish(sample, 1850);
+            if (!Check(source.State().estimated_expires == 1600 + 360000 + 1500000, "Familiar observed before the level reply is retained in the eventual estimate")) return false;
+            auto lost = sample; lost.pet = {}; source.Publish(lost, 1900);
+            sample.kind = pet_kind::charm; source.Publish(sample, 1950);
+            if (!Check(source.State().estimated_expires == 0 && source.charm_.target == 0, "pet loss prevents the same entity from inheriting an old Charm timer")) return false;
+            prepare(); charm.targets[0].message = 137; source.ObserveAction(charm, 2000); source.ObserveCheck(reply, 2100); source.Publish(sample, 2200);
+            if (!Check(source.State().estimated_expires == 0, "failed Charm never produces a remaining-time estimate")) return false;
+            prepare();
+            if (!Check(!source.ObserveCheck(reply, 31000), "late level replies cannot revive expired requests")) return false;
+            source.HandlePacket(nullptr, 0x000B, {}, 32000, nullptr);
+            if (!Check(source.charm_.target == 0 && source.State().pet.id == 0, "zoning clears both the request and pet lifetime")) return false;
+            pet_module module;
+            const auto legacy = settings_store::FromIniText("[pet.charm]\nestimate_lifetime=0\n[pet.jug]\nestimate_lifetime=0\n[layout.pet]\nx=407\ny=601\n");
+            module.Load(legacy);
+            if (!Check(module.types_[2].estimate_lifetime && !module.types_[1].estimate_lifetime && module.State().bounds.x == 407 && module.State().bounds.y == 601,
+                "the Charm-only default migration enables estimates without changing jug preferences or placement")) return false;
+            auto profile = settings_store::FromIniText(""); module.Save(profile);
+            OverlayProfilePreferences(profile, legacy.Preferences("")); module.Load(profile);
+            if (!Check(module.types_[2].estimate_lifetime, "an old character profile retains its migration state when overlaid on a current snapshot")) return false;
+            module.types_[2].estimate_lifetime = false; auto saved = settings_store::FromIniText(""); module.Save(saved);
+            pet_module restored; restored.Load(saved);
+            return Check(!restored.types_[2].estimate_lifetime, "a later explicit decision to hide estimates survives reload");
+        }
         static auto PortraitPresets(void) -> bool
         {
             pet_module module;
@@ -126,7 +209,7 @@ namespace xiui
         }
         static auto Run(void) -> bool
         {
-            if (!PortraitPresets() || !TargetBackground() || !Portraits()) return false;
+            if (!CharmTracking() || !PortraitPresets() || !TargetBackground() || !Portraits()) return false;
             if (!Check(PetKind(15, 0, 0x100, "Carbuncle") == pet_kind::avatar && PetKind(9, 0, 0x100, "CourierCarrie") == pet_kind::jug &&
                 PetKind(9, 0, 0x10, "Wild Rabbit") == pet_kind::charm && PetKind(14, 0, 0x100, "Azure") == pet_kind::wyvern &&
                 PetKind(18, 0, 0x100, "Automaton") == pet_kind::automaton && PetRecast(102, pet_kind::jug) && !PetRecast(102, pet_kind::wyvern),

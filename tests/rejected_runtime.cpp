@@ -20,7 +20,8 @@ namespace
     }
     auto __stdcall apply_state(void*, const xiui::runtime_state*) -> BOOL { return TRUE; }
     auto __stdcall handle_mouse(void*, uint32_t, WPARAM, LPARAM, BOOL) -> BOOL { return FALSE; }
-    auto __stdcall handle_packet(void*, uint16_t, const uint8_t*, uint32_t) -> void {}
+    auto __stdcall handle_packet(void*, uint16_t, const uint8_t*, uint32_t) -> BOOL { return FALSE; }
+    auto __stdcall handle_outgoing_packet(void*, uint16_t, const uint8_t*, uint32_t, BOOL) -> void {}
     auto __stdcall handle_command(void*, const char*) -> BOOL { return FALSE; }
     auto __stdcall handle_chat(void*, const xiui::chat_event*) -> void {}
     auto __stdcall handle_key(void*, WPARAM, LPARAM, BOOL) -> BOOL { return FALSE; }
@@ -58,6 +59,7 @@ extern "C" __declspec(dllexport) auto __stdcall XiuiGetRuntimeApi(const uint32_t
     result.apply_state = &apply_state;
     result.handle_mouse = &handle_mouse;
     result.handle_packet = &handle_packet;
+    result.handle_outgoing_packet = &handle_outgoing_packet;
     result.handle_command = &handle_command;
     result.toggle_edit = &toggle_edit;
     result.exit_edit = &exit_edit;

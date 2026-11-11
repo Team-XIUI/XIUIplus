@@ -25,7 +25,8 @@ namespace xiui
         auto RenderWorld(const hud_snapshot& snapshot) -> bool;
         auto HandleMouseMessage(uint32_t message, WPARAM wParam, LPARAM lParam, bool blocked) -> bool;
 
-        auto HandlePacket(uint16_t id, const uint8_t* data, uint32_t size) -> void;
+        auto HandlePacket(uint16_t id, const uint8_t* data, uint32_t size) -> bool;
+        auto HandleOutgoingPacket(uint16_t id, const uint8_t* data, uint32_t size, bool injected) -> void;
         auto HandleChat(chat_event event) -> void;
         auto DescribeNpcCapture(void) const -> std::string;
         auto HandleKey(WPARAM key, LPARAM flags, bool blocked) -> bool;

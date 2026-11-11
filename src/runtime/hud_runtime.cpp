@@ -1219,8 +1219,14 @@ namespace xiui
         this->notifications_.Center().Post(std::move(event), ::GetTickCount64());
     }
 
-    auto hud_runtime::HandlePacket(const uint16_t id, const uint8_t* data, const uint32_t size) -> void
+    auto hud_runtime::HandleOutgoingPacket(const uint16_t id, const uint8_t* data, const uint32_t size, const bool injected) -> void
     {
+        if (data != nullptr) this->pet_source_.HandleOutgoingPacket(this->core_, id, {data, size}, ::GetTickCount64(), injected);
+    }
+
+    auto hud_runtime::HandlePacket(const uint16_t id, const uint8_t* data, const uint32_t size) -> bool
+    {
+        bool consumed{};
         const auto now = ::GetTickCount64();
         if (id == 0x000B && this->profile_tracking_) this->ObserveProfileCharacter("");
         if (id == 0x000A || id == 0x000B) this->ReleaseControllerFocus();
@@ -1242,7 +1248,7 @@ namespace xiui
             this->combat_source_.SetRules(this->combat_settings_.Rules());
         this->combat_source_.SetSongBonuses(this->combat_settings_.SongBonuses());
             this->combat_source_.HandlePacket(this->core_, id, {data, size}, now, &actionPacket);
-            this->pet_source_.HandlePacket(this->core_, id, {data, size}, now, &actionPacket);
+            consumed = this->pet_source_.HandlePacket(this->core_, id, {data, size}, now, &actionPacket);
             this->skillchain_source_.SetRules(this->combat_settings_.Rules());
             if (this->magic_burst_.State().enabled || this->chains_.State().enabled || this->actionbars_.SkillchainPredictionsEnabled()) this->skillchain_source_.HandlePacket(this->core_, id, {data, size}, now, &actionPacket);
             else this->skillchain_source_.Clear();
@@ -1267,6 +1273,7 @@ namespace xiui
             this->ready_check_.HandlePacket(this->core_, id, {data, size}, now);
             if (id == 0x000A || id == 0x000B) this->equipment_source_.Reset();
         }
+        return consumed;
     }
 
     auto hud_runtime::HandleCommand(const char* command) -> bool

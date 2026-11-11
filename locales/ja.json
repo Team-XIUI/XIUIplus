@@ -2642,7 +2642,7 @@
   "Show HP inside the recipient's bar.": "受け手のバー内にHPを表示します。",
   "Show HP, MP and TP above their values in the XI theme. XIV 1.0 includes its own resource labels.": "XIテーマでは数値の上にHP・MP・TPを表示します。XIV 1.0は専用ラベルを使います。",
   "Show HP, MP, and TP.": "HP・MP・TPを表示します。",
-  "Show Lifetime unavailable for Jug/Charmed pets; native memory supplies no remaining deadline.": "呼び出し・あやつりペットは残存期限を標準メモリから取得できないため、取得不可と表示します。",
+  "Show estimated remaining lifetime when enabled and available, or Lifetime unavailable when the duration is unknown.": "推定表示が有効で持続時間が分かる場合は残り時間を、不明な場合は持続時間取得不可と表示します。",
   "Show N at the top of this north-up map.": "北固定の地図の上部にNを表示します。",
   "Show Pet Target's native frame and background in attached or independent placement.": "接続時・独立時にペットターゲットの標準枠と背景を表示します。",
   "Show Recast above the list.": "一覧上に再使用時間の見出しを表示します。",
@@ -2653,7 +2653,7 @@
   "Show a burst window for your selected enemy after an observed skillchain.": "観測した連携後に、選択中の敵のMB受付時間を表示します。",
   "Show a fading cone in the direction your character faces.": "キャラクターの向きに沿う、薄くなる視野を表示します。",
   "Show a few sample effects and countdowns in edit mode only.": "編集モードだけでサンプル効果と残り時間を表示します。",
-  "Show a labeled estimate when jug duration or observed Charm level/stat data is available. Unknown deadlines stay unknown.": "呼び出し持続時間やあやつるのレベル・能力値が分かれば推定を明記します。不明な期限は不明のままです。",
+  "Show an estimate from jug durations or a successful Charm's checked mob level, charisma and Charm+ gear. Charm automatically checks its target; unknown durations stay unavailable.": "呼び出しペットの持続時間、または「あやつる」成功時の確認済みモンスターレベル・CHR・あやつる効果アップ装備から残り時間を推定します。対象の強さは自動で調べ、不明な持続時間は取得不可と表示します。",
   "Show a matching chevron beside the selected entry.": "選択行の横に対応する矢印を表示します。",
   "Show a second notification stack and its edit preview. Disabled assignments use Group 1 until re-enabled.": "第2通知スタックとプレビューを表示します。無効時の割り当ては再有効化までグループ1を使います。",
   "Show a slot name when no item is equipped.": "未装備のスロット名を表示します。",
@@ -3543,5 +3543,10 @@
   "[XIUI+] Unsupported or unavailable Ashita interface (%.2f); XIUI+ was not initialized.": "[XIUI+] Ashita インターフェース（%.2f）が未対応または確認できないため、XIUI+ を初期化しませんでした。",
   "[x] Activate single import": "[x] 単一の取込を有効化",
   "[x] Controller options": "[x] コントローラー設定",
-  "[x] Link unassigned chars": "[x] 未割当キャラクターを関連付け"
+  "[x] Link unassigned chars": "[x] 未割当キャラクターを関連付け",
+  "Lifetime unavailable": "持続時間取得不可",
+  "Lifetime unavailable  Observed %s": "持続時間取得不可  観測経過 %s",
+  "Lifetime estimate elapsed": "推定持続時間が経過しました",
+  "Estimated %s": "推定残り時間 %s",
+  "Observed %s": "観測経過 %s"
 }

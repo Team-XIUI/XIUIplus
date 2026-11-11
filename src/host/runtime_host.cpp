@@ -182,13 +182,21 @@ namespace xiui
         return consumed;
     }
 
-    auto runtime_host::HandlePacket(const uint16_t id, const uint8_t* data, const uint32_t size) -> void
+    auto runtime_host::HandlePacket(const uint16_t id, const uint8_t* data, const uint32_t size) -> bool
     {
         std::lock_guard lock(this->mutex_);
         if (id == 0x000A || id == 0x000B) this->controller_mailbox_.Reset();
-        if (!this->runtime_faulted_ && this->instance_ != nullptr && this->api_.handle_packet != nullptr)
-            this->api_.handle_packet(this->instance_, id, data, size);
+        const bool consumed = !this->runtime_faulted_ && this->instance_ != nullptr && this->api_.handle_packet != nullptr &&
+            this->api_.handle_packet(this->instance_, id, data, size) != FALSE;
         if (id == 0x000A || id == 0x000B) this->RefreshInputState();
+        return consumed;
+    }
+
+    auto runtime_host::HandleOutgoingPacket(const uint16_t id, const uint8_t* data, const uint32_t size, const bool injected) -> void
+    {
+        std::lock_guard lock(this->mutex_);
+        if (!this->runtime_faulted_ && this->instance_ != nullptr && this->api_.handle_outgoing_packet != nullptr)
+            this->api_.handle_outgoing_packet(this->instance_, id, data, size, injected ? TRUE : FALSE);
     }
 
     auto runtime_host::HandleChat(chat_event event) -> void
@@ -593,6 +601,7 @@ namespace xiui
             api.apply_state != nullptr &&
             api.handle_mouse != nullptr &&
             api.handle_packet != nullptr &&
+            api.handle_outgoing_packet != nullptr &&
             api.handle_command != nullptr &&
             api.toggle_edit != nullptr &&
             api.exit_edit != nullptr &&
