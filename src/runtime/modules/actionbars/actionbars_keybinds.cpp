@@ -31,6 +31,41 @@ namespace xiui
         if (this->sounds_) this->sounds_->MenuOpened(this->now_);
     }
 
+    auto actionbars_module::BeginKeyboardTest(const bool capture, const size_t slot) -> void
+    {
+        this->EndKeyboardTest();
+        if (!capture) { this->NewDraft(action_kind::macro); this->BeginField(line_first); return; }
+        const auto index = std::min(slot, action_bar_slots - 1);
+        this->OpenKeybinds(false, 0);
+        this->test_binding_ = std::pair{index, this->bars_[0].keys[index]};
+        this->ActivateKeybindControl(keybind_key_first + static_cast<int>(index), 1);
+    }
+
+    auto actionbars_module::EndKeyboardTest(void) -> void
+    {
+        if (this->test_binding_ && this->bars_[0].keys[this->test_binding_->first] != this->test_binding_->second)
+        {
+            this->bars_[0].keys[this->test_binding_->first] = this->test_binding_->second;
+            this->settings_changed_ = true;
+        }
+        this->test_binding_.reset();
+        // The macro draft is never saved; closing discards it.
+        if (this->dialog_ == dialog::editor || this->dialog_ == dialog::keybinds) this->CloseDialog();
+        this->message_.clear();
+    }
+
+    auto actionbars_module::KeyboardTestReport(void) const -> std::string
+    {
+        std::string report = this->dialog_ == dialog::editor ? "macro editor" : this->dialog_ == dialog::keybinds ? "keybinds" :
+            this->dialog_ == dialog::none ? "no window" : "other window";
+        report += this->input_.Focused() ? "; field \"" + this->input_.Editor().Text() + "\"" : "; no field";
+        report += this->binding_capture_ ? "; capture waiting" : "; capture off";
+        if (this->test_binding_)
+            report += "; Hotbar 1 slot " + std::to_string(this->test_binding_->first + 1) + " = " + BindingLabel(this->bars_[0].keys[this->test_binding_->first]);
+        if (!this->message_.empty()) report += "; notice \"" + this->message_ + "\"";
+        return report;
+    }
+
     auto actionbars_module::KeybindRows(void) const -> size_t
     {
         const bool crossbar = this->selected_.surface == action_surface::crossbar;

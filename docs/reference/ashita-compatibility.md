@@ -20,6 +20,15 @@ Raw callback data and normalized keys appear separately in the mouse trace. Hove
 
 Run `/xiuiplus mouse clear`, open Configuration, try an ordinary click followed by a Shift-click, then run `/xiuiplus mouse status`. The trace retains six plain and six Shift button events separately, so later Shift-clicks cannot erase all plain-click evidence. Status also reports the core module name, selected SDK layout and per-mode event counts. An empty plain history means no plain button callback was recorded since clearing; it does not identify the upstream owner.
 
+## Keyboard boundary
+
+Ashita core 4.3.2.1 handles `/bind` in two places:
+
+- **Window messages:** Ashita's ImGui consumes keys first. With game text input open and `keyboard.blockbindsduringinput` on, the key goes to the game without plugin callbacks. Otherwise a key that matches a bind by key, direction and modifiers (ignoring `%`/`$` input-state flags) reaches plugin callbacks with `blocked` set. Ashita then withholds the key from the game, so no `WM_CHAR` is produced.
+- **DirectInput `GetDeviceData`:** BlockInput clears the buffer first. Matching binds then run and are removed from the buffer before plugin data callbacks see it, so a data callback cannot stop a bind.
+
+XIUI+ holds BlockInput while any surface captures the keyboard, so binds cannot run while an XIUI+ editor, chat composition or keybind capture is focused. Those surfaces accept keys marked `blocked`; elsewhere `blocked` leaves the key with its existing owner. Keybind capture rejects a blocked key, because that owner would keep it during play. Ashita cannot treat XIUI+ fields as game input, so `%`/`$` flags and a disabled `blockbindsduringinput` do not apply there: binds stay suppressed while typing in XIUI+.
+
 ## Focused validation
 
 `./scripts/check.ps1 -Name ashita-compat` covers both virtual layouts and zero-data pointer gestures. `xiui_actionbars_ui_smoke --input-ownership-only` covers Configuration capture and missed-release cancellation with normalized input.

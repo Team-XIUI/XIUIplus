@@ -223,6 +223,34 @@ namespace xiui
                 this->core_->GetChatManager()->Write(1, false, i18n::Text(this->action_executor_.Status().c_str()));
             return true;
         }
+        // Live Ashita keybind checks: AgentLink sends real keys between these steps, and an Ashita bind runs "mark".
+        if (name == "actionbars" && (argument == "test" || argument.starts_with("test ")))
+        {
+            auto step = argument.substr(4);
+            while (!step.empty() && step.front() == ' ') step.remove_prefix(1);
+            size_t slot = 12; char trailing{};
+            const bool capture = step == "capture" || std::sscanf(std::string{step}.c_str(), "capture %zu %c", &slot, &trailing) == 1;
+            auto* chat = this->core_ != nullptr ? this->core_->GetChatManager() : nullptr;
+            if (step == "mark") { ++this->actionbar_test_marks_; if (chat != nullptr) chat->Writef(1, false, "[XIUI+] Keyboard test: bind ran (%u).", this->actionbar_test_marks_); return true; }
+            if (step == "editor" || (capture && slot >= 1 && slot <= action_bar_slots))
+            {
+                this->SetVisible(true); this->ReleaseControllerFocus(); this->ReleaseChatInput(); this->SuspendSatchelInput();
+                this->actionbars_.BeginKeyboardTest(capture, slot - 1);
+                this->actionbar_test_marks_ = 0;
+            }
+            else if (step == "close") { this->actionbars_.EndKeyboardTest(); this->actionbar_test_marks_ = 0; }
+            else if (step != "status")
+            {
+                if (chat != nullptr) chat->Write(1, false, "[XIUI+] Usage: /xiuiplus actionbars test editor | capture [slot 1-12] | mark | status | close");
+                return true;
+            }
+            auto* keyboard = this->core_ != nullptr && this->core_->GetInputManager() != nullptr ? this->core_->GetInputManager()->GetKeyboard() : nullptr;
+            if (chat != nullptr)
+                chat->Writef(1, false, "[XIUI+] Keyboard test: %s; XIUI+ keyboard capture %s; Ashita BlockInput %s; bind runs %u.",
+                    this->actionbars_.KeyboardTestReport().c_str(), this->KeyboardFocused() ? "on" : "off",
+                    keyboard == nullptr ? "unavailable" : keyboard->GetBlockInput() ? "on" : "off", this->actionbar_test_marks_);
+            return true;
+        }
         if (argument == "status")
         {
             const auto& bindings = this->actionbars_.ControllerBindings();
@@ -302,14 +330,17 @@ namespace xiui
             this->actionbars_.HandleKey(key, static_cast<LPARAM>(0x80000000u));
         }
         const bool replacement = !this->editing_ && !this->actionbars_.InputFocused() && this->actionbars_.ReplacesNativeMacroKey(key);
-        if (released || blocked || !this->ActionBarsInputAvailable(replacement, this->actionbars_.InputFocused())) return false;
+        // Ashita marks keys with its own binds as blocked. Keyboard capture holds Ashita's
+        // BlockInput, which stops those binds, so the captured surface keeps typing them.
+        const bool captured = this->actionbars_.KeyboardCapture();
+        if (released || (blocked && !captured) || !this->ActionBarsInputAvailable(replacement, this->actionbars_.InputFocused())) return false;
         if (this->editing_ && !this->actionbars_.InputFocused()) return false;
         if (!this->actionbars_.InputFocused() && this->controller_surface_ != controller_surface::none &&
             this->controller_surface_ != controller_surface::hotbar && this->controller_surface_ != controller_surface::crossbar) return false;
         const bool owned = key < this->actionbar_key_release_.size() && this->actionbar_key_release_[key];
         if (!owned && !this->actionbars_.InputFocused() && !KeyboardAllowsGlobalBinding(this->window_config_.FullKeyboard(), key, flags)) return false;
         this->PrepareActionBarsExecutor(replacement);
-        const bool consumed = this->actionbars_.HandleKey(key, flags);
+        const bool consumed = this->actionbars_.HandleKey(key, flags, blocked);
         if (consumed && replacement) this->actionbars_.ObserveNativeMacroKey(key, flags, true);
         if (consumed && key < this->actionbar_key_release_.size()) this->actionbar_key_release_[key] = true;
         return consumed;

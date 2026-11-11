@@ -127,6 +127,7 @@
   "Almost ready color": "使用可能直前の色",
   "Almost ready seconds": "使用可能直前とする秒数",
   "Alpha": "透明度",
+  "Already used by an Ashita keybind or another plugin.": "Ashitaのキー割り当てまたは他のプラグインで使用中です。",
   "Also list an unclaimed selected enemy.": "未占有でも選択中の敵を一覧に含めます。",
   "Also show an empty MP bar for jobs without MP.": "MPのないジョブにも空のMPバーを表示します。",
   "Also show the ring when targeting an NPC. NPCs without HP use a full decorative band.": "NPCをターゲットしたときもリングを表示します。HPがないNPCには装飾用の全周を表示します。",

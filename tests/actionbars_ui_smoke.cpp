@@ -1784,6 +1784,44 @@ namespace xiui
             runtime->native_ui_.menu_visible = false; runtime->editing_ = true;
             Check(!runtime->HandleActionBarsKey('1', 0, false), "Configuration retains its number keys");
         }
+        // Ashita passes blocked=true for keys with its own binds; captured editors hold BlockInput, which stops those binds.
+        static auto AshitaBoundKeys(void) -> void
+        {
+            keyboard_restore restore; BYTE keys[256]{};
+            Check(SetKeyboardState(keys) != FALSE, "clear modifiers for Ashita-bound keys");
+            auto runtime = std::make_unique<hud_runtime>(); auto& module = runtime->actionbars_;
+            runtime->action_store_.SetContext({2, 0, {}});
+            module.Initialize(nullptr, &runtime->action_store_, &runtime->action_executor_); module.ApplyTextDefaults(ui::theme::CreateDefault());
+            module.viewport_ = {0, 0, 1280, 900}; module.workspace_bounds_[2] = {100, 80, 480, 548};
+            module.bars_[0].state.enabled = module.available_[0] = true;
+            module.bars_[0].keys[0] = {'K', 0};
+            runtime->action_store_.Assign(action_surface::hotbar, 0, 0, Command("Bound K"));
+            Check(!runtime->HandleActionBarsKey('K', 0, true) && runtime->action_executor_.Status().empty(),
+                "an Ashita-bound key outside an editor stays with its Ashita keybind");
+            module.BeginKeyboardTest(false, 0);
+            Check(module.dialog_ == actionbars_module::dialog::editor && module.editing_field_ == 400 && runtime->KeyboardFocused(),
+                "the live test focuses a new macro's first line and holds keyboard capture");
+            Check(runtime->HandleActionBarsKey('K', 0, true) && runtime->HandleActionBarsKey('K', static_cast<LPARAM>(0x40000000u), true) &&
+                module.input_.Editor().Text() == "kk" && runtime->action_executor_.Status().empty(),
+                "a focused macro row types Ashita-bound letters and their repeats");
+            Check(runtime->HandleActionBarsKey('K', static_cast<LPARAM>(0x80000000u), false) &&
+                !runtime->HandleActionBarsKey('K', static_cast<LPARAM>(0x80000000u), false), "the typed bound key drains its release once");
+            const auto macros = runtime->action_store_.Macros().size();
+            module.BeginKeyboardTest(true, 1);
+            Check(module.dialog_ == actionbars_module::dialog::keybinds && runtime->action_store_.Macros().size() == macros,
+                "starting the capture test discards the unsaved macro draft");
+            Check(module.binding_capture_ && module.selected_.slot == 1 && runtime->KeyboardFocused(), "keybind capture holds keyboard capture");
+            Check(runtime->HandleActionBarsKey('L', 0, true) && module.binding_capture_ && module.bars_[0].keys[1].key == 0 &&
+                module.message_ == "Already used by an Ashita keybind or another plugin.",
+                "capture rejects a key its existing owner would keep during play");
+            runtime->HandleActionBarsKey('L', static_cast<LPARAM>(0x80000000u), false);
+            Check(runtime->HandleActionBarsKey('L', 0, false) && !module.binding_capture_ && module.bars_[0].keys[1].key == 'L',
+                "an unclaimed key still binds");
+            runtime->HandleActionBarsKey('L', static_cast<LPARAM>(0x80000000u), false);
+            module.EndKeyboardTest();
+            Check(module.dialog_ == actionbars_module::dialog::none && module.bars_[0].keys[1].key == 0 && module.bars_[0].keys[0].key == 'K',
+                "closing the live test restores only the slot it captured");
+        }
         static auto NativeMacroKeyboardOwnership(void) -> void
         {
             {
@@ -2367,7 +2405,7 @@ namespace xiui
             Check(legacy.ReadString("session.config", "topic_id") == "keybinds", "topic identity persists independently of its ordinal");
             Check(runtime->config_.section == 2 && !module.DialogOpen(), "new Keybinds topic selections round trip without reopening transient workspaces");
         }
-        static auto Run(void) -> void { GlobalSettings(); GlobalCaption(); ControllerVisuals(); Ownership(); DirectInteraction(); LibraryPlacement(); LibraryEditorReturn(); StandaloneLibrary(); BarControlsAndCrossbarGeometry(); EmptyBarEditBounds(); ShiftSlotDragging(); Editing(); KeyboardAndCrossbar(); Persistence(); SlotStylePersistence(); SlotStyleCompatibility(); SlotFrameProfileOverlay(); SlotTextDefaults(); SlotStyleActions(); SlotStyleGeometry(); Keybinds(); ControllerSetup(); RuntimeOwnership(); NumberBindingOwnership(); NativeMacroKeyboardOwnership(); EditModeManagement(); DependentSettings(); WorkspaceCursors(); FloatingWorkspaces(); LibraryCategories(); LibraryLayoutAndSearch(); LibraryGridNavigation(); Configuration(); }
+        static auto Run(void) -> void { GlobalSettings(); GlobalCaption(); ControllerVisuals(); Ownership(); DirectInteraction(); LibraryPlacement(); LibraryEditorReturn(); StandaloneLibrary(); BarControlsAndCrossbarGeometry(); EmptyBarEditBounds(); ShiftSlotDragging(); Editing(); KeyboardAndCrossbar(); Persistence(); SlotStylePersistence(); SlotStyleCompatibility(); SlotFrameProfileOverlay(); SlotTextDefaults(); SlotStyleActions(); SlotStyleGeometry(); Keybinds(); ControllerSetup(); RuntimeOwnership(); NumberBindingOwnership(); AshitaBoundKeys(); NativeMacroKeyboardOwnership(); EditModeManagement(); DependentSettings(); WorkspaceCursors(); FloatingWorkspaces(); LibraryCategories(); LibraryLayoutAndSearch(); LibraryGridNavigation(); Configuration(); }
     };
 }
 
@@ -2395,7 +2433,7 @@ auto main(const int argc, char** argv) -> int
     }
     if (argc == 2 && std::strcmp(argv[1], "--input-ownership-only") == 0)
     {
-        try { xiui::actionbars_ui_test::ShiftSlotDragging(); xiui::actionbars_ui_test::WorkspaceChatCapture(); xiui::actionbars_ui_test::RuntimeOwnership(); xiui::actionbars_ui_test::NumberBindingOwnership(); xiui::actionbars_ui_test::NativeMacroKeyboardOwnership(); xiui::actionbars_ui_test::ConfigurationClose(); xiui::actionbars_ui_test::ClosePointerOwnership(); std::puts("Action bar pointer, menu and keyboard ownership checks passed."); return 0; }
+        try { xiui::actionbars_ui_test::ShiftSlotDragging(); xiui::actionbars_ui_test::WorkspaceChatCapture(); xiui::actionbars_ui_test::RuntimeOwnership(); xiui::actionbars_ui_test::NumberBindingOwnership(); xiui::actionbars_ui_test::AshitaBoundKeys(); xiui::actionbars_ui_test::NativeMacroKeyboardOwnership(); xiui::actionbars_ui_test::ConfigurationClose(); xiui::actionbars_ui_test::ClosePointerOwnership(); std::puts("Action bar pointer, menu and keyboard ownership checks passed."); return 0; }
         catch (const std::exception& error) { std::fprintf(stderr, "Action bar input check failed: %s\n", error.what()); return 1; }
     }
     if (argc == 2 && std::strcmp(argv[1], "--custom-icons-only") == 0)

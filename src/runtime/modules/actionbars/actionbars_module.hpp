@@ -81,7 +81,8 @@ namespace xiui
         auto HandleControllerAction(controller_action, bool repeated) -> bool;
         auto HandleCrossbarEvent(const controller_event&) -> bool;
         auto HandleMouse(uint32_t, WPARAM, float x, float y, bool blocked, bool editing = false) -> bool;
-        auto HandleKey(WPARAM, LPARAM) -> bool;
+        // blocked: Ashita or an earlier plugin already claimed the key.
+        auto HandleKey(WPARAM, LPARAM, bool blocked = false) -> bool;
         auto ReplacesNativeMacroKey(WPARAM) const -> bool;
         auto ReplaceNativeMacros(void) const -> bool { return this->allow_native_keys_; }
         auto ObserveNativeMacroKey(WPARAM, LPARAM, bool claimed = false) -> void;
@@ -116,6 +117,10 @@ namespace xiui
         auto OpenKeybinds(bool crossbar = false, size_t bar = 0) -> void;
         auto OpenKeybindsSection(size_t section) -> bool;
         auto OpenImport(void) -> void;
+        // Live keyboard checks (/xiuiplus actionbars test): a focused macro line or Hotbar 1 key capture.
+        auto BeginKeyboardTest(bool capture, size_t slot) -> void;
+        auto EndKeyboardTest(void) -> void;
+        auto KeyboardTestReport(void) const -> std::string;
         auto SelectedBar(void) const -> size_t { return this->view_; }
         auto TakeConfigurationRequest(void) -> std::optional<size_t> { return std::exchange(this->configuration_request_, {}); }
         auto TakeMagicBurstSettingsRequest(void) -> bool { return std::exchange(this->magic_burst_settings_request_, false); }
@@ -265,6 +270,7 @@ namespace xiui
         dialog name_return_{};
         std::optional<library_context> library_popup_{};
         address selected_{}, pressed_{};
+        std::optional<std::pair<size_t, actionbar_binding>> test_binding_{}; // Hotbar 1 slot restored after a capture test
         action_slot draft_{};
         std::string palette_id_{}, name_value_{}, import_path_{}, message_{}, query_{};
         action_import_preview import_preview_{};

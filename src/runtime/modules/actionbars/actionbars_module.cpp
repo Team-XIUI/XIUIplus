@@ -1555,7 +1555,7 @@ namespace xiui
         else label += "Key " + std::to_string(value.key);
         return label;
     }
-    auto actionbars_module::HandleKey(const WPARAM key, const LPARAM flags) -> bool
+    auto actionbars_module::HandleKey(const WPARAM key, const LPARAM flags, const bool blocked) -> bool
     {
         if (key >= this->owned_keys_.size()) return this->InputFocused();
         const bool released = (static_cast<uintptr_t>(flags) & (uintptr_t{1} << 31)) != 0;
@@ -1590,6 +1590,8 @@ namespace xiui
             if (repeated) return true;
             if (key == VK_ESCAPE) { this->binding_capture_ = false; this->message_.clear(); return true; }
             if (key == VK_CONTROL || key == VK_SHIFT || key == VK_MENU || key == VK_LWIN || key == VK_RWIN) return true;
+            // During play the existing owner keeps this key, so the hotbar binding could never fire.
+            if (blocked) { this->Notice("Already used by an Ashita keybind or another plugin."); return true; }
             const actionbar_binding binding{static_cast<uint16_t>(key), modifiers};
             if (!this->allow_native_keys_ && key >= '0' && key <= '9' && (modifiers & 3)) { this->Notice("Enable Replace native macros before binding Ctrl/Alt + numbers."); return true; }
             for (size_t bar = 0; bar < action_bar_count; ++bar)

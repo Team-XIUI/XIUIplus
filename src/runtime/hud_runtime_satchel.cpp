@@ -95,7 +95,8 @@ namespace xiui
         const bool released = (static_cast<uint32_t>(flags) & 0x80000000u) != 0;
         if (key < this->satchel_key_release_.size() && this->satchel_key_release_[key] && released)
         { this->satchel_key_release_[key] = false; return true; }
-        if (released || blocked || !this->SatchelInputAvailable(this->satchel_.InputFocused())) return false;
+        // Focused Satchel input holds Ashita's BlockInput, so Ashita-bound keys stay with its editors.
+        if (released || (blocked && !this->satchel_.InputFocused()) || !this->SatchelInputAvailable(this->satchel_.InputFocused())) return false;
         const bool focused = this->satchel_.InputFocused();
         const bool consumed = this->satchel_.HandleKey(key, flags);
         if (consumed && !focused) this->ReleaseControllerFocus();

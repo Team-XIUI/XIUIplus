@@ -2,6 +2,8 @@
 
 ## Unreleased
 
+- Ashita keybinds: fix letters and other keys bound with Ashita's `/bind` doing nothing in Action Bars macro/name/search fields and Satchel search or price fields. They now type like any other key while the field is focused, and the bind does not run. Hotbar Keybinds explains when a key is already used by an Ashita keybind or another plugin.
+
 - Status timers: use MM:SS above 60 seconds and seconds alone at 60 and below, without hour/minute suffixes. Fix hour-long Buffs/Debuffs timers ignoring the configured font size by measuring their cells and rows before drawing; keep hover and controller selection aligned.
 
 - Position saving: keep Minimap, Treasure Pool and other moved HUD elements at their saved edge positions after startup. Distinguish manual placement from automatic defaults, commit visible anchors, and keep unfinished mouse drags out of autosaves.

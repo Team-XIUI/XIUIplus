@@ -654,7 +654,14 @@ namespace xiui
             Check(input.GetBlockInput(), "hover capture blocks native mouse input before the first click");
             click(module.CharacterBounds()); Check(runtime->KeyboardFocused(), "runtime keyboard gate follows an open profile popup");
             click({4, 4, 1, 1}); Check(!runtime->KeyboardFocused(), "popup dismissal releases the actual runtime movement gate");
+            Check(!runtime->HandleSatchelKey('K', 0, true), "an Ashita-bound key stays with Ashita while Satchel only has hover");
             click(module.SearchBounds()); Check(runtime->KeyboardFocused(), "search typing owns the runtime keyboard gate");
+            {
+                keyboard_restore restore; BYTE keys[256]{};
+                Check(::SetKeyboardState(keys) != FALSE && runtime->HandleSatchelKey('K', 0, true) && module.editor_.Editor().Text() == "k" &&
+                    runtime->HandleSatchelKey('K', static_cast<LPARAM>(0x80000000u), false), "focused search types keys that Ashita reports as bound");
+                runtime->HandleSatchelKey(VK_BACK, 0, false); runtime->HandleSatchelKey(VK_BACK, static_cast<LPARAM>(0x80000000u), false);
+            }
             Check(runtime->HandleSatchelKey(VK_ESCAPE, 0, false) && !runtime->KeyboardFocused() && runtime->satchel_key_release_[VK_ESCAPE],
                 "search Escape releases movement while retaining only its matching key release");
             Check(runtime->HandleSatchelKey(VK_ESCAPE, static_cast<LPARAM>(0x80000000u), false) && !runtime->satchel_key_release_[VK_ESCAPE] &&
