@@ -1090,6 +1090,24 @@ namespace xiui
             runtime.editing_ = true;
             Check(!key('F') && !chat.HistoryFocused() && !second.HistoryFocused(), "config editing keeps F away from both chat histories");
             runtime.editing_ = false;
+
+            key(VK_ESCAPE); runtime.ReleaseControllerFocus();
+            chat.State().enabled = second.State().enabled = false;
+            runtime.native_ui_.menu_visible = false;
+            runtime.game_hud_.Load(settings_store::FromIniText("[game_hud]\nenabled=1\nshow_chat1=1\nshow_status=0\n"));
+            Check(runtime.ControllerNativeCycle() && (runtime.ControllerInputState() & controller_native_cycle) != 0 &&
+                !cycle(controller_action::cycle_window) && !runtime.buffs_.ControllerFocused(),
+                "with XIUI+ chat off and the native log shown, controller cycle leaves log selection to the game");
+            Check(runtime.BeginControllerFocus(hud_runtime::controller_surface::buffs) && !runtime.ControllerNativeCycle() &&
+                cycle(controller_action::cycle_window) && runtime.debuffs_.ControllerFocused(),
+                "controller cycle still moves from XIUI+ Buffs to Debuffs beside the native log");
+            Check(runtime.ControllerNativeCycle() && (runtime.ControllerInputState() & controller_native_cycle) != 0 &&
+                !cycle(controller_action::cycle_window), "controller cycle from the last status group returns to the native log");
+            runtime.ReleaseControllerFocus();
+            runtime.game_hud_.Load(settings_store::FromIniText("[game_hud]\nenabled=1\nshow_chat1=0\nshow_status=0\n"));
+            Check(!runtime.ControllerNativeCycle() && cycle(controller_action::cycle_window) && runtime.buffs_.ControllerFocused(),
+                "with no chat log shown, controller cycle still reaches XIUI+ Buffs");
+            runtime.ReleaseControllerFocus();
         }
 
         static auto SingleWindowHistory(void) -> void

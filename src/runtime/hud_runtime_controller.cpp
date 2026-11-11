@@ -46,6 +46,19 @@ namespace xiui
             this->controller_surface_ == controller_surface::chat2 || this->controller_surface_ == controller_surface::buffs || this->controller_surface_ == controller_surface::debuffs;
     }
 
+    // Without an XIUI+ chat window, the shown native log is the controller cycle's chat stop.
+    auto hud_runtime::ControllerNativeCycle(void) const -> bool
+    {
+        if (this->NativeWindowCycle()) return true;
+        if (this->SetupVisible() || this->editing_ || this->native_window_cycle_) return false;
+        if ((this->ContextVisible(this->chat_) && this->chat_.WindowVisible()) ||
+            (this->ContextVisible(this->chat_second_) && this->chat_second_.WindowVisible()) ||
+            (this->game_hud_.HiddenMask() & NativeHudBit(native_hud_element::chat1)) != 0) return false;
+        const bool debuffs = this->ContextVisible(this->debuffs_) && this->debuffs_.ShouldRender({});
+        return this->controller_surface_ == controller_surface::none || this->controller_surface_ == controller_surface::debuffs ||
+            (this->controller_surface_ == controller_surface::buffs && !debuffs);
+    }
+
     auto hud_runtime::UpdateNativeWindowFocus(void) -> void
     {
         if (this->SetupVisible()) return;
@@ -130,7 +143,7 @@ namespace xiui
         if (this->SetupVisible()) return revision | static_cast<uint32_t>(controller_capture_mode::exclusive);
         if (!this->visible_ || this->ControllerNativeBusy()) return revision;
         uint32_t state = revision | static_cast<uint32_t>(this->ControllerCapture());
-        if (this->NativeWindowCycle()) state |= controller_native_cycle;
+        if (this->ControllerNativeCycle()) state |= controller_native_cycle;
         if ((this->controller_surface_ == controller_surface::party || this->controller_surface_ == controller_surface::satchel || this->controller_surface_ == controller_surface::treasure) && this->ControllerSurfaceVisible()) state |= controller_party_input;
         state |= ControllerEntryBit(controller_action::focus);
         if ((this->ContextVisible(this->chat_) && this->chat_.WindowVisible()) ||
@@ -385,7 +398,7 @@ namespace xiui
         if (!this->GameWindowFocused() || this->window_input_suspended_) return false;
         if (!this->visible_ || this->ControllerNativeBusy()) { this->ReleaseControllerFocus(); return false; }
         if (!event.pressed || event.action == controller_action::none) return captured;
-        if (event.action == controller_action::cycle_window && this->NativeWindowCycle()) return false;
+        if (event.action == controller_action::cycle_window && this->ControllerNativeCycle()) return false;
         if (event.backend != controller_backend::none) this->keyboard_window_focus_ = false;
         if (event.repeated && event.action != controller_action::up && event.action != controller_action::down &&
             event.action != controller_action::left && event.action != controller_action::right) return captured;
@@ -531,10 +544,11 @@ namespace xiui
             const auto& status = this->controller_status_;
             if (this->core_ != nullptr && this->core_->GetChatManager() != nullptr)
                 this->core_->GetChatManager()->Writef(1, false,
-                    "[XIUI+] Controller: %s; enumeration %s; connection %s; input %s; bindings %s; focus %s.",
+                    "[XIUI+] Controller: %s; enumeration %s; connection %s; input %s; bindings %s; focus %s; Cycle Window %s.",
                     status.backend == controller_backend::xinput ? "XInput" : status.backend == controller_backend::direct_input ? "DirectInput" : "not detected",
                     status.enumeration_disabled ? "disabled" : "enabled", !status.connection_known ? "unknown" : status.connected ? "connected" : "disconnected",
-                    status.received_input ? "observed" : "not observed", status.bindings_known ? "resolved" : "unavailable", this->ControllerSurfaceName(this->controller_surface_));
+                    status.received_input ? "observed" : "not observed", status.bindings_known ? "resolved" : "unavailable", this->ControllerSurfaceName(this->controller_surface_),
+                    this->ControllerNativeCycle() ? "native" : "XIUI+");
             return true;
         }
         if (command == "controller" || command == "input")

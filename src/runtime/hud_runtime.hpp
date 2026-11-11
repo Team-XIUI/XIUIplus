@@ -495,6 +495,7 @@ namespace xiui
         auto SuspendWindowInput(void) -> void;
         auto UpdateNativeWindowFocus(void) -> void;
         auto NativeWindowCycle(void) const -> bool;
+        auto ControllerNativeCycle(void) const -> bool;
         bool window_input_suspended_{}, native_window_cycle_{};
         native_window_focus observed_native_focus_{};
         uintptr_t observed_native_focus_id_{};
