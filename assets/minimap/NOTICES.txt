@@ -23,3 +23,5 @@ The archive's image records can be extracted without decoding or modification.
 
 This plugin does not include or depend on the Ashita Minimap or Windower FFXIDB
 plugins. Native client map metadata supplies placement and floor selection.
+Zones without bundled artwork display the map images from the player's own
+installed client at runtime; none of those images are copied into the plugin.

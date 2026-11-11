@@ -137,9 +137,12 @@ namespace xiui
         {
             this->state_ = {}; this->next_markers_ = 0; this->state_.zone = zone; this->state_.floor = map->floor;
             this->state_.map_number = map->number;
-            const auto* resources = core->GetResourceManager();
+            auto* resources = core->GetResourceManager();
             const auto* name = resources != nullptr ? resources->GetString("zones.names", zone) : nullptr;
             this->state_.name = name != nullptr ? name : "Unknown zone";
+            char path[1024]{};
+            if (resources != nullptr) resources->GetFilePath(MinimapNativeFile(*map), path, sizeof(path) - 1);
+            this->state_.native_map = path;
         }
         this->state_.available = true; this->state_.player = MinimapUV(*map, x, y); this->state_.heading = heading;
         if (now < this->next_markers_) return;

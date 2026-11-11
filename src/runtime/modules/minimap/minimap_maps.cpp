@@ -3,6 +3,7 @@
 
 #include <algorithm>
 #include <cstring>
+#include <fstream>
 #include "src/webp/decode.h"
 
 #pragma comment(lib, "ole32.lib")
@@ -43,6 +44,37 @@ namespace xiui
             return image;
         }
         return resources::DecodeWicImage(bytes, 1024, true);
+    }
+
+    auto minimap_maps::DecodeNativeMap(const std::span<const uint8_t> dat) -> std::optional<resources::menu_texture>
+    {
+        for (size_t offset = 0; offset + 16 <= dat.size();)
+        {
+            uint32_t meta{}; std::memcpy(&meta, dat.data() + offset + 4, 4);
+            const size_t length = ((meta >> 7) & 0xFFFFF) * size_t{16};
+            if (length < 16 || length > dat.size() - offset) return {};
+            if ((meta & 0x7F) != 0x20 || length < 16 + 0x45) { offset += length; continue; }
+            const auto data = dat.subspan(offset + 16, length - 16);
+            std::optional<resources::menu_texture> image{};
+            if (data[0] == 0xA1) image = resources::DecodeMenuTexture(data);
+            else if (data[0] == 0xB1)
+            {
+                uint32_t width{}, height{}; uint16_t bits{};
+                std::memcpy(&width, data.data() + 0x15, 4); std::memcpy(&height, data.data() + 0x19, 4); std::memcpy(&bits, data.data() + 0x1F, 2);
+                constexpr size_t palette = 0x39, indices = palette + 256 * 4;
+                if (bits != 8 || width == 0 || width > 1024 || height != width || data.size() < indices || size_t{width} * height > data.size() - indices) return {};
+                image = resources::menu_texture{width, height, std::vector<uint32_t>(size_t{width} * height)};
+                // Paletted map rows are stored bottom-up.
+                for (uint32_t y = 0; y < height; ++y)
+                    for (uint32_t x = 0; x < width; ++x)
+                        std::memcpy(&image->pixels[size_t{y} * width + x], data.data() + palette + data[indices + size_t{height - 1 - y} * width + x] * 4, 4);
+            }
+            if (!image || image->width != image->height || image->width > 1024) return {};
+            // Native map alpha treats 0x80 as opaque.
+            for (auto& pixel : image->pixels) pixel = (pixel & 0xFFFFFF) | (std::min(255u, (pixel >> 24) * 2) << 24);
+            return image;
+        }
+        return {};
     }
 }
 
@@ -94,7 +126,7 @@ namespace xiui
         }
         this->wake_.notify_one();
         if (this->worker_.joinable()) this->worker_.join();
-        this->ReleaseTextures(); this->device_ = nullptr; this->records_.clear(); this->completed_.reset();
+        this->ReleaseTextures(); this->device_ = nullptr; this->records_.clear(); this->native_paths_.clear(); this->completed_.reset();
         this->initialized_ = false; this->stopping_ = false; this->selection_.reset();
     }
 
@@ -106,11 +138,29 @@ namespace xiui
             std::unique_lock lock{this->mutex_};
             this->wake_.wait(lock, [this] { return this->stopping_ || this->requested_.has_value(); });
             if (this->stopping_) break;
-            const auto request = *this->requested_; const auto bytes = this->records_[request.first].bytes;
+            const auto request = *this->requested_;
+            const bool bundled = request.first < this->records_.size();
+            const auto bytes = bundled ? this->records_[request.first].bytes : std::span<const uint8_t>{};
+            const auto path = bundled ? std::string{} : this->native_paths_[request.first - this->records_.size()];
             lock.unlock();
             std::optional<resources::menu_texture> image{};
             std::shared_ptr<const minimap_outline> outline{};
-            try { if (SUCCEEDED(com)) { image = DecodeImage(bytes); if (image) outline = ExtractOutline(*image); } } catch (...) {}
+            try
+            {
+                if (bundled && SUCCEEDED(com)) image = DecodeImage(bytes);
+                else if (!bundled)
+                {
+                    std::ifstream file{path, std::ios::binary | std::ios::ate};
+                    const auto size = file ? static_cast<std::streamoff>(file.tellg()) : 0;
+                    if (size > 0 && size <= 4 * 1024 * 1024)
+                    {
+                        std::vector<uint8_t> dat(static_cast<size_t>(size)); file.seekg(0);
+                        if (file.read(reinterpret_cast<char*>(dat.data()), size)) image = DecodeNativeMap(dat);
+                    }
+                }
+                if (image) outline = ExtractOutline(*image);
+            }
+            catch (...) {}
             lock.lock();
             if (this->requested_ == request)
             {
@@ -121,22 +171,30 @@ namespace xiui
         if (SUCCEEDED(com)) ::CoUninitialize();
     }
 
-    auto minimap_maps::Acquire(const uint16_t zone, const int floor, const bool enhanced) -> minimap_image
+    auto minimap_maps::Acquire(const uint16_t zone, const int floor, const bool enhanced, const std::string_view nativeMap) -> minimap_image
     {
         if (!this->initialized_) this->Initialize();
-        if (!this->selection_ || this->selection_->zone != zone || this->selection_->floor != floor || this->selection_->enhanced != enhanced)
+        if (!this->selection_ || this->selection_->zone != zone || this->selection_->floor != floor || this->selection_->enhanced != enhanced ||
+            this->selection_->native != nativeMap)
         {
-            this->selection_ = selection{zone, floor, enhanced, this->records_.size()};
+            this->selection_ = selection{zone, floor, enhanced, std::string{nativeMap}, no_source};
             for (size_t i = 0; i < this->records_.size(); ++i)
             {
                 const auto& record = this->records_[i];
                 if (record.zone == zone && record.floor == floor && (record.style == 0 || enhanced) &&
-                    (this->selection_->record == this->records_.size() || record.style > this->records_[this->selection_->record].style)) this->selection_->record = i;
+                    (this->selection_->record == no_source || record.style > this->records_[this->selection_->record].style)) this->selection_->record = i;
+            }
+            if (this->selection_->record == no_source && !nativeMap.empty())
+            {
+                std::lock_guard lock{this->mutex_};
+                const auto found = std::find(this->native_paths_.begin(), this->native_paths_.end(), nativeMap);
+                this->selection_->record = this->records_.size() + static_cast<size_t>(found - this->native_paths_.begin());
+                if (found == this->native_paths_.end()) this->native_paths_.emplace_back(nativeMap);
             }
         }
         const auto index = this->selection_->record;
-        if (index == this->records_.size()) return {};
-        minimap_image result{nullptr, this->records_[index].style == 1, true, this->device_ != nullptr};
+        if (index == no_source) return {};
+        minimap_image result{nullptr, index < this->records_.size() && this->records_[index].style == 1, true, this->device_ != nullptr};
         if (this->device_ == nullptr) return result;
         ++this->tick_;
         for (auto& entry : this->textures_)

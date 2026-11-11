@@ -70,6 +70,48 @@ namespace xiui
                 "disable/logout clears projection pointers and returning to the same zone resolves them again");
         }
 
+        // One 0x20 image section in DAT layout, padded to whole 16-byte blocks.
+        static auto NativeDat(const std::vector<uint8_t>& payload) -> std::vector<uint8_t>
+        {
+            const size_t length = (16 + payload.size() + 15) / 16 * 16;
+            std::vector<uint8_t> dat(length);
+            const uint32_t meta = 0x20 | static_cast<uint32_t>(length / 16) << 7;
+            std::memcpy(dat.data(), "test", 4); std::memcpy(dat.data() + 4, &meta, 4);
+            std::copy(payload.begin(), payload.end(), dat.begin() + 16);
+            return dat;
+        }
+
+        static auto CheckNativeMaps(void) -> void
+        {
+            Check(MinimapNativeFile({100, 0, 1, 0, 1, 1, 0, 1}) == 5313 && MinimapNativeFile({256, 0, 1, 17, 4, 49, 0, 275}) == 53570 &&
+                MinimapNativeFile({80, 0, 1, 1, 4, 1, 0, 149}) == 53444, "native map files follow the client's two expansion ranges");
+            const auto put = [](std::vector<uint8_t>& bytes, const size_t at, const uint32_t value, const size_t size = 4) { std::memcpy(bytes.data() + at, &value, size); };
+            std::vector<uint8_t> paletted(0x439 + 16);
+            paletted[0] = 0xB1; put(paletted, 0x15, 4); put(paletted, 0x19, 4); put(paletted, 0x1F, 8, 2);
+            put(paletted, 0x39 + 4, 0x80FF0000); paletted[0x439] = 1;
+            const auto classic = minimap_maps::DecodeNativeMap(NativeDat(paletted));
+            Check(classic && classic->width == 4 && classic->pixels[12] == 0xFFFF0000 && classic->pixels[0] == 0,
+                "paletted native maps flip their bottom-up rows and treat 0x80 alpha as opaque");
+            std::vector<uint8_t> compressed(0x45 + 16);
+            compressed[0] = 0xA1; put(compressed, 0x15, 4); put(compressed, 0x19, 4); put(compressed, 0x39, 0x44585433);
+            std::fill_n(compressed.begin() + 0x45, 8, uint8_t{0x88}); put(compressed, 0x45 + 8, 0xF800, 2);
+            const auto expansion = minimap_maps::DecodeNativeMap(NativeDat(compressed));
+            Check(expansion && expansion->width == 4 && expansion->pixels[5] == 0xFFFF0000,
+                "DXT3 native maps decode through the shared menu texture path with full alpha");
+            auto truncated = NativeDat(compressed); truncated.resize(truncated.size() - 16);
+            put(paletted, 0x19, 8);
+            Check(!minimap_maps::DecodeNativeMap(truncated) && !minimap_maps::DecodeNativeMap(NativeDat(paletted)) && !minimap_maps::DecodeNativeMap({}),
+                "truncated, non-square or empty native map DATs are rejected");
+            minimap_maps fallback; fallback.initialized_ = true;
+            Check(!fallback.Acquire(256, 0, false).known && std::strcmp(fallback.SourceName(), "none") == 0 &&
+                fallback.Acquire(256, 0, false, "C:/FFXI/ROM9/1/2.DAT").known && std::strcmp(fallback.SourceName(), "native") == 0 &&
+                fallback.native_paths_.size() == 1 && fallback.Acquire(256, 0, true, "C:/FFXI/ROM9/1/2.DAT").known && fallback.native_paths_.size() == 1,
+                "zones without bundled artwork fall back to the client's map DAT once per path");
+            minimap_maps bundled; bundled.initialized_ = true; bundled.records_.push_back({100, 0, 0, {}});
+            Check(bundled.Acquire(100, 0, false, "C:/FFXI/ROM/17/24.DAT").known && std::strcmp(bundled.SourceName(), "bundled") == 0 && bundled.native_paths_.empty(),
+                "bundled artwork stays preferred over the native map DAT");
+        }
+
         static auto Decode(minimap_maps& maps, const uint16_t zone, const int floor, const uint8_t style) -> bool
         {
             for (const auto& record : maps.records_)
@@ -100,6 +142,7 @@ auto RunMinimapChecks(void) -> bool
     try
     {
         minimap_checks::CheckFloorLookup();
+        minimap_checks::CheckNativeMaps();
         const std::array<native_map_record, 6> records{{
             {100, 0, 1, 0, 1, 1, 0, 1, -312, -248},
             {238, 1, 1, 0, 4, 3, 0, 189, -240, -328},

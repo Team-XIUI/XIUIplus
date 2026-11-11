@@ -159,7 +159,7 @@ namespace xiui
         if (!MinimapContains(view, shape, {x, y}, this->xiv1_theme_ ? view.width * .04f : 0, this->edge_style_ == 1 ? this->corner_radius_ : 0)) return false;
         if (!this->xiv1_theme_ && this->edge_style_ == 2 && shape != 1 && this->maps_ != nullptr && this->data_ != nullptr && this->data_->available)
         {
-            const auto image = this->maps_->Acquire(this->data_->zone, this->data_->floor, this->artwork_ == 1);
+            const auto image = this->maps_->Acquire(this->data_->zone, this->data_->floor, this->artwork_ == 1, this->data_->native_map);
             if (image.outline && !ui::ContourContains(view, *image.outline, {x, y})) return false;
         }
         return true;
@@ -307,7 +307,8 @@ namespace xiui
         const ui::point center{view.x + width / 2, view.y + height / 2};
         const uint16_t zone = live ? this->data_->zone : 100;
         const int floor = live ? this->data_->floor : 0;
-        const auto image = this->maps_ != nullptr && (live || context.IsEditing()) ? this->maps_->Acquire(zone, floor, this->artwork_ == 1) : minimap_image{};
+        const auto image = this->maps_ != nullptr && (live || context.IsEditing()) ?
+            this->maps_->Acquire(zone, floor, this->artwork_ == 1, live ? std::string_view{this->data_->native_map} : std::string_view{}) : minimap_image{};
         const bool burntStyle = !xiv1 && this->edge_style_ == 2 && shape != 1;
         const bool burnt = burntStyle && image.texture != nullptr && image.outline != nullptr;
         const auto coordinateEdges = xiv1 || burntStyle ? std::array<bool, 4>{} : this->coordinate_edges_;

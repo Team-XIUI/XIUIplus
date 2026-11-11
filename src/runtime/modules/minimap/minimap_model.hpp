@@ -40,6 +40,12 @@ namespace xiui
         return count == 1 ? only : nullptr;
     }
 
+    // The client's own map DAT; the low flag bit selects the later-expansion file range.
+    inline auto MinimapNativeFile(const native_map_record& map) -> uint32_t
+    {
+        return ((map.flags & 1) != 0 ? 53295u : 5312u) + map.resource;
+    }
+
     inline auto MinimapUV(const native_map_record& map, const float x, const float y) -> ui::point
     {
         const float scale = std::abs(static_cast<float>(map.scale)) / 5.0f;
@@ -131,6 +137,7 @@ namespace xiui
         ui::point player{};
         float heading{};
         std::string name{};
+        std::string native_map{};
         std::vector<minimap_marker> markers{};
     };
 }

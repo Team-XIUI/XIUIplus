@@ -1586,9 +1586,9 @@ namespace xiui
         {
             const auto& state = this->minimap_source_.State();
             if (this->core_ != nullptr && this->core_->GetChatManager() != nullptr)
-                this->core_->GetChatManager()->Writef(1, false, "[XIUI+] Minimap: native table %s; zone %u, floor %d; alignment %s; UV %.4f, %.4f; %zu markers; %zu bundled map records.",
+                this->core_->GetChatManager()->Writef(1, false, "[XIUI+] Minimap: native table %s; zone %u, floor %d; alignment %s; UV %.4f, %.4f; %zu markers; %zu bundled map records; artwork %s.",
                     this->minimap_source_.Available() ? "available" : "unavailable", state.zone, state.floor, state.available ? "available" : "unavailable",
-                    state.player.x, state.player.y, state.markers.size(), this->minimap_maps_.Count());
+                    state.player.x, state.player.y, state.markers.size(), this->minimap_maps_.Count(), this->minimap_maps_.SourceName());
             return true;
         }
         else if (::_stricmp(command, "minimap") == 0)
