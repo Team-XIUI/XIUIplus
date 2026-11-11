@@ -49,6 +49,7 @@ namespace xiui
         module_state state_{true, {24, 56, 300, 64}, 48, 24};
         const party_source* source_{};
         status_effects_module* buffs_module_{};
+        const ui::design_system* design_{};
         bool preview_{}, follow_buffs_{};
         ui::status_strip_settings settings_{};
         bool heading_{true}, background_{};
@@ -77,7 +78,7 @@ namespace xiui
         auto OuterInset(void) const -> float { const auto& style = this->StyleModule(); return style.container_.padding + (style.background_ ? style.container_.edge_size : 0); }
         auto HeadingHeight(void) const -> float;
         auto StripBounds(void) const -> ui::rect;
-        auto Layout(const effect_list& effects) const -> ui::status_strip_layout;
+        auto Layout(const effect_list& effects, uint64_t now = ::GetTickCount64()) const -> ui::status_strip_layout;
         auto ControllerIndex(const effect_list& effects) const -> std::optional<size_t>;
         auto FocusEffect(const effect_list& effects, size_t index) -> bool;
     };

@@ -65,7 +65,7 @@ namespace xiui::ui
             case 4: return module_option::Choice("Status alignment", "Align the strip within the available width.", &this->placement, placements, 3).Ordered(202).VisibleWhen(this->enabled);
             case 5: return module_option::Slider("Status X offset", "Horizontal offset in pixels.", &this->offset_x, -500, 500, 1).Ordered(210, true).VisibleWhen(this->enabled);
             case 6: return module_option::Slider("Status Y offset", "Vertical offset in pixels.", &this->offset_y, -100, 100, 1).Ordered(211).VisibleWhen(this->enabled);
-            case 7: return module_option::Toggle("Status timers", "Show countdowns. Tooltips identify XIUI+ duration estimates; local effects use native expiry times.", &this->timers).Ordered(850).VisibleWhen(this->enabled);
+            case 7: return module_option::Toggle("Status timers", "Show MM:SS above 60 seconds, or seconds alone at 60 and below. Local effects use native expiry times; tooltips identify estimates.", &this->timers).Ordered(850).VisibleWhen(this->enabled);
             case 8: return module_option::Toggle("Crowd-control timers only", "Limit countdown labels to sleep, petrification, stun, charm and terror.", &this->crowd_control_only).Ordered(851).VisibleWhen(this->enabled && this->timers);
             case 9: return module_option::Toggle("Unknown timer markers", "Show ? for unknown durations or unconfirmed secondary effects.", &this->uncertainty).Ordered(852).VisibleWhen(this->enabled && this->timers);
             case 10: return module_option::Toggle("Status tooltips", "Show game effect names and descriptions on hover or deliberate controller inspection.", &this->tooltips).Ordered(870).VisibleWhen(this->enabled);
@@ -129,22 +129,26 @@ namespace xiui::ui
     inline auto CrowdControlStatus(const uint16_t id) -> bool
     { return id == 2 || id == 7 || id == 10 || id == 14 || id == 17 || id == 18 || id == 19 || id == 28 || id == 193; }
 
+    inline auto StatusDurationText(const unsigned seconds) -> std::string
+    {
+        char text[24]{};
+        if (seconds > 60) std::snprintf(text, sizeof(text), "%02u:%02u", seconds / 60, seconds % 60);
+        else std::snprintf(text, sizeof(text), "%u", seconds);
+        return text;
+    }
+
     inline auto StatusTimerText(const combat_status& status, const uint64_t now, const status_strip_settings& settings) -> std::string
     {
         if (!settings.timers || (settings.crowd_control_only && !CrowdControlStatus(status.id))) return {};
         if (status.expires <= now) return settings.uncertainty && (status.observed != 0 || status.uncertain) ? "?" : "";
         const auto seconds = static_cast<unsigned>((status.expires - now + 999) / 1000);
-        char text[24]{};
+        auto text = StatusDurationText(seconds);
         if (status.estimated && status.earliest != 0)
         {
-            if (status.earliest > now) std::snprintf(text, sizeof(text), "%u-%u", static_cast<unsigned>((status.earliest - now + 999) / 1000), seconds);
-            else std::snprintf(text, sizeof(text), "<%u", seconds);
-            return status.unconfirmed && settings.uncertainty ? "?" + std::string{text} : std::string{text};
+            if (status.earliest > now) text = StatusDurationText(static_cast<unsigned>((status.earliest - now + 999) / 1000)) + "-" + text;
+            else text = "<" + text;
         }
-        if (seconds >= 3600) std::snprintf(text, sizeof(text), "%uh%02um", seconds / 3600, seconds / 60 % 60);
-        else if (seconds >= 60) std::snprintf(text, sizeof(text), "%u:%02u", seconds / 60, seconds % 60);
-        else std::snprintf(text, sizeof(text), "%u", seconds);
-        return status.unconfirmed && settings.uncertainty ? "?" + std::string{text} : std::string{text};
+        return status.unconfirmed && settings.uncertainty ? "?" + text : text;
     }
 
     inline auto StatusTimerBounds(const rect& icon, const status_strip_settings& settings, const module_text_profile& profile,
@@ -189,7 +193,7 @@ namespace xiui::ui
                 metrics.width = std::max(metrics.width, design.MeasureText(text.c_str(), caption.style) + 4);
                 metrics.height = std::max(metrics.height, design.TextHeight(caption.style) + 2);
             }
-            if (metrics.width > 0) metrics.width = std::max(metrics.width, design.MeasureText("0:00", caption.style) + 4);
+            if (metrics.width > 0) metrics.width = std::max(metrics.width, design.MeasureText("00:00", caption.style) + 4);
         }
         return LayoutStatusStrip(statuses.size(), bounds, settings, metrics);
     }
@@ -244,10 +248,10 @@ namespace xiui::ui
     }
 
     inline auto StatusStripHit(const std::span<const combat_status> statuses, const rect& bounds,
-        const status_strip_settings& settings, const float x, const float y) -> std::optional<status_tooltip>
+        const status_strip_settings& settings, const float x, const float y, const status_strip_layout* measured = nullptr) -> std::optional<status_tooltip>
     {
         if (!settings.tooltips) return std::nullopt;
-        const auto layout = LayoutStatusStrip(statuses.size(), bounds, settings);
+        const auto layout = measured != nullptr ? *measured : LayoutStatusStrip(statuses.size(), bounds, settings);
         for (size_t index = 0; index < layout.count; ++index)
         {
             const auto icon = layout.Icon(index);

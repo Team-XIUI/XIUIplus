@@ -163,6 +163,21 @@ namespace xiui
         static auto Timers(void) -> void
         {
             {
+                ui::status_strip_settings settings;
+                struct timer_case { unsigned seconds; const char* text; };
+                const std::array<timer_case, 9> cases{{{1, "1"}, {59, "59"}, {60, "60"}, {61, "01:01"},
+                    {119, "01:59"}, {120, "02:00"}, {3599, "59:59"}, {3600, "60:00"}, {21420, "357:00"}}};
+                for (const auto& test : cases)
+                    Check(ui::StatusTimerText({41, 0, 1000, 1000 + uint64_t{test.seconds} * 1000}, 1000, settings) == test.text,
+                        "native countdowns use total minutes and seconds, switching to seconds alone at 60");
+                Check(ui::StatusTimerText({41, 0, 1000, 61001}, 1000, settings) == "01:01",
+                    "fractional seconds round up at the minute boundary");
+                combat_status range{}; range.id = 4; range.estimated = true; range.earliest = 62000; range.expires = 121000;
+                Check(ui::StatusTimerText(range, 1000, settings) == "01:01-02:00", "estimated ranges share the countdown format");
+                range.earliest = 1000; range.unconfirmed = true;
+                Check(ui::StatusTimerText(range, 1000, settings) == "?<02:00", "estimated bounds retain their uncertainty markers");
+            }
+            {
                 combat_source effects;
                 combat_action action{}; action.actor = 99; action.category = 4; action.target_count = 1;
                 action.targets[0].id = 100; action.targets[0].result_count = 1;
@@ -239,7 +254,7 @@ namespace xiui
             ui::status_strip_settings settings;
             source.ApplyStatus(100, 4, 58, 236, 1000);
             const auto paralyze = source.Find(100)->statuses.front();
-            Check(paralyze.estimated && paralyze.expires == 121000 && ui::StatusTimerText(paralyze, 1000, settings) == "2:00",
+            Check(paralyze.estimated && paralyze.expires == 121000 && ui::StatusTimerText(paralyze, 1000, settings) == "02:00",
                 "confirmed Paralyze keeps estimate metadata with a plain countdown label");
             source.ApplyStatus(100, 4, 58, 75, 5000);
             source.ApplyStatus(100, 4, 58, 85, 6000);

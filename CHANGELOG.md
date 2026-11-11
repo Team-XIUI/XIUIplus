@@ -2,6 +2,8 @@
 
 ## Unreleased
 
+- Status timers: use MM:SS above 60 seconds and seconds alone at 60 and below, without hour/minute suffixes. Fix hour-long Buffs/Debuffs timers ignoring the configured font size by measuring their cells and rows before drawing; keep hover and controller selection aligned.
+
 - Position saving: keep Minimap, Treasure Pool and other moved HUD elements at their saved edge positions after startup. Distinguish manual placement from automatic defaults, commit visible anchors, and keep unfinished mouse drags out of autosaves.
 
 - Visibility: fix Hide during events leaving XIUI+ visible in cutscenes when native event data disagrees with the player's cutscene status. Preserve native dialogue and restore the HUD when the cutscene ends.

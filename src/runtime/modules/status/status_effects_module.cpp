@@ -183,19 +183,26 @@ namespace xiui
             std::max(1.0f, this->state_.bounds.width - inset * 2), 0};
     }
 
-    auto status_effects_module::Layout(const effect_list& effects) const -> ui::status_strip_layout
-    { return ui::LayoutStatusStrip(effects.count, this->StripBounds(), this->StyleModule().settings_); }
+    auto status_effects_module::Layout(const effect_list& effects, const uint64_t now) const -> ui::status_strip_layout
+    {
+        const auto& style = this->StyleModule();
+        return this->design_ != nullptr ? ui::LayoutStatusStrip(effects.Effects(), this->StripBounds(), now, style.text_[1], *this->design_, style.settings_) :
+            ui::LayoutStatusStrip(effects.count, this->StripBounds(), style.settings_);
+    }
 
     auto status_effects_module::Render(const hud_snapshot&, const module_render_context& context) -> void
     {
+        this->design_ = &context.Design();
+        const auto now = ::GetTickCount64();
         const auto& style = this->StyleModule();
         const auto effects = this->Effects(context.IsEditing());
-        const auto strip = this->Layout(effects);
+        const auto strip = this->Layout(effects, now);
         const auto inset = this->OuterInset();
         const auto emptyHeight = effects.count == 0 && context.IsEditing() ? std::max(16.0f, style.text_[1].style.scale * 18) : 0;
-        this->state_.minimum_width = style.settings_.size + inset * 2;
+        this->state_.minimum_width = std::max(style.settings_.size, strip.cell_width) + inset * 2;
+        this->state_.bounds.width = std::max(this->state_.bounds.width, this->state_.minimum_width);
         this->state_.minimum_height = inset * 2 + this->HeadingHeight() + std::max(emptyHeight,
-            ui::StatusStripHeight(effects.count, this->StripBounds().width, style.settings_));
+            ui::StatusStripHeight(strip, style.settings_));
         this->state_.bounds.height = this->state_.minimum_height;
         if (style.background_) context.DrawContainer(this->state_.bounds, style.container_);
         if (style.heading_)
@@ -205,7 +212,7 @@ namespace xiui
             const auto title = std::string{i18n::Text(this->DisplayName())} + (context.IsEditing() && this->preview_ ? i18n::Text(" (Preview)") : "");
             context.DrawText(title.c_str(), heading, heading, style.text_[0]);
         }
-        ui::DrawStatusStrip(effects.Effects(), this->StripBounds(), ::GetTickCount64(), style.text_[1], context, style.settings_);
+        ui::DrawStatusStrip(effects.Effects(), this->StripBounds(), now, style.text_[1], context, style.settings_, &strip);
         if (emptyHeight > 0)
         {
             const auto at = this->StripBounds();
@@ -332,14 +339,15 @@ namespace xiui
         const auto& style = this->StyleModule();
         if (!this->state_.enabled || !style.settings_.tooltips) return;
         const auto effects = this->Effects(context.IsEditing());
+        const auto layout = this->Layout(effects);
         std::optional<ui::status_tooltip> tooltip;
         if (controller)
         {
             const auto index = this->ControllerIndex(effects);
             if (!index) return;
-            tooltip = ui::status_tooltip{effects.entries[*index], this->Layout(effects).Icon(*index), effects.player};
+            tooltip = ui::status_tooltip{effects.entries[*index], layout.Icon(*index), effects.player};
         }
-        else tooltip = ui::StatusStripHit(effects.Effects(), this->StripBounds(), style.settings_, this->state_.transform.InverseX(x), this->state_.transform.InverseY(y));
+        else tooltip = ui::StatusStripHit(effects.Effects(), this->StripBounds(), style.settings_, this->state_.transform.InverseX(x), this->state_.transform.InverseY(y), &layout);
         if (!tooltip) return;
         tooltip->bounds = this->state_.transform.Map(tooltip->bounds);
         if (resources == nullptr && this->source_ != nullptr) resources = this->source_->Resources();

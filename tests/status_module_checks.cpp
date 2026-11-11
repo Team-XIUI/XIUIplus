@@ -99,6 +99,37 @@ namespace xiui
                 debuffs.Option(status_effects_module::appearance_options_start + 1).toggle == &debuffs.background_ &&
                 debuffs.Option(status_effects_module::text_options_start).choice == &debuffs.text_[2].placement,
                 "turning follow off restores the independent Debuffs presentation")) return false;
+            {
+                ui::design_system design;
+                party_source timedSource;
+                auto& local = timedSource.members_[0]; local.active = local.buffs_known = true; local.id = 50;
+                local.buff_count = 4; local.buffs = {33, 41, 2, 10};
+                local.buff_expires = {now + 3600000, now + 21420000, now + 3600000, now + 21420000};
+                for (const bool isDebuff : {false, true})
+                {
+                    status_effects_module timed{isDebuff}; timed.SetSource(&timedSource); timed.ApplyTextDefaults(theme);
+                    timed.design_ = &design; timed.State().bounds.width = 160;
+                    timed.text_[1].style.scale = 12 / ui::text_base_pixels;
+                    const auto effects = timed.Effects(); const auto compactLayout = timed.Layout(effects, now);
+                    timed.text_[1].style.scale = 38 / ui::text_base_pixels;
+                    const auto large = timed.Layout(effects, now);
+                    const auto caption = ui::StatusTimerProfile(timed.text_[1], timed.settings_);
+                    if (!Check(large.count == 2 && large.cell_width > compactLayout.cell_width && large.timer_height > compactLayout.timer_height,
+                        "Buffs and Debuffs honor configured timer text size for hour-long effects")) return false;
+                    for (size_t i = 0; i < large.count; ++i)
+                    {
+                        const auto icon = large.Icon(i);
+                        const auto text = ui::StatusTimerText(effects.entries[i], now, timed.settings_);
+                        const auto label = ui::StatusTimerBounds(icon, timed.settings_, timed.text_[1], large.cell_width, large.timer_height);
+                        if (!Check(design.MeasureText(text.c_str(), caption.style) <= label.width && design.TextHeight(caption.style) <= label.height,
+                            "native multi-hour labels fit their measured cells without shrinking their text profile")) return false;
+                        const auto hit = ui::StatusStripHit(effects.Effects(), timed.StripBounds(), timed.settings_, icon.x + icon.width / 2, icon.y + icon.height / 2, &large);
+                        if (!Check(hit && hit->status.id == effects.entries[i].id, "hover uses the same font-aware status layout as rendering")) return false;
+                    }
+                    if (!Check(timed.BeginControllerBrowse() && timed.ControllerBounds().x == large.Icon(0).x && timed.ControllerBounds().y == large.Icon(0).y,
+                        "controller inspection follows the measured status icon positions")) return false;
+                }
+            }
             return true;
         }
     };
