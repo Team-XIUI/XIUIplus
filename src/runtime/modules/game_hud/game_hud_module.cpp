@@ -8,6 +8,7 @@ namespace xiui
     {
         this->preferences_ = this->defaults_;
         this->instant_macro_bar_ = this->default_instant_macro_bar_;
+        this->menus_above_chat_ = this->default_menus_above_chat_;
         this->visibility_edits_ |= (uint32_t{1} << native_hud_window_count) - 1;
     }
 
@@ -15,6 +16,7 @@ namespace xiui
     {
         this->defaults_.enabled = store.ReadBool("game_hud", "enabled", true);
         this->default_instant_macro_bar_ = store.ReadBool("game_hud", "instant_macro_bar", false);
+        this->default_menus_above_chat_ = store.ReadBool("game_hud", "menus_above_chat", true);
         for (size_t index = 0; index < native_hud_options.size(); ++index)
         {
             const auto key = std::string{"show_"} + native_hud_options[index].key;
@@ -26,6 +28,7 @@ namespace xiui
     {
         this->preferences_.enabled = store.ReadBool("game_hud", "enabled", this->defaults_.enabled);
         this->instant_macro_bar_ = store.ReadBool("game_hud", "instant_macro_bar", this->default_instant_macro_bar_);
+        this->menus_above_chat_ = store.ReadBool("game_hud", "menus_above_chat", this->default_menus_above_chat_);
         for (size_t index = 0; index < native_hud_options.size(); ++index)
         {
             const auto key = std::string{"show_"} + native_hud_options[index].key;
@@ -37,6 +40,7 @@ namespace xiui
     {
         store.WriteBool("game_hud", "enabled", this->preferences_.enabled);
         store.WriteBool("game_hud", "instant_macro_bar", this->instant_macro_bar_);
+        store.WriteBool("game_hud", "menus_above_chat", this->menus_above_chat_);
         for (size_t index = 0; index < native_hud_options.size(); ++index)
         {
             const auto key = std::string{"show_"} + native_hud_options[index].key;
@@ -48,6 +52,8 @@ namespace xiui
     {
         if (index == reset_positions_option)
             return module_option::Action("Reset All Native Windows", "Restore default positions for every native HUD window, menu and dialog. Visibility choices are kept.", "Reset all").Ordered(5);
+        if (index == menus_above_chat_option)
+            return module_option::Toggle("Keep menus above chat", "Native menus and dialogs that open above the game's chat log, such as commands, shop prompts and NPC choices, open above XIUI+ chat instead. Windows with a custom position stay where you placed them.", &this->menus_above_chat_).Ordered(6);
         if (index == instant_macro_option + 7) return this->names_ != nullptr ? this->names_->Option(this->name_option_) : module_option{};
         if (index == instant_macro_option + 8) return this->macros_ != nullptr ? this->macros_->Option(this->macro_option_) : module_option{};
         if (index == instant_macro_option + 1)
@@ -94,7 +100,7 @@ namespace xiui
             for (auto& window : this->windows_) window.OnOptionChanged(4);
         else if (index == instant_macro_option + 7 && this->names_ != nullptr) this->names_->OnOptionChanged(this->name_option_);
         else if (index == instant_macro_option + 8 && this->macros_ != nullptr) this->macros_->OnOptionChanged(this->macro_option_);
-        else if (index > instant_macro_option + 1 && this->SelectedWindow() != nullptr) this->SelectedWindow()->OnOptionChanged(index - instant_macro_option - 2);
+        else if (index > instant_macro_option + 1 && index < reset_positions_option && this->SelectedWindow() != nullptr) this->SelectedWindow()->OnOptionChanged(index - instant_macro_option - 2);
         if (index == hide_all_option) this->HideAll();
         else if (index == show_all_option) this->ShowAll();
     }

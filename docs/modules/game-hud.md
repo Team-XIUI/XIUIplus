@@ -1,6 +1,6 @@
 # Native UI
 
-The main **Native UI** category owns **HUD Windows** and **Menus and Dialogs**. HUD Windows has Visibility, Window Placement and Native Macro Bar pages, including overhead-name visibility and native macro replacement (off by default). Window Placement's Reset All Native Windows and `/xiuiplus nativeui reset` share the same action: clear placement overrides for the complete HUD/menu catalog without changing visibility. Preferences are saved independently for each window.
+The main **Native UI** category owns **HUD Windows** and **Menus and Dialogs**. HUD Windows has Visibility, Window Placement and Native Macro Bar pages, including overhead-name visibility and native macro replacement (off by default). Window Placement's Reset All Native Windows and `/xiuiplus nativeui reset` share the same action: clear placement overrides for the complete HUD/menu catalog without changing visibility. Preferences are saved independently for each window. **Keep menus above chat** (on by default) lifts menus the game stacks above its log above XIUI+ chat; see [native menus](commands.md).
 
 **Start in:** [game_hud_module.cpp](../../src/runtime/modules/game_hud/game_hud_module.cpp), [native_window_module.hpp](../../src/runtime/modules/game_hud/native_window_module.hpp), [hud_runtime_native.cpp](../../src/runtime/hud_runtime_native.cpp), [native_hud_controller.cpp](../../src/host/native_hud_controller.cpp), [plugin.cpp](../../src/host/plugin.cpp).
 

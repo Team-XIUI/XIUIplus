@@ -40,6 +40,7 @@ namespace xiui
         std::array<bool, native_window_count> drawn_{};
         std::array<bool, native_window_count> submitted_{}, last_submitted_{};
         std::array<std::array<int, 2>, native_window_count> origins_{};
+        std::array<int16_t, native_window_count> chat_shifts_{};
         uintptr_t module_{}, manager_{}, config_slot_{}, reposition_{}, draw_method_{};
         uintptr_t primitive_create_{}, primitive_destroy_{}, primitive_bind_{}, primitive_select_{}, resource_find_{}, main_draw_{}, main_record_{};
         uintptr_t equipment_draw_{}, frame_read_{}, currency_draw_{};
@@ -55,6 +56,7 @@ namespace xiui
         static auto ObservePosition(menu& value, const std::array<int16_t, 2>& current) -> void;
         auto UpdateWindows(void) -> void;
         auto RefreshWindows(const std::array<bool, native_window_count>& drawn, uintptr_t pending = 0) -> void;
+        auto UpdateChatShifts(const std::array<std::array<int, 4>, native_window_count>& native, int logLine) -> void;
         auto ReadWindow(uintptr_t primitive, menu& value) const -> bool;
         auto UpdateMenuVisibility(void) -> void;
         auto DrawInactive(uintptr_t current) -> void;

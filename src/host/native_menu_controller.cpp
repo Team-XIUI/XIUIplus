@@ -267,7 +267,9 @@ namespace xiui
         this->ObservePosition(value, current);
         auto placement = this->layout_.windows[value.window];
         if (restore) placement.enabled = false;
+        const int shift = restore || placement.enabled ? 0 : this->chat_shifts_[value.window];
         auto target = value.original;
+        if (shift != 0) target[1] = static_cast<int16_t>(value.original[1] - shift);
         if (placement.enabled)
         {
             if (!this->state_.windows[value.window].live) return;
@@ -282,7 +284,34 @@ namespace xiui
         }
         if (current != target && !Reposition(this->reposition_, value.primitive, target[0], target[1])) return;
         this->UpdateOwnedContent(value);
-        value.applied = target; value.moved = placement.enabled;
+        value.applied = target; value.moved = placement.enabled || shift != 0;
+    }
+
+    auto native_menu_controller::UpdateChatShifts(const std::array<std::array<int, 4>, native_window_count>& native, const int logLine) -> void
+    {
+        this->chat_shifts_ = {};
+        const float height = this->state_.reference_height;
+        if (logLine <= -32000 || height <= 0) return;
+        const float scaleX = this->layout_.viewport_width > 0 && this->state_.reference_width > 0 ? this->state_.reference_width / this->layout_.viewport_width : 1;
+        const float scaleY = this->layout_.viewport_height > 0 ? height / this->layout_.viewport_height : 1;
+        float top = 32000, left = 32000, right = -32000;
+        for (const auto& chat : this->layout_.chat_windows)
+        {
+            // Chat placed in the upper half does not stand in for the bottom log.
+            if (chat.width <= 0 || chat.height <= 0 || (chat.y + chat.height) * scaleY <= height * .5f) continue;
+            top = std::min(top, chat.y * scaleY);
+            left = std::min(left, chat.x * scaleX); right = std::max(right, (chat.x + chat.width) * scaleX);
+        }
+        if (right <= left || !std::isfinite(top) || logLine <= top) return;
+        const int shift = static_cast<int>(std::ceil(std::min(logLine - top, 16000.0f)));
+        for (size_t index = native_hud_window_count; index < native_window_count; ++index)
+        {
+            const auto& rect = native[index];
+            // The game stacks these windows on its log line; one shared shift keeps that stack intact above XIUI+ chat.
+            if (this->layout_.windows[index].enabled || rect[2] <= rect[0] || rect[3] > logLine + 4 || rect[3] <= height * .5f ||
+                rect[2] <= left || rect[0] >= right) continue;
+            this->chat_shifts_[index] = static_cast<int16_t>(std::clamp(std::min(shift, rect[1]), 0, 16000));
+        }
     }
 
     auto native_menu_controller::UpdateOwnedContent(const menu& value) -> void
@@ -445,6 +474,11 @@ namespace xiui
         menu submitted{};
         if (pending != 0 && this->ReadWindow(pending, submitted))
             keep(submitted.primitive, submitted.owner, submitted.resource, submitted.window, submitted.open);
+        std::array<std::array<int, 4>, native_window_count> native{};
+        native.fill({32000, 32000, -32000, -32000});
+        uintptr_t logOwner{};
+        int logLine{-32000};
+        Read(this->hud_slots_[static_cast<size_t>(native_hud_element::chat1)], logOwner);
         for (size_t at = 0; at < this->window_count_; ++at)
         {
             auto& value = this->windows_[at];
@@ -454,6 +488,11 @@ namespace xiui
             if (value.window == static_cast<size_t>(native_hud_element::status) && !StatusBounds(value.primitive, value.owner, frame)) continue;
             std::array<int16_t, 2> position{};
             if (!Read(value.primitive + 0x52, position)) continue;
+            const int dx = value.original[0] - position[0], dy = value.original[1] - position[1];
+            auto& source = native[value.window];
+            source = {std::min(source[0], frame[0] + dx), std::min(source[1], frame[1] + dy), std::max(source[2], frame[2] + dx), std::max(source[3], frame[3] + dy)};
+            // Menus anchor to the log's position line, not its message-dependent frame top.
+            if (logOwner != 0 && value.owner == logOwner) logLine = value.original[1];
             const bool custom = this->layout_.windows[value.window].enabled;
             const float left = static_cast<float>(frame[0] + (custom ? value.original[0] - position[0] : 0));
             const float top = static_cast<float>(frame[1] + (custom ? value.original[1] - position[1] : 0));
@@ -470,9 +509,13 @@ namespace xiui
             this->origins_[value.window][0] = std::min(this->origins_[value.window][0], static_cast<int>(left));
             this->origins_[value.window][1] = std::min(this->origins_[value.window][1], static_cast<int>(top));
         }
+        this->UpdateChatShifts(native, logLine);
         for (size_t at = 0; at < this->window_count_; ++at)
-            if ((this->windows_[at].open && this->layout_.windows[this->windows_[at].window].enabled) || this->windows_[at].moved)
+        {
+            const auto window = this->windows_[at].window;
+            if ((this->windows_[at].open && (this->layout_.windows[window].enabled || this->chat_shifts_[window] != 0)) || this->windows_[at].moved)
                 this->MoveWindow(this->windows_[at], !this->windows_[at].open);
+        }
     }
 
     auto native_menu_controller::DestroyEditorMain(void) -> void
@@ -551,7 +594,8 @@ namespace xiui
             {
                 this->drawn_[this->windows_[index].window] = true;
                 if (!this->replaying_) this->submitted_[this->windows_[index].window] = true;
-                if (this->layout_.windows[this->windows_[index].window].enabled || this->windows_[index].moved)
+                const auto window = this->windows_[index].window;
+                if (this->layout_.windows[window].enabled || this->chat_shifts_[window] != 0 || this->windows_[index].moved)
                 { this->MoveWindow(this->windows_[index]); return; }
                 break;
             }
@@ -586,7 +630,7 @@ namespace xiui
         // Restore only panels still present in the live list, never cached freed objects.
         this->Update({});
         this->module_ = this->manager_ = this->config_slot_ = this->reposition_ = this->draw_method_ = 0;
-        this->window_count_ = 0; this->windows_ = {}; this->hud_slots_ = {}; this->dialog_slots_ = {}; this->drawn_ = {};
+        this->window_count_ = 0; this->windows_ = {}; this->hud_slots_ = {}; this->dialog_slots_ = {}; this->drawn_ = {}; this->chat_shifts_ = {};
         this->module_size_ = 0; this->state_ = {}; this->layout_ = {};
         this->editing_ = this->replay_pending_ = this->replaying_ = this->prepare_pending_ = false; this->submitted_ = {}; this->last_submitted_ = {};
         this->DestroyEditorMain();

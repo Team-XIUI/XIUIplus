@@ -2416,6 +2416,8 @@
   "Shown wardrobes": "Shown wardrobes",
   "[XIUI+] All native window positions reset. Visibility choices kept.": "[XIUI+] All native window positions reset. Visibility choices kept.",
   "Reset All Native Windows": "Reset All Native Windows",
+  "Keep menus above chat": "Keep menus above chat",
+  "Native menus and dialogs that open above the game's chat log, such as commands, shop prompts and NPC choices, open above XIUI+ chat instead. Windows with a custom position stay where you placed them.": "Native menus and dialogs that open above the game's chat log, such as commands, shop prompts and NPC choices, open above XIUI+ chat instead. Windows with a custom position stay where you placed them.",
   "Reset all": "Reset all",
   "Restore default positions for every native HUD window, menu and dialog. Visibility choices are kept.": "Restore default positions for every native HUD window, menu and dialog. Visibility choices are kept.",
   "Restore Satchel": "Restore Satchel",

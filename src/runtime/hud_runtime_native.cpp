@@ -15,6 +15,17 @@ namespace xiui
         layout.viewport_width = static_cast<float>(this->hud_viewport_.Width);
         layout.viewport_height = static_cast<float>(this->hud_viewport_.Height);
         if (!this->visible_) return layout;
+        if (this->game_hud_.MenusAboveChat())
+        {
+            size_t count{};
+            for (const auto* chat : {&this->chat_, &this->chat_second_})
+            {
+                if (!this->ContextVisible(*chat) || !chat->ShouldRender(this->layout_snapshot_)) continue;
+                // Saved bounds, not the collapsing compact frame, so open menus stay put as chat idles.
+                const auto bounds = chat->State().transform.Map(chat->State().bounds);
+                layout.chat_windows[count++] = {bounds.x, bounds.y, bounds.width, bounds.height};
+            }
+        }
         for (size_t index = 0; index < this->native_windows_.size(); ++index)
         {
             layout.windows[index] = this->native_windows_[index].Placement();

@@ -11,7 +11,7 @@
 
 namespace xiui
 {
-    inline constexpr uint32_t runtime_abi_version = 29;
+    inline constexpr uint32_t runtime_abi_version = 30;
 
     struct world_party_anchor
     {

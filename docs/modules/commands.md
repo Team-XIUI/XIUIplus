@@ -22,8 +22,10 @@ Opening windows acquire their saved position and visibility before their first n
 
 Saved positions use only `native.<window>` preferences. Each window reads and saves its own position and visibility directly. There is no shared command anchor, grouped-position import or automatic placement of sibling windows. Resetting a window clears only that window's placement.
 
+**Keep menus above chat** (HUD Windows → Window Placement, on by default) emulates the game's log anchor for windows without a custom position. The host reads the native log's position line (not its message-dependent frame top) and the saved bounds of visible XIUI+ chat windows in the lower half of the screen. Lower-half menu windows that end at or above that line and overlap the chat horizontally share one upward shift, keeping their native stacking and staying on screen. The editor reports the shifted rectangle so enabling a custom position starts where the window appears. The native log and HUD windows never shift.
+
 NPC choices, guild/reward menus, item descriptions and Command Menu keep independent positions and visibility. Native input ownership is observed from live open menu owners before applying placement or visibility preferences. A hidden or moved menu still owns its native input; item descriptions alone do not claim menu input.
 
-**Focused checks:** `native-ui`, `xiui_casting_smoke --commands-only` and `xiui_native_hud_target_smoke --menus-only` cover selectors/results, content coordinates, native page reuse, guild/reward choices with all three item-description windows, input ownership, visibility, restoration and controller routes.
+**Focused checks:** `native-ui`, `xiui_casting_smoke --commands-only` and `xiui_native_hud_target_smoke --menus-only` cover selectors/results, content coordinates, native page reuse, guild/reward choices with all three item-description windows, input ownership, visibility, restoration, keeping menus above chat and controller routes.
 
 [Shared foundations](../foundations.md) · [Check commands](../../tests/README.md)

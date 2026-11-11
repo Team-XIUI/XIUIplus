@@ -2,6 +2,8 @@
 
 ## Unreleased
 
+- Native menus: commands, shop Buy/Cancel prompts, NPC choices and other menus that open above the game's chat log now open above XIUI+ chat instead of behind it. **Keep menus above chat** is on by default under Native UI → HUD Windows → Window Placement; windows with a custom position stay where you placed them. Item details and the job change menu no longer follow a shared command anchor.
+
 - Ashita keybinds: fix letters and other keys bound with Ashita's `/bind` doing nothing in Action Bars macro/name/search fields and Satchel search or price fields. They now type like any other key while the field is focused, and the bind does not run. Hotbar Keybinds explains when a key is already used by an Ashita keybind or another plugin.
 
 - Status timers: use MM:SS above 60 seconds and seconds alone at 60 and below, without hour/minute suffixes. Fix hour-long Buffs/Debuffs timers ignoring the configured font size by measuring their cells and rows before drawing; keep hover and controller selection aligned.
@@ -17,7 +19,7 @@
 - Native UI editing: display the game's actual native HUD and party/menu rendering, with small labels and edit controls at native window coordinates. Remove recreated contents, sample frames and the placeholder grid. Only windows observed in the native draw path receive outlines; visibility choices resume when native editing ends.
 
 - Native UI: add a main configuration category for native HUD windows, overhead names, macro palette controls and menus/dialogs. Split command settings into named pages for spells/abilities, item details, merchants, auctions, bazaar comments, equipment/inspection, macro palettes and other dialogs.
-- Edit Mode: add a compact right-edge two-icon selector between XIUI and Native UI editing. Native windows/groups have labeled outlines, independent placement, Show/Hide controls and scoped position resets, with shared pointer/controller actions. Existing settings and shared command anchors remain compatible.
+- Edit Mode: add a compact right-edge two-icon selector between XIUI and Native UI editing. Native windows/groups have labeled outlines, independent placement, Show/Hide controls and scoped position resets, with shared pointer/controller actions.
 
 - Configuration: unify Menu Scale, configuration text styling and Follow moved module settings under Config Settings in General's secondary navigation.
 - Imports: remove whole legacy XIUI Lua profile conversion. Import only actions, shared macros and hotbar/crossbar palettes through Action Bars → Import; keep current HUD appearance, layout and controller settings.

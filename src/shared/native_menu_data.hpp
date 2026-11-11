@@ -13,9 +13,16 @@ namespace xiui
         std::array<native_window_state, native_window_count> windows{};
     };
 
+    struct native_screen_rect
+    {
+        float x{}, y{}, width{}, height{};
+    };
+
     struct native_menu_layout
     {
         float viewport_width{}, viewport_height{};
         std::array<native_window_placement, native_window_count> windows{};
+        // Visible XIUI+ chat windows in viewport pixels; empty when menus keep native placement.
+        std::array<native_screen_rect, 2> chat_windows{};
     };
 }

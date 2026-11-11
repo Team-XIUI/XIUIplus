@@ -2416,6 +2416,8 @@
   "Shown wardrobes": "表示するワードローブ",
   "[XIUI+] All native window positions reset. Visibility choices kept.": "[XIUI+] すべての標準ウィンドウの位置を初期位置に戻しました。表示・非表示の設定は維持されています。",
   "Reset All Native Windows": "すべての標準ウィンドウをリセット",
+  "Keep menus above chat": "メニューをチャットの上に表示",
+  "Native menus and dialogs that open above the game's chat log, such as commands, shop prompts and NPC choices, open above XIUI+ chat instead. Windows with a custom position stay where you placed them.": "コマンド・ショップの確認・NPCの選択肢など、ゲームのチャットログの上に開く標準メニューやダイアログを、XIUI+のチャットの上に表示します。個別配置したウィンドウはその位置のままです。",
   "Reset all": "すべてリセット",
   "Restore default positions for every native HUD window, menu and dialog. Visibility choices are kept.": "標準HUD・メニュー・ダイアログすべての位置を初期位置に戻します。表示・非表示の設定は維持されます。",
   "Restore Satchel": "サッチェルを元に戻す",

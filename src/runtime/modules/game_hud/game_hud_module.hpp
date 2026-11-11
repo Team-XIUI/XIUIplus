@@ -24,14 +24,15 @@ namespace xiui
         static constexpr size_t show_all_option = hide_all_option + 1;
         static constexpr size_t instant_macro_option = show_all_option + 1;
         static constexpr size_t reset_positions_option = instant_macro_option + 9;
-        auto ContentOptionCount(void) const -> size_t override { return reset_positions_option + 1; }
+        static constexpr size_t menus_above_chat_option = reset_positions_option + 1;
+        auto ContentOptionCount(void) const -> size_t override { return menus_above_chat_option + 1; }
         auto ContentOption(size_t index) -> module_option override;
         auto OnContentOptionChanged(size_t index) -> void override;
         auto ConfigSections(void) const -> std::span<const module_config_section> override;
         auto ContentConfigSectionContains(size_t section, size_t option) -> bool override
         {
             if (option == instant_macro_option || option == instant_macro_option + 8) return section == 2;
-            if (option == reset_positions_option) return section == 1;
+            if (option == reset_positions_option || option == menus_above_chat_option) return section == 1;
             return section == (option > instant_macro_option && option < instant_macro_option + 7 ? size_t{1} : size_t{0});
         }
         auto BindNativeOptions(hud_module& names, size_t nameOption, hud_module& macros, size_t macroOption) -> void
@@ -49,6 +50,7 @@ namespace xiui
         auto SetDefaults(const settings_store& store) -> void;
         auto HiddenMask(void) const -> uint32_t { return this->preferences_.HiddenMask(); }
         auto InstantMacroBar(void) const -> bool { return this->instant_macro_bar_; }
+        auto MenusAboveChat(void) const -> bool { return this->menus_above_chat_; }
         auto SetShown(std::string_view key, bool shown) -> bool;
         auto HideAll(void) -> void { this->preferences_.enabled = true; this->preferences_.shown.fill(false); this->visibility_edits_ |= (uint32_t{1} << native_hud_window_count) - 1; }
         auto ShowAll(void) -> void { this->preferences_.shown.fill(true); this->visibility_edits_ |= (uint32_t{1} << native_hud_window_count) - 1; }
@@ -58,6 +60,7 @@ namespace xiui
         native_hud_preferences preferences_{};
         native_hud_preferences defaults_{};
         bool instant_macro_bar_{}, default_instant_macro_bar_{};
+        bool menus_above_chat_{true}, default_menus_above_chat_{true};
         uint32_t available_{};
         uint32_t visibility_edits_{};
         std::span<native_window_module> windows_{};

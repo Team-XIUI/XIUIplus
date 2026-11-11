@@ -4111,6 +4111,7 @@ Regenerate with `./scripts/update-docs.ps1`. Each bullet is one visual row; [emp
 - Native window | Use custom position
 - Position X | Position Y
 - Restore native position | Reset All Native Windows
+- Keep menus above chat
 
 ### Native Macro Bar
 
@@ -4859,4 +4860,4 @@ Regenerate with `./scripts/update-docs.ps1`. Each bullet is one visual row; [emp
 
 ## Coverage
 
-358 registered modules, 620 distinct pages, 4942 controls across those pages, and 2355 selector/view combinations.
+358 registered modules, 620 distinct pages, 4943 controls across those pages, and 2355 selector/view combinations.

@@ -356,6 +356,40 @@ namespace xiui
                 "returning to a reused page applies its position and visibility on the same draw")) return false;
             controller.Shutdown();
 
+            command = {}; magic = {}; details = {}; money = {}; storage = {};
+            initialize(storage, "menu    logwindo", {16, 898, 804, 1064}, 2);
+            const std::array<int16_t, 2> logPosition{16, 930}; std::memcpy(storage.primitive.data() + 0x52, logPosition.data(), 4);
+            initialize(command, "menu    shopbuy ", {16, 888, 128, 928}, 2);
+            initialize(magic, "menu    shopmain", {16, 856, 128, 896}, 0);
+            initialize(details, "menu    shop    ", {16, 48, 290, 238}, 0);
+            initialize(money, "menu    loot    ", {1500, 800, 1800, 900}, 3);
+            link(manager, 0, storage.node.data()); link(storage.node, 0, command.node.data()); link(command.node, 0, magic.node.data());
+            link(magic.node, 0, details.node.data()); link(details.node, 0, money.node.data());
+            uintptr_t logOwner = reinterpret_cast<uintptr_t>(storage.owner.data());
+            controller.hud_slots_[static_cast<size_t>(native_hud_element::chat1)] = reinterpret_cast<uintptr_t>(&logOwner);
+            controller.manager_ = reinterpret_cast<uintptr_t>(manager.data()); controller.state_.menu_available = true;
+            controller.reposition_ = reinterpret_cast<uintptr_t>(&Position);
+            const auto buy = native_hud_window_count + NativeMenuWindowIndex("shopbuy ");
+            native_menu_layout chatLayout{}; chatLayout.viewport_width = 2560; chatLayout.viewport_height = 1440;
+            chatLayout.chat_windows = {native_screen_rect{8, 1223, 695, 207}, native_screen_rect{8, 1008, 745, 201}};
+            controller.Update(chatLayout); controller.Update(chatLayout);
+            if (!check(command.Coordinates() == std::array<int16_t, 2>{16, 714} && magic.Coordinates() == std::array<int16_t, 2>{16, 682} &&
+                details.Coordinates() == std::array<int16_t, 2>{16, 48} && money.Coordinates() == std::array<int16_t, 2>{1500, 800} &&
+                storage.Coordinates() == logPosition && controller.State().windows[buy].y == 714,
+                "windows stacked on the native log line move together above stacked XIUI+ chat; other windows and the log stay native")) return false;
+            chatLayout.windows[buy] = {true, false, 400, 300}; controller.Update(chatLayout);
+            if (!check(command.Coordinates() == std::array<int16_t, 2>{300, 225} && magic.Coordinates() == std::array<int16_t, 2>{16, 682},
+                "a custom position overrides keeping menus above chat")) return false;
+            chatLayout.windows[buy] = {}; chatLayout.chat_windows[1] = {}; controller.Update(chatLayout);
+            if (!check(command.Coordinates() == std::array<int16_t, 2>{16, 875} && magic.Coordinates() == std::array<int16_t, 2>{16, 843},
+                "a single chat window raises the stack only by its overlap with the native log line")) return false;
+            chatLayout.chat_windows[0] = {8, 100, 695, 207}; controller.Update(chatLayout);
+            if (!check(command.Coordinates() == std::array<int16_t, 2>{16, 888}, "chat in the upper half leaves bottom menus native")) return false;
+            chatLayout.chat_windows = {}; controller.Update(chatLayout);
+            if (!check(command.Coordinates() == std::array<int16_t, 2>{16, 888} && magic.Coordinates() == std::array<int16_t, 2>{16, 856},
+                "turning the option off restores native positions")) return false;
+            controller.Shutdown();
+
             for (size_t index = 0; index < std::size(native_menu_windows); ++index)
             {
                 command = {}; magic = {}; link(manager, 0, static_cast<void*>(nullptr));
