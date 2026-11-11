@@ -398,7 +398,6 @@ namespace xiui
         const auto transientMask = this->macro_palette_available_ ? native_keyboard_macro_palette : 0;
         hiddenMask = this->LoggedIn() ? hiddenMask & (this->available_ | transientMask) : 0;
         auto menuLayout = layout;
-        menuLayout.enabled = menuLayout.enabled && this->LoggedIn();
         this->menus_.SetEditing(nativeEditing && this->LoggedIn());
         if (!this->LoggedIn()) menuLayout.windows = {};
         this->menus_.Update(menuLayout);
@@ -407,7 +406,7 @@ namespace xiui
         const uint32_t windowMask = hiddenMask & ~(NativeHudBit(native_hud_element::compass) | NativeHudBit(native_hud_element::clock));
         this->hidden_.store(hiddenMask, std::memory_order_release);
         const bool customWindows = std::any_of(menuLayout.windows.begin(), menuLayout.windows.end(), [](const auto& window) { return window.enabled || window.hidden; });
-        if (!this->SetHook(windowMask != 0 || nativeEditing || ((menuLayout.enabled || customWindows) && this->menus_.State().menu_available)))
+        if (!this->SetHook(windowMask != 0 || nativeEditing || (customWindows && this->menus_.State().menu_available)))
         {
             this->hidden_.store(0, std::memory_order_release);
             this->RestoreTargetBox();

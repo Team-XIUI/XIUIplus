@@ -11,7 +11,9 @@ namespace xiui
 
     auto hud_runtime::MenuLayout(void) const -> native_menu_layout
     {
-        auto layout = this->commands_.Layout(this->visible_);
+        native_menu_layout layout{};
+        layout.viewport_width = static_cast<float>(this->hud_viewport_.Width);
+        layout.viewport_height = static_cast<float>(this->hud_viewport_.Height);
         if (!this->visible_) return layout;
         for (size_t index = 0; index < this->native_windows_.size(); ++index)
         {

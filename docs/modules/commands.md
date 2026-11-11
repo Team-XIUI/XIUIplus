@@ -20,8 +20,10 @@ Native Edit Mode adds labels, outlines and Show/Hide controls to actual native s
 
 Opening windows acquire their saved position and visibility before their first native draw. The render preparation pass discovers complete groups, including Character Status/EXP and equipment content; a validated draw-time fallback handles primitives created later in that pass. Page reuse and game coordinate resets use the same discovery and positioning code without clearing frame-submission history.
 
-Saved positions use `native.<window>` preferences. A versioned split migration turns older family placements into individual positions while retaining each window's native relative offset. Pending offsets persist for unopened windows. The old shared command anchor is converted to independent placements and is not exported as live runtime coupling. Resetting a window clears only that window's placement; its siblings stay unchanged.
+Saved positions use only `native.<window>` preferences. Each window reads and saves its own position and visibility directly. There is no shared command anchor, grouped-position import or automatic placement of sibling windows. Resetting a window clears only that window's placement.
 
-**Focused checks:** `native-ui` and `xiui_native_hud_target_smoke --menus-only` cover independent selectors/results, content coordinates, native page reuse, visibility, restoration, migration and controller routes.
+NPC choices, guild/reward menus, item descriptions and Command Menu keep independent positions and visibility. Native input ownership is observed from live open menu owners before applying placement or visibility preferences. A hidden or moved menu still owns its native input; item descriptions alone do not claim menu input.
+
+**Focused checks:** `native-ui`, `xiui_casting_smoke --commands-only` and `xiui_native_hud_target_smoke --menus-only` cover selectors/results, content coordinates, native page reuse, guild/reward choices with all three item-description windows, input ownership, visibility, restoration and controller routes.
 
 [Shared foundations](../foundations.md) · [Check commands](../../tests/README.md)

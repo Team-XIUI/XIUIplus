@@ -15,36 +15,24 @@ namespace xiui
         auto State(void) const -> const module_state& override { return this->state_; }
         auto SupportsScale(void) const -> bool override { return false; }
         auto EditGrip(void) const -> edit_grip_kind override { return edit_grip_kind::none; }
-        auto VisitTextSettings(const text_settings_visitor& visit) -> void override
-        { VisitTextStyles(visit, {&this->text_.style}); }
-        auto ApplyTextDefaults(const ui::theme& theme) -> void override { this->text_.style = theme.meter_text; this->text_.style.scale = 0.72f; }
         auto ResetDefaults(const ui::theme& theme) -> void override;
         auto Load(const settings_store& store) -> void override;
         auto Save(const settings_store& store) const -> void override;
-        auto ContentOptionCount(void) const -> size_t override { return 8; }
+        auto ContentOptionCount(void) const -> size_t override { return 6; }
         auto ContentOption(size_t index) -> module_option override;
         auto ConfigSections(void) const -> std::span<const module_config_section> override;
         auto ContentConfigSectionContains(size_t section, size_t index) -> bool override
-        { this->SelectSection(section); return section < native_dialog_labels.size() && index >= 2; }
+        { this->SelectSection(section); return section < native_dialog_labels.size() && index < this->ContentOptionCount(); }
         auto SetWindows(std::span<native_window_module> windows) -> void { this->windows_ = windows; }
         auto SelectSection(size_t section) -> void { this->section_ = std::min(section, native_dialog_labels.size() - 1); }
         auto SelectedWindow(void) const -> native_window_module*;
         auto SelectWindow(size_t window) -> void;
-        auto OnContentOptionChanged(size_t index) -> void override { if (index >= 3 && this->SelectedWindow() != nullptr) this->SelectedWindow()->OnOptionChanged(index - 3); }
-        auto OnPositionChanged(void) -> void override { this->position_initialized_ = true; }
-        auto Update(const native_ui_state& value, float viewportWidth, float viewportHeight) -> void;
-        auto Layout(bool visible) const -> native_menu_layout;
-        auto AnchorsTop(void) const -> bool { return this->anchor_ == 0; }
+        auto OnContentOptionChanged(size_t index) -> void override { if (index >= 1 && this->SelectedWindow() != nullptr) this->SelectedWindow()->OnOptionChanged(index - 1); }
         auto ShouldRender(const hud_snapshot&) const -> bool override { return false; }
         auto Render(const hud_snapshot&, const module_render_context& context) -> void override;
 
     private:
-        module_state state_{true, {-1, -1, 112, 168}, 32, 24};
-        native_ui_state native_{};
-        module_text_profile text_{};
-        bool position_initialized_{};
-        int anchor_{1};
-        float viewport_width_{}, viewport_height_{};
+        module_state state_{true, {}, 32, 24};
         std::span<native_window_module> windows_{};
         size_t section_{};
         std::array<int, static_cast<size_t>(native_dialog::count)> selected_windows_{};

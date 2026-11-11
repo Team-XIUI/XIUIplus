@@ -1612,10 +1612,11 @@ namespace xiui
                 this->core_->GetChatManager()->Writef(1, false, "[XIUI+] Window / bar theme: %s.", ui::appearance_themes[this->general_.AppearanceTheme()]);
             const auto& state = this->native_ui_;
             if (this->core_ != nullptr && this->core_->GetChatManager() != nullptr)
-                this->core_->GetChatManager()->Writef(1, false, "[XIUI+] Native UI: Window Type %u (%s); command module %s; %u active command panels; anchor %s; movement %s; themed bars %s.",
-                    state.window_type + 1, state.window_type_available ? "following game" : "unavailable", this->commands_.State().enabled ? "enabled" : "disabled",
-                    state.menu_count, this->commands_.AnchorsTop() ? "Top" : "Bottom", state.menu_available ? "available" : "unavailable",
-                    this->native_assets_.MeterSkin() && this->container_renderer_.MeterBackground().texture != nullptr ? "available" : "unavailable");
+                this->core_->GetChatManager()->Writef(1, false, i18n::Text("[XIUI+] Native UI: Window Type %u (%s); native menu %s; %zu custom positions; movement %s; themed bars %s."),
+                    state.window_type + 1, i18n::Text(state.window_type_available ? "Following game" : "Unavailable"), i18n::Text(state.menu_visible ? "Open" : "Closed"),
+                    std::count_if(this->native_windows_.begin(), this->native_windows_.end(), [](const auto& window) { return window.Placement().enabled; }),
+                    i18n::Text(state.menu_available ? "Available" : "Unavailable"),
+                    i18n::Text(this->native_assets_.MeterSkin() && this->container_renderer_.MeterBackground().texture != nullptr ? "Available" : "Unavailable"));
             if (::_stricmp(command, "commands status") == 0 && this->core_ != nullptr && this->core_->GetChatManager() != nullptr)
                 for (size_t index = 0; index < this->native_windows_.size(); ++index)
                 {
@@ -2870,7 +2871,6 @@ namespace xiui
         D3DVIEWPORT8 viewport{};
         if (FAILED(this->device_->GetViewport(&viewport)))
             return;
-        this->commands_.Update(snapshot.native_ui, static_cast<float>(viewport.Width), static_cast<float>(viewport.Height));
         this->UpdateNativeWindows(viewport);
         this->container_renderer_.SetAppearanceTheme(this->general_.AppearanceTheme());
         this->design_system_.SetAppearanceTheme(this->general_.AppearanceTheme());

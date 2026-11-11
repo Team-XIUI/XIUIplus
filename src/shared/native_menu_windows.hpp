@@ -14,7 +14,6 @@ namespace xiui
         const char* label;
         native_dialog category;
         uint8_t variant{};
-        native_dialog legacy_category{category};
     };
 
     // Each entry owns one window. Aliases below cover alternate DATs and inseparable visual parts.
@@ -76,7 +75,7 @@ namespace xiui
         {"gmtell  ", "window.gmtell", "GM Message", native_dialog::other},
         {"inspect ", "window.inspect", "Inspection", native_dialog::equipment},
         {"money   ", "window.money", "Gil", native_dialog::details},
-        {"moneyctr", "window.moneyctr", "Gil Entry", native_dialog::trade, 0, native_dialog::other},
+        {"moneyctr", "window.moneyctr", "Gil Entry", native_dialog::trade, 0},
         {"mcresed ", "window.mcresed", "Macro Set Editor", native_dialog::macros},
         {"eventtim", "window.eventtim", "Event Timer", native_dialog::other},
         {"cnttime ", "window.cnttime", "Countdown", native_dialog::other},
@@ -286,8 +285,8 @@ namespace xiui
         {"plnt4   ", "window.plnt4", "Gardening Details", native_dialog::mog_house},
         {"plnt5   ", "window.plnt5", "Gardening Results", native_dialog::mog_house},
         {"plnt6   ", "window.plnt6", "Gardening Confirmation", native_dialog::mog_house},
-        {"evitem  ", "window.currencies", "Currencies", native_dialog::status, 1, native_dialog::other},
-        {"evitem  ", "window.currencies2", "Currencies 2", native_dialog::status, 2, native_dialog::other},
+        {"evitem  ", "window.currencies", "Currencies", native_dialog::status, 1},
+        {"evitem  ", "window.currencies2", "Currencies 2", native_dialog::status, 2},
     };
 
     constexpr auto NativeMenuWindowIndex(std::string_view resource, const uint8_t variant = 0) -> size_t

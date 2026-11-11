@@ -6,23 +6,14 @@
 
 namespace xiui
 {
-    auto command_menu_module::ResetDefaults(const ui::theme& theme) -> void
+    auto command_menu_module::ResetDefaults(const ui::theme&) -> void
     {
-        const auto native = this->native_;
-        const auto windows = this->windows_;
-        *this = {};
-        this->windows_ = windows;
-        this->native_ = native;
-        this->ApplyTextDefaults(theme);
+        this->selected_windows_.fill(0);
+        this->section_ = 0;
     }
 
     auto command_menu_module::Load(const settings_store& store) -> void
     {
-        this->state_.enabled = store.ReadBool("commands", "enabled", true);
-        this->state_.bounds = store.ReadRect("layout.commands", this->state_.bounds);
-        this->position_initialized_ = store.ReadBool("commands", "position_initialized", false);
-        this->anchor_ = std::clamp(store.ReadInt("commands", "window_anchor", 1), 0, 1);
-        this->text_ = LoadTextProfile(store, "text.commands.preview", this->text_);
         this->selected_windows_.fill(0);
         for (size_t category = 0; category < this->selected_windows_.size(); ++category)
         {
@@ -39,11 +30,6 @@ namespace xiui
 
     auto command_menu_module::Save(const settings_store& store) const -> void
     {
-        store.WriteBool("commands", "enabled", this->state_.enabled);
-        store.WriteRect("layout.commands", this->state_.bounds);
-        store.WriteBool("commands", "position_initialized", this->position_initialized_);
-        store.WriteInt("commands", "window_anchor", this->anchor_);
-        SaveTextProfile(store, "text.commands.preview", this->text_);
         for (size_t category = 0; category < this->selected_windows_.size(); ++category)
         {
             int ordinal{};
@@ -106,27 +92,14 @@ namespace xiui
 
     auto command_menu_module::ContentOption(const size_t index) -> module_option
     {
-        if (index >= 3) return this->SelectedWindow() != nullptr ? this->SelectedWindow()->Option(index - 3) : module_option{};
-        if (index == 2)
+        if (index >= 1) return this->SelectedWindow() != nullptr ? this->SelectedWindow()->Option(index - 1) : module_option{};
+        if (index == 0)
         {
             const auto& choices = MenuChoices(this->section_);
             return module_option::Dropdown("Native window", "Select the exact window to edit. The submenu and each result panel have their own positions and visibility.",
                 &this->selected_windows_[this->section_], choices.labels.data(), choices.labels.size()).Ordered(-30);
         }
         return {};
-    }
-
-    auto command_menu_module::Update(const native_ui_state& value, const float viewportWidth, const float viewportHeight) -> void
-    {
-        this->native_ = value;
-        this->viewport_width_ = viewportWidth; this->viewport_height_ = viewportHeight;
-    }
-
-    auto command_menu_module::Layout(const bool) const -> native_menu_layout
-    {
-        const auto& bounds = this->state_.bounds;
-        return {false,
-            bounds.x, bounds.y + bounds.height, this->viewport_width_, this->viewport_height_, this->AnchorsTop(), bounds.y};
     }
 
     auto command_menu_module::Render(const hud_snapshot&, const module_render_context&) -> void {}

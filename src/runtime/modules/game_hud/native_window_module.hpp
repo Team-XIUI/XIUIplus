@@ -26,7 +26,7 @@ namespace xiui
         auto OnScreen(void) const -> bool { return this->editing_ && this->native_visible_; }
         auto HeaderWidth(void) const -> float { return std::max(160.0f, this->state_.bounds.width); }
         auto SetEditing(bool editing) -> void { this->editing_ = editing; }
-        auto ResetDefaults(const ui::theme&) -> void override { this->custom_ = this->hidden_ = this->split_pending_ = false; this->visibility_edited_ = this->preferences_known_ = true; }
+        auto ResetDefaults(const ui::theme&) -> void override { this->custom_ = this->hidden_ = false; this->visibility_edited_ = this->preferences_known_ = true; }
         auto Load(const settings_store& store) -> void override;
         auto Save(const settings_store& store) const -> void override;
         auto ContentOptionCount(void) const -> size_t override { return 5; }
@@ -50,8 +50,8 @@ namespace xiui
             return module_option::Action("Restore native position", "Clear this window's custom position. Visibility is kept.", "Reset position").Ordered(4);
         }
         auto OnContentOptionChanged(size_t index) -> void override
-        { this->preferences_known_ = true; this->split_pending_ = false; if (index == 4) this->custom_ = false; else if (index == 2 || index == 3) this->custom_ = true; else if (index == 1) this->visibility_edited_ = true; }
-        auto OnPositionChanged(void) -> void override { this->custom_ = this->preferences_known_ = true; this->split_pending_ = false; }
+        { this->preferences_known_ = true; if (index == 4) this->custom_ = false; else if (index == 2 || index == 3) this->custom_ = true; else if (index == 1) this->visibility_edited_ = true; }
+        auto OnPositionChanged(void) -> void override { this->custom_ = this->preferences_known_ = true; }
         auto Placement(void) const -> native_window_placement { return {this->custom_, this->hidden_, this->state_.bounds.x, this->state_.bounds.y}; }
         auto Hidden(void) const -> bool { return this->hidden_; }
         auto SetHidden(bool hidden) -> void { this->hidden_ = hidden; this->visibility_edited_ = this->preferences_known_ = true; }
@@ -66,12 +66,6 @@ namespace xiui
             if (window.live)
             {
                 this->native_bounds_ = {window.x * scaleX, window.y * scaleY, window.width * scaleX, window.height * scaleY};
-                if (this->split_pending_ && !moving)
-                {
-                    bounds.x = this->split_shared_ ? this->split_offset_.x + this->native_bounds_.x - this->split_origin_x_ : this->split_offset_.x + (this->split_absolute_ ? 0 : this->native_bounds_.x);
-                    bounds.y = this->split_shared_ ? this->split_offset_.y + (this->split_top_ ? 0 : this->split_offset_.height - this->native_bounds_.height) : this->split_offset_.y + (this->split_absolute_ ? 0 : this->native_bounds_.y);
-                    this->custom_ = this->preferences_known_ = true; this->split_pending_ = false;
-                }
                 if (!this->custom_ && !moving) { bounds.x = this->native_bounds_.x; bounds.y = this->native_bounds_.y; }
                 bounds.width = this->native_bounds_.width; bounds.height = this->native_bounds_.height;
                 this->movable_ = window.movable; this->observed_ = true;
@@ -98,9 +92,7 @@ namespace xiui
         std::string id_{};
         module_state state_{true, {}, 32, 24};
         ui::rect native_bounds_{};
-        ui::rect split_offset_{};
-        bool split_pending_{}, split_absolute_{}, split_shared_{}, split_top_{}, preferences_known_{};
-        float split_origin_x_{};
+        bool preferences_known_{};
         bool custom_{}, hidden_{}, movable_{}, observed_{}, editing_{};
         bool native_visible_{}, visibility_edited_{};
     };

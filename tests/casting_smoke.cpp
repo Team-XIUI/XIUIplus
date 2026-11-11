@@ -117,33 +117,18 @@ namespace
     auto Commands(void) -> void
     {
         using namespace xiui;
-        auto store = settings_store::FromIniText("[commands]\nenabled=1\nposition_initialized=1\n[layout.commands]\nx=100\ny=500\nwidth=112\nheight=168\n");
-        command_menu_module module; module.Load(store);
-        auto anchor = Find(module, "Shared anchor edge");
-        Check(anchor.available && anchor.choice_count == 2 && std::strcmp(anchor.choices[0], "Top") == 0 &&
-            std::strcmp(anchor.choices[1], "Bottom") == 0 && !module.AnchorsTop(), "top and bottom options are always available; legacy settings retain bottom anchoring");
-        native_ui_state native{}; native.menu_available = native.menu_visible = true; native.width = 112; native.height = 400;
-        module.Update(native, 1920, 1080);
-        Check(module.State().bounds.y == 500 && module.State().bounds.height == 168,
-            "a visible shop without movable panels preserves the saved command bounds");
-        native.menu_count = 1;
-        module.Update(native, 1920, 1080);
-        Check(module.State().bounds.y == 268 && module.Layout(true).bottom == 668, "a taller command menu retains its saved bottom edge");
-        native.height = 1000; module.Update(native, 1920, 1080);
-        Check(module.State().bounds.y == 0 && module.Layout(true).bottom == 668 && module.Layout(true).enabled,
-            "a menu taller than the space above its anchor clips at the top without pushing the bottom down");
-        native.height = 400; module.Update(native, 1920, 1080);
-        *anchor.choice = 0;
-        native.height = 90; module.Update(native, 1920, 1080);
-        Check(module.State().bounds.y == 268 && module.Layout(true).top == 268 && module.Layout(true).anchor_top,
-            "a shorter command menu retains the selected top edge");
-        native.height = 400; module.Update(native, 1920, 1080);
-        Check(module.State().bounds.y == 268, "a taller top-anchored menu grows downward");
-        module.Save(store);
-        command_menu_module restored; restored.Load(store); restored.Update(native, 1920, 1080);
-        Check(restored.AnchorsTop() && restored.Layout(true).enabled && restored.Layout(true).top == 268,
-            "command anchor choice and position survive saving");
-        Check(!restored.Layout(false).enabled, "hiding XIUI+ disables native menu movement");
+        std::array<native_window_module, std::size(native_menu_windows)> windows{};
+        for (size_t index = 0; index < windows.size(); ++index) windows[index].Initialize(native_hud_window_count + index);
+        command_menu_module module; module.SetWindows(windows);
+        const auto details = NativeMenuWindowIndex("iteminfo");
+        module.SelectWindow(details);
+        Check(module.SelectedWindow() == &windows[details] && module.ContentOption(0).choice_count > 0,
+            "menu configuration selects an individual native window");
+        auto store = settings_store::FromIniText(""); module.Save(store);
+        command_menu_module restored; restored.SetWindows(windows); restored.Load(store); restored.SelectSection(static_cast<size_t>(native_dialog::details));
+        Check(restored.SelectedWindow() == &windows[details], "individual window selection survives saving");
+        Check(!restored.HasEditableBounds() && !restored.ShouldRender({}), "menu configuration never supplies a shared movable HUD window");
+
     }
 }
 
@@ -335,7 +320,7 @@ auto main(int argc, char** argv) -> int
         if (argc > 1 && std::strcmp(argv[1], "--commands-only") == 0)
         {
             Commands();
-            std::puts("Command-menu top/bottom options, resizing and persistence passed.");
+            std::puts("Native window selection and menu settings persistence passed.");
             return 0;
         }
         CastState(); CostState(); ChargeRecasts(); Commands(); xiui::casting_test::Selection(); xiui::casting_test::Modules();

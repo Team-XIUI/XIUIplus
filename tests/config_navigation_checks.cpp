@@ -88,7 +88,7 @@ namespace xiui
             runtime.NativeWindowHidden(0) == playerHidden, "submenu visibility beyond 64 windows stays independent of HUD visibility")) return false;
         runtime.ToggleNativeWindowVisibility(emotes);
         runtime.commands_.SelectSection(static_cast<size_t>(native_dialog::status));
-        auto selector = runtime.commands_.ContentOption(2);
+        auto selector = runtime.commands_.ContentOption(0);
         const auto selectNative = [&](const char* label) {
             for (size_t choice = 0; choice < selector.choice_count; ++choice)
                 if (std::strcmp(selector.ChoiceText(choice), label) == 0) { *selector.choice = static_cast<int>(choice); return runtime.commands_.SelectedWindow(); }
@@ -110,31 +110,14 @@ namespace xiui
             "the selected individual window survives settings persistence")) return false;
         runtime.SelectConfigModule(&runtime.game_hud_); runtime.game_hud_.SelectWindow(0);
 
-        auto legacy = settings_store::FromIniText("");
-        legacy.WriteBool("native.statusmenu", "custom_position", true); legacy.WriteFloat("native.statusmenu", "x", 100); legacy.WriteFloat("native.statusmenu", "y", 200);
-        legacy.WriteRect("native.statusmenu.native", {16, 48, 1888, 248});
-        native_window_module splitMenu, splitResult, unseenResult;
-        splitMenu.Initialize(native_hud_window_count + NativeMenuWindowIndex("statcom "));
-        splitResult.Initialize(native_hud_window_count + NativeMenuWindowIndex("persona "));
-        unseenResult.Initialize(native_hud_window_count + NativeMenuWindowIndex("joblevel"));
-        splitMenu.Load(legacy); splitResult.Load(legacy); unseenResult.Load(legacy);
-        splitMenu.Update({true, true, 1792, 48, 112, 218, true}, 1, 1, 2560, 1440);
-        splitResult.Update({true, true, 16, 48, 112, 248, true}, 1, 1, 2560, 1440);
-        if (!check(splitMenu.Placement().x == 1876 && splitMenu.Placement().y == 200 && splitResult.Placement().x == 100 && splitResult.Placement().y == 200,
-            "splitting an old group retains each native window's relative offset without collapsing them onto one position")) return false;
-        auto splitSaved = settings_store::FromIniText(""); splitMenu.Save(splitSaved); splitResult.Save(splitSaved); unseenResult.Save(splitSaved);
-        native_window_module laterResult; laterResult.Initialize(native_hud_window_count + NativeMenuWindowIndex("joblevel")); laterResult.Load(splitSaved);
-        laterResult.Update({true, true, 130, 48, 252, 200, true}, 1, 1, 2560, 1440);
-        if (!check(laterResult.Placement().x == 214 && laterResult.Placement().y == 200,
-            "unopened result windows preserve the original migration offset across a later reload")) return false;
-        auto oldShared = settings_store::FromIniText(""); oldShared.WriteBool("commands", "enabled", true); oldShared.WriteBool("commands", "position_initialized", true);
-        oldShared.WriteRect("layout.commands", {300, 500, 434, 200}); oldShared.WriteRect("native.commands.native", {16, 760, 112, 168});
-        native_window_module oldCommand, oldSpells;
-        oldCommand.Initialize(native_hud_window_count + NativeMenuWindowIndex("playermo")); oldSpells.Initialize(native_hud_window_count + NativeMenuWindowIndex("magic   "));
-        oldCommand.Load(oldShared); oldSpells.Load(oldShared);
-        oldCommand.Update({true, true, 16, 760, 112, 168, true}, 1, 1, 1920, 1080); oldSpells.Update({true, true, 130, 400, 320, 360, true}, 1, 1, 1920, 1080);
-        if (!check(oldCommand.Placement().x == 300 && oldCommand.Placement().y == 532 && oldSpells.Placement().x == 414 && oldSpells.Placement().y == 340 && !runtime.MenuLayout().enabled,
-            "legacy shared anchors migrate to independent command and spell positions without retaining a live coupling")) return false;
+        const auto obsolete = settings_store::FromIniText("[commands]\nenabled=1\nposition_initialized=1\nwindow_anchor=1\n[layout.commands]\nx=300\ny=500\nwidth=434\nheight=200\n");
+        for (const char* resource : {"playermo", "magic   ", "iteminfo", "query   ", "guildsho"})
+        {
+            native_window_module independent; independent.Initialize(native_hud_window_count + NativeMenuWindowIndex(resource)); independent.Load(obsolete);
+            independent.Update({true, true, 16, 48, 320, 200, true}, 1, 1, 1920, 1080);
+            if (!check(!independent.Placement().enabled && independent.Placement().x == 16 && independent.Placement().y == 48,
+                "obsolete shared-anchor settings never create a native window placement")) return false;
+        }
         runtime.SetNativeEditMode(false);
         if (!check((runtime.NativeHudHiddenMask() & NativeHudBit(native_hud_element::party)) != 0, "leaving native editing restores saved native visibility")) return false;
         runtime.native_ui_.windows[0].live = true; runtime.native_ui_.windows[0].visible = true;
@@ -160,7 +143,7 @@ namespace xiui
         });
         if (!check(result != runtime.config_.search_entries.end() && !result->selectors.empty() && result->path.starts_with("Native UI"),
             "native placement search preserves the selected window and its main category")) return false;
-        restored.LoadSettings(legacy);
+        restored.LoadSettings(runtime.CaptureSettings());
         const auto unopened = native_hud_window_count + NativeMenuWindowIndex("joblevel");
         for (size_t index = 0; index < native_window_count; ++index)
             if (index != unopened) restored.native_windows_[index].OnPositionChanged();
@@ -168,10 +151,9 @@ namespace xiui
         restored.game_hud_.SetWindowShown(1, false); restored.native_windows_[emotes].SetHidden(true);
         const auto xiuiPosition = restored.player_.State().bounds;
         const auto reset = game_hud_module::reset_positions_option;
-        if (!check(restored.CaptureSettings().ReadBool(restored.native_windows_[unopened].Id(), "split_pending", false) &&
-            restored.game_hud_.ConfigSectionContains(1, reset) && !restored.game_hud_.ConfigSectionContains(0, reset) &&
+        if (!check(restored.game_hud_.ConfigSectionContains(1, reset) && !restored.game_hud_.ConfigSectionContains(0, reset) &&
             restored.game_hud_.Option(reset).kind == module_option_kind::action && restored.HandleCommand("nativeui reset"),
-            "Window Placement and nativeui reset share the reset action covering unopened legacy windows")) return false;
+            "Window Placement and nativeui reset share the reset action covering unopened windows")) return false;
         if (!check(std::none_of(restored.native_windows_.begin(), restored.native_windows_.end(), [](const auto& item) { return item.Placement().enabled; }) &&
             !restored.game_hud_.Shown(1) && restored.native_windows_[emotes].Hidden() &&
             restored.player_.State().bounds.x == xiuiPosition.x && restored.player_.State().bounds.y == xiuiPosition.y,
@@ -181,7 +163,7 @@ namespace xiui
         if (!check(std::none_of(restored.native_windows_.begin(), restored.native_windows_.end(), [](const auto& item) { return item.Placement().enabled; }) &&
             restored.native_windows_[unopened].Placement().x == 130 && restored.native_windows_[unopened].Placement().y == 48 &&
             !restored.game_hud_.Shown(1) && restored.native_windows_[emotes].Hidden(),
-            "bulk reset persists and opening a previously unseen window cannot reapply legacy offsets")) return false;
+            "bulk reset persists and opening a previously unseen window keeps its native position")) return false;
         runtime.editing_ = false;
         return true;
     }
