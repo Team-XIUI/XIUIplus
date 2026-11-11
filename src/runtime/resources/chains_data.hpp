@@ -9,6 +9,36 @@ namespace xiui::resources
 {
     struct chains_jug_move { std::string_view pet, move; };
     struct chains_frame_move { uint8_t frame; uint16_t id, skill; bool ranged; };
+    struct chains_pact_level { uint16_t id; uint8_t level; };
+    inline constexpr std::array<chains_pact_level, 27> chains_pact_levels{{
+        {513, 5},
+        {521, 1},
+        {528, 5},
+        {529, 10},
+        {534, 65},
+        {544, 1},
+        {546, 23},
+        {547, 30},
+        {550, 70},
+        {560, 1},
+        {562, 21},
+        {563, 35},
+        {566, 70},
+        {570, 99},
+        {576, 1},
+        {578, 26},
+        {582, 70},
+        {592, 1},
+        {598, 70},
+        {608, 1},
+        {612, 50},
+        {614, 70},
+        {624, 1},
+        {630, 70},
+        {634, 99},
+        {656, 1},
+        {667, 99},
+    }};
     inline constexpr std::array<chains_jug_move, 140> chains_jug_moves{{
         {"SheepFamiliar", "Lamb Chop"},
         {"SheepFamiliar", "Sheep Charge"},

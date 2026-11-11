@@ -30,9 +30,17 @@ namespace xiui
         if (timer == 10) return "Rune Enchantment";
         const IAbility* chosen = resources->GetAbilityByTimerId(timer);
         if (chosen == nullptr || !player->HasAbility(chosen->Id))
+        {
+            // Pet commands are unlisted without a pet, so fall back to the first ability sharing the timer.
+            const IAbility* fallback = chosen;
             for (uint32_t id = 0x200; id < 0x700; ++id)
-                if (const auto* ability = resources->GetAbilityById(id); ability != nullptr && ability->RecastTimerId == timer && player->HasAbility(ability->Id))
-                { chosen = ability; break; }
+                if (const auto* ability = resources->GetAbilityById(id); ability != nullptr && ability->RecastTimerId == timer)
+                {
+                    if (player->HasAbility(ability->Id)) { fallback = ability; break; }
+                    if (fallback == nullptr) fallback = ability;
+                }
+            chosen = fallback;
+        }
         if (chosen != nullptr)
             if (const char* name = chosen->Name[2] != nullptr ? chosen->Name[2] : chosen->Name[0]; name != nullptr && *name) return FromGameText(name);
         char fallback[40]{};
@@ -62,8 +70,11 @@ namespace xiui
             this->job_ = player->GetMainJob(); this->subjob_ = player->GetSubJob();
             this->level_ = player->GetMainJobLevel(); this->sublevel_ = player->GetSubJobLevel();
             this->known_names_.clear(); this->known_timers_.fill(false);
+            // Blood Pact: Rage/Ward are unlisted while no avatar is summoned.
+            const bool summoner = this->job_ == 15 || this->subjob_ == 15;
             for (uint32_t abilityId = 0x200; abilityId < 0x700; ++abilityId)
-                if (const auto* ability = resources->GetAbilityById(abilityId); ability && (player->HasAbility(ability->Id) || player->HasPetCommand(ability->Id)))
+                if (const auto* ability = resources->GetAbilityById(abilityId); ability && (player->HasAbility(ability->Id) || player->HasPetCommand(ability->Id) ||
+                    (summoner && ability->Id < 0x400 && (ability->RecastTimerId == 173 || ability->RecastTimerId == 174))))
                 {
                     if (ability->RecastTimerId < this->known_timers_.size()) this->known_timers_[ability->RecastTimerId] = true;
                     const auto* name = ability->Name[2] ? ability->Name[2] : ability->Name[0];

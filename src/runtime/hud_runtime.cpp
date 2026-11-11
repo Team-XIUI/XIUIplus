@@ -1,5 +1,6 @@
 #include "hud_runtime.hpp"
 #include "ashita_compat.hpp"
+#include "chat/chat_encoding.hpp"
 #include "combat/server_rules.hpp"
 #include "input/keyboard_policy.hpp"
 #include "config/contributor_list.hpp"
@@ -1398,9 +1399,19 @@ namespace xiui
         else if (::_stricmp(command, "recast status") == 0)
         {
             if (this->core_ != nullptr && this->core_->GetChatManager() != nullptr)
+            {
                 this->core_->GetChatManager()->Writef(1, false, "[XIUI+] Recast: source %s; %zu tracked cooldowns; icons %s; module %s.",
                     this->recast_source_.Available() ? "native" : "unavailable", this->recast_source_.Entries().size(),
                     this->game_icons_.RecastAtlas() != nullptr ? "embedded" : "unavailable", this->recast_.State().enabled ? "enabled" : "disabled");
+                const auto now = ::GetTickCount64();
+                for (const auto& entry : this->recast_source_.Entries())
+                {
+                    std::string name;
+                    if (!ToGameText(entry.name, name)) name = entry.name;
+                    this->core_->GetChatManager()->Writef(1, false, "[XIUI+] Recast: %s %u \"%s\" %.1fs.",
+                        entry.kind == recast_kind::spell ? "spell" : "ability", entry.id, name.c_str(), entry.Remaining(now));
+                }
+            }
             return true;
         }
         else if (::_stricmp(command, "castbar status") == 0 || ::_stricmp(command, "castcost status") == 0)
@@ -1553,6 +1564,11 @@ namespace xiui
                 this->core_->GetChatManager()->Writef(1, false, "[XIUI+] Chains: %s; %s rules; %zu available actions; selected %u; window %s.",
                     this->chains_.State().enabled ? "enabled" : "disabled", ServerRulesName(this->combat_settings_.Rules()),
                     this->chains_source_.Actions().size(), this->skillchain_source_.Target(), window != nullptr ? "active" : "none");
+            std::string pets;
+            for (const auto& action : this->chains_source_.Actions())
+                if (action.group == chains_group::pet) pets += (pets.empty() ? "" : ", ") + action.name + (action.ready ? "" : " (inactive)");
+            if (!pets.empty() && this->core_ != nullptr && this->core_->GetChatManager() != nullptr)
+                this->core_->GetChatManager()->Writef(1, false, "[XIUI+] Chains pet actions: %s.", pets.c_str());
             return true;
         }
         else if (::_stricmp(command, "chains") == 0)

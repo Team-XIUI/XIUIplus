@@ -4,6 +4,8 @@ Authors: Sippius, Ivaar and NerfOnline. Original Skillchains by Ivaar;
 Ashita v4 adaptation by Sippius, further changes by NerfOnline.
 Chains is distributed under GPL-3.0-or-later; see LICENSE-GPL-3.0.txt.
 The pinned pets.lua supplies jug move names and automaton frame/skill requirements.
+blood_pacts.lua is an excerpt of scripts/skills-data.lua (sets.retail[13]) at the
+same commit and supplies Summoner Blood Pact levels.
 scripts/build-chains-data.py produces src/runtime/resources/chains_data.hpp.
 Native Chains uses XIUI's existing Retail/Horizon/Phoenix skillchain data and
 shared observation/prediction tracker; see assets/skillchains/NOTICES.txt.

@@ -123,6 +123,12 @@ namespace xiui
         if (job == 18 && hasJobData) this->frame_ = jobData[1];
         if (job == 18 && !this->pup_skills_)
         { this->melee_ = player->GetCombatSkill(22).GetSkill(); this->ranged_ = player->GetCombatSkill(23).GetSkill(); }
+        std::vector<std::pair<std::string_view, bool>> avatars;
+        const auto avatarKnown = [&](const std::string_view avatar) {
+            if (const auto cached = std::ranges::find(avatars, avatar, &std::pair<std::string_view, bool>::first); cached != avatars.end()) return cached->second;
+            const auto* spell = player->HasSpellData() ? resources->GetSpellByName(std::string{avatar}.c_str(), 2) : nullptr;
+            return avatars.emplace_back(avatar, spell != nullptr && player->HasSpell(spell->Index)).second;
+        };
         for (const auto& skill : source.Skills())
         {
             if (skill.category == 3 && player->HasAbilityData() && player->HasWeaponSkill(skill.id))
@@ -135,8 +141,12 @@ namespace xiui
             }
             else if (skill.category == 13 && !skill.avatar.empty() && (job == 15 || subjob == 15))
             {
+                // The client lists only the summoned avatar's pacts, so others use SMN level and the known summon spell.
+                const auto level = job == 15 ? player->GetMainJobLevel() : player->GetSubJobLevel();
+                const auto pact = std::ranges::find(resources::chains_pact_levels, skill.id, &resources::chains_pact_level::id);
                 const auto* ability = resources->GetAbilityByName(std::string{skill.name}.c_str(), 2);
-                if (ability != nullptr && (player->HasAbility(ability->Id) || player->HasPetCommand(ability->Id)))
+                if ((ability != nullptr && (player->HasAbility(ability->Id) || player->HasPetCommand(ability->Id))) ||
+                    (pact != resources::chains_pact_levels.end() && level >= pact->level && avatarKnown(skill.avatar)))
                     this->actions_.push_back({chains_group::pet, 13, skill.id, std::string{skill.name}, pet == skill.avatar, chains_pet::avatar});
             }
             else if ((skill.category == 11 || (skill.category == 13 && skill.avatar.empty())) && (job == 9 || subjob == 9))
