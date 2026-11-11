@@ -1802,6 +1802,25 @@ namespace xiui
             return true;
         }
         else if (::_stricmp(command, "chat clear") == 0) { this->chat_.Clear(); return true; }
+        else if (::_strnicmp(command, "chat timestamps", 15) == 0 && (command[15] == '\0' || command[15] == ' '))
+        {
+            static constexpr const char* names[]{"follow", "off", "hhmm", "seconds"};
+            static constexpr const char* labels[]{"Follow game", "Off", "HH:MM", "HH:MM:SS"};
+            auto* chat = this->core_ != nullptr ? this->core_->GetChatManager() : nullptr;
+            if (command[15] == ' ')
+            {
+                const auto found = std::find_if(std::begin(names), std::end(names), [value = command + 16](const char* name) { return ::_stricmp(name, value) == 0; });
+                if (found == std::end(names))
+                {
+                    if (chat != nullptr) chat->Write(1, false, i18n::Text("[XIUI+] Usage: /xiuiplus chat timestamps follow|off|hhmm|seconds"));
+                    return true;
+                }
+                this->chat_.SetTimestampDisplay(static_cast<int>(found - std::begin(names)));
+                this->SaveSettings();
+            }
+            if (chat != nullptr) chat->Writef(1, false, i18n::Text("[XIUI+] Chat timestamps: %s."), i18n::Text(labels[this->chat_.TimestampDisplay()]));
+            return true;
+        }
         else if (::_strnicmp(command, "chat complete ", 14) == 0)
         {
             const auto report = this->chat_.DescribeCompletions(this->core_, command + 14);

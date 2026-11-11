@@ -1682,7 +1682,8 @@ namespace xiui
                     position = end;
                 }
             if (line.dialogue_prompt) append("\xE2\x96\xBC", -1, false, true);
-            if (!row.spans.empty()) finish();
+            // A trailing newline leaves a row holding only its timestamp.
+            if (!row.spans.empty() && !row.spans.back().timestamp) finish();
         }
         if (incremental && this->CurrentScroll() > 0 && this->rows_.size() > previousRows + oldLastRows)
             this->CurrentScroll() += this->rows_.size() - previousRows - oldLastRows;

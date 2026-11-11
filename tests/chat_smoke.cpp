@@ -1254,6 +1254,10 @@ namespace xiui
             Check(!follow.timestamp_color_enabled_, "a later choice to follow message color persists");
             Check(follow.SpanColor(row, row.spans[0], palette) == 0xFF80E8FF,
                 "following the channel remains available explicitly");
+            event.sequence = 4; event.mode = 6; strcpy_s(event.text, "[1]<Name> Linkshell message\n"); module.Clear(); module.Receive(nullptr, event, false);
+            rows();
+            Check(module.rows_.size() == 1 && module.rows_.front().spans.size() > 1 && module.rows_.front().spans[0].timestamp,
+                "a trailing message newline does not add a timestamp-only row");
         }
 
         inline static size_t confirm_sounds{};

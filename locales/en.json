@@ -3557,5 +3557,7 @@
   "Following game": "Following game",
   "Unavailable": "Unavailable",
   "Closed": "Closed",
-  "[XIUI+] Native UI: Window Type %u (%s); native menu %s; %zu custom positions; movement %s; themed bars %s.": "[XIUI+] Native UI: Window Type %u (%s); native menu %s; %zu custom positions; movement %s; themed bars %s."
+  "[XIUI+] Native UI: Window Type %u (%s); native menu %s; %zu custom positions; movement %s; themed bars %s.": "[XIUI+] Native UI: Window Type %u (%s); native menu %s; %zu custom positions; movement %s; themed bars %s.",
+  "[XIUI+] Chat timestamps: %s.": "[XIUI+] Chat timestamps: %s.",
+  "[XIUI+] Usage: /xiuiplus chat timestamps follow|off|hhmm|seconds": "[XIUI+] Usage: /xiuiplus chat timestamps follow|off|hhmm|seconds"
 }

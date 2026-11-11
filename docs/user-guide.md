@@ -77,6 +77,7 @@ File selection and processing run in the background. The dialog shows its status
 - `/xiuiplus focus` — open the controller focus picker; `focus chat|chat2|party|enemies|target|buffs|debuffs|config|readycheck|equipment|off` selects or leaves a surface
 - `/xiuiplus controller` — open General → Input; `controller status` prints device and mapping observations
 - `/xiuiplus chat` — configure the Chat module; `chat show|hide|clear|status` controls it
+- `/xiuiplus chat timestamps follow|off|hhmm|seconds` — set Window 1's timestamps; without a choice it reports the current one
 - `/xiuiplus compass` — configure and move the compass
 - `/xiuiplus extras` — configure Compass, World Info and other XIUI+ extras
 - `/xiuiplus chains` — configure the separate skillchain timing and follow-up display

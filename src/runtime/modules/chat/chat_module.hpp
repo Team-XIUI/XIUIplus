@@ -111,6 +111,9 @@ namespace xiui
         auto SetHovered(bool hovered, float x = 0, float y = 0) -> void
         { this->hovered_ = hovered; if (!hovered) this->destination_hovered_ = false; this->hover_point_ = {this->state_.transform.InverseX(x), this->state_.transform.InverseY(y)}; }
         auto SetNativeTimestamps(std::optional<uint8_t> mode) -> void { this->native_timestamp_mode_ = mode.value_or(0); }
+        // Timestamps option: 0 Follow game, 1 Off, 2 HH:MM, 3 HH:MM:SS.
+        auto TimestampDisplay(void) const -> int { return this->timestamp_display_; }
+        auto SetTimestampDisplay(int display) -> void { this->timestamp_display_ = std::clamp(display, 0, 3); this->OnContentOptionChanged(5); }
         auto SetNativeFilters(native_chat_filters& filters) -> void { this->native_filters_ = &filters; }
         auto HistoryFocused(void) const -> bool { return this->history_view_.focused && this->WindowVisible(); }
         auto HistoryExpanded(void) const -> bool { return this->HistoryFocused() && this->history_view_.expanded; }
