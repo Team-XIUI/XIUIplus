@@ -2625,7 +2625,7 @@
   "Shared skillchain and Magic Burst predictions for all hotbars and the crossbar. Timings are estimates.": "全ホットバーとクロスバー共通の連携・MB予測です。時間は推定です。",
   "Shared text styling for the selected notification group.": "選択した通知グループ共通の文字設定です。",
   "Shared window stack": "ウィンドウをまとめて積む",
-  "Shared with Action Bars / Skillchains. Base potency only; equipment, party-job and special ability modifiers remain unknown.": "アクションバー／連携と共有します。基本値のみで、装備・パーティ内ジョブ・特殊アビリティ補正は不明です。",
+  "Shared with Action Bars / Skillchains. Base potency includes party job bonuses (none on Horizon); equipment and special ability modifiers remain unknown.": "アクションバー／連携と共有します。基本値にはパーティ内ジョブのボーナスを含みます（Horizonにはありません）。装備・特殊アビリティ補正は不明です。",
   "Sheen color": "光沢の色",
   "Sheen speed": "光沢の速度",
   "Sheen width": "光沢の幅",
@@ -2814,7 +2814,7 @@
   "Show the target name above the world bar.": "ワールドバーの上に対象名を表示します。",
   "Show the target's native HP percent inside the bar.": "バー内にターゲットの標準HP割合を表示します。",
   "Show the themed background behind normal and expanded chat.": "通常・展開チャットの背後にテーマ背景を表示します。",
-  "Show the unmodified base value. Actual potency and bust penalties remain unknown.": "未補正の基本値を表示します。実際の効果量やバストのペナルティは不明です。",
+  "Show the base value, including the job bonus when a party member has the roll's job. Equipment modifiers and bust penalties remain unknown.": "基本値を表示します。対応ジョブのパーティメンバーがいる場合はジョブボーナスを含みます。装備補正やバストのペナルティは不明です。",
   "Show the winning player, lot and estimated countdown beneath each item.": "各アイテム下に最高ロットのプレイヤー・値・推定残り時間を表示します。",
   "Show the zone name below the map.": "地図下にエリア名を表示します。",
   "Show this bar; other bars keep their own enabled state.": "このバーを表示します。他のバーの有効状態は変わりません。",
@@ -3559,5 +3559,9 @@
   "Closed": "閉じています",
   "[XIUI+] Native UI: Window Type %u (%s); native menu %s; %zu custom positions; movement %s; themed bars %s.": "[XIUI+] 標準UI: ウィンドウタイプ %u (%s)、標準メニュー %s、個別配置 %zu 件、移動 %s、テーマゲージ %s。",
   "[XIUI+] Chat timestamps: %s.": "[XIUI+] チャットの時刻表示: %s。",
-  "[XIUI+] Usage: /xiuiplus chat timestamps follow|off|hhmm|seconds": "[XIUI+] 使い方: /xiuiplus chat timestamps follow|off|hhmm|seconds"
+  "[XIUI+] Usage: /xiuiplus chat timestamps follow|off|hhmm|seconds": "[XIUI+] 使い方: /xiuiplus chat timestamps follow|off|hhmm|seconds",
+  "Bust penalty: unknown": "バストのペナルティ: 不明",
+  "Potency: unknown": "効果量: 不明",
+  "Base %s %s": "基本 %s %s",
+  "%s %s (job bonus %s)": "%s %s（ジョブボーナス %s）"
 }

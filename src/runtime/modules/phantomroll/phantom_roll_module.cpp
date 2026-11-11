@@ -144,7 +144,7 @@ namespace xiui
         switch (index)
         {
         case enabled: return module_option::Toggle("Enabled", "Show your two native roll effects; tracking continues while hidden.", &this->state_.enabled).Ordered(-50);
-        case rules: return module_option::Choice("Rules", "Shared with Action Bars / Skillchains. Base potency only; equipment, party-job and special ability modifiers remain unknown.", this->CombatSettings().RulesChoice(), server_rule_names, 3);
+        case rules: return module_option::Choice("Rules", "Shared with Action Bars / Skillchains. Base potency includes party job bonuses (none on Horizon); equipment and special ability modifiers remain unknown.", this->CombatSettings().RulesChoice(), server_rule_names, 3);
         case preview: return module_option::Action("Preview rolls", "Show separate samples until configuration closes; never changes live rolls.", "Preview");
         case layout: return module_option::Choice("Roll layout", "Arrange the two seats horizontally or vertically.", &this->layout_, layouts, 2);
         case width: return ModuleWidthOption(this->state_);
@@ -152,7 +152,7 @@ namespace xiui
         case container: return module_option::Toggle("Container", "Use the shared native Window Type container.", &this->container_);
         case opacity: return module_option::Slider("Container opacity", "Opacity of the native frame and backing.", &this->container_style_.opacity, 0, 1, 0.05f);
         case padding: return module_option::Slider("Container padding", "Space inside the native frame.", &this->container_style_.padding, 0, 24, 1);
-        case potency: return module_option::Toggle("Base potency", "Show the unmodified base value. Actual potency and bust penalties remain unknown.", &this->potency_);
+        case potency: return module_option::Toggle("Base potency", "Show the base value, including the job bonus when a party member has the roll's job. Equipment modifiers and bust penalties remain unknown.", &this->potency_);
         case double_up: return module_option::Toggle("Double-Up window", "Native countdown and ordinary six-face die bust chance; special ability modifiers are not included.", &this->double_up_);
         case lucky_color: return module_option::Color("Lucky / eleven", "Lucky and eleven state tint, retaining text effects.", &this->lucky_);
         case unlucky_color: return module_option::Color("Unlucky", "Unlucky state tint.", &this->unlucky_);
@@ -169,6 +169,31 @@ namespace xiui
     auto phantom_roll_module::OnContentOptionChanged(const size_t index) -> void
     { if (index == preview) this->preview_ = !this->preview_; }
 
+    // Rolls reach only the roller's party, so its main jobs decide the job bonus.
+    auto phantom_roll_module::PartyJobs(void) const -> std::array<uint8_t, 6>
+    {
+        std::array<uint8_t, 6> jobs{};
+        if (this->source_ != nullptr && this->source_->Available())
+            for (size_t slot = 0; slot < jobs.size(); ++slot)
+                if (const auto& member = this->source_->Members()[slot]; member.active) jobs[slot] = member.main_job;
+        return jobs;
+    }
+
+    auto phantom_roll_module::StatusLines(void) const -> std::vector<std::string>
+    {
+        std::vector<std::string> lines;
+        const auto jobs = this->PartyJobs();
+        for (const auto& seat : this->tracker_.Seats())
+        {
+            if (!seat.Present()) continue;
+            const auto* roll = PhantomRollByAbility(seat.ability, this->Rules());
+            const bool bonus = roll != nullptr && PhantomRollHasJobBonus(*roll, jobs);
+            lines.push_back((roll != nullptr ? std::string{roll->name} + " Roll" : std::string{"Unknown roll"}) + " total " + std::to_string(seat.total) +
+                "; " + PhantomRollPotencyText(roll, seat.total, this->level_, seat.busted, bonus));
+        }
+        return lines;
+    }
+
     auto phantom_roll_module::ShouldRender(const hud_snapshot&) const -> bool
     {
         if (!this->state_.enabled) return false;
@@ -182,6 +207,7 @@ namespace xiui
         const std::array<phantom_roll_seat, 2> samples{{{108, 320, 4, false, true, this->now_ + 268000, 300000, 0, 1},
             {105, 317, 8, false, true, this->now_ + 154000, 300000, 0, 2}}};
         const auto& seats = sample ? samples : this->tracker_.Seats();
+        const auto partyJobs = sample ? std::array<uint8_t, 6>{} : this->PartyJobs();
         auto text = this->text_;
         for (auto& profile : text) profile.style.scale *= this->scale_;
         const auto& design = context.Design();
@@ -224,7 +250,8 @@ namespace xiui
             y += std::max(dieSize, rowHeight(1) * 2) + 4 * this->scale_;
             if (this->potency_)
             {
-                drawLine(PhantomRollPotencyText(roll, seat.total, this->level_, seat.busted), {x, y, columnWidth, rowHeight(2)}, 2);
+                const bool jobBonus = roll != nullptr && PhantomRollHasJobBonus(*roll, partyJobs);
+                drawLine(PhantomRollPotencyText(roll, seat.total, this->level_, seat.busted, jobBonus), {x, y, columnWidth, rowHeight(2)}, 2);
                 y += rowHeight(2) + 4 * this->scale_;
             }
             const auto ratio = seat.expires > this->now_ && seat.duration > 0 ? std::clamp(static_cast<float>(seat.expires - this->now_) / seat.duration, 0.0f, 1.0f) : 0;

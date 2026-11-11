@@ -2625,7 +2625,7 @@
   "Shared skillchain and Magic Burst predictions for all hotbars and the crossbar. Timings are estimates.": "Shared skillchain and Magic Burst predictions for all hotbars and the crossbar. Timings are estimates.",
   "Shared text styling for the selected notification group.": "Shared text styling for the selected notification group.",
   "Shared window stack": "Shared window stack",
-  "Shared with Action Bars / Skillchains. Base potency only; equipment, party-job and special ability modifiers remain unknown.": "Shared with Action Bars / Skillchains. Base potency only; equipment, party-job and special ability modifiers remain unknown.",
+  "Shared with Action Bars / Skillchains. Base potency includes party job bonuses (none on Horizon); equipment and special ability modifiers remain unknown.": "Shared with Action Bars / Skillchains. Base potency includes party job bonuses (none on Horizon); equipment and special ability modifiers remain unknown.",
   "Sheen color": "Sheen color",
   "Sheen speed": "Sheen speed",
   "Sheen width": "Sheen width",
@@ -2814,7 +2814,7 @@
   "Show the target name above the world bar.": "Show the target name above the world bar.",
   "Show the target's native HP percent inside the bar.": "Show the target's native HP percent inside the bar.",
   "Show the themed background behind normal and expanded chat.": "Show the themed background behind normal and expanded chat.",
-  "Show the unmodified base value. Actual potency and bust penalties remain unknown.": "Show the unmodified base value. Actual potency and bust penalties remain unknown.",
+  "Show the base value, including the job bonus when a party member has the roll's job. Equipment modifiers and bust penalties remain unknown.": "Show the base value, including the job bonus when a party member has the roll's job. Equipment modifiers and bust penalties remain unknown.",
   "Show the winning player, lot and estimated countdown beneath each item.": "Show the winning player, lot and estimated countdown beneath each item.",
   "Show the zone name below the map.": "Show the zone name below the map.",
   "Show this bar; other bars keep their own enabled state.": "Show this bar; other bars keep their own enabled state.",
@@ -3559,5 +3559,9 @@
   "Closed": "Closed",
   "[XIUI+] Native UI: Window Type %u (%s); native menu %s; %zu custom positions; movement %s; themed bars %s.": "[XIUI+] Native UI: Window Type %u (%s); native menu %s; %zu custom positions; movement %s; themed bars %s.",
   "[XIUI+] Chat timestamps: %s.": "[XIUI+] Chat timestamps: %s.",
-  "[XIUI+] Usage: /xiuiplus chat timestamps follow|off|hhmm|seconds": "[XIUI+] Usage: /xiuiplus chat timestamps follow|off|hhmm|seconds"
+  "[XIUI+] Usage: /xiuiplus chat timestamps follow|off|hhmm|seconds": "[XIUI+] Usage: /xiuiplus chat timestamps follow|off|hhmm|seconds",
+  "Bust penalty: unknown": "Bust penalty: unknown",
+  "Potency: unknown": "Potency: unknown",
+  "Base %s %s": "Base %s %s",
+  "%s %s (job bonus %s)": "%s %s (job bonus %s)"
 }

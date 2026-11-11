@@ -35,8 +35,11 @@ namespace xiui
         auto OnContentOptionChanged(size_t index) -> void override;
         auto ShouldRender(const hud_snapshot&) const -> bool override;
         auto Render(const hud_snapshot&, const module_render_context& context) -> void override;
+        // One line per tracked seat with the same potency text the HUD draws.
+        auto StatusLines(void) const -> std::vector<std::string>;
 
     private:
+        auto PartyJobs(void) const -> std::array<uint8_t, 6>;
         enum option : size_t { enabled, rules, preview, layout, width, scale, container, opacity, padding,
             potency, double_up, lucky_color, unlucky_color, bust_color, fill_top, fill_bottom, selected_text, base_options };
         module_state state_{false, {-1, -1, 480, 172}, 260, 60};

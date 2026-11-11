@@ -82,6 +82,7 @@ File selection and processing run in the background. The dialog shows its status
 - `/xiuiplus extras` — configure Compass, World Info and other XIUI+ extras
 - `/xiuiplus chains` — configure the separate skillchain timing and follow-up display
 - `/xiuiplus chains status` — report Chains tracking and available actions
+- `/xiuiplus phantomroll status` — report tracked rolls with their potency, including any party job bonus
 - `/xiuiplus exp` — configure EXP, session rates, readouts, chains, goals, status and alerts
 - `/xiuiplus exp pause|resume|reset|status|history` — control local EXP sessions and inspect saved records
 - `/xiuiplus exp mode auto|exp|lp|cp|ep` — select displayed progression without changing the game's earning mode

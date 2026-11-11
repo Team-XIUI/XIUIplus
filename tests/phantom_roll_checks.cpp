@@ -61,6 +61,18 @@ auto RunPhantomRollChecks(void) -> bool
     okay &= check(retail != nullptr && horizon != nullptr && xiui::PhantomRollBasePotency(*retail, 4, 75) == 25 &&
         xiui::PhantomRollBasePotency(*horizon, 4, 75) == 92 && xiui::PhantomRollBasePotency(*horizon, 4, 50) == 61, "retail and Horizon base tables with known level");
     okay &= check(!xiui::PhantomRollBasePotency(*horizon, 4, 0) && !xiui::PhantomRollBasePotency(*retail, 0, 75), "unavailable inputs stay unknown");
+    const std::array<uint8_t, 6> withDrk{17, 8, 0, 0, 0, 0}, withoutDrk{17, 3, 0, 0, 0, 0};
+    okay &= check(xiui::PhantomRollHasJobBonus(*retail, withDrk) && !xiui::PhantomRollHasJobBonus(*retail, withoutDrk) &&
+        xiui::PhantomRollBasePotency(*retail, 4, 75, true) == 35 && xiui::PhantomRollPotencyText(retail, 4, 75, false, true) == "+35% ATK (job bonus +10%)" &&
+        xiui::PhantomRollPotencyText(retail, 4, 75, false, false) == "Base +25% ATK", "a party DRK adds Chaos Roll's job bonus");
+    okay &= check(xiui::PhantomRollPotencyText(retail, 11, 75, true, true) == "Bust penalty: unknown" && !xiui::PhantomRollHasJobBonus(*horizon, withDrk),
+        "busts and Horizon rolls get no job bonus");
+    const auto* phoenixGallant = xiui::PhantomRollByAbility(104, xiui::server_rules::phoenix);
+    const auto* corsair = xiui::PhantomRollByAbility(114, xiui::server_rules::phoenix);
+    const std::array<uint8_t, 6> withPld{17, 7, 0, 0, 0, 0};
+    okay &= check(phoenixGallant != nullptr && xiui::PhantomRollHasJobBonus(*phoenixGallant, withPld) &&
+        xiui::PhantomRollBasePotency(*phoenixGallant, 3, 75, true) == 25 && corsair != nullptr && !xiui::PhantomRollHasJobBonus(*corsair, withDrk),
+        "Phoenix era job bonuses, and Corsair's Roll has none");
     const auto* companion = xiui::PhantomRollByAbility(304, xiui::server_rules::retail);
     okay &= check(companion != nullptr && !xiui::PhantomRollBasePotency(*companion, 2, 99), "unsupported potency stays unknown");
     okay &= check(xiui::PhantomBustChance(5) == 0 && std::abs(xiui::PhantomBustChance(8) - 0.5f) < 0.001f && xiui::PhantomBustChance(11) == 1, "ordinary die risk boundaries");

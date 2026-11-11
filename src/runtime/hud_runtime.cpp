@@ -1571,6 +1571,17 @@ namespace xiui
                 this->core_->GetChatManager()->Writef(1, false, "[XIUI+] Chains pet actions: %s.", pets.c_str());
             return true;
         }
+        else if (::_stricmp(command, "phantomroll status") == 0 || ::_stricmp(command, "rolls status") == 0)
+        {
+            if (auto* chat = this->core_ != nullptr ? this->core_->GetChatManager() : nullptr)
+            {
+                const auto lines = this->phantom_roll_.StatusLines();
+                chat->Writef(1, false, "[XIUI+] Phantom Roll: %s rules; %zu tracked rolls; module %s.", ServerRulesName(this->combat_settings_.Rules()),
+                    lines.size(), this->phantom_roll_.State().enabled ? "enabled" : "disabled");
+                for (const auto& line : lines) chat->Writef(1, false, "[XIUI+] Phantom Roll: %s.", line.c_str());
+            }
+            return true;
+        }
         else if (::_stricmp(command, "chains") == 0)
         {
             this->SelectConfigModule(&this->chains_);
