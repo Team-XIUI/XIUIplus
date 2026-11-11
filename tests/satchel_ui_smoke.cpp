@@ -32,8 +32,52 @@ namespace xiui
         static auto Set(satchel_cache& cache, satchel_snapshot snapshot) -> void { cache.characters_ = {std::move(snapshot)}; }
     };
 
+    struct satchel_actions_test
+    {
+        static auto Completed(satchel_actions& actions) -> void
+        { actions.busy_ = false; actions.outcome_ = satchel_action_outcome::observed; }
+        static auto Cooling(satchel_actions& actions, const uint8_t bag, const uint64_t until) -> void
+        { actions.next_sort_[bag] = until; }
+    };
+
     struct satchel_ui_test
     {
+        static auto Autosort(void) -> void
+        {
+            satchel_source source; satchel_cache cache; satchel_actions actions;
+            auto snapshot = Fixture(); satchel_data_test::Set(source, snapshot);
+            satchel_module module; module.Initialize(nullptr, &source, &cache, &actions); module.ApplyTextDefaults(ui::theme::CreateDefault());
+            module.Open(true); module.autosort_ = true;
+            module.autosort_identity_ = snapshot.identity; module.pending_autosort_bag_ = 5;
+            satchel_actions_test::Completed(actions); satchel_actions_test::Cooling(actions, 5, 5000);
+            module.Update(1000);
+            Check(module.pending_autosort_bag_ == -1 && module.autosort_bags_[5] && !actions.Busy(),
+                "a confirmed transfer queues its destination without locking item actions during the sort cooldown");
+            module.pending_autosort_bag_ = 1; module.Update(1100);
+            Check(module.autosort_bags_[1] && module.autosort_bags_[5] && !actions.Busy(),
+                "transfers to different bags retain independent pending sorts");
+            module.pending_autosort_bag_ = 5; module.Update(1200);
+            Check(std::count(module.autosort_bags_.begin(), module.autosort_bags_.end(), true) == 2,
+                "repeated transfers coalesce into one pending sort per bag");
+            snapshot.ready = false; satchel_data_test::Set(source, snapshot); module.Update(1300);
+            Check(module.autosort_bags_[5] && !actions.Busy(), "temporary loading retains deferred sorts without blocking transfers");
+            snapshot.ready = true; satchel_data_test::Set(source, snapshot); module.Update(6000);
+            Check(module.autosort_bags_[5] && actions.Outcome() == satchel_action_outcome::observed,
+                "unavailable native services defer sorting without dispatching or replacing the transfer result");
+            snapshot.identity = "world-2-456"; satchel_data_test::Set(source, snapshot); module.Update(6100);
+            Check(std::none_of(module.autosort_bags_.begin(), module.autosort_bags_.end(), [](bool value) { return value; }),
+                "character changes discard queued work from the previous inventory");
+            module.autosort_bags_[5] = true; module.character_ = "saved"; module.Update(6200);
+            Check(!module.autosort_bags_[5], "offline character views discard queued live sorts");
+            module.character_.clear(); module.autosort_bags_[5] = true; module.slip_ = 0; module.Update(6300);
+            Check(!module.autosort_bags_[5], "storage slip views cannot trigger queued live sorts");
+            module.slip_ = -1; module.autosort_bags_[5] = true; module.autosort_ = false; module.OnContentOptionChanged(satchel_module::autosort);
+            Check(!module.autosort_bags_[5], "disabling autosort clears deferred work immediately");
+            module.autosort_bags_[5] = true; module.pending_autosort_bag_ = 1; module.SuspendInput();
+            Check(!module.autosort_bags_[5] && module.pending_autosort_bag_ == -1 && module.autosort_identity_.empty(),
+                "input suspension cancels pending and deferred sorts together");
+        }
+
         static auto ContextMenu(void) -> void
         {
             satchel_source source; satchel_cache cache; satchel_actions actions;
@@ -783,12 +827,18 @@ namespace xiui
             EmptySlotReorder();
             PositionLock();
             RuntimeOwnership();
+            Autosort();
         }
     };
 }
 
 auto main(const int argc, char** argv) -> int
 {
+    if (argc == 2 && std::strcmp(argv[1], "--autosort-only") == 0)
+    {
+        try { xiui::satchel_ui_test::Autosort(); std::puts("Satchel deferred autosort checks passed."); return 0; }
+        catch (const std::exception& error) { std::fprintf(stderr, "Satchel autosort check failed: %s\n", error.what()); return 1; }
+    }
     if (argc == 2 && std::strcmp(argv[1], "--slot-reorder-only") == 0)
     {
         try { xiui::satchel_ui_test::EmptySlotReorder(); std::puts("Satchel empty-slot drops, refresh, persistence and cancellation checks passed."); return 0; }

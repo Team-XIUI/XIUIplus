@@ -14,6 +14,8 @@ namespace
     {
         return a.id == b.id && a.extra == b.extra;
     }
+    auto SortEligible(const xiui::satchel_item& item) -> bool
+    { return item.flags == 0 && item.price == 0 && !item.equipped; }
     auto ActionName(const xiui::satchel_action action) -> const char*
     {
         switch (action)
@@ -85,6 +87,7 @@ namespace
                 if (cached.slot == item.slot) { item.generation = cached.generation; break; }
             result.items.push_back(item);
         }
+        if (result.items.size() != inventory.GetContainerCount(bag)) return false;
         result.ready = true;
         return true;
     }
@@ -93,6 +96,20 @@ namespace
         uint64_t total{};
         for (const auto& candidate : bag.items) if (SameItem(candidate, item)) total += candidate.count;
         return total;
+    }
+    auto SameQuantities(const xiui::satchel_bag& before, const xiui::satchel_bag& after) -> bool
+    {
+        uint64_t beforeTotal{}, afterTotal{};
+        for (const auto& item : before.items)
+        {
+            uint64_t oldCount{}, newCount{};
+            for (const auto& candidate : before.items) if (candidate.id == item.id) oldCount += candidate.count;
+            for (const auto& candidate : after.items) if (candidate.id == item.id) newCount += candidate.count;
+            if (oldCount != newCount) return false;
+            beforeTotal += item.count;
+        }
+        for (const auto& item : after.items) afterTotal += item.count;
+        return beforeTotal == afterTotal;
     }
     template<size_t N> auto Send(IPacketManager& packets, const uint16_t id, std::array<uint8_t, N> bytes) -> void
     {
@@ -248,7 +265,24 @@ namespace xiui
             item.slots = native->Slots; item.targets = native->Targets; item.level = native->Level; item.jobs = native->Jobs;
             item.charges = native->MaxCharges; item.job = xiui::ashita::View(memory->GetPlayer())->GetMainJob(); item.job_level = xiui::ashita::View(memory->GetPlayer())->GetMainJobLevel();
         }
-        return Plan(live, request, item, result);
+        if (const auto reason = Plan(live, request, item, result); !reason.empty()) return reason;
+        if (request.action == satchel_action::sort)
+        {
+            const auto& items = live.bags[request.item.bag].items;
+            for (size_t index = 0; index < items.size(); ++index)
+            {
+                if (!SortEligible(items[index])) continue;
+                bool duplicate{};
+                for (size_t next = index + 1; next < items.size(); ++next)
+                    if (items[next].id == items[index].id && SortEligible(items[next])) { duplicate = true; break; }
+                if (!duplicate || std::any_of(result.stack_limits.begin(), result.stack_limits.end(), [&](const auto& limit) { return limit.first == items[index].id; })) continue;
+                const auto* resources = core->GetResourceManager();
+                const auto* native = resources != nullptr ? resources->GetItemById(items[index].id) : nullptr;
+                if (native == nullptr) return "Item information is unavailable.";
+                result.stack_limits.emplace_back(items[index].id, std::max<uint16_t>(1, native->StackSize));
+            }
+        }
+        return {};
     }
 
     auto satchel_actions::Eligibility(IAshitaCore* core, const satchel_snapshot& snapshot, const satchel_action_request& request) const -> std::string
@@ -266,6 +300,12 @@ namespace xiui
             this->outcome_ = satchel_action_outcome::rejected;
             return false;
         }
+        if (request.action == satchel_action::sort && SortComplete(live.bags[request.item.bag], result.stack_limits))
+        {
+            this->outcome_ = satchel_action_outcome::unchanged;
+            this->status_ = "No partial stacks to combine.";
+            return true;
+        }
         if (request.action == satchel_action::sort && now < this->next_sort_[request.item.bag])
         {
             this->status_ = "Wait before sorting this bag again.";
@@ -279,6 +319,7 @@ namespace xiui
         this->pending_ = std::move(request);
         this->plan_ = result;
         this->busy_ = true;
+        this->inventory_ack_ = false;
         this->outcome_ = satchel_action_outcome::pending;
         this->deadline_ = now + (this->pending_.action == satchel_action::use ? 15000 : 5000);
         this->status_ = std::string{ActionName(this->pending_.action)} + " submitted; waiting for an inventory update.";
@@ -341,15 +382,58 @@ namespace xiui
         }
     }
 
+    auto satchel_actions::SortComplete(const satchel_bag& bag, const std::span<const std::pair<uint16_t, uint16_t>> stackLimits) -> bool
+    {
+        for (size_t index = 0; index < bag.items.size(); ++index)
+        {
+            const auto& item = bag.items[index];
+            if (!SortEligible(item)) continue;
+            for (size_t next = index + 1; next < bag.items.size(); ++next)
+            {
+                const auto& other = bag.items[next];
+                if (other.id != item.id || !SortEligible(other)) continue;
+                const auto limit = std::find_if(stackLimits.begin(), stackLimits.end(), [&](const auto& value) { return value.first == item.id; });
+                if (limit == stackLimits.end() || (item.count < limit->second && other.count < limit->second)) return false;
+            }
+        }
+        return true;
+    }
+
+    auto satchel_actions::HandlePacket(const uint16_t id, const std::span<const uint8_t> data) -> void
+    {
+        if (id == 0x000A || id == 0x000B) { this->Cancel(); return; }
+        if (!this->busy_ || id != 0x001D || data.size() < 12 || data[4] > 1) return;
+        if (data[4] == 0) { this->inventory_ack_ = false; return; }
+        if (this->pending_.item.bag >= this->before_.bags.size()) return;
+        uint32_t flags{};
+        for (size_t index = 0; index < 4; ++index) flags |= uint32_t{data[8 + index]} << (index * 8);
+        auto required = uint32_t{1} << this->pending_.item.bag;
+        if (this->pending_.action == satchel_action::move || this->pending_.action == satchel_action::split)
+        {
+            if (this->pending_.destination >= this->before_.bags.size()) return;
+            required |= uint32_t{1} << this->pending_.destination;
+        }
+        if ((flags & required) == required) this->inventory_ack_ = true;
+    }
+
+    auto satchel_actions::Expire(const uint64_t now) -> void
+    {
+        if (!this->busy_ || now < this->deadline_) return;
+        this->busy_ = false;
+        this->outcome_ = satchel_action_outcome::unconfirmed;
+        this->status_ = std::string{ActionName(this->pending_.action)} + " submitted; no confirming inventory change was observed.";
+    }
+
     auto satchel_actions::Observe(const satchel_snapshot& snapshot, const uint64_t now, const bool equipment_ack) -> void
     {
         if (!this->busy_) return;
-        if (!snapshot.ready || snapshot.read_only || snapshot.identity != this->before_.identity ||
+        if (snapshot.read_only || snapshot.identity != this->before_.identity ||
             snapshot.character_id != this->before_.character_id || snapshot.zone != this->before_.zone)
         {
             this->Cancel();
             return;
         }
+        if (!snapshot.ready) { this->Expire(now); return; }
         const auto& request = this->pending_;
         const auto* current = SatchelFind(snapshot, request.item.bag, request.item.slot);
         bool confirmed{};
@@ -392,33 +476,21 @@ namespace xiui
             confirmed = current != nullptr && SameItem(*current, request.item) && current->count == request.item.count && current->price == request.price;
             break;
         case satchel_action::sort:
-        {
-            const auto& old = this->before_.bags[request.item.bag].items;
-            const auto& updated = snapshot.bags[request.item.bag].items;
-            if (old.size() != updated.size()) confirmed = true;
-            else
-                for (const auto& previous : old)
-                {
-                    const auto* next = SatchelFind(snapshot, request.item.bag, previous.slot);
-                    if (next == nullptr || !SameItem(*next, previous) || next->count != previous.count) { confirmed = true; break; }
-                }
+            confirmed = SortComplete(snapshot.bags[request.item.bag], this->plan_.stack_limits) &&
+                SameQuantities(this->before_.bags[request.item.bag], snapshot.bags[request.item.bag]);
             break;
         }
-        }
+        if (request.action == satchel_action::move || request.action == satchel_action::split || request.action == satchel_action::sort)
+            confirmed = confirmed && this->inventory_ack_;
         if (confirmed)
         {
             this->busy_ = false;
             this->outcome_ = satchel_action_outcome::observed;
-            this->status_ = request.action == satchel_action::sort || request.action == satchel_action::use
+            this->status_ = request.action == satchel_action::sort ? "Sort completed; inventory is up to date." : request.action == satchel_action::use
                 ? std::string{ActionName(request.action)} + " submitted; a live inventory change was observed."
                 : std::string{ActionName(request.action)} + " observed in live inventory.";
         }
-        else if (now >= this->deadline_)
-        {
-            this->busy_ = false;
-            this->outcome_ = satchel_action_outcome::unconfirmed;
-            this->status_ = std::string{ActionName(request.action)} + " submitted; no confirming inventory change was observed.";
-        }
+        else this->Expire(now);
     }
 
     auto satchel_actions::Update(IAshitaCore* core, const satchel_snapshot& snapshot, const uint64_t now) -> void
@@ -431,7 +503,7 @@ namespace xiui
             ((this->pending_.action == satchel_action::move || this->pending_.action == satchel_action::split) &&
                 this->pending_.destination != this->pending_.item.bag && !ReadBag(*inventory, live, this->pending_.destination)))
         {
-            this->Cancel();
+            this->Expire(now);
             return;
         }
         const auto* equipment = this->pending_.action == satchel_action::equip
@@ -448,6 +520,7 @@ namespace xiui
             this->outcome_ = satchel_action_outcome::cancelled;
         }
         this->busy_ = false;
+        this->inventory_ack_ = false;
         this->pending_ = {};
         this->before_ = {};
         this->deadline_ = 0;

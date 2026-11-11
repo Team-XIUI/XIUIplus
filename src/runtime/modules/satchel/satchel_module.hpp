@@ -120,8 +120,10 @@ namespace xiui
         std::vector<satchel_item> owned_slips_{};
         satchel_item action_item_{}, down_item_{};
         int action_{}, destination_{}, equipment_slot_{-1}, pending_autosort_bag_{-1};
+        std::array<bool, 17> autosort_bags_{};
+        std::string autosort_identity_{};
         uint32_t quantity_{1}, price_{};
-        uint64_t now_{}, last_click_{}, last_generation_{}, autosort_generation_{}, next_autosort_{};
+        uint64_t now_{}, last_click_{}, last_generation_{};
         uint8_t last_click_bag_{}, last_click_slot_{};
         int last_sort_{}, last_bag_{-99}, last_slip_{-99};
         std::string last_query_{}, last_character_{};
@@ -130,6 +132,7 @@ namespace xiui
         auto Snapshot(void) const -> const satchel_snapshot*;
         auto Live(void) const -> bool;
         auto ReadOnly(void) const -> bool;
+        auto ClearAutosort(void) -> void;
         auto Name(uint16_t) -> const std::string&;
         auto ItemKey(const satchel_item&) const -> std::string;
         auto Rebuild(void) -> void;

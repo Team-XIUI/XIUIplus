@@ -217,7 +217,7 @@ namespace xiui
         case all_bags_search: return module_option::Toggle("Search all bags", "Search every settled bag while text is entered, retaining bag names in details.", &this->all_bags_search_);
         case tooltips: return module_option::Toggle("Item tooltips", "Show descriptions, equipment requirements and supported instance details on hover or focus.", &this->tooltips_);
         case restricted: return module_option::Toggle("Read-only / restricted server", "Disable item actions for servers that restrict inventory packets. Cached characters and slips are always read-only.", &this->restricted_);
-        case autosort: return module_option::Toggle("Autosort after transfers", "Sort the destination after a Satchel move or split is acknowledged. Sorting does not repeat from its own inventory updates.", &this->autosort_).VisibleWhen(!this->restricted_);
+        case autosort: return module_option::Toggle("Autosort after transfers", "Combine partial stacks after a confirmed move or split. Already-stacked bags finish immediately. Repeated transfers share one pending sort per bag; the sort cooldown does not block transfers.", &this->autosort_).VisibleWhen(!this->restricted_);
         case columns: return module_option::Slider("Columns", "Set the window width for this many item columns. Dragging the resize grip adjusts it freely.", &this->columns_, 1, 128, 1).Ordered(110, true);
         case rows: return module_option::Slider("Rows", "Set the window height for this many item rows. Dragging the resize grip adjusts it freely.", &this->rows_, 1, 128, 1).Ordered(111);
         case icon_size: return module_option::Slider("Icon size", "Native item artwork size in pixels.", &this->icon_size_, 24, 64, 1).Ordered(120);
@@ -245,6 +245,7 @@ namespace xiui
         }
         if (index == columns) this->width_ = 0;
         if (index == rows) this->height_ = 0;
+        if (!this->autosort_ || this->restricted_) this->ClearAutosort();
         this->UpdateSize(); this->rebuild_ = true;
         if (this->restricted_) { this->CancelDialog(); if (this->actions_) this->actions_->Cancel(); }
     }
@@ -262,7 +263,7 @@ namespace xiui
         this->FinishWindow(false);
         this->ReleaseBrowseFocus();
         this->pointer_down_ = this->dragging_ = this->discard_pointer_release_ = false;
-        this->dialog_ = dialog::none; this->editor_.Cancel(); this->picks_.clear(); this->pending_autosort_bag_ = -1;
+        this->dialog_ = dialog::none; this->editor_.Cancel(); this->picks_.clear(); this->ClearAutosort();
         this->pressed_pick_.reset();
         this->hover_x_ = this->hover_y_ = -1;
         this->help_open_ = false;
@@ -286,6 +287,13 @@ namespace xiui
     auto satchel_module::Live(void) const -> bool { return this->character_.empty() && this->slip_ < 0; }
     auto satchel_module::ReadOnly(void) const -> bool
     { const auto* snapshot = this->Snapshot(); return !this->Live() || this->restricted_ || !snapshot || !snapshot->ready || snapshot->read_only; }
+
+    auto satchel_module::ClearAutosort(void) -> void
+    {
+        this->pending_autosort_bag_ = -1;
+        this->autosort_bags_.fill(false);
+        this->autosort_identity_.clear();
+    }
 
     auto satchel_module::Name(const uint16_t id) -> const std::string&
     {
@@ -411,13 +419,29 @@ namespace xiui
         const auto* snapshot = this->Snapshot();
         if (this->rebuild_ || (snapshot && snapshot->generation != this->last_generation_) || this->last_bag_ != this->bag_ ||
             this->last_slip_ != this->slip_ || this->last_sort_ != this->sort_ || this->last_character_ != this->character_ || this->last_query_ != this->query_) this->Rebuild();
-        if (this->pending_autosort_bag_ >= 0 && this->actions_ && !this->actions_->Busy() && this->source_)
+        const auto* live = this->source_ ? &this->source_->Snapshot() : nullptr;
+        if (!this->autosort_ || !this->opened_ || !this->Live() || this->restricted_ || !live || live->read_only ||
+            (!this->autosort_identity_.empty() && live->identity != this->autosort_identity_))
+        {
+            this->ClearAutosort();
+            return;
+        }
+        if (!this->actions_ || this->actions_->Busy()) return;
+        if (this->pending_autosort_bag_ >= 0)
         {
             const auto bag = this->pending_autosort_bag_; this->pending_autosort_bag_ = -1;
-            if (this->autosort_ && this->opened_ && !this->ReadOnly() && this->actions_->Outcome() == satchel_action_outcome::observed)
+            if (static_cast<size_t>(bag) < this->autosort_bags_.size() && this->actions_->Outcome() == satchel_action_outcome::observed)
+                this->autosort_bags_[bag] = true;
+        }
+        if (!live->ready) return;
+        for (uint8_t bag = 0; bag < this->autosort_bags_.size(); ++bag)
+        {
+            if (!this->autosort_bags_[bag] || !this->actions_->SortReady(bag, now)) continue;
+            satchel_action_request request{}; request.action = satchel_action::sort; request.identity = live->identity; request.item.bag = bag;
+            if (this->actions_->Eligibility(this->core_, *live, request).empty())
             {
-                satchel_action_request request{}; request.action = satchel_action::sort; request.identity = this->source_->Snapshot().identity; request.item.bag = static_cast<uint8_t>(bag);
-                this->actions_->Submit(this->core_, this->source_->Snapshot(), request, now);
+                if (this->actions_->Submit(this->core_, *live, request, now)) this->autosort_bags_[bag] = false;
+                break;
             }
         }
     }
@@ -823,7 +847,11 @@ namespace xiui
         request.destination = static_cast<uint8_t>(this->destination_); request.quantity = this->quantity_; request.price = this->price_; request.equipment_slot = this->equipment_slot_;
         const bool accepted = this->actions_->Submit(this->core_, this->source_->Snapshot(), request, this->now_);
         this->message_ = this->actions_->Status();
-        if (accepted && this->autosort_ && (request.action == satchel_action::move || request.action == satchel_action::split)) this->pending_autosort_bag_ = request.destination;
+        if (accepted && this->autosort_ && (request.action == satchel_action::move || request.action == satchel_action::split))
+        {
+            this->pending_autosort_bag_ = request.action == satchel_action::split ? request.item.bag : request.destination;
+            this->autosort_identity_ = request.identity;
+        }
         this->CancelDialog(); this->PlaySelect();
     }
 
@@ -1376,7 +1404,7 @@ namespace xiui
         if (this->window_action_ != window_action::none && !this->pointer_down_)
             status = this->window_action_ == window_action::move ? "Directions: move | Confirm: save | Cancel: restore" : "Directions: resize | Confirm: save | Cancel: restore";
         else if (!this->character_.empty() && snapshot) status = Observed(snapshot->observed);
-        else if (this->actions_ && !this->actions_->Status().empty()) status = this->actions_->Status();
+        else if (this->actions_ && !this->actions_->Status().empty()) status = i18n::Text(this->actions_->Status().c_str());
         else if (!this->message_.empty()) status = this->message_;
         const ui::rect statusAt{inner.x, inner.y + inner.height - 48, inner.width, 22};
         if (!status.empty()) context.DrawText(status.c_str(), statusAt, statusAt, this->text_[1]);

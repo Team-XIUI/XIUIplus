@@ -1262,6 +1262,7 @@ namespace xiui
             if (id == 0x000A || id == 0x000B) this->recast_source_.Clear();
             this->inventory_source_.HandlePacket(id, {data, size});
             this->satchel_source_.HandlePacket(id, {data, size});
+            this->satchel_actions_.HandlePacket(id, {data, size});
             this->gil_source_.HandlePacket(id, {data, size});
             this->ready_check_.HandlePacket(this->core_, id, {data, size}, now);
             if (id == 0x000A || id == 0x000B) this->equipment_source_.Reset();

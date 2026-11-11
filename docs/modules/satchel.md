@@ -20,7 +20,9 @@ Layout → Lock position defaults off and is independent of global HUD editing. 
 
 Container opacity defaults to 0.35. A one-time migration replaces the old opaque default while preserving other custom opacities, including profile overlays. Focused check: `xiui_satchel_ui_smoke --container-opacity-only`.
 
-**Focused check:** `xiui_satchel_ui_smoke --input-ownership-only`; item validation uses `xiui_satchel_actions_smoke`.
+Transfers require both bag changes and the native inventory-completion acknowledgment. Server stacking skips settled bags with no combinable partial stacks; real sorts verify the final stack state as well as completion. Autosort coalesces per destination bag and defers during the native per-bag cooldown without holding the action dispatcher busy. Incomplete live bag reads keep the current action pending.
+
+**Focused check:** `xiui_satchel_ui_smoke --input-ownership-only`; `--autosort-only` checks deferred sorting and cancellation. Item validation and completion use `xiui_satchel_actions_smoke`.
 
 [Detailed guide](../reference/satchel.md) · [Shared foundations](../foundations.md) · [Check commands](../../tests/README.md)
 
