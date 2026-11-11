@@ -1,6 +1,7 @@
 #include "inventory_module.hpp"
 
 #include <algorithm>
+#include <bit>
 #include <cmath>
 #include <cstdio>
 
@@ -49,6 +50,8 @@ namespace xiui
         this->count_ = store.ReadBool(section, "count", true);
         this->label_ = store.ReadBool(section, "label", true);
         this->split_ = store.ReadBool(section, "separate_containers", false);
+        for (size_t i = 0; i < inventory_groups[this->group_].count; ++i)
+            this->shown_[i] = store.ReadBool(section, ("show_container_" + std::to_string(i + 1)).c_str(), true);
         this->text_tint_ = store.ReadBool(section, "text_threshold_color", false);
         this->background_ = store.ReadBool(section, "background", false);
         this->count_mode_ = std::clamp(store.ReadInt(section, "count_mode", 0), 0, 1);
@@ -84,6 +87,9 @@ namespace xiui
         store.WriteBool(section, "count", this->count_);
         store.WriteBool(section, "label", this->label_);
         store.WriteBool(section, "separate_containers", this->split_);
+        if (inventory_groups[this->group_].count > 1)
+            for (size_t i = 0; i < inventory_groups[this->group_].count; ++i)
+                store.WriteBool(section, ("show_container_" + std::to_string(i + 1)).c_str(), this->shown_[i]);
         store.WriteBool(section, "text_threshold_color", this->text_tint_);
         store.WriteBool(section, "background", this->background_);
         store.WriteInt(section, "count_mode", this->count_mode_);
@@ -146,6 +152,15 @@ namespace xiui
         case count: return module_option::Toggle("Count", "Show occupied slots and capacity, or remaining free slots.", &this->count_);
         case label: return module_option::Toggle("Label", "Show the storage name alongside the count.", &this->label_);
         case split: return module_option::Toggle("Separate containers", "Give each unlocked Safe or Wardrobe its own grid within this tracker.", &this->split_).VisibleWhen(inventory_groups[this->group_].count > 1);
+        case shown:
+        {
+            static constexpr const char* safes[]{"Mog Safe", "Mog Safe 2"};
+            static constexpr const char* wardrobes[]{"1", "2", "3", "4", "5", "6", "7", "8"};
+            const std::span<bool> values{this->shown_.data(), inventory_groups[this->group_].count};
+            if (this->group_ == 3) return module_option::ToggleButtons("Shown safes", "Choose which Safes this tracker counts and displays.", values, safes);
+            return module_option::ToggleButtons("Shown wardrobes", "Choose which Wardrobes this tracker counts and displays, such as hiding ones you can't access.", values, wardrobes)
+                .VerbatimChoices().VisibleWhen(this->group_ == 5);
+        }
         case hide_menu: return {};
         case text_tint: return module_option::Toggle("Fullness text color", "Tint the count with its fullness color, retaining its text effects.", &this->text_tint_).VisibleWhen(this->count_);
         case count_mode: return module_option::Choice("Count display", "Fullness always uses occupied slots, even when showing free slots.", &this->count_mode_, counts, 2).VisibleWhen(this->count_);
@@ -187,7 +202,15 @@ namespace xiui
 
     auto inventory_module::Usage(void) const -> inventory_usage
     {
-        return this->source_ != nullptr ? InventoryTotal(this->source_->State(), inventory_groups[this->group_]) : inventory_usage{};
+        return this->source_ != nullptr ? InventoryTotal(this->source_->State(), inventory_groups[this->group_], this->ShownMask()) : inventory_usage{};
+    }
+
+    auto inventory_module::ShownMask(void) const -> uint32_t
+    {
+        uint32_t mask{};
+        for (size_t i = 0; i < inventory_groups[this->group_].count; ++i)
+            if (inventory_groups[this->group_].count == 1 || this->shown_[i]) mask |= 1u << i;
+        return mask;
     }
 
     auto inventory_module::ShouldRender(const hud_snapshot&) const -> bool
@@ -225,11 +248,14 @@ namespace xiui
         size_t panelCount{};
         const auto& group = inventory_groups[this->group_];
         const bool live = this->Usage().ready;
+        const auto mask = this->ShownMask();
+        const auto shownCount = static_cast<uint32_t>(std::popcount(mask));
         static constexpr const char* wardrobeNames[]{"Wardrobe 1", "Wardrobe 2", "Wardrobe 3", "Wardrobe 4", "Wardrobe 5", "Wardrobe 6", "Wardrobe 7", "Wardrobe 8"};
         for (size_t i = 0; i < (this->split_ ? group.count : 1); ++i)
         {
+            if (this->split_ && (mask & (1u << i)) == 0) continue;
             const auto usage = live ? (this->split_ ? this->source_->State().bags[group.bags[i]] : this->Usage()) :
-                inventory_usage{static_cast<uint32_t>((45 + i * 5) * (this->split_ ? 1 : group.count)), static_cast<uint32_t>(80 * (this->split_ ? 1 : group.count)), true};
+                inventory_usage{static_cast<uint32_t>((45 + i * 5) * (this->split_ ? 1 : shownCount)), static_cast<uint32_t>(80 * (this->split_ ? 1 : shownCount)), true};
             if (usage.capacity == 0) continue;
             const char* name = !this->split_ || group.count == 1 ? this->DisplayName() : this->group_ == 3 ? (i == 0 ? "Mog Safe" : "Mog Safe 2") : wardrobeNames[i];
             panels[panelCount++] = {usage, name};

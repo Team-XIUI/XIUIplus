@@ -38,7 +38,7 @@ namespace xiui
 #if defined(XIUI_ENABLE_INVENTORY_TESTS)
         friend struct inventory_test;
 #endif
-        enum option : size_t { enabled, dots, count, label, split, hide_menu, text_tint, count_mode, threshold_mode, warning, critical,
+        enum option : size_t { enabled, dots, count, label, split, shown, hide_menu, text_tint, count_mode, threshold_mode, warning, critical,
             columns, rows, dot_size, dot_gap, group_gap, section_gap, text_position, background, opacity, padding,
             normal_color, empty_color, warning_color, critical_color, selected_text, base_options };
         size_t group_{};
@@ -46,6 +46,7 @@ namespace xiui
         const bool* module_enabled_{};
         module_state state_{true, {-1, -1, 170, 84}, 24, 16};
         bool dots_{true}, count_{true}, label_{true}, split_{}, text_tint_{}, background_{};
+        std::array<bool, 8> shown_{true, true, true, true, true, true, true, true};
         int count_mode_{}, threshold_mode_{}, text_position_{}, selected_text_{};
         float warning_percent_{75}, critical_percent_{95}, warning_slots_{}, critical_slots_{};
         float columns_{5}, rows_{6}, dot_size_{7}, dot_gap_{2}, group_gap_{8}, section_gap_{10};
@@ -53,5 +54,6 @@ namespace xiui
         D3DCOLOR normal_{}, empty_{}, warning_{0xFFFFB66B}, critical_{0xFFFF647C};
         std::array<module_text_profile, 2> text_{};
         auto Usage(void) const -> inventory_usage;
+        auto ShownMask(void) const -> uint32_t;
     };
 }

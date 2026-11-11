@@ -37,7 +37,8 @@ namespace xiui
         bool available{}, menu_open{};
     };
 
-    auto InventoryTotal(const inventory_state& state, const inventory_group& group) -> inventory_usage;
+    // Bit i of shown keeps group.bags[i] in the total.
+    auto InventoryTotal(const inventory_state& state, const inventory_group& group, uint32_t shown = 0xFF) -> inventory_usage;
 
     class inventory_source
     {

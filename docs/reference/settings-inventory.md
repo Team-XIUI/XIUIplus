@@ -1,6 +1,6 @@
 # Settings inventory
 
-Generated 2026-11-09. Source: runtime option metadata and shared layout.
+Generated 2026-11-11. Source: runtime option metadata and shared layout.
 Regenerate with `./scripts/update-docs.ps1`. Each bullet is one visual row; [empty] preserves paired controls.
 
 ## Player Bar
@@ -2358,8 +2358,8 @@ Regenerate with `./scripts/update-docs.ps1`. Each bullet is one visual row; [emp
 
 - Enabled | Slot dots
 - Count | Label
-- Separate containers | Fullness text color
-- Count display
+- Separate containers | Shown safes
+- Fullness text color | Count display
 
 ### Appearance / Size & Position
 
@@ -2435,8 +2435,8 @@ Regenerate with `./scripts/update-docs.ps1`. Each bullet is one visual row; [emp
 
 - Enabled | Slot dots
 - Count | Label
-- Separate containers | Fullness text color
-- Count display
+- Separate containers | Shown wardrobes
+- Fullness text color | Count display
 
 ### Appearance / Size & Position
 
@@ -4859,4 +4859,4 @@ Regenerate with `./scripts/update-docs.ps1`. Each bullet is one visual row; [emp
 
 ## Coverage
 
-358 registered modules, 620 distinct pages, 4940 controls across those pages, and 2355 selector/view combinations.
+358 registered modules, 620 distinct pages, 4942 controls across those pages, and 2355 selector/view combinations.

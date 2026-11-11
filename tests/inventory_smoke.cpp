@@ -172,6 +172,9 @@ namespace xiui
             Check(safe.used == 120 && safe.capacity == 160 && safe.ready, "Safe includes both unlocked containers");
             Check(wardrobe.used == 35 && wardrobe.capacity == 160 && wardrobe.ready, "Wardrobes sum only unlocked containers");
             Check(!InventoryTotal(source.State(), inventory_groups[1]).ready, "locked storage stays hidden");
+            const auto firstWardrobe = InventoryTotal(source.State(), inventory_groups[5], 0x01);
+            Check(firstWardrobe.used == 10 && firstWardrobe.capacity == 80 && firstWardrobe.ready && !InventoryTotal(source.State(), inventory_groups[5], 0xFC).ready,
+                "hidden Wardrobes leave the total and a tracker with only hidden or locked ones stays hidden");
             native.flags &= ~(1u << 9);
             source.state_.bags = inventory_source::ReadBags(native);
             Check(!InventoryTotal(source.State(), inventory_groups[3]).ready && InventoryTotal(source.State(), inventory_groups[0]).ready,
@@ -216,16 +219,20 @@ namespace xiui
             module.split_ = false; module.Render({}, context);
             Check(separateHeight > module.State().bounds.height && module.State().bounds.width < 1280,
                 "separate containers reserve their own rows while combined dots fit the viewport");
-            module.split_ = true;
+            module.shown_[1] = false; module.Render({}, context);
+            Check(module.Usage().used == 50 && module.Usage().capacity == 80, "hidden Safes leave the combined count");
+            module.split_ = true; module.Render({}, context);
+            Check(module.State().bounds.height < separateHeight, "hidden Safes leave the separate grids");
             auto settings = settings_store::FromIniText("");
             module.Save(settings);
             inventory_module loaded{3}; loaded.ApplyTextDefaults(theme); loaded.SetSource(&source); loaded.Load(settings);
             Check(loaded.state_.enabled && loaded.split_ && loaded.background_ && loaded.text_tint_ && loaded.columns_ == 7 && loaded.rows_ == 4 &&
                 loaded.dot_size_ == 9 && loaded.text_position_ == 1 && loaded.warning_percent_ == 80 && loaded.critical_percent_ == 97 &&
-                loaded.empty_ == 0x40556677 && loaded.text_[1].offset_x == -3 && loaded.state_.bounds.x == 55,
+                loaded.empty_ == 0x40556677 && loaded.text_[1].offset_x == -3 && loaded.state_.bounds.x == 55 && loaded.shown_[0] && !loaded.shown_[1],
                 "layout, thresholds, alpha colors and shared text profiles persist independently");
             for (size_t index = 0; index < loaded.OptionCount(); ++index)
             {
+                if (index == inventory_module::hide_menu) continue;
                 size_t owners{};
                 for (size_t section = 0; section < loaded.ConfigSections().size(); ++section) owners += loaded.ConfigSectionContains(section, index);
                 Check(owners == 1 && loaded.Option(index).label != nullptr, "every inventory option has one config topic");
@@ -253,7 +260,7 @@ namespace xiui
             for (size_t i = 0; i < found->Count(); ++i)
             {
                 runtime.config_.module = found->Module(i);
-                Check(found->Contains(runtime.config_.module) && runtime.HasConfigSections() && runtime.HasConfigSubmenu(), "all Inventory members use the shared config navigation");
+                Check(found->Contains(runtime.config_.module) && (runtime.ActiveConfigPage().SectionCount() > 1) && runtime.HasConfigSubmenu(), "all Inventory members use the shared config navigation");
             }
             Check(runtime.inventory_[0].State().enabled && !runtime.inventory_[5].State().enabled, "only main Inventory starts enabled");
             const auto extras = std::find_if(pages.begin(), pages.end(), [](const auto& page) { return std::string_view{page.id} == "extras"; });
@@ -262,7 +269,7 @@ namespace xiui
             for (size_t i = 0; i < extras->Count(); ++i)
             {
                 runtime.config_.module = extras->Module(i);
-                Check(runtime.HasConfigSections() && runtime.ActiveConfigPage().Contains(runtime.config_.module), "each Extra retains its own shared config selector");
+                Check((runtime.ActiveConfigPage().SectionCount() > 1) && runtime.ActiveConfigPage().Contains(runtime.config_.module), "each Extra retains its own shared config selector");
             }
             for (const auto& page : pages)
                 Check(std::string_view{page.id} != "compass" && std::string_view{page.id} != "world" && std::string_view{page.id} != "commands", "Extras has no duplicate sidebar entries");

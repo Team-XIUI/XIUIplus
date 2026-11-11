@@ -3,13 +3,13 @@
 
 namespace xiui
 {
-    auto InventoryTotal(const inventory_state& state, const inventory_group& group) -> inventory_usage
+    auto InventoryTotal(const inventory_state& state, const inventory_group& group, const uint32_t shown) -> inventory_usage
     {
         inventory_usage result{0, 0, state.available};
         for (size_t i = 0; i < group.count; ++i)
         {
             const auto& bag = state.bags[group.bags[i]];
-            if (bag.capacity == 0) continue;
+            if (bag.capacity == 0 || (shown & (1u << i)) == 0) continue;
             result.used += bag.used;
             result.capacity += bag.capacity;
             result.ready = result.ready && bag.ready;
