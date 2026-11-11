@@ -86,7 +86,7 @@ Mappings, input type and presets open the shared dropdown menus. Timing and trig
 
 Dropdowns use the same native panel and list styling as Input mode. Long lists include the shared scrollbar with thumb dragging, page clicks and wheel scrolling; controller selection stays visible. Setup omits explanatory text beneath the form and defaults to a shorter window. Existing custom window sizes remain saved.
 
-Turn on **Use XIUI+ trigger controls** to enable the crossbar and route trigger actions to XIUI+. Turning it off leaves physical trigger macros to FFXI while the bar remains available for editing and mouse use. Native replacement removes the selected trigger/button inputs before FFXI processes them; it does not disable macro commands or native macro reference actions.
+**Use XIUI+ trigger controls** is on by default, so trigger actions route to XIUI+ whenever the crossbar is enabled; turning it on later also enables the crossbar. Turning it off leaves physical trigger macros to FFXI while the bar remains available for editing and mouse use. Native replacement removes the selected trigger/button inputs before FFXI processes them; it does not disable macro commands or native macro reference actions.
 
 The stored banks preserve the Lua model:
 

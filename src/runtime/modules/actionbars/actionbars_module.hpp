@@ -256,7 +256,8 @@ namespace xiui
         combat_settings* combat_settings_{};
         ui::native_ui_sounds* sounds_{};
         const ui::config_text_settings* config_text_{};
-        controller_crossbar_settings controller_settings_{};
+        // Use XIUI+ triggers defaults on; routing still requires the crossbar to be enabled.
+        controller_crossbar_settings controller_settings_{.enabled = true, .replace_native = true};
         controller_status controller_status_{};
         ui::rect viewport_{};
         library_metrics library_metrics_{};
@@ -304,7 +305,7 @@ namespace xiui
         bool library_draft_{}, library_edit_{}, library_assignment_{};
         bool editor_options_{}, editor_recast_{}, editor_new_{};
         bool settings_changed_{}, binding_capture_{}, inactive_{true}, prompts_{true}, allow_native_keys_{}, only_learned_{true}, draft_pet_{}, scrolling_{};
-        bool placing_{}, crossbar_preview_{}, trigger_controls_{};
+        bool placing_{}, crossbar_preview_{}, trigger_controls_{true};
         bool crossbar_animations_{true};
         float scroll_grab_{};
         float hover_x_{-1}, hover_y_{-1}, down_x_{}, down_y_{};

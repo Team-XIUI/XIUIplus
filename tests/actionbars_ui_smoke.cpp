@@ -1358,6 +1358,12 @@ namespace xiui
         {
             action_store store; action_executor executor; actionbars_module module;
             module.Initialize(nullptr, &store, &executor); module.viewport_ = {0, 0, 1280, 900};
+            {
+                actionbars_module fresh; fresh.Load(settings_store::FromIniText(""));
+                Check(fresh.controller_settings_.enabled && fresh.controller_settings_.replace_native && fresh.trigger_controls_, "Use XIUI+ triggers defaults on");
+                fresh.Load(settings_store::FromIniText("[controller.crossbar.device]\nenabled=0\nreplace_native=0\n"));
+                Check(!fresh.trigger_controls_, "a saved trigger opt-out is preserved");
+            }
             module.controller_status_.backend = controller_backend::xinput;
             module.controller_settings_.enabled = module.controller_settings_.replace_native = false;
             module.bars_[action_bar_count].state.enabled = false; module.OpenSetup();
