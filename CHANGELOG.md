@@ -2,6 +2,8 @@
 
 ## Unreleased
 
+- Charmed pets: fix charmed beasts using the jug pet frame, or showing no frame when the jug frame was turned off. Charmed pets now use the Charmed pet frame and its Sic/Reward recasts. After a successful Charm, the frame estimates how long the pet stays charmed from the beast's level, your charisma and Charm+ gear; XIUI+ checks the beast automatically and hides that check's reply. Familiar extends the estimate. Pets charmed before XIUI+ loaded show the lifetime as unavailable.
+
 - Player Bar: the small Attack Timing and Recovery bars above TP and HP now draw behind the HP and TP labels instead of covering them. `/xiuiplus player` opens Player Bar settings directly, and `/xiuiplus minimap` now previews the minimap like selecting it in Configuration.
 
 - Crossbar: new **Diamond vertical spacing** (Action Bars → Crossbar → Appearance → Size & Position) closes the empty center of each diamond, as XIUI Legacy's vertical slot gap did. At 0 or more, the top and bottom slots stack with that gap and the side slots sit between them. The default, -1, keeps room for the center button icons. Center button icons now stay centered when Vertical spacing differs from horizontal spacing.
