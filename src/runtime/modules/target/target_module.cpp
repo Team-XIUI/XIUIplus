@@ -499,6 +499,14 @@ namespace xiui
             context.DrawText(name.c_str(), at, at, nameText);
             bottom = at.y + at.height + 2;
         }
+        // Statuses follow HP directly so they stay put for every target; casts, attack timing and mob information go below.
+        const auto statuses = std::span<const combat_status>{view.statuses}.first(!recipient || options.statuses ? view.status_count : 0);
+        const ui::rect strip{panel.x + 7, bottom + 2, panel.width - 14, 0};
+        const auto layout = ui::LayoutStatusStrip(statuses, strip, now, statusText, context.Design(), statusSettings);
+        ui::DrawStatusStrip(statuses, strip, now, statusText, context, statusSettings, &layout);
+        if (statusSettings.tooltips)
+            for (size_t i = 0; i < layout.count; ++i) this->status_hits_.push_back({statuses[i], context.Design().Transform().Map(layout.Icon(i)), view.id});
+        if (const auto statusHeight = ui::StatusStripHeight(layout, statusSettings); statusHeight > 0) bottom += statusHeight + 2;
         if (recipient && options.cast && view.cast.Active(now))
         {
             auto castStyle = !recipient && this->settings_.display.custom_cast_meter ? this->settings_.display.cast_meter : meterStyle;
@@ -527,12 +535,6 @@ namespace xiui
                 mob_info_group_count, xiv1 && nameAbove);
             if (infoHeight > 0) bottom += infoHeight + 3;
         }
-        const auto statuses = std::span<const combat_status>{view.statuses}.first(!recipient || options.statuses ? view.status_count : 0);
-        const ui::rect strip{panel.x + 7, bottom + 2, panel.width - 14, 0};
-        const auto layout = ui::LayoutStatusStrip(statuses, strip, now, statusText, context.Design(), statusSettings);
-        ui::DrawStatusStrip(statuses, strip, now, statusText, context, statusSettings, &layout);
-        if (statusSettings.tooltips)
-            for (size_t i = 0; i < layout.count; ++i) this->status_hits_.push_back({statuses[i], context.Design().Transform().Map(layout.Icon(i)), view.id});
         if (nameAbove || castHeader)
         {
             if (xiv1)
@@ -575,7 +577,6 @@ namespace xiui
         {
             context.DrawText(distance, distanceBounds, captionDistance ? distanceBounds : panel, distanceText);
         }
-        bottom += ui::StatusStripHeight(layout, statusSettings);
         return bottom - panel.y;
     }
 

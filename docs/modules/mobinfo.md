@@ -8,7 +8,7 @@ Provides static monster metadata to Target’s configurable information groups. 
 
 Weaknesses and Resistances list only damage-taken changes (damage types, absorbs and physical/magic/ranged/breath kinds), strongest first; neutral values never appear. Resistance ranks change magic accuracy, not damage, so they stay in the optional rank groups.
 
-XIV 1.0 attaches Together-mode Job, Behavior, Links and Detection cells above the right-hand Target caption through `DrawHeaderIcons`. It measures the visible cells before right alignment and defaults to two-pixel spacing. Own-row and independent groups keep the regular renderer and placement.
+XIV 1.0 attaches Together-mode Job, Behavior, Links and Detection cells above the right-hand Target caption through `DrawHeaderIcons`. Together-mode Weaknesses and Resistances (the default) form a right-aligned row above those cells and wrap upward. It measures the visible cells before right alignment. In the XI theme, the same groups continue the row under the Target statuses. Own-row and independent groups keep the regular renderer and placement.
 
 **Focused check:** `./scripts/check.ps1 -Name mob-info`.
 

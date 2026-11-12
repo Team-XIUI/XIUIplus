@@ -28,7 +28,10 @@ namespace xiui
         constexpr auto HeaderGroup(const size_t index) { return index <= Index(group_kind::detection); }
         constexpr auto DamageGroup(const size_t index) { return index == Index(group_kind::weaknesses) || index == Index(group_kind::resistances); }
         constexpr auto DefaultPlacement(const size_t index)
-        { return HeaderGroup(index) || index == Index(group_kind::resistances) ? mob_info_group_settings::inline_row : mob_info_group_settings::own_row; }
+        { return HeaderGroup(index) || DamageGroup(index) ? mob_info_group_settings::inline_row : mob_info_group_settings::own_row; }
+        // XIV 1.0 draws these Together-mode groups above the caption instead of below the Target.
+        auto InHeader(const size_t index, const mob_info_group_settings& group)
+        { return (HeaderGroup(index) || DamageGroup(index)) && group.placement == mob_info_group_settings::inline_row; }
         constexpr auto DefaultSpacing(const size_t index) -> float
         { return index == Index(group_kind::job) || DamageGroup(index) ? 4.0f : HeaderGroup(index) ? 2.0f : 12.0f; }
         constexpr auto DefaultEnabled(const size_t index)
@@ -221,6 +224,19 @@ namespace xiui
             return text;
         }
 
+        auto ElementArt(const module_render_context& context, const int index) -> IDirect3DTexture8*
+        { return context.NativeAssets() != nullptr && index >= 0 && index < 8 ? context.NativeAssets()->Texture(elements[index]) : nullptr; }
+
+        auto CellArt(const mob_info_value& cell, const module_render_context& context) -> ui::game_icon_view
+        {
+            ui::game_icon_view art{};
+            if (cell.icon == mob_info_icon::physical && context.Icons() != nullptr) art = context.Icons()->PhysicalDamageIcon(cell.id);
+            else if (cell.icon == mob_info_icon::detection && context.Icons() != nullptr) art = context.Icons()->MobDetectionIcon(static_cast<ui::mob_detection_icon>(cell.id));
+            else if (cell.icon == mob_info_icon::element) art.texture = ElementArt(context, cell.id);
+            else if (cell.icon == mob_info_icon::status && context.Icons() != nullptr) art.texture = context.Icons()->Status(cell.id);
+            return art;
+        }
+
         struct damage_change { size_t type{}; int change{}; bool absorbs{}; };
 
         // Icon types strongest first, then the broad damage kinds; neutral values never appear.
@@ -350,58 +366,82 @@ namespace xiui
             ui::game_icon_view art{};
             std::string value{};
             module_text_profile text{};
-            float x{}, width{}, height{}, icon_size{}, icon_width{}, gap{};
+            float width{}, height{}, icon_size{}, icon_width{}, gap{};
         };
-        std::vector<header_cell> cells;
-        float width{}, height{};
-        for (size_t i = 0; HeaderGroup(i); ++i)
-            if (this->groups[i].placement == mob_info_group_settings::inline_row) this->groups[i].attached_bounds = {};
+        struct header_line { size_t first{}, last{}; float width{}, height{}; };
+        // Damage changes stack above the job and behavior cells, which rest on the caption.
+        std::vector<header_cell> damage, header;
+        for (size_t i = 0; i < this->groups.size(); ++i)
+            if (InHeader(i, this->groups[i])) this->groups[i].attached_bounds = {};
         for (const auto& row : this->Rows(mob))
         {
             const auto index = static_cast<size_t>(row.group);
             const auto& group = this->groups[index];
-            if (!HeaderGroup(index) || group.placement != mob_info_group_settings::inline_row) continue;
+            if (!InHeader(index, group)) continue;
             auto text = group.text;
             if (group.follow_text) text.style = this->text.style;
             text.offset_x += this->text.offset_x; text.offset_y += this->text.offset_y;
             text.placement = 0; text.style.alignment = ui::text_alignment::left;
             const float iconSize = group.icon_size > 0 ? group.icon_size : std::clamp(context.Design().TextHeight(text.style), 16.0f, 32.0f);
             const float cellHeight = std::max(iconSize, context.Design().TextHeight(text.style));
+            auto& cells = DamageGroup(index) ? damage : header;
+            if (DamageGroup(index) && !cells.empty() && cells.back().group != index) cells.back().gap = std::max(cells.back().gap, 8.0f);
+            const auto add = [&](const ui::game_icon_view art, std::string value, const float gap) {
+                const float iconWidth = art.texture != nullptr ? iconSize + (value.empty() ? 0 : 4) : 0;
+                const float width = iconWidth + context.Design().MeasureText(value.c_str(), text.style);
+                cells.push_back({index, art, std::move(value), text, width, cellHeight, iconSize, iconWidth, gap});
+            };
+            if (group.headings && !row.label.empty()) add({}, row.label, 8);
             for (const auto& cell : row.values)
             {
-                const auto art = cell.icon == mob_info_icon::detection && context.Icons() != nullptr ?
-                    context.Icons()->MobDetectionIcon(static_cast<ui::mob_detection_icon>(cell.id)) : ui::game_icon_view{};
-                const auto value = art.texture != nullptr ? cell.value : cell.label + (cell.value.empty() ? "" : " " + cell.value);
-                const float iconWidth = art.texture != nullptr ? iconSize + (value.empty() ? 0 : 4) : 0;
-                const float cellWidth = iconWidth + context.Design().MeasureText(value.c_str(), text.style);
-                if (!cells.empty()) width += cells.back().gap;
-                cells.push_back({index, art, value, text, width, cellWidth, cellHeight, iconSize, iconWidth, group.cell_spacing});
-                width += cellWidth; height = std::max(height, cellHeight);
+                const auto art = CellArt(cell, context);
+                add(art, art.texture != nullptr ? cell.value : cell.label + (cell.value.empty() ? "" : " " + cell.value), group.cell_spacing);
             }
         }
-        if (cells.empty()) return {};
-        const ui::rect strip{area.x + area.width - width, area.y - height, width, height};
-        for (const auto& cell : cells)
-        {
-            const float left = strip.x + cell.x + cell.text.offset_x;
-            const float top = strip.y + (height - cell.height) * .5f + cell.text.offset_y;
-            if (cell.art.texture != nullptr)
-                context.Design().DrawTexture(cell.art.texture, {left, top + (cell.height - cell.icon_size) * .5f, cell.icon_size, cell.icon_size}, 0xFFFFFFFF, cell.art.uv);
-            auto text = cell.text; text.offset_x = text.offset_y = 0;
-            const ui::rect at{left + cell.icon_width, top, cell.width - cell.icon_width, cell.height};
-            if (!cell.value.empty()) context.DrawText(cell.value.c_str(), at, at, text);
-            auto& attached = this->groups[cell.group].attached_bounds;
-            const ui::rect bounds{left, top, cell.width, cell.height};
-            if (attached.width == 0) attached = bounds;
-            else
+        const auto split = [&](const std::vector<header_cell>& cells, const bool wrap) {
+            std::vector<header_line> lines;
+            for (size_t i = 0; i < cells.size(); ++i)
             {
-                const float right = std::max(attached.x + attached.width, bounds.x + bounds.width);
-                const float bottom = std::max(attached.y + attached.height, bounds.y + bounds.height);
-                attached.x = std::min(attached.x, bounds.x); attached.y = std::min(attached.y, bounds.y);
-                attached.width = right - attached.x; attached.height = bottom - attached.y;
+                if (lines.empty() || (wrap && lines.back().width + cells[i - 1].gap + cells[i].width > area.width)) lines.push_back({i, i});
+                else lines.back().width += cells[i - 1].gap;
+                lines.back().last = i + 1;
+                lines.back().width += cells[i].width;
+                lines.back().height = std::max(lines.back().height, cells[i].height);
             }
-        }
-        return strip;
+            return lines;
+        };
+        const auto unite = [](ui::rect& into, const ui::rect& bounds) {
+            if (into.width == 0) { into = bounds; return; }
+            const float right = std::max(into.x + into.width, bounds.x + bounds.width);
+            const float bottom = std::max(into.y + into.height, bounds.y + bounds.height);
+            into.x = std::min(into.x, bounds.x); into.y = std::min(into.y, bounds.y);
+            into.width = right - into.x; into.height = bottom - into.y;
+        };
+        ui::rect used{};
+        float bottom = area.y;
+        const auto drawLine = [&](const std::vector<header_cell>& cells, const header_line& line) {
+            const ui::rect strip{area.x + area.width - line.width, bottom - line.height, line.width, line.height};
+            float x = strip.x;
+            for (size_t i = line.first; i < line.last; ++i)
+            {
+                const auto& cell = cells[i];
+                const float left = x + cell.text.offset_x;
+                const float top = strip.y + (line.height - cell.height) * .5f + cell.text.offset_y;
+                if (cell.art.texture != nullptr)
+                    context.Design().DrawTexture(cell.art.texture, {left, top + (cell.height - cell.icon_size) * .5f, cell.icon_size, cell.icon_size}, 0xFFFFFFFF, cell.art.uv);
+                auto text = cell.text; text.offset_x = text.offset_y = 0;
+                const ui::rect at{left + cell.icon_width, top, cell.width - cell.icon_width, cell.height};
+                if (!cell.value.empty()) context.DrawText(cell.value.c_str(), at, at, text);
+                unite(this->groups[cell.group].attached_bounds, {left, top, cell.width, cell.height});
+                x += cell.width + cell.gap;
+            }
+            unite(used, strip);
+            bottom = strip.y - 2;
+        };
+        for (const auto& line : split(header, false)) drawLine(header, line);
+        const auto damageLines = split(damage, true);
+        for (auto line = damageLines.rbegin(); line != damageLines.rend(); ++line) drawLine(damage, *line);
+        return used;
     }
 
     auto target_mob_info::Draw(const mob_record* mob, const ui::rect& area, const module_render_context& context, const size_t onlyGroup, const bool headerIcons) -> float
@@ -410,15 +450,12 @@ namespace xiui
         size_t previousGroup = mob_info_group_count;
         const bool detached = onlyGroup < this->groups.size();
         const auto nextLine = [&] { y += lineHeight + lineSpacing; x = lineHeight = 0; lineSpacing = this->spacing; };
-        const auto elementArt = [&](const int index) -> IDirect3DTexture8* {
-            return context.NativeAssets() != nullptr && index >= 0 && index < 8 ? context.NativeAssets()->Texture(elements[index]) : nullptr;
-        };
         for (const auto& row : this->Rows(mob))
         {
             const auto index = static_cast<size_t>(row.group);
             auto& group = this->groups[index];
             if (detached ? index != onlyGroup : group.placement == mob_info_group_settings::independent) continue;
-            if (!detached && headerIcons && HeaderGroup(index) && group.placement == mob_info_group_settings::inline_row) continue;
+            if (!detached && headerIcons && InHeader(index, group)) continue;
             if (x > 0 && group.placement != mob_info_group_settings::inline_row) nextLine();
             // Detail groups that continue a row keep a separator gap from the previous group.
             if (x > 0 && index != previousGroup && !HeaderGroup(index)) x += std::max(0.0f, 8.0f - previousSpacing);
@@ -468,13 +505,9 @@ namespace xiui
             }
             for (const auto& cell : row.values)
             {
-                ui::game_icon_view art{};
-                if (cell.icon == mob_info_icon::physical && context.Icons() != nullptr) art = context.Icons()->PhysicalDamageIcon(cell.id);
-                else if (cell.icon == mob_info_icon::detection && context.Icons() != nullptr) art = context.Icons()->MobDetectionIcon(static_cast<ui::mob_detection_icon>(cell.id));
-                else if (cell.icon == mob_info_icon::element) art.texture = elementArt(cell.id);
-                else if (cell.icon == mob_info_icon::status && context.Icons() != nullptr) art.texture = context.Icons()->Status(cell.id);
+                const auto art = CellArt(cell, context);
                 auto value = art.texture != nullptr ? cell.value : cell.label + (cell.value.empty() ? "" : " " + cell.value);
-                auto* badge = elementArt(cell.element);
+                auto* badge = ElementArt(context, cell.element);
                 if (art.texture != nullptr && cell.element >= 0 && badge == nullptr)
                     value = std::string{cell.element == 6 ? "Light" : "Dark"} + (value.empty() ? "" : " " + value);
                 const auto valueWidth = context.Design().MeasureText(value.c_str(), text.style);

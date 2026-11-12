@@ -141,24 +141,36 @@ namespace xiui
         if (!check(header.width > 0 && header.x + header.width == 400 && header.y + header.height == 100 &&
             behavior.DrawHeaderIcons(nullptr, {0, 100, 400, 0}, context).width == 0,
             "available header icons anchor to the right above their caption; unknown records occupy no space")) return false;
+        showOnly(info, {group_kind::behavior, group_kind::weaknesses, group_kind::resistances});
+        info.text.offset_x = info.text.offset_y = 0;
+        const auto stacked = info.DrawHeaderIcons(&sample, {0, 100, 400, 0}, context);
+        const auto& behaviorCells = info.groups[behaviorGroup].attached_bounds;
+        const auto& weakCells = info.groups[at(group_kind::weaknesses)].attached_bounds;
+        if (!check(stacked.y + stacked.height == 100 && weakCells.width > 0 && info.groups[at(group_kind::resistances)].attached_bounds.width > 0 &&
+            weakCells.y + weakCells.height <= behaviorCells.y && weakCells.x + weakCells.width <= 400 &&
+            info.Draw(&sample, {0, 0, 400, 0}, context, mob_info_group_count, true) == 0,
+            "Together weaknesses and resistances stack above the XIV 1.0 header cells instead of below the Target")) return false;
         target.settings_.mob_info.enabled = false;
         const auto normal = target.DrawView(view, {0, 0, 400, 0}, "", animation, 2000, context);
         target.settings_.mob_info.enabled = true;
         const auto expanded = target.DrawView(view, {0, 0, 400, 0}, "", animation, 2000, context);
-        const auto infoBefore = target.settings_.mob_info.groups[behaviorGroup].attached_bounds;
         view.status_count = 1; view.statuses[0] = {4, 58, 1000, 0, false};
         target.BeginRenderFrame();
         target.DrawView(view, {0, 0, 400, 0}, "", animation, 2000, context);
         const auto statusBefore = target.status_hits_.front().bounds;
+        const auto infoBefore = target.settings_.mob_info.groups[behaviorGroup].attached_bounds;
         view.status_count = 24; view.cast = {"Stone", 1000, 0, 4};
         target.BeginRenderFrame();
         target.DrawView(view, {0, 0, 400, 0}, "", animation, 2000, context);
         const auto infoAfter = target.settings_.mob_info.groups[behaviorGroup].attached_bounds;
         const auto statusAfter = target.status_hits_.front().bounds;
-        if (!check(infoBefore.x == infoAfter.x && infoBefore.y == infoAfter.y && statusBefore.x == statusAfter.x && statusBefore.y == statusAfter.y,
-            "Paralysis, wrapped status rows and casting leave mob information and the first status anchor stationary")) return false;
-        view.status_count = 0; view.cast = {};
-        view.mob = nullptr;
+        if (!check(statusBefore.x == statusAfter.x && statusBefore.y == statusAfter.y && infoBefore.y >= statusBefore.y + statusBefore.height && infoAfter.y > infoBefore.y,
+            "Paralysis, wrapped status rows and casting keep the first status anchor stationary above mob information")) return false;
+        view.status_count = 1; view.cast = {}; view.mob = nullptr;
+        target.BeginRenderFrame();
+        target.DrawView(view, {0, 0, 400, 0}, "", animation, 2000, context);
+        if (!check(target.status_hits_.front().bounds.y == statusBefore.y, "statuses sit in the same place whether or not the target has mob information")) return false;
+        view.status_count = 0;
         const auto unmatched = target.DrawView(view, {0, 0, 400, 0}, "", animation, 2000, context);
         if (!check(expanded > normal && unmatched == normal, "information rows extend the Target footprint only for known monsters")) return false;
         auto& layout = target.settings_.mob_info;
