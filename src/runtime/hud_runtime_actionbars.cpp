@@ -53,6 +53,7 @@ namespace xiui
             mask &= ~(NativeHudBit(native_hud_element::chat1) | NativeHudBit(native_hud_element::chat2) | NativeHudBit(native_hud_element::chatlog));
         if (this->visible_ && this->visibility_context_.window_focus == native_window_focus::chatlog)
             mask &= ~NativeHudBit(native_hud_element::chatlog);
+        if (this->visible_ && this->native_input_exposed_) mask |= native_chat_input_visible;
         return mask | (this->NativeEditMode() ? native_edit_windows : 0) | (this->actionbars_.ReplaceNativeMacros() ? native_keyboard_macro_palette :
             this->game_hud_.InstantMacroBar() ? native_instant_macro_palette : 0);
     }

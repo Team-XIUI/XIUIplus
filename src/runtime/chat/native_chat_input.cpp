@@ -54,6 +54,12 @@ namespace
         __except (EXCEPTION_EXECUTE_HANDLER) { return false; }
     }
 
+    auto ReadState(const uintptr_t object, const uint32_t offset, uint32_t& value) noexcept -> bool
+    {
+        __try { value = *reinterpret_cast<const uint32_t*>(object + offset); return true; }
+        __except (EXCEPTION_EXECUTE_HANDLER) { return false; }
+    }
+
     auto MatchesOffset(const uintptr_t address, const uint32_t offset) noexcept -> bool
     {
         __try { return *reinterpret_cast<const uint32_t*>(address) == offset; }
@@ -235,6 +241,15 @@ namespace xiui
         // The parent player menu retains its original recipient until it is dismissed.
         if (IsTellDraft(result.text)) ClosePlayerMenu(this->menu_manager_, this->close_menu_);
         return result;
+    }
+
+    auto native_chat_input::State(IChatManager* chat) const -> std::optional<uint32_t>
+    {
+        if (chat == nullptr || this->raw_offset_ == 0) return std::nullopt;
+        const auto address = reinterpret_cast<uintptr_t>(chat->GetInputTextRaw());
+        uint32_t value{};
+        if (address < this->raw_offset_ || !ReadState(address - this->raw_offset_, this->state_offset_, value)) return std::nullopt;
+        return value;
     }
 
     auto native_chat_input::Recover(IChatManager* chat) const -> bool

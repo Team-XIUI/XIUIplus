@@ -944,6 +944,24 @@ namespace xiui
             this->ReleaseChatInput();
     }
 
+    auto hud_runtime::UpdateNativeInputExposure(void) -> void
+    {
+        auto* manager = this->core_ != nullptr ? this->core_->GetChatManager() : nullptr;
+        const auto status = manager != nullptr ? manager->IsInputOpen() : uint8_t{0};
+        const auto now = ::GetTickCount64();
+        // Handoff closes the native editor within a frame; a held Enter is still waiting for it.
+        if (status == 0 || (::GetAsyncKeyState(VK_RETURN) & 0x8000) != 0) this->native_input_open_since_ = 0;
+        else if (this->native_input_open_since_ == 0) this->native_input_open_since_ = now;
+        const bool exposed = this->native_input_open_since_ != 0 && now - this->native_input_open_since_ >= 250 &&
+            (this->game_hud_.HiddenMask() & NativeHudBit(native_hud_element::chat1)) != 0;
+        if (exposed && !this->native_input_exposed_)
+        {
+            this->native_input_exposed_status_ = status;
+            this->native_input_exposed_state_ = this->chat_input_.State(manager);
+        }
+        this->native_input_exposed_ = exposed;
+    }
+
     auto hud_runtime::HandleKey(const WPARAM key, const LPARAM flags, const bool blocked) -> bool
     {
         this->UpdateVisibilityContext();
@@ -1853,6 +1871,10 @@ namespace xiui
                     this->native_ui_.menu_visible ? "visible" : "hidden", target != nullptr ? target->GetIsSubTargetActive() : 0,
                     target != nullptr ? target->GetActionTargetActive() : 0, target != nullptr ? target->GetIsMenuOpen() : 0,
                     target != nullptr ? target->GetActionType() : 0, target != nullptr ? target->GetActionId() : 0);
+                if (this->native_input_exposed_status_ != 0)
+                    this->core_->GetChatManager()->Writef(1, false, "[XIUI+] Native input shown: %s; last unadopted editor status 0x%02X, state %s.",
+                        this->native_input_exposed_ ? "now" : "earlier", this->native_input_exposed_status_,
+                        this->native_input_exposed_state_ ? std::to_string(*this->native_input_exposed_state_).c_str() : "unreadable");
             }
             return true;
         }
@@ -2961,6 +2983,7 @@ namespace xiui
             const bool targeting = target != nullptr && (target->GetIsSubTargetActive() != 0 || target->GetActionTargetActive() != 0);
             this->SyncNativeChatInput(this->core_->GetChatManager(), this->native_ui_.menu_visible, targeting);
         }
+        this->UpdateNativeInputExposure();
 
         D3DVIEWPORT8 viewport{};
         if (FAILED(this->device_->GetViewport(&viewport)))

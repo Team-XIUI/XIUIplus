@@ -18,6 +18,8 @@ Ctrl/Alt + S, P, L, ; and T change the composing channel by scan code (AZERTY M 
 
 Tab completion draws its panel with the window's own Background, Frame and Opacity; `DrawLog` clips rows under the list instead of painting an opaque box. The kind badge column is measured.
 
+A native chat editor that stays open without handoff for 250 ms (Enter released) sets `native_chat_input_visible`, which draws only the native typing line while Chat Window 1 stays hidden. `/xiuiplus chat input` reports the last such editor's status and native state.
+
 Opening composition or changing channels does not shift the draft or caret. Game mode reads the native send prefix; XIUI+ overrides and typed chat commands show their effective destination. Without a selected or readable native channel, the pill defaults to SAY. Clearing the draft preserves any chosen channel. The pill shares channel colors and chrome text effects; message sending and the right-side character counter retain their existing paths. Focused check: `xiui_chat_smoke --native-channel-only`.
 
 Row, text and pill transitions share a 240 ms ease-in/out. `/r`, `/reply` and reply-shortcut drafts show REP in the tell color; direct tells retain TEL. Incoming tells do not relabel a reply already being composed.

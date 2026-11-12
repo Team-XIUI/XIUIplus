@@ -133,6 +133,7 @@ namespace xiui
         auto IsVisible(void) const -> bool;
         auto IsGpuShaderActive(void) const -> bool;
         auto NativeHudHiddenMask(void) const -> uint32_t;
+        auto UpdateNativeInputExposure(void) -> void;
         auto MenuLayout(void) const -> native_menu_layout;
 #if defined(XIUI_ENABLE_TEST_FAULTS)
         auto SetRenderFaultForTesting(bool enabled) -> void;
@@ -304,6 +305,11 @@ namespace xiui
         bool chat_native_context_suspended_{};
         std::string chat_native_menu_recipient_{};
         uint64_t chat_native_menu_confirmed_at_{};
+        // A native editor XIUI+ did not adopt; its typing line is shown after a short grace.
+        uint64_t native_input_open_since_{};
+        bool native_input_exposed_{};
+        uint8_t native_input_exposed_status_{};
+        std::optional<uint32_t> native_input_exposed_state_{};
         bool chat_mouse_block_saved_{}, previous_chat_mouse_blocked_{};
         notification_source notification_source_{};
         module_registry modules_{};

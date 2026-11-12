@@ -25,6 +25,8 @@ namespace xiui
         auto TakeCommand(IChatManager* chat) const -> std::optional<chat_draft>;
         auto TakeInput(IChatManager* chat) const -> std::optional<chat_draft>;
         auto Recover(IChatManager* chat) const -> bool;
+        // Native editor state word; a chat draft can be taken over while it is 4.
+        auto State(IChatManager* chat) const -> std::optional<uint32_t>;
         auto ReplyAvailable(void) const -> bool { return this->last_teller_ != 0; }
         auto HandoffAvailable(void) const -> bool { return this->raw_offset_ > 0 && this->reset_chat_ != 0 && this->close_menu_ != 0 && this->menu_manager_ != 0; }
 

@@ -10,6 +10,8 @@ namespace xiui
     inline constexpr uint32_t native_keyboard_macro_palette = uint32_t{1} << 31;
     inline constexpr uint32_t native_instant_macro_palette = uint32_t{1} << 30;
     inline constexpr uint32_t native_edit_windows = uint32_t{1} << 29;
+    // Draws the native typing line while Chat Window 1 stays hidden.
+    inline constexpr uint32_t native_chat_input_visible = uint32_t{1} << 28;
 
     enum class native_hud_element : uint8_t
     {

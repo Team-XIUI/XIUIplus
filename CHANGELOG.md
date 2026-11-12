@@ -10,6 +10,8 @@
 
 - AZERTY keyboards: in Full keyboard mode, starting a message with é, è, ç, à or other top-row letters types them instead of firing a hotbar slot bound to that key. Compact layouts keep top-row hotbar keys.
 
+- Tells: if XIUI+ cannot take over a native chat line, such as a tell started from a player's menu, the native typing line is shown instead of staying invisible. `/xiuiplus chat input` reports the last native line that was shown this way.
+
 - Buffs/Debuffs: keyboard players can press numpad + to cycle to chat and then Buffs and press Enter to cancel the selected effect, in every keyboard layout. Right-click a cancellable effect on your own Buffs/Debuffs to cancel it; the release must land on the same icon.
 
 - Native menus: commands, shop Buy/Cancel prompts, NPC choices and other menus that open above the game's chat log now open above XIUI+ chat instead of behind it. **Keep menus above chat** is on by default under Native UI → HUD Windows → Window Placement; windows with a custom position stay where you placed them. Item details and the job change menu no longer follow a shared command anchor.

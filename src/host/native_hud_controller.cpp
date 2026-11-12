@@ -446,7 +446,7 @@ namespace xiui
                     return true;
                 }
             }
-        if ((mask & NativeHudBit(native_hud_element::chat1)) != 0)
+        if ((mask & NativeHudBit(native_hud_element::chat1)) != 0 && (mask & native_chat_input_visible) == 0)
         {
             uintptr_t inputOwner{};
             if (Read(this->chat_input_slot_, inputOwner) && inputOwner == owner)
