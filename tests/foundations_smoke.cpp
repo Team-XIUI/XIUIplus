@@ -217,6 +217,20 @@ namespace
             return false;
         if (!check(!xiui::resources::DecodeItemIcon({dib.data(), dib.size() - 1}), "reject truncated item icons"))
             return false;
+        // Older Ashita cores rebuild a complete .bmp inside the fixed bitmap buffer.
+        std::array<uint8_t, 14 + 56 + 32> file{'B', 'M'};
+        const uint32_t pixels = 14 + 48;
+        std::memcpy(file.data() + 10, &pixels, sizeof(pixels));
+        std::memcpy(file.data() + 14, dib.data(), dib.size());
+        const auto rebuilt = xiui::resources::DecodeItemIcon(file);
+        const auto padded = xiui::resources::DecodeItemIcon(std::span{file}.subspan(14));
+        if (!check(rebuilt && padded && rebuilt->pixels == bitmap->pixels && padded->pixels == bitmap->pixels,
+            "decode rebuilt .bmp files and headerless DIBs from padded Ashita buffers"))
+            return false;
+        const uint32_t overlap = 14 + 40;
+        std::memcpy(file.data() + 10, &overlap, sizeof(overlap));
+        if (!check(!xiui::resources::DecodeItemIcon(file), "reject .bmp pixel offsets inside the palette"))
+            return false;
         dib[52] = 2;
         return check(!xiui::resources::DecodeItemIcon(dib), "reject invalid palette indices");
     }

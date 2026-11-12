@@ -10,6 +10,8 @@ The interface XIUI+ advertises and the loader accepts selects the SDK layout. Co
 
 The slot maps come from the official [4.16 SDK](https://github.com/AshitaXI/Ashita-v4beta/blob/21053e446a0374ed19c3f9bb04f67cc7279af58d/plugins/sdk/Ashita.h), compared with the [4.30 SDK](https://github.com/AshitaXI/Ashita-v4beta/blob/ed757ee915fb762c8bff61ca73a3aa839de9c91a/plugins/sdk/Ashita.h). The differences affect party member/status getters, mastery and combat/recast/zoning reads, later entity methods and native action/target methods. Legacy calls preserve x86 member-call conventions, including small-struct returns. Updating the build SDK requires reviewing these maps.
 
+`IItem` and `IStatusIcon` keep the same layout, but their bitmap contents vary by core build. Ashita 4.1.0.2 and later pass the DAT's headerless DIB, and `ImageSize` keeps the DAT value, which includes the 17-byte type/name prefix. Earlier cores rebuilt complete `.bmp` files. [item_icon.hpp](../../src/runtime/resources/item_icon.hpp) accepts both layouts and bounds reads by the fixed `Bitmap` buffer rather than `ImageSize`. `/xiuiplus equipment status` prints the leading bitmap bytes for the first equipped icon that fails.
+
 The 4.16 party interface does not expose remote master levels. XIUI+ leaves those unavailable fields at zero and resolves the local player's master level from the older player API. Keyboard binding signatures and outgoing-packet callback signatures also changed, but XIUI+ does not call those incompatible methods. The mouse, keyboard-state and controller callback registrations used by XIUI+ retain their signatures.
 
 ## Mouse boundary

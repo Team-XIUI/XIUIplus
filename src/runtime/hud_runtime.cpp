@@ -1717,6 +1717,36 @@ namespace xiui
             this->SetEditing(true);
             return true;
         }
+        else if (::_stricmp(command, "equipment status") == 0)
+        {
+            auto* chat = this->core_ != nullptr ? this->core_->GetChatManager() : nullptr;
+            if (chat == nullptr) return true;
+            size_t equipped{}, loaded{};
+            const equipped_item* missing{};
+            for (const auto& item : this->equipment_source_.Items())
+            {
+                if (item.id == 0) continue;
+                ++equipped;
+                if (this->game_icons_.Item(item.id) != nullptr) ++loaded;
+                else if (missing == nullptr) missing = &item;
+            }
+            chat->Writef(1, false, i18n::Text("[XIUI+] Equipment: %zu equipped items; %zu icons loaded."), equipped, loaded);
+            if (missing == nullptr) return true;
+            auto* resources = this->core_->GetResourceManager();
+            const auto* resource = resources != nullptr ? resources->GetItemById(missing->id) : nullptr;
+            if (resource == nullptr)
+            {
+                chat->Writef(1, false, i18n::Text("[XIUI+] Item %u has no Ashita resource data."), unsigned(missing->id));
+                return true;
+            }
+            // Leading bytes identify the bitmap layout this Ashita build provides.
+            char header[16 * 3 + 1]{};
+            for (size_t i = 0; i < 16; ++i) std::snprintf(header + i * 3, 4, "%02X ", resource->Bitmap[i]);
+            header[sizeof(header) - 2] = '\0';
+            chat->Writef(1, false, i18n::Text("[XIUI+] Item %u icon unavailable; image size %u; bitmap starts %s."),
+                unsigned(missing->id), unsigned(resource->ImageSize), header);
+            return true;
+        }
         else if (::_stricmp(command, "gil") == 0 || ::_stricmp(command, "equipment") == 0 || ::_stricmp(command, "gear") == 0 || ::_stricmp(command, "extras") == 0)
         {
             this->config_.module = ::_stricmp(command, "gil") == 0 ? static_cast<hud_module*>(&this->gil_) :

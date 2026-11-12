@@ -249,18 +249,14 @@ namespace xiui::ui
         }
 
         IDirect3DTexture8* texture{};
+        // ImageSize differs between Ashita builds; the bitmap header bounds the fixed buffer instead.
         std::span<const uint8_t> bytes{};
         if (status)
         {
-            const auto* icon = this->resources_->GetStatusIconByIndex(static_cast<uint16_t>(id));
-            if (icon != nullptr && icon->ImageSize > 0 && icon->ImageSize <= sizeof(icon->Bitmap)) bytes = {icon->Bitmap, icon->ImageSize};
+            if (const auto* icon = this->resources_->GetStatusIconByIndex(static_cast<uint16_t>(id))) bytes = icon->Bitmap;
         }
-        else
-        {
-            // Native item bitmaps include their quality borders.
-            const auto* item = this->resources_->GetItemById(id);
-            if (item != nullptr && item->ImageSize > 0 && item->ImageSize <= sizeof(item->Bitmap)) bytes = {item->Bitmap, item->ImageSize};
-        }
+        else if (const auto* item = this->resources_->GetItemById(id))
+            bytes = item->Bitmap; // Native item bitmaps include their quality borders.
         if (!bytes.empty())
         {
             const auto bitmap = resources::DecodeItemIcon(bytes);

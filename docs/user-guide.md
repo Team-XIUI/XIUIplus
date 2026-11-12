@@ -87,7 +87,7 @@ File selection and processing run in the background. The dialog shows its status
 - `/xiuiplus exp pause|resume|reset|status|history` — control local EXP sessions and inspect saved records
 - `/xiuiplus exp mode auto|exp|lp|cp|ep` — select displayed progression without changing the game's earning mode
 - `/xiuiplus inventory` — configure storage slot-dot trackers
-- `/xiuiplus equipment` — configure the equipped-item icon grid
+- `/xiuiplus equipment` — configure the equipped-item icon grid; `equipment status` reports loaded icons and the first missing icon's Ashita bitmap details
 - `/xiuiplus castbar` — configure the independent player spell/item Cast Bar; `castbar status` reports its live source
 - `/xiuiplus castcost` — configure highlighted spell/ability/mount costs and cooldowns; `castcost status` reports native menu support
 - `/readycheck` — start a 30-second party/alliance ready check; `yes|no|close|status` answers or controls it

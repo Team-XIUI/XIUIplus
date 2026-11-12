@@ -15,9 +15,20 @@ namespace xiui::resources
         std::vector<uint32_t> pixels{};
     };
 
-    inline auto DecodeItemIcon(const std::span<const uint8_t> data) -> std::optional<item_icon_bitmap>
+    inline auto DecodeItemIcon(std::span<const uint8_t> data) -> std::optional<item_icon_bitmap>
     {
         // Items are paletted DIBs; native status icons can also use BGRA DIBs.
+        // Ashita before 4.1.0.2 rebuilt complete .bmp files; later cores pass the DAT's headerless DIB.
+        size_t fileOffset = 0;
+        if (data.size() >= 14 && data[0] == 'B' && data[1] == 'M')
+        {
+            uint32_t pixels{};
+            std::memcpy(&pixels, data.data() + 10, sizeof(pixels));
+            if (pixels < 14)
+                return std::nullopt;
+            fileOffset = pixels - 14;
+            data = data.subspan(14);
+        }
         if (data.size() < 40)
             return std::nullopt;
         const auto read32 = [data](const size_t offset) {
@@ -41,7 +52,10 @@ namespace xiui::resources
         const uint32_t colors = bits == 8 ? (read32(32) != 0 ? read32(32) : 256) : 0;
         if (colors > 256)
             return std::nullopt;
-        const size_t pixelOffset = static_cast<size_t>(headerSize) + colors * 4;
+        const size_t paletteEnd = static_cast<size_t>(headerSize) + colors * 4;
+        if (fileOffset != 0 && fileOffset < paletteEnd)
+            return std::nullopt;
+        const size_t pixelOffset = fileOffset != 0 ? fileOffset : paletteEnd;
         const size_t stride = (static_cast<size_t>(width) * (bits / 8) + 3) & ~size_t{3};
         if (pixelOffset > data.size() || stride * height > data.size() - pixelOffset)
             return std::nullopt;
