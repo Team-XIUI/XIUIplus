@@ -288,19 +288,6 @@ auto zone_ground::TriangleHeight(const ground_triangle& t, float x, float z, flo
     height=u*t[0][1]+v*t[1][1]+(1-u-v)*t[2][1]; return true;
 }
 
-auto zone_ground::Height(float x, float z, float anchor, float reach, float& height) const -> bool {
-    const auto cell=this->cells.find(Cell(int(std::floor(x/cell_size)),int(std::floor(z/cell_size))));
-    if (cell==this->cells.end()) return false;
-    bool found=false;
-    for (auto index : cell->second) {
-        float y{};
-        if (TriangleHeight(this->triangles[index],x,z,y) && std::abs(y-anchor)<reach) {
-            reach=std::abs(y-anchor); height=y; found=true;
-        }
-    }
-    return found;
-}
-
 auto LoadZoneGround(uint16_t zone, const std::filesystem::path& root, const std::atomic_bool& cancel) -> std::unique_ptr<zone_ground> {
     auto result=std::make_unique<zone_ground>();
     FileTables tables; std::array<BYTE,256> first{},second{};

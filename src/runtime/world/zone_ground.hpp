@@ -22,7 +22,6 @@ namespace xiui
 
         auto Add(const ground_triangle& triangle) -> void;
         auto Nearby(const ground_point& center, float radius, std::vector<uint32_t>& indices) const -> void;
-        auto Height(float x, float z, float anchor, float reach, float& height) const -> bool;
         static auto TriangleHeight(const ground_triangle& triangle, float x, float z, float& height) -> bool;
     };
 

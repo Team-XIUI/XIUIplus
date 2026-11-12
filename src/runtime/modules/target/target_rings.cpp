@@ -91,20 +91,51 @@ namespace xiui
         auto Alpha(D3DCOLOR color, float amount) -> D3DCOLOR
         { return (color & 0xFFFFFF) | (static_cast<DWORD>((color >> 24) * amount) << 24); }
 
-        auto ProjectPolygon(const zone_ground& ground, const std::vector<uint32_t>& nearby,
+        struct floor_candidate { const ground_triangle* triangle; float x0, x1, z0, z1; };
+
+        // Floors that can hold this ring: within its XZ extent and the floor-selection height range.
+        auto RingFloors(const zone_ground& ground, const ground_point& center, float extent, float height) -> std::vector<floor_candidate>
+        {
+            std::vector<uint32_t> nearby;
+            ground.Nearby(center,extent,nearby);
+            std::vector<floor_candidate> candidates;
+            for (auto index : nearby)
+            {
+                const auto& t=ground.triangles[index];
+                if (std::min({t[0][1],t[1][1],t[2][1]})>center[1]+height || std::max({t[0][1],t[1][1],t[2][1]})<center[1]-height) continue;
+                const floor_candidate c{&t,std::min({t[0][0],t[1][0],t[2][0]}),std::max({t[0][0],t[1][0],t[2][0]}),
+                    std::min({t[0][2],t[1][2],t[2][2]}),std::max({t[0][2],t[1][2],t[2][2]})};
+                if (c.x0<=center[0]+extent && c.x1>=center[0]-extent && c.z0<=center[2]+extent && c.z1>=center[2]-extent) candidates.push_back(c);
+            }
+            return candidates;
+        }
+
+        auto ProjectPolygon(const std::vector<floor_candidate>& floors, std::vector<const floor_candidate*>& hits,
             const ground_point& center, float reach, std::span<const ground_point> shape,
             D3DCOLOR color, std::vector<target_ring_renderer::vertex>& vertices) -> void
         {
             const float winding = Cross(shape[0], shape[1], shape[2]) < 0 ? -1.0f : 1.0f;
             float x0=shape[0][0], x1=x0, z0=shape[0][2], z1=z0;
             for (const auto& p : shape) { x0=std::min(x0,p[0]); x1=std::max(x1,p[0]); z0=std::min(z0,p[2]); z1=std::max(z1,p[2]); }
-            for (auto index : nearby)
+            hits.clear();
+            for (const auto& floor : floors)
+                if (floor.x0<=x1 && floor.x1>=x0 && floor.z0<=z1 && floor.z1>=z0) hits.push_back(&floor);
+            // Any triangle containing a point inside the shape overlaps its bounds, so floor selection only needs these hits.
+            // The padding keeps TriangleHeight's edge tolerance.
+            const auto floorAt = [&](float x, float z, float& height) {
+                constexpr float pad=0.01f;
+                bool found=false; float best=reach;
+                for (const auto* floor : hits)
+                {
+                    float y{};
+                    if (x<floor->x0-pad || x>floor->x1+pad || z<floor->z0-pad || z>floor->z1+pad) continue;
+                    if (zone_ground::TriangleHeight(*floor->triangle,x,z,y) && std::abs(y-center[1])<best) { best=std::abs(y-center[1]); height=y; found=true; }
+                }
+                return found;
+            };
+            for (const auto* source : hits)
             {
-                const auto& triangle = ground.triangles[index];
-                if (std::min({triangle[0][0],triangle[1][0],triangle[2][0]}) > x1 ||
-                    std::max({triangle[0][0],triangle[1][0],triangle[2][0]}) < x0 ||
-                    std::min({triangle[0][2],triangle[1][2],triangle[2][2]}) > z1 ||
-                    std::max({triangle[0][2],triangle[1][2],triangle[2][2]}) < z0) continue;
+                const auto& triangle = *source->triangle;
                 std::array<ground_point, 12> polygon{}, clipped{};
                 std::copy(triangle.begin(), triangle.end(), polygon.begin());
                 size_t count = 3;
@@ -132,7 +163,7 @@ namespace xiui
                 ground_point middle{};
                 for (size_t p=0; p<count; ++p) for (unsigned c=0; c<3; ++c) middle[c]+=polygon[p][c]/static_cast<float>(count);
                 float floor{};
-                if (!ground.Height(middle[0],middle[2],center[1],reach,floor) || std::abs(floor-middle[1])>0.015f) continue;
+                if (!floorAt(middle[0],middle[2],floor) || std::abs(floor-middle[1])>0.015f) continue;
                 for (size_t p=1; p+1<count; ++p)
                 {
                     if (std::abs(Cross(polygon[0],polygon[p],polygon[p+1]))<1e-8f) continue;
@@ -152,9 +183,11 @@ namespace xiui
         for (float v : center) if (!std::isfinite(v)) return;
         const float scale=settings.RadiusScale(model_hitbox_radius);
         const float inner=settings.inner_radius*scale, outer=settings.outer_radius*scale;
-        std::vector<uint32_t> nearby;
-        ground.Nearby(center,outer+0.4f*scale,nearby);
+        const float extent=outer+0.4f*scale;
         const float reach=0.75f+outer*1.5f;
+        // Floors farther than reach are never selected, and a clipped piece must lie within 0.015 of the selected floor.
+        const auto floors=RingFloors(ground,center,extent,reach+0.02f);
+        std::vector<const floor_candidate*> hits;
         const auto point = [&](float radius, float angle) -> ground_point {
             return {center[0]+std::cos(angle)*radius,center[1],center[2]+std::sin(angle)*radius};
         };
@@ -164,7 +197,7 @@ namespace xiui
             {
                 const float next=std::min(angle+step,end);
                 const std::array shape{point(inner,angle),point(outer,angle),point(outer,next),point(inner,next)};
-                ProjectPolygon(ground,nearby,center,reach,shape,color,vertices);
+                ProjectPolygon(floors,hits,center,reach,shape,color,vertices);
             }
         };
         const float trim=std::min(0.025f*scale,(outer-inner)*0.2f);
@@ -178,7 +211,7 @@ namespace xiui
         band(outer-trim,outer,0,tau,color);
         const float facing=std::isfinite(yaw) ? -yaw : 0;
         const std::array marker{point(outer+0.23f*scale,facing),point(outer-0.08f*scale,facing-0.09f),point(outer-0.08f*scale,facing+0.09f)};
-        ProjectPolygon(ground,nearby,center,reach,marker,color,vertices);
+        ProjectPolygon(floors,hits,center,reach,marker,color,vertices);
     }
 
     auto target_ring_renderer::Project(std::span<const vertex> vertices, const hud_snapshot& snapshot, std::vector<screen_vertex>& screen,
@@ -265,11 +298,12 @@ namespace xiui
     auto target_ring_renderer::Status(void) const -> std::string
     {
         char text[512]{};
-        std::snprintf(text,sizeof(text),"Target rings: %s; zone %u; floors %zu; vertices %zu; target %u/%08X HP %u; model radius %.2f; ring scale %.2f; camera %s; draw %08lX.",
+        std::snprintf(text,sizeof(text),"Target rings: %s; zone %u; floors %zu; vertices %zu; target %u/%08X HP %u; model radius %.2f; ring scale %.2f; camera %s; draw %08lX; mesh builds %u (last %.2fms, max %.2fms).",
             this->stage_,this->zone_,this->ground_ ? this->ground_->triangles.size() : 0,this->vertices_.size(),
             this->current_index_,this->current_id_,this->current_hp_,
             this->current_model_radius_,this->current_scale_,
-            this->camera_valid_ ? "ready" : "missing",static_cast<unsigned long>(this->draw_result_));
+            this->camera_valid_ ? "ready" : "missing",static_cast<unsigned long>(this->draw_result_),
+            this->builds_.count,this->builds_.last_ms,this->builds_.max_ms);
         return text;
     }
 
@@ -341,7 +375,11 @@ namespace xiui
             this->last_settings_.outer_radius!=settings.outer_radius || this->last_settings_.hp_fill!=settings.hp_fill ||
             this->last_settings_.color!=appearance.color || this->last_scale_!=this->current_scale_)
         {
+            if (this->last_id_!=snapshot.target_server_id) this->builds_={};
+            const auto started=std::chrono::steady_clock::now();
             Build(*this->ground_,center,hp,appearance,this->vertices_,yaw,modelRadius);
+            this->builds_.last_ms=std::chrono::duration<float,std::milli>(std::chrono::steady_clock::now()-started).count();
+            this->builds_.max_ms=std::max(this->builds_.max_ms,this->builds_.last_ms); ++this->builds_.count;
             this->last_center_=center; this->last_id_=snapshot.target_server_id; this->last_hp_=hp; this->last_yaw_=yaw;
             this->last_settings_=appearance; this->last_scale_=this->current_scale_; this->mesh_valid_=true;
         }

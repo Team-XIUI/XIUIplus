@@ -54,6 +54,7 @@ namespace xiui
         uint32_t current_id_{}, current_hp_{}, current_index_{}, spawn_flags_{}, render_flags_{};
         bool camera_valid_{};
         HRESULT draw_result_{S_OK};
+        struct { uint32_t count; float last_ms, max_ms; } builds_{};
         auto UpdateGround(uint16_t zone) -> void;
     };
 }
