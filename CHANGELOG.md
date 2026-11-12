@@ -1,6 +1,19 @@
 # Changelog
 
-## Unreleased
+## 0.2 — 2026-11-11
+
+Changes since the last published release, 0.1.41-alpha:
+
+- Inventory trackers: **Shown safes** and **Shown wardrobes** toggles leave hidden containers, such as unpaid Wardrobes, out of totals and grids.
+- Minimap: zones without bundled artwork (WotG, Adoulin and later) use the installed client's own map art.
+- Chains and Recast: Blood Pacts for avatars that are not summoned appear in Chains, and pact recasts are named without an avatar instead of "Ability 174".
+- Phantom Roll: potency includes the party job bonus when a main-party member in the zone has the matching job.
+- Controller: fresh installs route triggers to XIUI+ once the crossbar is enabled. Cycle Window reaches the native chat log when no XIUI+ chat is shown.
+- Chat: `/xiuiplus chat timestamps follow|off|hhmm|seconds` sets Window 1 timestamps. Messages ending in a newline no longer add an empty timestamp row.
+- Satchel: transfers and autosort wait for the game's inventory completion, so they no longer stall or finish early.
+- Native UI: native windows take their saved position and visibility before their first draw. NPC choices, item descriptions and command menus keep independent positions.
+- Charm: the automatic Charm level check is only sent while the Pet HUD shows Charmed pet estimates.
+- Target rings: moving targets on stacked floors such as Port Jeuno no longer drop the frame rate.
 
 - Alliance lists: new **Copy Party settings** and **Copy Alliance 1/2 settings** buttons (Party → Alliance 1 or Alliance 2 → General) give that alliance list the same layout, bars, colors and text, like Lua XIUI's copy buttons. Its position, scale and visibility stay the same, and you confirm before anything changes.
 
