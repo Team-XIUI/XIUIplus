@@ -222,7 +222,8 @@ namespace xiui
         target_child_module subtarget_{this->target_, true};
         std::array<target_mob_info_module, mob_info_group_count> mob_info_groups_{{
             {this->target_, 0}, {this->target_, 1}, {this->target_, 2}, {this->target_, 3}, {this->target_, 4},
-            {this->target_, 5}, {this->target_, 6}, {this->target_, 7}, {this->target_, 8}, {this->target_, 9}}};
+            {this->target_, 5}, {this->target_, 6}, {this->target_, 7}, {this->target_, 8}, {this->target_, 9},
+            {this->target_, 10}, {this->target_, 11}}};
         enemy_list_module enemy_list_{};
         pet_source pet_source_{};
         pet_module pet_{};

@@ -13,7 +13,7 @@ namespace xiui
         uint16_t id{};
         int element{-1};
     };
-    enum class mob_info_group : size_t { behavior, links, detection, physical, elements, element_ranks, status_ranks, immunities, server_id, respawn, count };
+    enum class mob_info_group : size_t { job, behavior, links, detection, weaknesses, resistances, element_ranks, status_ranks, immunities, traits, server_id, respawn, count };
     constexpr size_t mob_info_group_count = static_cast<size_t>(mob_info_group::count);
     struct mob_info_row { std::string label{}; std::vector<mob_info_value> values{}; mob_info_group group{}; };
 
@@ -22,7 +22,7 @@ namespace xiui
         enum { inline_row, own_row, independent };
         module_state state{true, {24, 218, 300, 24}, 64, 16};
         int placement{own_row};
-        bool follow_text{true}, headings{true}, positioned{};
+        bool follow_text{true}, headings{true}, positioned{}, percentages{true}, group_percentages{true};
         float width{}, icon_size{}, cell_spacing{12}, row_spacing{2};
         module_text_profile text{ui::theme::CreateDefault().caption_text};
         ui::rect attached_bounds{};
@@ -30,7 +30,8 @@ namespace xiui
 
     struct target_mob_info
     {
-        static constexpr size_t group_options = 8 + text_profile_option_count, option_count = 3 + group_options;
+        static constexpr size_t group_text_options = 8, percent_options = group_text_options + text_profile_option_count,
+            group_options = percent_options + 2, option_count = 3 + group_options, common_text_options = 11;
         bool enabled{};
         int selected_group{};
         float spacing{2};

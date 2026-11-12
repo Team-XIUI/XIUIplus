@@ -1,6 +1,7 @@
 #include "mob_database.hpp"
 #include "resources/embedded_resource.hpp"
 #include "resources/phoenix_spawn_data.hpp"
+#include "modules/party/party_source.hpp"
 
 #include <Windows.h>
 #include <algorithm>
@@ -25,7 +26,7 @@ namespace xiui
                 this->storage = resources::LoadEmbeddedResource(module, 701, 16 * 1024 * 1024);
                 const auto size = this->storage.size();
                 const auto* bytes = this->storage.data();
-                if (size < 16 || std::memcmp(bytes, "XIM1", 4) != 0) return;
+                if (size < 16 || std::memcmp(bytes, "XIM2", 4) != 0) return;
                 uint32_t count{}, stride{}, names{};
                 std::memcpy(&count, bytes + 4, 4); std::memcpy(&stride, bytes + 8, 4); std::memcpy(&names, bytes + 12, 4);
                 if (stride != sizeof(mob_record) || count > 100000 || uint64_t{16} + uint64_t{count} * stride + names != size) return;
@@ -95,6 +96,21 @@ namespace xiui
         if (mob.minimum_level == 0 || mob.maximum_level == 0) return "Unknown level";
         const auto level = std::to_string(mob.minimum_level);
         return mob.minimum_level == mob.maximum_level ? "Lv. " + level : "Lv. " + level + "-" + std::to_string(mob.maximum_level);
+    }
+
+    auto MobJobs(const mob_record& mob) -> std::string
+    {
+        const std::string main = PartyJobName(mob.main_job), sub = PartyJobName(mob.sub_job);
+        return main.empty() || sub.empty() || sub == main ? main : main + "/" + sub;
+    }
+
+    auto MobAddEffectName(const mob_record& mob) -> const char*
+    {
+        static constexpr const char* names[]{"Additional effect", "Fire damage", "Ice damage", "Wind damage", "Earth damage",
+            "Lightning damage", "Water damage", "Light damage", "Dark damage", "HP Drain", "MP Drain", "TP Drain", "Poison",
+            "Paralyze", "Blind", "Silence", "Slow", "Stun", "Bind", "Weight", "Sleep", "Petrify", "Plague", "Curse", "Terror",
+            "Amnesia", "Mute", "Attack Down", "Defense Down", "Evasion Down", "Absorb Status"};
+        return mob.add_effect != 0 && mob.add_effect <= std::size(names) ? names[mob.add_effect - 1] : nullptr;
     }
 
     auto MobDetection(const mob_record& mob) -> std::string

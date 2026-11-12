@@ -2,6 +2,10 @@
 
 ## Unreleased
 
+- Target Mob Info: damage is now shown as **Weaknesses** and **Resistances**, as in Lua XIUI 1.8.4, instead of every damage type at x1.00. Each row lists only what the monster takes more or less damage from, strongest first, as icons and amounts, for example `[Slash][Pierce] +25%` `[Water] Absorbs [Impact] -12.5% Magic -12.5%`. Icons with the same change share one percentage. **Percentages** and **Group by percentage** turn these off, and **Headings** adds Weak:/Resists: labels. Reduced physical, magic, ranged and breath damage and elemental absorbs now appear too. If you had Physical damage or Element damage on, both new rows start on. Element and status ranks stay in their own groups, since they change magic accuracy rather than damage.
+
+- Target Mob Info: new **Job** group shows the monster's job (and subjob when different) before the behavior icons. It is on by default. A new **Traits** group, off by default, lists HP Regen, MP Refresh, TP Regain, Shadows, Counter and melee additional effects.
+
 - XIV 1.0 theme: **Bookends** now turns end caps off for Modern-style HP, MP and TP bars on the Player Bar, Party and Target. Before, the theme always drew them and the setting only affected the small timer bars. Window theme bars already followed the setting and are unchanged.
 
 - Target: new **Hide when targeting yourself** (Target → General) hides the Target window while your own character is the main target. It is off by default.

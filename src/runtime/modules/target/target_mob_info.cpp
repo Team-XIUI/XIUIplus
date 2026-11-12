@@ -18,9 +18,21 @@ namespace xiui
 
     namespace
     {
-        constexpr const char* groupNames[]{"Behavior", "Links", "Detection", "Physical damage", "Element damage", "Element ranks", "Status ranks", "Immunities", "Server ID", "Spawn interval"};
-        constexpr const char* groupIds[]{"mobbehavior", "moblinks", "mobdetection", "mobphysical", "mobelements", "mobelementranks", "mobstatusranks", "mobimmunities", "mobserverid", "mobspawn"};
+        using group_kind = mob_info_group;
+        constexpr const char* groupNames[]{"Job", "Behavior", "Links", "Detection", "Weaknesses", "Resistances", "Element ranks", "Status ranks", "Immunities", "Traits", "Server ID", "Spawn interval"};
+        constexpr const char* groupIds[]{"mobjob", "mobbehavior", "moblinks", "mobdetection", "mobweak", "mobresist", "mobelementranks", "mobstatusranks", "mobimmunities", "mobtraits", "mobserverid", "mobspawn"};
+        static_assert(std::size(groupIds) == mob_info_group_count && std::size(groupNames) == mob_info_group_count);
+        constexpr auto Index(const group_kind group) -> size_t { return static_cast<size_t>(group); }
         auto GroupSection(const size_t index) -> std::string { return std::string{"target.mobinfo."} + groupIds[index]; }
+        // Job, behavior, links and detection form the compact icon row and XIV 1.0 header cells.
+        constexpr auto HeaderGroup(const size_t index) { return index <= Index(group_kind::detection); }
+        constexpr auto DamageGroup(const size_t index) { return index == Index(group_kind::weaknesses) || index == Index(group_kind::resistances); }
+        constexpr auto DefaultPlacement(const size_t index)
+        { return HeaderGroup(index) || index == Index(group_kind::resistances) ? mob_info_group_settings::inline_row : mob_info_group_settings::own_row; }
+        constexpr auto DefaultSpacing(const size_t index) -> float
+        { return index == Index(group_kind::job) || DamageGroup(index) ? 4.0f : HeaderGroup(index) ? 2.0f : 12.0f; }
+        constexpr auto DefaultEnabled(const size_t index)
+        { return HeaderGroup(index) || index == Index(group_kind::immunities); }
     }
 
     target_mob_info::target_mob_info()
@@ -28,8 +40,10 @@ namespace xiui
         for (size_t i = 0; i < this->groups.size(); ++i)
         {
             auto& group = this->groups[i];
-            group.state.enabled = i <= 2 || i == 7;
-            if (i <= 2) { group.placement = mob_info_group_settings::inline_row; group.cell_spacing = 2; }
+            group.state.enabled = DefaultEnabled(i);
+            group.placement = DefaultPlacement(i);
+            group.cell_spacing = DefaultSpacing(i);
+            group.headings = !DamageGroup(i);
         }
     }
 
@@ -52,8 +66,14 @@ namespace xiui
             return store.ReadBool("target.mobinfo", key, store.ReadBool("mobinfo", key, fallback));
         };
         this->enabled = read("enabled", false);
-        const bool defaults[]{read("behavior", true), read("behavior", true), read("behavior", true), read("damage", false),
-            read("damage", false), read("ranks", false), read("ranks", false), read("immunities", true), read("server_id", false), read("respawn", false)};
+        // Weaknesses and resistances replace the physical and element damage groups.
+        const bool legacyDamage = read("damage", false);
+        const bool damage = store.ReadBool("target.mobinfo.mobphysical", "enabled", legacyDamage) ||
+            store.ReadBool("target.mobinfo.mobelements", "enabled", legacyDamage);
+        const bool behavior = read("behavior", true), ranks = read("ranks", false);
+        const bool defaults[]{true, behavior, behavior, behavior, damage, damage, ranks, ranks, read("immunities", true), false,
+            read("server_id", false), read("respawn", false)};
+        static_assert(std::size(defaults) == mob_info_group_count);
         const auto finite = [&](const char* section, const char* key, float fallback, float low, float high) {
             const auto value = store.ReadFloat(section, key, fallback);
             return std::isfinite(value) ? std::clamp(value, low, high) : fallback;
@@ -68,14 +88,18 @@ namespace xiui
         {
             auto& group = this->groups[i]; const auto section = GroupSection(i);
             group.state.enabled = store.ReadBool(section.c_str(), "enabled", defaults[i]);
-            group.placement = std::clamp(store.ReadInt(section.c_str(), "placement", i <= 2 ? 0 : 1), 0, 2);
+            group.placement = std::clamp(store.ReadInt(section.c_str(), "placement", DefaultPlacement(i)), 0, 2);
             group.follow_text = store.ReadBool(section.c_str(), "follow_text", true);
-            group.headings = store.ReadBool(section.c_str(), "headings", true);
+            // Damage icons read by their signed amounts, so their headings start hidden.
+            group.headings = store.ReadBool(section.c_str(), "headings", !DamageGroup(i));
             group.positioned = store.ReadBool(section.c_str(), "positioned", group.placement == 2);
+            group.percentages = store.ReadBool(section.c_str(), "percentages", true);
+            group.group_percentages = store.ReadBool(section.c_str(), "group_percentages", true);
             group.width = finite(section.c_str(), "width", 0, 0, 2000);
             group.icon_size = finite(section.c_str(), "icon_size", 0, 0, 64);
-            group.cell_spacing = finite(section.c_str(), "cell_spacing", i <= 2 ? 2 : 12, 0, 64);
-            if (legacyHeader && i <= 2 && group.placement == mob_info_group_settings::inline_row && group.cell_spacing == 12)
+            group.cell_spacing = finite(section.c_str(), "cell_spacing", DefaultSpacing(i), 0, 64);
+            if (legacyHeader && i >= Index(group_kind::behavior) && HeaderGroup(i) &&
+                group.placement == mob_info_group_settings::inline_row && group.cell_spacing == 12)
                 group.cell_spacing = 2;
             group.row_spacing = finite(section.c_str(), "row_spacing", 2, 0, 32);
             auto fallback = this->text; fallback.offset_x = fallback.offset_y = 0;
@@ -101,6 +125,8 @@ namespace xiui
             store.WriteBool(section.c_str(), "follow_text", group.follow_text);
             store.WriteBool(section.c_str(), "headings", group.headings);
             store.WriteBool(section.c_str(), "positioned", group.positioned);
+            store.WriteBool(section.c_str(), "percentages", group.percentages);
+            store.WriteBool(section.c_str(), "group_percentages", group.group_percentages);
             store.WriteFloat(section.c_str(), "width", group.width);
             store.WriteFloat(section.c_str(), "icon_size", group.icon_size);
             store.WriteFloat(section.c_str(), "cell_spacing", group.cell_spacing);
@@ -113,23 +139,33 @@ namespace xiui
     auto target_mob_info::OptionVisible(const size_t index) const -> bool
     {
         if (index == 0) return true;
-        if (index == 9 && this->selected_group > 0 && (this->selected_group <= 3 || this->selected_group >= 9)) return false;
-        if (this->selected_group == 0) return index <= 2 || index > 11;
+        if (this->selected_group == 0)
+            return index <= 2 || (index > common_text_options && index < common_text_options + text_profile_option_count);
+        const auto group = static_cast<size_t>(this->selected_group - 1);
+        if (index == 9) return !HeaderGroup(group) && group < Index(group_kind::server_id);
+        if (index >= 3 + percent_options) return DamageGroup(group);
         return index >= 3 && index != 11;
     }
     auto target_mob_info::Option(const size_t index) -> module_option
     {
-        static constexpr const char* tabs[]{"Common", "Behavior", "Links", "Detection", "Physical damage", "Element damage", "Element ranks", "Status ranks", "Immunities", "Server ID", "Spawn interval"};
+        static constexpr const char* tabs[]{"Common", "Job", "Behavior", "Links", "Detection", "Weaknesses", "Resistances", "Element ranks", "Status ranks", "Immunities", "Traits", "Server ID", "Spawn interval"};
+        static_assert(std::size(tabs) == mob_info_group_count + 1);
         if (index == 0) return module_option::Element("Information group", "Choose common settings or customize one information group.", &this->selected_group, tabs, std::size(tabs));
         if (index == 1) return module_option::Toggle("Mob information", "Show available monster information with Target.", &this->enabled).Ordered(-50);
         if (index == 2) return module_option::Slider("Row spacing", "Space between attached information rows.", &this->spacing, 0, 32, 1).Ordered(220);
-        if (this->selected_group == 0) return index >= 11 ? TextProfileOption(index - 11, this->text) : module_option{};
+        if (this->selected_group == 0)
+            return index >= common_text_options && index - common_text_options < text_profile_option_count ?
+                TextProfileOption(index - common_text_options, this->text) : module_option{};
         return this->GroupOption(static_cast<size_t>(this->selected_group - 1), index - 3);
     }
     auto target_mob_info::GroupOption(const size_t groupIndex, const size_t index) -> module_option
     {
         auto& group = this->groups[groupIndex];
         static constexpr const char* positions[]{"Together", "Own row", "Independent"};
+        if (index == percent_options)
+            return module_option::Toggle("Percentages", "Show how much more or less damage the monster takes beside each icon.", &group.percentages).Ordered(21);
+        if (index == percent_options + 1)
+            return module_option::Toggle("Group by percentage", "Icons with the same change share one percentage.", &group.group_percentages).Ordered(22).VisibleWhen(group.percentages);
         switch (index)
         {
         case 0: return module_option::Toggle("Show group", "Show this information when the target has recorded data.", &group.state.enabled).Ordered(-50);
@@ -139,11 +175,11 @@ namespace xiui
         case 3: return module_option::Slider("Icon size", "Zero follows text size; otherwise use this many pixels.", &group.icon_size, 0, 64, 1).Ordered(101);
         case 4: return module_option::Slider("Icon spacing", "Horizontal space between information cells.", &group.cell_spacing, 0, 64, 1).Ordered(220, true);
         case 5: return module_option::Slider("Wrap row spacing", "Vertical space when this group wraps to another line.", &group.row_spacing, 0, 32, 1).Ordered(221);
-        case 6: return module_option::Toggle("Headings", "Show the heading for damage, rank and immunity groups.", &group.headings).Ordered(20);
+        case 6: return module_option::Toggle("Headings", "Show the heading for damage, rank, immunity and trait groups.", &group.headings).Ordered(20);
         case 7: return module_option::Toggle("Follow common text", "Use Common's text style. X/Y offsets remain independent for this entire group.", &group.follow_text).Ordered(30);
         default:
         {
-            auto option = TextProfileOption(index - 8, group.text);
+            auto option = TextProfileOption(index - group_text_options, group.text);
             option.display_order += 200;
             if (index == 10 || index == 11) option.description = "Move this whole group, including its icons.";
             return option.VisibleWhen(!group.follow_text || index == 10 || index == 11);
@@ -168,11 +204,59 @@ namespace xiui
         constexpr std::array elements{ui::native_ui_image::fire, ui::native_ui_image::ice, ui::native_ui_image::wind,
             ui::native_ui_image::earth, ui::native_ui_image::lightning, ui::native_ui_image::water, ui::native_ui_image::light, ui::native_ui_image::dark};
         constexpr const char* damageNames[]{"Slash", "Pierce", "Impact", "H2H", "Fire", "Ice", "Wind", "Earth", "Lightning", "Water", "Light", "Dark"};
+        constexpr const char* damageKindNames[]{"Physical", "Magic", "Ranged", "Breath"};
+        constexpr const char* traitNames[]{"HP Regen", "MP Refresh", "TP Regain", "Shadows", "Counter"};
         constexpr const char* statusNames[]{"Paralyze", "Bind", "Silence", "Slow", "Poison", "Light Sleep", "Dark Sleep", "Blind", "Stun", "Gravity"};
         constexpr uint16_t statuses[]{4, 11, 6, 13, 3, 2, 2, 5, 10, 12};
         constexpr const char* immunityNames[]{"Addle", "Gravity", "Bind", "Stun", "Silence", "Paralyze", "Blind", "Slow", "Poison",
             "Elegy", "Requiem", "Light Sleep", "Dark Sleep", "Aspir", "Terror", "Dispel", "Petrify", "Plague", "Curse"};
         constexpr uint16_t immunityStatuses[]{21, 12, 11, 10, 6, 4, 5, 13, 3, 194, 192, 2, 2, 0, 28, 0, 7, 31, 9};
+
+        // Damage taken changes by 1 + value / 10000.
+        auto PercentText(const int change) -> std::string
+        {
+            char text[16]{};
+            if (change % 100 == 0) std::snprintf(text, sizeof(text), "%+d%%", change / 100);
+            else std::snprintf(text, sizeof(text), "%+.1f%%", change / 100.0);
+            return text;
+        }
+
+        struct damage_change { size_t type{}; int change{}; bool absorbs{}; };
+
+        // Icon types strongest first, then the broad damage kinds; neutral values never appear.
+        auto DamageRow(const mob_record& mob, const mob_info_group_settings& settings, const bool weak) -> std::vector<mob_info_value>
+        {
+            const auto stronger = [&](const damage_change& a, const damage_change& b) {
+                if (a.absorbs != b.absorbs) return a.absorbs;
+                return weak ? a.change > b.change : a.change < b.change;
+            };
+            std::vector<damage_change> types, kinds;
+            for (size_t i = 0; i < std::size(damageNames); ++i)
+            {
+                const bool absorbs = i >= 4 && (mob.absorbs & (1u << (i - 4))) != 0;
+                const int change = absorbs ? 0 : mob.damage[i];
+                if (weak ? change > 0 : absorbs || change < 0) types.push_back({i, change, absorbs});
+            }
+            for (size_t i = 0; i < std::size(damageKindNames); ++i)
+                if (const int change = mob.damage_taken[i]; weak ? change > 0 : change < 0) kinds.push_back({i, change});
+            std::stable_sort(types.begin(), types.end(), stronger);
+            std::stable_sort(kinds.begin(), kinds.end(), stronger);
+            std::vector<mob_info_value> values;
+            for (size_t i = 0; i < types.size(); ++i)
+            {
+                const auto& type = types[i];
+                const bool physical = type.type < 4;
+                const bool shared = settings.group_percentages && i + 1 < types.size() &&
+                    types[i + 1].change == type.change && types[i + 1].absorbs == type.absorbs;
+                std::string value = type.absorbs ? i18n::Text("Absorbs") : settings.percentages ? PercentText(type.change) : "";
+                if (shared && (type.absorbs || settings.percentages)) value.clear();
+                values.push_back({i18n::Text(damageNames[type.type]), std::move(value), physical ? mob_info_icon::physical : mob_info_icon::element,
+                    static_cast<uint16_t>(physical ? type.type : type.type - 4)});
+            }
+            for (const auto& kind : kinds)
+                values.push_back({i18n::Text(damageKindNames[kind.type]), PercentText(kind.change)});
+            return values;
+        }
     }
 
     auto target_mob_info::Rows(const mob_record* mob) const -> std::vector<mob_info_row>
@@ -181,6 +265,8 @@ namespace xiui
         std::vector<mob_info_row> rows;
         const auto show = [&](const mob_info_group group) { return this->groups[static_cast<size_t>(group)].state.enabled; };
         if (show(mob_info_group::server_id)) rows.push_back({"Server ID: " + std::to_string(mob->id), {}, mob_info_group::server_id});
+        if (show(mob_info_group::job))
+            if (auto jobs = MobJobs(*mob); !jobs.empty()) rows.push_back({{}, {{std::move(jobs)}}, mob_info_group::job});
         using icon = ui::mob_detection_icon;
         const bool aggressive = (mob->flags & 3) != 0 && (mob->flags & (4 | 128)) == 0;
         const bool notorious = (mob->flags & 8) != 0, trueDetection = (mob->flags & 64) != 0;
@@ -209,19 +295,12 @@ namespace xiui
             }
             if (!row.values.empty()) rows.push_back(std::move(row));
         }
-        for (const auto group : {mob_info_group::physical, mob_info_group::elements})
+        for (const auto group : {mob_info_group::weaknesses, mob_info_group::resistances})
         {
             if (!show(group)) continue;
-            const bool physical = group == mob_info_group::physical;
-            mob_info_row row{physical ? "Damage:" : "Element damage:", {}, group};
-            for (size_t i = physical ? 0 : 4; i < (physical ? 4u : 12u); ++i)
-            {
-                char value[24]{};
-                std::snprintf(value, sizeof(value), "x%.2f", 1 + mob->damage[i] / 10000.0);
-                row.values.push_back({damageNames[i], value, physical ? mob_info_icon::physical : mob_info_icon::element,
-                    static_cast<uint16_t>(physical ? i : i - 4)});
-            }
-            rows.push_back(std::move(row));
+            const bool weak = group == mob_info_group::weaknesses;
+            auto values = DamageRow(*mob, this->groups[static_cast<size_t>(group)], weak);
+            if (!values.empty()) rows.push_back({i18n::Text(weak ? "Weak:" : "Resists:"), std::move(values), group});
         }
         if (show(mob_info_group::element_ranks))
         {
@@ -246,6 +325,15 @@ namespace xiui
                         immunityStatuses[bit], bit == 11 ? 6 : bit == 12 ? 7 : -1});
             if (!row.values.empty()) rows.push_back(std::move(row));
         }
+        if (show(mob_info_group::traits))
+        {
+            mob_info_row row{i18n::Text("Traits:"), {}, mob_info_group::traits};
+            for (size_t bit = 0; bit < std::size(traitNames); ++bit)
+                if ((mob->traits & (1u << bit)) != 0) row.values.push_back({i18n::Text(traitNames[bit])});
+            if (const auto* effect = MobAddEffectName(*mob); effect != nullptr)
+                row.values.push_back({mob->add_effect == 1 ? i18n::Text(effect) : i18n::Format("Additional effect: %s", i18n::Text(effect))});
+            if (!row.values.empty()) rows.push_back(std::move(row));
+        }
         if (show(mob_info_group::respawn))
         {
             rows.push_back({mob->respawn != 0 ? "Base spawn interval: " + std::to_string(mob->respawn) + "s" : "Base spawn interval: unknown", {}, mob_info_group::respawn});
@@ -266,13 +354,13 @@ namespace xiui
         };
         std::vector<header_cell> cells;
         float width{}, height{};
-        for (size_t i = 0; i <= 2; ++i)
+        for (size_t i = 0; HeaderGroup(i); ++i)
             if (this->groups[i].placement == mob_info_group_settings::inline_row) this->groups[i].attached_bounds = {};
         for (const auto& row : this->Rows(mob))
         {
             const auto index = static_cast<size_t>(row.group);
             const auto& group = this->groups[index];
-            if (index > 2 || group.placement != mob_info_group_settings::inline_row) continue;
+            if (!HeaderGroup(index) || group.placement != mob_info_group_settings::inline_row) continue;
             auto text = group.text;
             if (group.follow_text) text.style = this->text.style;
             text.offset_x += this->text.offset_x; text.offset_y += this->text.offset_y;
@@ -318,7 +406,8 @@ namespace xiui
 
     auto target_mob_info::Draw(const mob_record* mob, const ui::rect& area, const module_render_context& context, const size_t onlyGroup, const bool headerIcons) -> float
     {
-        float x{}, y{}, lineHeight{}, lineSpacing{this->spacing};
+        float x{}, y{}, lineHeight{}, lineSpacing{this->spacing}, previousSpacing{};
+        size_t previousGroup = mob_info_group_count;
         const bool detached = onlyGroup < this->groups.size();
         const auto nextLine = [&] { y += lineHeight + lineSpacing; x = lineHeight = 0; lineSpacing = this->spacing; };
         const auto elementArt = [&](const int index) -> IDirect3DTexture8* {
@@ -329,8 +418,11 @@ namespace xiui
             const auto index = static_cast<size_t>(row.group);
             auto& group = this->groups[index];
             if (detached ? index != onlyGroup : group.placement == mob_info_group_settings::independent) continue;
-            if (!detached && headerIcons && index <= 2 && group.placement == mob_info_group_settings::inline_row) continue;
+            if (!detached && headerIcons && HeaderGroup(index) && group.placement == mob_info_group_settings::inline_row) continue;
             if (x > 0 && group.placement != mob_info_group_settings::inline_row) nextLine();
+            // Detail groups that continue a row keep a separator gap from the previous group.
+            if (x > 0 && index != previousGroup && !HeaderGroup(index)) x += std::max(0.0f, 8.0f - previousSpacing);
+            previousGroup = index; previousSpacing = group.cell_spacing;
             const float available = std::max(1.0f, detached || group.width == 0 ? area.width : std::min(area.width, group.width));
             auto text = group.text;
             if (group.follow_text) text.style = this->text.style;
@@ -405,7 +497,8 @@ namespace xiui
     auto target_mob_info_module::Id(void) const -> const char* { return target_mob_info::GroupId(this->group_); }
     auto target_mob_info_module::DisplayName(void) const -> const char*
     {
-        static constexpr const char* names[]{"Mob Behavior", "Mob Links", "Mob Detection", "Mob Physical Damage", "Mob Element Damage", "Mob Element Ranks", "Mob Status Ranks", "Mob Immunities", "Mob Server ID", "Mob Spawn Interval"};
+        static constexpr const char* names[]{"Mob Job", "Mob Behavior", "Mob Links", "Mob Detection", "Mob Weaknesses", "Mob Resistances", "Mob Element Ranks", "Mob Status Ranks", "Mob Immunities", "Mob Traits", "Mob Server ID", "Mob Spawn Interval"};
+        static_assert(std::size(names) == mob_info_group_count);
         return names[this->group_];
     }
     auto target_mob_info_module::State(void) -> module_state& { return this->parent_.settings_.mob_info.groups[this->group_].state; }
