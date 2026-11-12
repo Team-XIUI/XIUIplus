@@ -165,10 +165,10 @@ namespace xiui
             (this->ContextVisible(this->chat_second_) && this->chat_second_.WindowVisible()) ||
             (this->ContextVisible(this->buffs_) && this->buffs_.ShouldRender({})) ||
             (this->ContextVisible(this->debuffs_) && this->debuffs_.ShouldRender({}));
-        if (KeyboardAllowsCharacterShortcuts(this->window_config_.FullKeyboard()) && !this->NativeWindowCycle() &&
+        if (!this->NativeWindowCycle() &&
             (!this->ControllerNativeMenuOpen() || this->visibility_context_.window_focus == native_window_focus::commands) &&
             cycleAvailable && this->chat_capture_available_ && (this->game_hud_.HiddenMask() & NativeHudBit(native_hud_element::chat1)) != 0)
-            return keyboard_capture_cycle;
+            return keyboard_capture_numpad_cycle | (KeyboardAllowsCharacterShortcuts(this->window_config_.FullKeyboard()) ? keyboard_capture_cycle : 0);
         return 0;
     }
 

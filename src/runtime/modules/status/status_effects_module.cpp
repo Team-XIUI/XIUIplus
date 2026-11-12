@@ -318,19 +318,56 @@ namespace xiui
         return index ? std::optional{effects.entries[*index].id} : std::nullopt;
     }
 
-    auto status_effects_module::CancelControllerEffect(IPacketManager* packets, const IStatusIcon* icon,
-        const uint32_t localPlayer, const std::span<const int16_t> active) const -> bool
+    auto status_effects_module::ControllerEffectRef(void) const -> std::optional<status_effect_ref>
     {
         const auto effects = this->Effects();
         const auto index = this->ControllerIndex(effects);
-        if (!index || packets == nullptr || icon == nullptr || icon->CanCancel != 1 ||
-            localPlayer == 0 || effects.player != localPlayer || active.size() != 32 || !LocalStatusSnapshotReady(active)) return false;
-        const auto id = effects.entries[*index].id;
-        if (id == 0 || icon->Index != id || static_cast<size_t>(std::count(active.begin(), active.end(), static_cast<int16_t>(id))) <= this->controller_occurrence_) return false;
+        return index ? std::optional{status_effect_ref{effects.player, effects.entries[*index].id, this->controller_occurrence_}} : std::nullopt;
+    }
+
+    auto status_effects_module::EffectAt(const float x, const float y) const -> std::optional<status_effect_ref>
+    {
+        if (!this->state_.enabled) return std::nullopt;
+        const auto effects = this->Effects();
+        const auto layout = this->Layout(effects);
+        const auto localX = this->state_.transform.InverseX(x), localY = this->state_.transform.InverseY(y);
+        for (size_t index = 0; index < layout.count; ++index)
+        {
+            const auto icon = layout.Icon(index);
+            if (localX < icon.x || localY < icon.y || localX >= icon.x + icon.width || localY >= icon.y + icon.height) continue;
+            const auto id = effects.entries[index].id;
+            const auto occurrence = static_cast<size_t>(std::count_if(effects.entries.begin(), effects.entries.begin() + index,
+                [id](const combat_status& status) { return status.id == id; }));
+            return status_effect_ref{effects.player, id, occurrence};
+        }
+        return std::nullopt;
+    }
+
+    auto status_effects_module::CancelEffect(IPacketManager* packets, const IStatusIcon* icon, const uint32_t localPlayer,
+        const std::span<const int16_t> active, const status_effect_ref& effect) const -> bool
+    {
+        if (!this->state_.enabled || packets == nullptr || icon == nullptr || icon->CanCancel != 1 || localPlayer == 0 ||
+            effect.player != localPlayer || effect.id == 0 || icon->Index != effect.id || active.size() != 32 || !LocalStatusSnapshotReady(active)) return false;
+        // The effect must still be displayed for the same player.
+        const auto effects = this->Effects();
+        const auto count = this->Layout(effects).count;
+        size_t occurrence{};
+        bool displayed{};
+        for (size_t index = 0; index < count && !displayed; ++index)
+            displayed = effects.entries[index].id == effect.id && occurrence++ == effect.occurrence;
+        if (effects.player != localPlayer || !displayed ||
+            static_cast<size_t>(std::count(active.begin(), active.end(), static_cast<int16_t>(effect.id))) <= effect.occurrence) return false;
         // Native status cancellation request; the server confirms removal.
-        std::array<uint8_t, 8> packet{0xF1, 0x04, 0, 0, static_cast<uint8_t>(id), static_cast<uint8_t>(id >> 8), 0, 0};
+        std::array<uint8_t, 8> packet{0xF1, 0x04, 0, 0, static_cast<uint8_t>(effect.id), static_cast<uint8_t>(effect.id >> 8), 0, 0};
         packets->AddOutgoingPacket(0x0F1, static_cast<uint32_t>(packet.size()), packet.data());
         return true;
+    }
+
+    auto status_effects_module::CancelControllerEffect(IPacketManager* packets, const IStatusIcon* icon,
+        const uint32_t localPlayer, const std::span<const int16_t> active) const -> bool
+    {
+        const auto effect = this->ControllerEffectRef();
+        return effect && this->CancelEffect(packets, icon, localPlayer, active, *effect);
     }
 
     auto status_effects_module::RenderStatusTooltip(const module_render_context& context, IResourceManager* resources,

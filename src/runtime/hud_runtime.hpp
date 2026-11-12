@@ -451,6 +451,9 @@ namespace xiui
         bool mouse_down_{false};
         bool hud_target_pressed_{};
         const hud_module* hud_target_module_{};
+        // Right-click cancellation acts on the release over the pressed effect.
+        status_effects_module* status_pointer_{};
+        status_effect_ref status_pointer_effect_{};
         HWND mouse_capture_window_{};
         interaction interaction_{interaction::none};
         rect close_button_{};
@@ -564,6 +567,10 @@ namespace xiui
         auto UpdateTreasure(uint64_t now) -> void;
         auto HandleTreasureKey(WPARAM key, LPARAM flags, bool blocked) -> bool;
         auto HandleTreasureMouse(uint32_t message, float x, float y, bool blocked) -> bool;
+        auto StatusPointerAvailable(const status_effects_module& module) const -> bool;
+        auto StatusPointerOwns(float x, float y) const -> bool;
+        auto HandleStatusMouse(uint32_t message, float x, float y, bool blocked) -> bool;
+        auto CancelLocalStatus(const status_effects_module& module, const status_effect_ref& effect) -> bool;
         auto ActionBarsNativePaletteOwned(bool candidate = false) const -> bool;
         auto ActionBarsNativeMenuAllowed(bool keyboardReplacement = false) const -> bool;
         auto PrepareActionBarsExecutor(bool keyboardReplacement = false) -> void;

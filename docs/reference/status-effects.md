@@ -73,7 +73,8 @@ Controller routes use the configured semantic bindings:
 - Enter Enemy List, then use **Actions** to inspect the focused enemy's visible effects.
 - Use `/xiuiplus focus target`, `/xiuiplus focus buffs` or `/xiuiplus focus debuffs` for direct inspection, or choose an available group in `/xiuiplus focus`.
 - Directions or previous/next tab move between effects. **Cancel** returns to the originating row or releases the standalone inspection surface.
-- On your own Buffs/Debuffs, **Confirm** (normally A) or keyboard **Enter** requests removal of the selected effect when the client marks it cancellable. The effect remains visible until the server reports its removal. Held Confirm does not repeat the request; Cancel/B still leaves inspection.
+- Keyboard: numpad **+** cycles chat → Buffs → Debuffs in every keyboard layout; **F** does the same in Compact layouts. Numpad + is reserved from the native window cycle while XIUI+ owns it.
+- On your own Buffs/Debuffs, **Confirm** (normally A), keyboard **Enter** or a **right-click** on the icon requests removal of the selected effect when the client marks it cancellable. Right-click acts on the release only when it lands on the effect that was pressed. The effect remains visible until the server reports its removal. Held Confirm does not repeat the request; Cancel/B still leaves inspection.
 
 Hovering and browsing never cancel an effect. Non-cancellable effects and remote party/enemy/target/pet inspection remain read-only. The normal game retains input outside deliberate XIUI+ focus. Cancellation uses the installed status resource's `CanCancel` flag from the [Ashita SDK](https://github.com/AshitaXI/Ashita-v4beta/blob/main/plugins/sdk/Ashita.h) and the native request used by Ashita's [debuff addon](https://github.com/AshitaXI/Ashita-v4beta/blob/main/addons/debuff/debuff.lua).
 

@@ -3568,5 +3568,6 @@
   "Bust penalty: unknown": "Bust penalty: unknown",
   "Potency: unknown": "Potency: unknown",
   "Base %s %s": "Base %s %s",
-  "%s %s (job bonus %s)": "%s %s (job bonus %s)"
+  "%s %s (job bonus %s)": "%s %s (job bonus %s)",
+  "[XIUI+] This effect cannot be cancelled.": "[XIUI+] This effect cannot be cancelled."
 }

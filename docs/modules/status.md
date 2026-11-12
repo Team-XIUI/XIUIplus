@@ -4,7 +4,7 @@ Renders independent local Buffs/Debuffs and shared status strips/tooltips for ot
 
 When Debuffs follows Buffs, inherited Appearance and Text controls remain visible and read-only. The text profile selector stays available for inspection; disable Follow Buffs settings under General to edit the retained Debuffs styles independently.
 
-F → F selects Buffs; Enter shares controller Confirm's native cancellation request. Non-cancellable effects remain intact, with a chat message for keyboard attempts because keyboard browsing does not show the controller footer.
+Numpad + (every keyboard layout) or F (Compact layouts with XIUI+ chat) cycles chat → Buffs → Debuffs; Enter shares controller Confirm's native cancellation request. Right-click on a local effect cancels on the matching release over the same effect; `EffectAt` hit testing is independent of tooltips. Non-cancellable effects remain intact, with a chat message for keyboard attempts because keyboard browsing does not show the controller footer.
 
 **Start in:** [status_effects_module.cpp](../../src/runtime/modules/status/status_effects_module.cpp), [status_strip.hpp](../../src/runtime/ui/status_strip.hpp), [status_durations.hpp](../../src/runtime/combat/status_durations.hpp).
 

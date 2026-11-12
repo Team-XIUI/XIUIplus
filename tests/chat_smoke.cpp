@@ -263,6 +263,39 @@ namespace xiui
             icon.Index = 2; icon.CanCancel = 0;
             Check(debuffs.BeginControllerBrowse() && !debuffs.CancelControllerEffect(&packets, &icon, 50, active) && packets.count == 2,
                 "non-cancellable debuffs remain inspection-only");
+            runtime.ReleaseControllerFocus();
+
+            // Full keyboard: numpad + cycles chat then Buffs, where F would start typing.
+            settings[66][2] = 0;
+            active[1] = 33; active[2] = 999;
+            icon.Index = 33; icon.CanCancel = 1;
+            Check(runtime.HandleChatKey(VK_ADD, 0, false, true, false, 0) && runtime.chat_.HistoryFocused() && !runtime.chat_.Focused() &&
+                runtime.HandleChatKey(VK_ADD, 0, false, true, false, 0) && buffs.ControllerEffect() == 33,
+                "numpad + then numpad + focuses Buffs in the Full keyboard layout");
+            Check(runtime.KeyboardInputState() == keyboard_capture_status && KeyboardCapturesScan(runtime.KeyboardInputState(), 0x4E),
+                "focused Buffs reserve numpad + from the native window cycle");
+            const auto before = packets.count;
+            buffs.CancelControllerEffect(&packets, &icon, 50, active);
+            Check(packets.count == before + 1 && packets.bytes[4] == 33, "numpad-focused Buffs share the native cancellation request");
+            runtime.ReleaseControllerFocus();
+
+            // Mouse: the pressed and released effect must match, independent of tooltip settings.
+            const auto first = buffs.Layout(buffs.Effects()).Icon(0);
+            const auto second = buffs.Layout(buffs.Effects()).Icon(1);
+            buffs.settings_.tooltips = false;
+            const auto pointed = buffs.EffectAt(first.x + first.width / 2, first.y + first.height / 2);
+            const auto duplicate = buffs.EffectAt(second.x + second.width / 2, second.y + second.height / 2);
+            Check(pointed && pointed->id == 33 && pointed->occurrence == 0 && pointed->player == 50 &&
+                duplicate && duplicate->id == 33 && duplicate->occurrence == 1 && !buffs.EffectAt(-100, -100),
+                "pointer hit testing identifies duplicate effects by occurrence without tooltips");
+            Check(buffs.CancelEffect(&packets, &icon, 50, active, *duplicate) && packets.count == before + 2,
+                "a pointed duplicate effect sends one cancellation request");
+            active[1] = -1;
+            Check(!buffs.CancelEffect(&packets, &icon, 50, active, *duplicate) && !buffs.CancelEffect(&packets, &icon, 51, active, *pointed) &&
+                packets.count == before + 2, "stale pointed effects and changed players cannot cancel");
+            icon.CanCancel = 0;
+            Check(!buffs.CancelEffect(&packets, &icon, 50, active, *pointed) && packets.count == before + 2,
+                "client cancellation flags also protect pointer cancellation");
         }
 
         static auto Bubbles(void) -> void

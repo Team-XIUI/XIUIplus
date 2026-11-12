@@ -6,6 +6,15 @@
 
 namespace xiui
 {
+    // A displayed effect, identified by player, status ID and its occurrence among equal IDs.
+    struct status_effect_ref
+    {
+        uint32_t player{};
+        uint16_t id{};
+        size_t occurrence{};
+        auto operator==(const status_effect_ref&) const -> bool = default;
+    };
+
     class status_effects_module final : public hud_module
     {
     public:
@@ -35,12 +44,19 @@ namespace xiui
         auto ControllerFocused(void) const -> bool;
         auto ControllerBounds(void) const -> ui::rect;
         auto ControllerEffect(void) const -> std::optional<uint16_t>;
+        auto ControllerEffectRef(void) const -> std::optional<status_effect_ref>;
+        // Screen-space hit test, independent of tooltip settings.
+        auto EffectAt(float x, float y) const -> std::optional<status_effect_ref>;
+        auto CancelEffect(IPacketManager* packets, const IStatusIcon* icon, uint32_t localPlayer, std::span<const int16_t> active, const status_effect_ref& effect) const -> bool;
         auto CancelControllerEffect(IPacketManager* packets, const IStatusIcon* icon, uint32_t localPlayer, std::span<const int16_t> active) const -> bool;
         auto RenderStatusTooltip(const module_render_context& context, IResourceManager* resources, float x, float y, bool controller = false) const -> void;
 
     private:
 #if defined(XIUI_ENABLE_PARITY_TESTS)
         friend struct status_module_test;
+#endif
+#if defined(XIUI_ENABLE_CHAT_TESTS)
+        friend struct chat_test;
 #endif
         static constexpr size_t appearance_options_start = ui::status_strip_settings::option_count;
         static constexpr size_t text_options_start = appearance_options_start + 6;

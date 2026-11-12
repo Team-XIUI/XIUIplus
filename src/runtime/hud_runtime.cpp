@@ -586,7 +586,7 @@ namespace xiui
         auto* properties = this->core_ != nullptr ? this->core_->GetProperties() : nullptr;
         const HWND gameWindow = properties != nullptr ? properties->GetFinalFantasyHwnd() : nullptr;
         if (gameWindow == nullptr || ::GetForegroundWindow() != gameWindow)
-        { this->mouse_route_ = "foreground"; this->hud_target_pressed_ = false; return false; }
+        { this->mouse_route_ = "foreground"; this->hud_target_pressed_ = false; this->status_pointer_ = nullptr; return false; }
 
         POINT cursor{signed_low_word(lParam), signed_high_word(lParam)};
         if (message == WM_MOUSEWHEEL || message == WM_MOUSEHWHEEL)
@@ -619,6 +619,7 @@ namespace xiui
         if (this->HandleSatchelMouse(message, wParam, static_cast<float>(cursor.x), static_cast<float>(cursor.y), blocked)) return owned("satchel");
         if (this->HandleActionBarsMouse(message, wParam, static_cast<float>(cursor.x), static_cast<float>(cursor.y), blocked)) return owned("actionbars");
         if (this->HandleTreasureMouse(message, static_cast<float>(cursor.x), static_cast<float>(cursor.y), blocked)) return owned("treasure");
+        if (!this->editing_ && this->HandleStatusMouse(message, static_cast<float>(cursor.x), static_cast<float>(cursor.y), blocked)) return owned("status");
 
         if (this->HandleControllerPointer(message, static_cast<float>(cursor.x), static_cast<float>(cursor.y), viewport))
         {
@@ -1102,14 +1103,16 @@ namespace xiui
         }
         auto& history = this->chat_second_.HistoryFocused() ? this->chat_second_ : this->chat_;
         const auto keyFlags = static_cast<uint32_t>(flags);
-        if (!this->editing_ && !blocked && key == 'F' && this->NativeWindowCycle() && !targeting &&
+        // Compact layouts cycle windows with F; numpad + cycles them in every layout.
+        const bool cycleKey = key == 'F' || key == VK_ADD;
+        if (!this->editing_ && !blocked && cycleKey && this->NativeWindowCycle() && !targeting &&
             (::GetKeyState(VK_CONTROL) & 0x8000) == 0 && (::GetKeyState(VK_MENU) & 0x8000) == 0 && (keyFlags & 0x20000000u) == 0)
         { this->controller_presented_ = false; this->keyboard_window_focus_ = true; return false; }
         const bool statusFocused = this->controller_surface_ == controller_surface::buffs || this->controller_surface_ == controller_surface::debuffs;
         const bool compactKeyboard = KeyboardAllowsCharacterShortcuts(this->window_config_.FullKeyboard());
-        if (!this->editing_ && !blocked && key == 'F' && (keyFlags & 0x80000000u) == 0 &&
+        if (!this->editing_ && !blocked && cycleKey && (keyFlags & 0x80000000u) == 0 &&
             (history.HistoryFocused() || statusFocused || !targeting) &&
-            (compactKeyboard || history.HistoryFocused() || statusFocused) &&
+            (compactKeyboard || key == VK_ADD || history.HistoryFocused() || statusFocused) &&
             (!this->ControllerNativeMenuOpen() || this->visibility_context_.window_focus == native_window_focus::commands || history.HistoryFocused() || statusFocused) &&
             !this->chat_.Focused() && !history.HistoryExpanded() && (replacement || history.HistoryFocused() || statusFocused) &&
             (::GetKeyState(VK_CONTROL) & 0x8000) == 0 && (::GetKeyState(VK_MENU) & 0x8000) == 0 &&
@@ -2506,6 +2509,7 @@ namespace xiui
                 this->treasure_.PointerDown() || (this->TreasureInputAvailable(true) && this->treasure_.Contains(static_cast<float>(cursor.x), static_cast<float>(cursor.y))) ||
                 (this->ContextVisible(this->ready_check_) && (this->ready_check_.PointerDown() || this->ready_check_.Contains(static_cast<float>(cursor.x), static_cast<float>(cursor.y)))) ||
                 this->MinimapPointerOwns(static_cast<float>(cursor.x), static_cast<float>(cursor.y)) ||
+                (active && this->StatusPointerOwns(static_cast<float>(cursor.x), static_cast<float>(cursor.y))) ||
                 this->ChatResizing() || this->chat_pointer_ != nullptr || this->ChatAt(static_cast<float>(cursor.x), static_cast<float>(cursor.y)) != nullptr));
             this->cursor_renderer_.SetNativeCursorHidden(this->chat_mouse_block_saved_);
             this->UpdateSoundHover(viewport, active);
@@ -2667,7 +2671,7 @@ namespace xiui
                 this->config_.choice_input.CancelScrollPointer();
                 this->FinishInteraction();
             }
-            this->hud_target_pressed_ = false; this->hud_target_module_ = nullptr;
+            this->hud_target_pressed_ = false; this->hud_target_module_ = nullptr; this->status_pointer_ = nullptr;
             if (this->chat_pointer_ != nullptr || this->ChatResizing())
             {
                 if (this->ChatResizing()) this->SaveSettings();

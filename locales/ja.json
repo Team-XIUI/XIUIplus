@@ -3568,5 +3568,6 @@
   "Bust penalty: unknown": "バストのペナルティ: 不明",
   "Potency: unknown": "効果量: 不明",
   "Base %s %s": "基本 %s %s",
-  "%s %s (job bonus %s)": "%s %s（ジョブボーナス %s）"
+  "%s %s (job bonus %s)": "%s %s（ジョブボーナス %s）",
+  "[XIUI+] This effect cannot be cancelled.": "[XIUI+] この効果は解除できません。"
 }

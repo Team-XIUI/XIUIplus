@@ -221,6 +221,10 @@ namespace
         state.fill(0); state[cycle] = state[enter] = 0x80;
         input.FilterState(state.data(), state.size(), keyboard_capture_cycle);
         if (!require(state[cycle] == 0 && state[enter] == 0x80, "compact F entry is reserved before it can select native chat")) return false;
+        if (!require(KeyboardCapturesScan(keyboard_capture_numpad_cycle, 0x4E) && !KeyboardCapturesScan(keyboard_capture_numpad_cycle, cycle) &&
+            !KeyboardCapturesScan(keyboard_capture_cycle, 0x4E) && KeyboardCapturesScan(keyboard_capture_status, 0x4E) &&
+            !KeyboardCapturesScan(FilterKeyboardCapture(keyboard_capture_numpad_cycle, true), 0x4E),
+            "numpad + is reserved for XIUI+'s window cycle in every layout and stays native with modifiers")) return false;
         return require(!KeyboardCapturesScan(FilterKeyboardCapture(keyboard_capture_cycle, true), cycle) &&
             KeyboardCapturesScan(keyboard_capture_status, 0x0F) && !KeyboardCapturesScan(keyboard_capture_history, 0x0F),
             "modified F shortcuts and Alt+Tab stay native while status focus owns its tab navigation");

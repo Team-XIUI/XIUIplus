@@ -4,6 +4,8 @@
 
 - Item and status icons: fix Equipment, Satchel, Action Bars and native status icons showing blank or slot names on Ashita builds that store icons as complete .bmp files or report a different icon size. `/xiuiplus equipment status` reports how many equipped icons loaded and the bitmap details of the first one that did not.
 
+- Buffs/Debuffs: keyboard players can press numpad + to cycle to chat and then Buffs and press Enter to cancel the selected effect, in every keyboard layout. Right-click a cancellable effect on your own Buffs/Debuffs to cancel it; the release must land on the same icon.
+
 - Native menus: commands, shop Buy/Cancel prompts, NPC choices and other menus that open above the game's chat log now open above XIUI+ chat instead of behind it. **Keep menus above chat** is on by default under Native UI → HUD Windows → Window Placement; windows with a custom position stay where you placed them. Item details and the job change menu no longer follow a shared command anchor.
 
 - Ashita keybinds: fix letters and other keys bound with Ashita's `/bind` doing nothing in Action Bars macro/name/search fields and Satchel search or price fields. They now type like any other key while the field is focused, and the bind does not run. Hotbar Keybinds explains when a key is already used by an Ashita keybind or another plugin.

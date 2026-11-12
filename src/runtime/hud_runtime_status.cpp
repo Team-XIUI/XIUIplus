@@ -2,9 +2,70 @@
 #include "ashita_compat.hpp"
 
 #include <array>
+#include <utility>
 
 namespace xiui
 {
+    auto hud_runtime::CancelLocalStatus(const status_effects_module& module, const status_effect_ref& effect) -> bool
+    {
+        auto* resources = this->core_ != nullptr ? this->core_->GetResourceManager() : nullptr;
+        const auto* memory = this->core_ != nullptr ? this->core_->GetMemoryManager() : nullptr;
+        const auto player = memory != nullptr ? xiui::ashita::View(memory->GetPlayer()) : nullptr;
+        const auto party = memory != nullptr ? xiui::ashita::View(memory->GetParty()) : nullptr;
+        const auto* icons = player != nullptr ? player->GetStatusIcons() : nullptr;
+        if (icons == nullptr || !LocalStatusSnapshotReady({icons, 32})) icons = player != nullptr ? player->GetBuffs() : nullptr;
+        const bool requested = resources != nullptr && icons != nullptr && party != nullptr &&
+            module.CancelEffect(this->core_->GetPacketManager(), resources->GetStatusIconByIndex(effect.id), party->GetMemberServerId(0), {icons, 32}, effect);
+        if (requested) this->ui_sounds_.Select(::GetTickCount64());
+        return requested;
+    }
+
+    auto hud_runtime::StatusPointerAvailable(const status_effects_module& module) const -> bool
+    {
+        return this->visible_ && !this->editing_ && this->ContextVisible(module) && module.ShouldRender({}) && !this->ControllerNativeBusy() &&
+            !this->chat_.HistoryExpanded() && !this->chat_second_.HistoryExpanded();
+    }
+
+    auto hud_runtime::StatusPointerOwns(const float x, const float y) const -> bool
+    {
+        if (this->status_pointer_ != nullptr) return true;
+        for (const auto* module : {&this->buffs_, &this->debuffs_})
+            if (this->StatusPointerAvailable(*module) && module->EffectAt(x, y)) return true;
+        return false;
+    }
+
+    auto hud_runtime::HandleStatusMouse(const uint32_t message, const float x, const float y, const bool inputBlocked) -> bool
+    {
+        if (message == WM_RBUTTONUP && this->status_pointer_ != nullptr)
+        {
+            auto& module = *std::exchange(this->status_pointer_, nullptr);
+            this->ReleasePointerCapture();
+            const auto released = !this->PointerInputBlocked(inputBlocked) && this->StatusPointerAvailable(module) ? module.EffectAt(x, y) : std::nullopt;
+            if (released && *released == this->status_pointer_effect_ && !this->CancelLocalStatus(module, *released) &&
+                this->core_ != nullptr && this->core_->GetChatManager() != nullptr)
+                this->core_->GetChatManager()->Write(1, false, i18n::Text("[XIUI+] This effect cannot be cancelled."));
+            return true;
+        }
+        if ((message != WM_RBUTTONDOWN && message != WM_RBUTTONDBLCLK) || this->PointerInputBlocked(inputBlocked)) return false;
+        for (auto* module : {&this->buffs_, &this->debuffs_})
+        {
+            const auto effect = this->StatusPointerAvailable(*module) ? module->EffectAt(x, y) : std::nullopt;
+            if (!effect) continue;
+            this->status_pointer_ = module;
+            this->status_pointer_effect_ = *effect;
+            auto* properties = this->core_ != nullptr ? this->core_->GetProperties() : nullptr;
+            const HWND window = properties != nullptr ? properties->GetFinalFantasyHwnd() : nullptr;
+            if (window != nullptr)
+            {
+                ::SetCapture(window);
+                if (::GetCapture() == window) this->mouse_capture_window_ = window;
+            }
+            this->SetChatMouseCapture(true);
+            return true;
+        }
+        return false;
+    }
+
     auto hud_runtime::ControllerStatusBounds(void) const -> rect
     {
         if (this->controller_surface_ == controller_surface::buffs) return this->buffs_.ControllerBounds();
@@ -38,20 +99,11 @@ namespace xiui
             if (action == controller_action::cancel) this->ReleaseControllerFocus();
             else if (action == controller_action::confirm)
             {
-                const auto effect = module.ControllerEffect();
-                auto* resources = this->core_ != nullptr ? this->core_->GetResourceManager() : nullptr;
-                const auto* memory = this->core_ != nullptr ? this->core_->GetMemoryManager() : nullptr;
-                const auto player = memory != nullptr ? xiui::ashita::View(memory->GetPlayer()) : nullptr;
-                const auto party = memory != nullptr ? xiui::ashita::View(memory->GetParty()) : nullptr;
-                const auto* icons = player != nullptr ? player->GetStatusIcons() : nullptr;
-                if (icons == nullptr || !LocalStatusSnapshotReady({icons, 32})) icons = player != nullptr ? player->GetBuffs() : nullptr;
-                const bool requested = effect && resources != nullptr && icons != nullptr && party != nullptr &&
-                    module.CancelControllerEffect(this->core_->GetPacketManager(), resources->GetStatusIconByIndex(*effect),
-                        party->GetMemberServerId(0), {icons, 32});
+                const auto effect = module.ControllerEffectRef();
+                const bool requested = effect && this->CancelLocalStatus(module, *effect);
                 this->controller_hint_ = requested ? "Effect cancellation requested." : "This effect cannot be cancelled.";
-                if (requested) this->ui_sounds_.Select(::GetTickCount64());
-                else if (this->keyboard_window_focus_ && this->core_ != nullptr && this->core_->GetChatManager() != nullptr)
-                    this->core_->GetChatManager()->Write(1, false, "[XIUI+] This effect cannot be cancelled.");
+                if (!requested && this->keyboard_window_focus_ && this->core_ != nullptr && this->core_->GetChatManager() != nullptr)
+                    this->core_->GetChatManager()->Write(1, false, i18n::Text("[XIUI+] This effect cannot be cancelled."));
             }
             else if (action == controller_action::up || action == controller_action::down)
                 module.MoveControllerBrowse(action == controller_action::up ? -1 : 1);
