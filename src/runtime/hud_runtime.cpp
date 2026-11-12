@@ -1181,6 +1181,7 @@ namespace xiui
             KeyboardStartsChat(this->window_config_.FullKeyboard(), key, flags);
         const bool consumed = this->chat_.HandleKey(this->core_, key, flags, blocked, replacement,
             reply ? this->chat_input_.ReplyTargets() : std::vector<std::string>{}, startTyping);
+        if (this->chat_.TakeChannelSave()) this->SaveSettings();
         if (consumed && key == VK_RETURN && (keyFlags & 0x80000000u) == 0)
         {
             this->confirmation_key_release_ = key;

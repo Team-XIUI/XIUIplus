@@ -13,6 +13,7 @@
 #include "ui/native_window_config.hpp"
 #include "controller_input.hpp"
 #include <unordered_map>
+#include <utility>
 
 namespace xiui
 {
@@ -57,6 +58,8 @@ namespace xiui
         auto SendChannelLabel(void) const -> std::string { return this->InputDestination().label; }
         auto SetDialogueActive(bool active) -> void;
         auto HandleKey(IAshitaCore* core, WPARAM key, LPARAM flags, bool blocked, bool replaceNative, std::span<const std::string> replyTargets = {}, bool startTyping = false) -> bool;
+        // A keyboard channel shortcut changed the saved send channel.
+        auto TakeChannelSave(void) -> bool { return std::exchange(this->channel_save_pending_, false); }
         auto OpenTell(std::string_view recipient) -> bool;
         auto AdoptDraft(chat_draft draft) -> bool;
         auto AdoptTell(chat_draft draft, std::string_view recipient = {}) -> bool;
@@ -196,7 +199,7 @@ namespace xiui
         ui::point hover_point_{};
         float input_reveal_{};
         float destination_reveal_{};
-        bool destination_hovered_{}, channel_picker_open_{};
+        bool destination_hovered_{}, channel_picker_open_{}, channel_save_pending_{};
         int channel_pointer_press_{-2};
         ui::rect channel_picker_viewport_{0, 0, 1280, 720};
         uint64_t input_animation_tick_{};

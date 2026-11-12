@@ -2297,6 +2297,30 @@ namespace xiui
             Check(!module.ChannelPickerOpen(), "input suspension closes the picker without sending a message");
         }
 
+        static auto ChannelShortcuts(void) -> void
+        {
+            chat_module module;
+            module.ApplyTextDefaults(ui::theme::CreateDefault());
+            module.SetNativeDestination("/say ", {});
+            const auto alt = [](const uint32_t scan) { return static_cast<LPARAM>(0x20000001u | scan << 16); };
+            Check(!module.HandleKey(nullptr, 'P', alt(0x19), false, true) && !module.Focused() && module.channel_ == chat_module::game_channel,
+                "following the game leaves gameplay Alt+P with the native chat mode");
+            module.editor_.Set("/l this is an example", 21); module.Focus(true);
+            Check(module.HandleKey(nullptr, 'M', alt(0x27), false, true) && module.channel_ == 3 && module.editor_.Text() == "this is an example" &&
+                module.InputCommand(module.editor_.Text()) == "/linkshell2 this is an example" && module.TakeChannelSave() && !module.TakeChannelSave(),
+                "Alt on the physical semicolon key (AZERTY M) moves a Linkshell draft to Linkshell 2 and requests a save");
+            Check(module.HandleKey(nullptr, 'P', static_cast<LPARAM>(0x40000000u) | alt(0x19), false, true) && module.channel_ == 3,
+                "a held shortcut does not switch again");
+            Check(module.HandleKey(nullptr, 'P', alt(0x19), false, true) && module.channel_ == 1 && module.editor_.Text() == "this is an example" &&
+                module.Focused(), "Alt+P switches to Party and keeps the draft open");
+            Check(module.HandleKey(nullptr, 'S', alt(0x1F), true, true) && module.channel_ == 1 && module.editor_.Text() == "this is an example",
+                "a key bound by Ashita neither switches channels nor types");
+            module.Focus(false);
+            Check(module.HandleKey(nullptr, 'L', alt(0x26), false, true) && module.Focused() && module.channel_ == 2 &&
+                module.InputCommand(module.editor_.Text()) == "/linkshell this is an example",
+                "with an XIUI+ channel selected, gameplay shortcuts open composition on the chosen channel");
+        }
+
         static auto NativeSendChannel(void) -> void
         {
             chat_module module; chat_manager chat; ui::design_system design;
@@ -2883,6 +2907,7 @@ int main(int argc, char** argv)
         {
             xiui::chat_test::DestinationIndicator();
             xiui::chat_test::DestinationPicker();
+            xiui::chat_test::ChannelShortcuts();
             xiui::chat_test::NativeSendChannel();
             xiui::chat_test::InputLimits();
             xiui::chat_test::AutoTranslateCommands();

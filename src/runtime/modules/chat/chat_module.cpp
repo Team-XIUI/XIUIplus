@@ -35,6 +35,21 @@ namespace
         return count > 0 ? xiui::ToUtf8({text, static_cast<size_t>(count)}) : std::string{};
     }
 
+    // Native Ctrl/Alt chat-mode keys match physical positions (S, P, L, ;, T), so AZERTY's M selects Linkshell 2.
+    auto ShortcutChannel(const LPARAM flags) -> int
+    {
+        if ((static_cast<uint32_t>(flags) & 0x01000000u) != 0) return -1;
+        switch ((static_cast<uint32_t>(flags) >> 16) & 0xFF)
+        {
+        case 0x1F: return 0;
+        case 0x19: return 1;
+        case 0x26: return 2;
+        case 0x27: return 3;
+        case 0x14: return 7;
+        default: return -1;
+        }
+    }
+
     auto MessageProgress(const uint64_t started, const uint64_t now, const float duration) -> float
     {
         if (now < started) return 1;
@@ -1524,6 +1539,19 @@ namespace xiui
         const bool alt = (::GetKeyState(VK_MENU) & 0x8000) != 0 || (static_cast<uint32_t>(flags) & 0x20000000u) != 0;
         if (key == 'R' && (control != alt) && !shift && !blocked && replaceNative)
             return (static_cast<uint32_t>(flags) & 0x40000000u) != 0 ? this->Focused() : this->OpenReply(replyTargets);
+        const int shortcut = control != alt && !shift && !blocked && replaceNative ? ShortcutChannel(flags) : -1;
+        // Following the game, native keeps these and XIUI+ adopts its mode; an XIUI+ channel would ignore that mode.
+        if (shortcut >= 0 && (this->Focused() || this->channel_ != game_channel))
+        {
+            if ((static_cast<uint32_t>(flags) & 0x40000000u) != 0) return this->Focused();
+            if (!this->Focused()) { this->input_start_ = 0; this->Focus(true); }
+            this->channel_picker_open_ = false;
+            this->error_.clear();
+            bool save{};
+            this->ChooseSendChannel(shortcut, save);
+            this->channel_save_pending_ = this->channel_save_pending_ || save;
+            return true;
+        }
         if (!this->Focused())
         {
             if (blocked || !replaceNative || control || alt || (static_cast<uint32_t>(flags) & 0x40000000u) != 0) return false;
