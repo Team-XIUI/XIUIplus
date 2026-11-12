@@ -6,6 +6,7 @@
 #include "native_target.hpp"
 
 #include <algorithm>
+#include <cctype>
 #include <cmath>
 #include <cstdlib>
 #include <cstdio>
@@ -87,6 +88,14 @@ namespace
         if (end == text.c_str() || *end != '\0' || !std::isfinite(seconds) || seconds < 0 || seconds > 3600) return UINT64_MAX;
         return static_cast<uint64_t>(std::ceil(seconds * 1000));
     }
+    // Finds a line-ending <wait N>, <waitN> or <wait>; other <wait...> tokens stay in the command.
+    auto TrailingWait(const std::string& lower) -> size_t
+    {
+        const auto wait = lower.rfind("<wait");
+        if (wait == std::string::npos || lower.find('>', wait) != lower.size() - 1) return std::string::npos;
+        const auto next = static_cast<unsigned char>(lower[wait + 5]);
+        return next == '>' || next == ' ' || next == '\t' || next == '.' || std::isdigit(next) ? wait : std::string::npos;
+    }
     auto QueueMode(const std::string& command) -> int
     {
         const auto key = Lower(command.substr(0, command.find(' ')));
@@ -108,7 +117,31 @@ namespace xiui
     auto action_executor::Cancel(const std::string_view reason) -> void
     {
         if (!this->pending_.empty() && !reason.empty()) this->status_ = reason;
-        this->pending_.clear(); this->next_ = 0; this->waiting_subtarget_ = false; this->saw_subtarget_ = false; this->due_ = 0;
+        if (this->timeline_running_)
+        {
+            const bool finished = this->next_ >= this->pending_.size() && !this->waiting_subtarget_;
+            this->timeline_end_ = finished ? "completed" : reason.empty() ? "cancelled" : "cancelled: " + std::string{reason};
+            this->timeline_running_ = false;
+        }
+        this->pending_.clear(); this->next_ = 0; this->waiting_subtarget_ = false; this->saw_subtarget_ = false; this->due_ = 0; this->background_ = false;
+    }
+    auto action_executor::Timeline(void) const -> std::vector<std::string>
+    {
+        std::vector<std::string> result;
+        if (this->timeline_lines_ == 0) { result.emplace_back("Macro run: none recorded."); return result; }
+        char text[160]{};
+        std::snprintf(text, sizeof(text), "Macro run: %zu lines, %s, ", this->timeline_lines_, this->timeline_timed_ ? "timed" : "sent at once");
+        result.emplace_back(std::string{text} + (this->timeline_running_ ? "running" : this->timeline_end_));
+        if (result.back().back() != '.') result.back() += '.';
+        uint64_t previous{};
+        for (const auto& record : this->timeline_)
+        {
+            std::snprintf(text, sizeof(text), "line %zu at +%llu ms (gap %llu ms): ", record.line,
+                static_cast<unsigned long long>(record.at), static_cast<unsigned long long>(record.at - previous));
+            result.emplace_back(std::string{text} + FromGameText(record.command));
+            previous = record.at;
+        }
+        return result;
     }
     auto action_executor::Diagnostics(const uint64_t now) const -> std::string
     {
@@ -464,8 +497,8 @@ namespace xiui
             { step.delay = WaitMilliseconds(end == std::string::npos ? std::string{} : Trim(command.substr(end + 1))); timed = true; }
             else
             {
-                if (const auto wait = lower.rfind("<wait "); wait != std::string::npos && lower.back() == '>')
-                { step.delay = WaitMilliseconds(Trim(command.substr(wait + 6, command.size() - wait - 7))); command = Trim(command.substr(0, wait)); timed = true; }
+                if (const auto wait = TrailingWait(lower); wait != std::string::npos)
+                { step.delay = WaitMilliseconds(Trim(command.substr(wait + 5, command.size() - wait - 6))); command = Trim(command.substr(0, wait)); timed = true; }
                 step.command = ResolveCommandName(std::move(command), resolveName); step.subtarget = IsSubtarget(Lower(step.command)); timed = timed || step.subtarget;
             }
             if (step.delay == UINT64_MAX) { this->status_ = "Waits must be between 0 and 3600 seconds."; return {}; }
@@ -477,13 +510,13 @@ namespace xiui
         }
         return steps;
     }
-    auto action_executor::Activate(IAshitaCore* core, const action_slot& slot, uint64_t now) -> bool
+    auto action_executor::Activate(IAshitaCore* core, const action_slot& slot, uint64_t now, const bool background) -> bool
     {
         if (this->restricted_) { this->status_ = "Close the editor or finish typing first."; return false; }
         if (!slot.macro_id.empty())
         {
             const auto expanded = this->macro_resolver_ ? this->macro_resolver_(slot) : slot;
-            if (expanded.macro_id.empty()) return this->Activate(core, expanded, now);
+            if (expanded.macro_id.empty()) return this->Activate(core, expanded, now, background);
             this->status_ = "The referenced macro is unavailable."; return false;
         }
         if (slot.kind == action_kind::item || slot.kind == action_kind::equip) this->next_inventory_ = 0;
@@ -499,30 +532,33 @@ namespace xiui
         auto steps = this->BuildSteps(slot, commands, resolveName, timed);
         if (steps.empty()) return false;
         this->Cancel();
+        this->timeline_.clear(); this->timeline_start_ = now; this->timeline_lines_ = steps.size(); this->timeline_timed_ = timed; this->timeline_end_.clear();
         if (!timed)
         {
+            for (size_t line = 0; line < steps.size(); ++line) if (!steps[line].command.empty()) this->Record(line + 1, steps[line].command, now);
+            this->timeline_end_ = "completed";
             // Native macro commands use a LIFO stack, including non-action lines.
             for (auto step = steps.rbegin(); step != steps.rend(); ++step) if (!step->command.empty()) core->GetChatManager()->QueueCommand(step->mode, step->command.c_str());
             return true;
         }
         auto* memory = core->GetMemoryManager(); auto party = xiui::ashita::View(memory->GetParty()); auto player = xiui::ashita::View(memory->GetPlayer());
         this->macro_player_ = party->GetMemberServerId(0); this->macro_zone_ = party->GetMemberZone(0); this->macro_job_ = player->GetMainJob(); this->macro_subjob_ = player->GetSubJob();
-        this->pending_ = std::move(steps); this->due_ = now; this->Update(core, now); return true;
+        this->pending_ = std::move(steps); this->due_ = now; this->background_ = background; this->timeline_running_ = true; this->Update(core, now); return true;
     }
     auto action_executor::Update(IAshitaCore* core, uint64_t now) -> void
     {
         if (this->pending_.empty()) return;
         auto* memory = core != nullptr ? core->GetMemoryManager() : nullptr; auto party = memory != nullptr ? xiui::ashita::View(memory->GetParty()) : nullptr; auto player = memory != nullptr ? xiui::ashita::View(memory->GetPlayer()) : nullptr; auto target = memory != nullptr ? xiui::ashita::View(memory->GetTarget()) : nullptr;
         if (this->restricted_ || party == nullptr || player == nullptr || target == nullptr || player->GetIsZoning() || party->GetMemberServerId(0) != this->macro_player_ || party->GetMemberZone(0) != this->macro_zone_ || player->GetMainJob() != this->macro_job_ || player->GetSubJob() != this->macro_subjob_)
-        { this->Cancel(); this->status_ = "Macro cancelled because the input or character context changed."; return; }
+        { this->Cancel("Macro cancelled because the input or character context changed."); return; }
         const auto context = Guard(core, true);
-        if (!context.empty()) { this->Cancel(); this->status_ = context; return; }
+        if (!context.empty()) { this->Cancel(context); return; }
         if (this->waiting_subtarget_)
         {
             const bool active = NativeTargetSelectionActive(memory);
             this->saw_subtarget_ = this->saw_subtarget_ || active;
             if (active)
-            { if (now >= this->subtarget_deadline_) { this->Cancel(); this->status_ = "Macro cancelled after target selection timed out."; } return; }
+            { if (now >= this->subtarget_deadline_) { this->Cancel("Macro cancelled after target selection timed out."); } return; }
             if (!this->saw_subtarget_ && now < this->due_) return;
             this->waiting_subtarget_ = false; this->due_ = now + this->pending_[this->next_ - 1].delay;
         }
@@ -532,12 +568,13 @@ namespace xiui
         if (!this->pending_[this->next_].command.empty())
         {
             const auto guard = Guard(core, false, this->native_menu_allowed_);
-            if (!guard.empty()) { this->Cancel(); this->status_ = guard; return; }
+            if (!guard.empty()) { this->Cancel(guard); return; }
         }
         const auto& step = this->pending_[this->next_++];
         if (!step.command.empty())
         {
             this->last_command_ = step.command; this->last_dispatch_ = now; this->last_line_ = this->next_; this->last_total_ = this->pending_.size();
+            this->Record(this->next_, step.command, now);
             core->GetChatManager()->QueueCommand(step.mode, step.command.c_str());
         }
         if (step.subtarget)

@@ -32,6 +32,10 @@ An active native macro palette can sit above a still-visible command menu. Ident
 
 Running macros retain their current line and wait deadline while native menus, events, maps or target selection own input, including the item-trade menu before a mining animation. They resume when native input clears. New activations remain guarded; foreground, editor and character/zone/job restrictions still cancel the sequence. `/xiuiplus actionbars run <bar 1-10> <slot 1-12>` activates a hotbar assignment through the same validated executor for command-based use and AgentLink tests.
 
+`/xiuiplus actionbars macrotest` runs an unsaved scratch macro for AgentLink. `set /echo a <wait3.6> | /echo b` replaces it in one command, splitting on `|` before each `/`. Commands AgentLink queues in the same frame can reorder, so separate `add <line>` calls need a `wait` between them. `run` uses the same executor and guards as a hotbar macro, but that run continues while the game is unfocused, so tests never need to take focus. `report` lists each dispatched line's offset and gap for the latest macro run from any source, with how it ended. `show` and `clear` manage the lines.
+
+Inline waits are a line-ending `<wait N>`, `<waitN>` or bare `<wait>` (1 second). Other `<wait…>` tokens remain command text.
+
 Timed and untimed command macros use the same native macro queue mode for every line, including `/targetnpc` and other non-action commands. Parsing waits must not change the dispatch origin.
 
 Replace native macros defaults off in code, resets and bundled setups. Preserve explicit saved choices.

@@ -28,11 +28,15 @@ namespace xiui
         auto SetNativeInputBusy(bool active) -> void { this->native_input_busy_ = active; }
         auto Catalog(IAshitaCore* core) -> std::span<const action_catalog_entry>;
         auto Inspect(IAshitaCore* core, const action_slot& slot, bool presentation = false) -> action_availability;
-        auto Activate(IAshitaCore* core, const action_slot& slot, uint64_t now) -> bool;
+        // background lets this run continue while the game is unfocused; it ends with the run.
+        auto Activate(IAshitaCore* core, const action_slot& slot, uint64_t now, bool background = false) -> bool;
         auto Update(IAshitaCore* core, uint64_t now) -> void;
         auto Cancel(std::string_view reason = {}) -> void;
         auto Status(void) const -> const std::string& { return this->status_; }
         auto Diagnostics(uint64_t now) const -> std::string;
+        auto Background(void) const -> bool { return this->background_ && !this->pending_.empty(); }
+        // Dispatch times of the latest command macro run, for AgentLink checks.
+        auto Timeline(void) const -> std::vector<std::string>;
         auto Clear(void) -> void;
         auto SetNativeRunner(std::function<bool(const native_macro_ref&)> run) -> void { this->native_runner_ = std::move(run); }
         auto SetMacroResolver(std::function<action_slot(const action_slot&)> resolve) -> void { this->macro_resolver_ = std::move(resolve); }
@@ -62,7 +66,15 @@ namespace xiui
         uint64_t due_{}, subtarget_deadline_{};
         uint32_t macro_player_{}, macro_zone_{};
         uint8_t macro_job_{}, macro_subjob_{};
-        bool waiting_subtarget_{}, saw_subtarget_{};
+        bool waiting_subtarget_{}, saw_subtarget_{}, background_{};
+        struct dispatch_record { uint64_t at{}; size_t line{}; std::string command{}; };
+        std::vector<dispatch_record> timeline_{};
+        uint64_t timeline_start_{};
+        size_t timeline_lines_{};
+        bool timeline_timed_{}, timeline_running_{};
+        std::string timeline_end_{};
+        auto Record(size_t line, const std::string& command, uint64_t now) -> void
+        { if (this->timeline_.size() < 64) this->timeline_.push_back({now - this->timeline_start_, line, command}); }
         struct item_sample { uint32_t inventory{}, equipment{}, equipped{}, charges{}; float remaining{}; bool timed{}; };
         std::unordered_map<uint32_t, item_sample> items_{};
         uint64_t next_inventory_{};

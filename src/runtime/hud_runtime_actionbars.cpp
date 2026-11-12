@@ -1,5 +1,6 @@
 #include "hud_runtime.hpp"
 #include "ashita_compat.hpp"
+#include "chat/chat_encoding.hpp"
 #include "input/keyboard_policy.hpp"
 #include "native_target.hpp"
 
@@ -85,7 +86,9 @@ namespace xiui
         const auto player = memory != nullptr ? xiui::ashita::View(memory->GetPlayer()) : nullptr;
         const auto* chat = this->core_ != nullptr ? this->core_->GetChatManager() : nullptr;
         const bool nativeEvent = this->visibility_context_.event_active || this->party_source_.InCutscene();
-        return this->visible_ && !this->editing_ && this->GameWindowFocused() && player != nullptr &&
+        // Macro test runs continue in the background so AgentLink never needs to focus the game.
+        const bool focused = this->GameWindowFocused() || (continuingMacro && (this->macro_test_starting_ || this->action_executor_.Background()));
+        return this->visible_ && !this->editing_ && focused && player != nullptr &&
             player->GetLoginStatus() == static_cast<uint8_t>(Ashita::FFXI::Enums::LoginStatus::LoggedIn) && !player->GetIsZoning() &&
             (chat == nullptr || !chat->IsInputOpen()) && !this->ChatFocused() &&
             !this->chat_.HistoryExpanded() && !this->chat_second_.HistoryExpanded() && !this->satchel_.InputFocused() &&
@@ -197,6 +200,7 @@ namespace xiui
 
     auto hud_runtime::HandleActionBarsCommand(std::string_view command) -> bool
     {
+        const std::string original{command};
         std::string normalized{command};
         std::transform(normalized.begin(), normalized.end(), normalized.begin(), [](const unsigned char c) { return static_cast<char>(std::tolower(c)); });
         command = normalized;
@@ -222,6 +226,60 @@ namespace xiui
             if (!this->action_executor_.Activate(this->core_, this->action_store_.Resolve(action_surface::hotbar, bar - 1, slot - 1), ::GetTickCount64()) &&
                 this->core_ != nullptr && this->core_->GetChatManager() != nullptr)
                 this->core_->GetChatManager()->Write(1, false, i18n::Text(this->action_executor_.Status().c_str()));
+            return true;
+        }
+        // Unsaved scratch macro for AgentLink: same executor and guards as a hotbar macro, minus game focus.
+        if (name == "actionbars" && (argument == "macrotest" || argument.starts_with("macrotest ")))
+        {
+            auto step = argument.substr(9);
+            while (!step.empty() && step.front() == ' ') step.remove_prefix(1);
+            auto* chat = this->core_ != nullptr ? this->core_->GetChatManager() : nullptr;
+            if (chat == nullptr) return true;
+            if (step.starts_with("add ") || step.starts_with("set "))
+            {
+                // Lines keep their typed case. Commands queued in one frame can reorder, so set takes
+                // the whole macro at once, splitting on '|' before each '/'.
+                const bool replace = step.starts_with("set ");
+                const auto text = FromGameText(original.substr(static_cast<size_t>(step.data() - normalized.data()) + 4));
+                std::vector<std::string> lines;
+                for (size_t begin = 0; begin <= text.size();)
+                {
+                    auto split = text.find('|', begin);
+                    while (replace && split != std::string::npos && text.find_first_not_of(" \t", split + 1) != text.find('/', split + 1)) split = text.find('|', split + 1);
+                    auto line = text.substr(begin, (replace ? split : std::string::npos) - begin);
+                    line.erase(0, line.find_first_not_of(" \t")); line.erase(line.find_last_not_of(" \t") + 1);
+                    if (!line.empty()) lines.push_back(std::move(line));
+                    if (!replace || split == std::string::npos) break;
+                    begin = split + 1;
+                }
+                if (replace) this->macro_test_lines_.clear();
+                if (lines.empty() || this->macro_test_lines_.size() + lines.size() > 32)
+                { chat->Write(1, false, "[XIUI+] Macro test: enter a line; up to 32 lines."); return true; }
+                for (auto& line : lines)
+                {
+                    this->macro_test_lines_.push_back(std::move(line));
+                    chat->Writef(1, false, "[XIUI+] Macro test line %zu: %s", this->macro_test_lines_.size(), this->macro_test_lines_.back().c_str());
+                }
+            }
+            else if (step == "clear") { this->macro_test_lines_.clear(); chat->Write(1, false, "[XIUI+] Macro test cleared."); }
+            else if (step == "show")
+            {
+                chat->Writef(1, false, "[XIUI+] Macro test: %zu lines.", this->macro_test_lines_.size());
+                for (size_t index = 0; index < this->macro_test_lines_.size(); ++index)
+                    chat->Writef(1, false, "[XIUI+]   %zu: %s", index + 1, this->macro_test_lines_[index].c_str());
+            }
+            else if (step == "run")
+            {
+                action_slot slot{}; slot.kind = action_kind::macro; slot.lines = this->macro_test_lines_;
+                this->macro_test_starting_ = true; this->PrepareActionBarsExecutor();
+                const bool started = this->action_executor_.Activate(this->core_, slot, ::GetTickCount64(), true);
+                this->macro_test_starting_ = false;
+                if (started) chat->Writef(1, false, "[XIUI+] Macro test started: %zu lines.", slot.lines.size());
+                else chat->Writef(1, false, "[XIUI+] Macro test did not start: %s", this->action_executor_.Status().c_str());
+            }
+            else if (step == "report")
+            { for (const auto& line : this->action_executor_.Timeline()) chat->Writef(1, false, "[XIUI+] %s", line.c_str()); }
+            else chat->Write(1, false, "[XIUI+] Usage: /xiuiplus actionbars macrotest set <line> | <line>... ; add <line> ; show ; clear ; run ; report");
             return true;
         }
         // Live Ashita keybind checks: AgentLink sends real keys between these steps, and an Ashita bind runs "mark".

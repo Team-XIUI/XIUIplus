@@ -254,6 +254,8 @@ namespace xiui
         std::array<hud_module*, action_bar_count + 1> actionbar_members_{};
         std::array<bool, 256> actionbar_key_release_{};
         uint32_t actionbar_test_marks_{}; // Ashita bind executions recorded by /xiuiplus actionbars test mark
+        std::vector<std::string> macro_test_lines_{}; // unsaved /xiuiplus actionbars macrotest lines
+        bool macro_test_starting_{};
         uint32_t actionbar_pointer_release_{};
         std::array<bool, 256> satchel_key_release_{};
         uint32_t satchel_pointer_release_{};

@@ -2,6 +2,8 @@
 
 ## Unreleased
 
+- Macro waits: `<wait3.6>` written without a space now waits like `<wait 3.6>`. Before, a macro using it sent every line at once, so only the first ranged attack fired and the final `/echo` showed immediately.
+
 - Item and status icons: fix Equipment, Satchel, Action Bars and native status icons showing blank or slot names on Ashita builds that store icons as complete .bmp files or report a different icon size. `/xiuiplus equipment status` reports how many equipped icons loaded and the bitmap details of the first one that did not.
 
 - Chat: the Tab completion list follows its chat window's Background, Frame and Opacity instead of always drawing its own framed panel, and hides the messages behind it. Type labels such as Auto-translate are no longer cut off and are translated in Japanese.

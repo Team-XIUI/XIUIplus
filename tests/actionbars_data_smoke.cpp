@@ -29,6 +29,30 @@ namespace xiui
                 steps[1].command == "/item \"Pickaxe\" <t>" && steps[1].delay == 4000 && steps[1].mode == 2 &&
                 steps[2].command.empty() && steps[2].delay == 4000 && steps[3].command == "/echo done" && steps[3].mode == 2;
         }
+        static auto CompactWaits(void) -> bool
+        {
+            action_slot slot; slot.kind = action_kind::macro;
+            slot.lines = {"/ra <t> <wait3.6>", "/ra <t> <WAIT2>", "/echo ready <wait>", "/echo \"Ranged Attack Ready!\""};
+            action_executor executor; bool timed{};
+            const auto steps = executor.BuildSteps(slot, action_executor::Commands(slot, {}), [](const action_slot&) { return std::string{}; }, timed);
+            return timed && steps.size() == 4 && steps[0].command == "/ra <t>" && steps[0].delay == 3600 &&
+                steps[1].command == "/ra <t>" && steps[1].delay == 2000 && steps[2].command == "/echo ready" && steps[2].delay == 1000 &&
+                steps[3].command == "/echo \"Ranged Attack Ready!\"" && steps[3].delay == 0;
+        }
+        static auto TimelineRun(action_executor& executor, size_t dispatched) -> void
+        {
+            executor.pending_ = {{"/echo one", 3600, false}, {"/echo two", 0, false}}; executor.next_ = dispatched;
+            executor.timeline_.clear(); executor.timeline_start_ = 1000; executor.timeline_lines_ = 2; executor.timeline_timed_ = true;
+            executor.timeline_running_ = true; executor.background_ = true;
+            executor.Record(1, "/echo one", 1000); if (dispatched == 2) executor.Record(2, "/echo two", 4617);
+        }
+        static auto UnrelatedWaitToken(void) -> bool
+        {
+            action_slot slot; slot.kind = action_kind::macro; slot.lines = {"/echo <waiter>"};
+            action_executor executor; bool timed{};
+            const auto steps = executor.BuildSteps(slot, action_executor::Commands(slot, {}), [](const action_slot&) { return std::string{}; }, timed);
+            return !timed && steps.size() == 1 && steps[0].command == "/echo <waiter>" && steps[0].delay == 0;
+        }
     };
 }
 
@@ -282,6 +306,23 @@ return settings;)lua");
         const auto original = timedMacro;
         Check(action_executor_test::CompileWaits(timedMacro) && timedMacro == original,
             "both wait forms retain four-second delays and native macro mode for targeting, items and non-action lines without rewriting saved text");
+        Check(action_executor_test::CompactWaits(), "inline <waitN> without a space, uppercase and bare <wait> delay later lines");
+        Check(action_executor_test::UnrelatedWaitToken(), "other <wait...> tokens remain command text");
+        {
+            action_executor runs;
+            Check(runs.Timeline() == std::vector<std::string>{"Macro run: none recorded."}, "no macro run reports an empty timeline");
+            action_executor_test::TimelineRun(runs, 2);
+            Check(runs.Background(), "a background test run reports its focus exemption while pending");
+            runs.Cancel();
+            const auto done = runs.Timeline();
+            Check(!runs.Background() && done.size() == 3 && done[0] == "Macro run: 2 lines, timed, completed." &&
+                done[1] == "line 1 at +0 ms (gap 0 ms): /echo one" && done[2] == "line 2 at +3617 ms (gap 3617 ms): /echo two",
+                "completed runs report each dispatch offset and gap and end the focus exemption");
+            action_executor_test::TimelineRun(runs, 1);
+            runs.SetRestricted(true, "Macro cancelled because the game window lost focus.");
+            Check(runs.Timeline()[0] == "Macro run: 2 lines, timed, cancelled: Macro cancelled because the game window lost focus.",
+                "cancelled runs report the cancellation reason");
+        }
         action_executor executor;
         action_executor_test::BeginWait(executor);
         executor.SetNativeInputBusy(true);
