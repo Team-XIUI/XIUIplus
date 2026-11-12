@@ -8,7 +8,7 @@ Open **Status Effects** in configuration, or use `/xiuiplus statuses`, `/xiuiplu
 
 Each group offers an icon limit and overflow count, separate icon/row spacing, countdown visibility, crowd-control-only countdowns, optional heading/container and separate heading, timer and tooltip text profiles. Zero columns wraps at the available width. **Timer placement** offers Below icon, Above icon or Over icon. Text → Timers X/Y offsets fine-tune the countdown without moving the icons.
 
-Countdowns show seconds alone at 60 seconds or less, then total minutes and seconds: `61 → 01:01`, `3600 → 60:00`, and `21420 → 357:00`. Hour/minute suffixes are omitted. Duration estimates use the same format while keeping their range and uncertainty markers. Buffs/Debuffs reserve space using the configured timer font, scale and effects, so long timers wrap with their icons instead of shrinking independently. Hover and controller inspection use the same measured layout.
+Countdowns show seconds alone at 60 seconds or less, `MM:SS` under an hour and whole hours from one hour: `61 → 01:01`, `3599 → 59:59`, `3600 → 1h` and `21420 → 5h`. Minutes are dropped while an hour or more remains. Duration estimates use the same format while keeping their range and uncertainty markers. Buffs/Debuffs reserve space using the configured timer font, scale and effects, so long timers wrap with their icons instead of shrinking independently. Hover and controller inspection use the same measured layout.
 
 **Show preview**, under General, displays six sample buffs or debuffs and example countdowns in edit mode. The heading identifies preview content. Turning preview off shows actual effects or an empty-state label. Samples never enter gameplay data or render outside edit mode.
 

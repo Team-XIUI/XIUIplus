@@ -2687,7 +2687,7 @@
   "Show configured key bindings or controller positions.": "設定したキーやコントローラー位置を表示します。",
   "Show controller button artwork and trigger badges.": "コントローラーのボタン画像とトリガー印を表示します。",
   "Show countdown or Ready text.": "残り時間または準備完了を表示します。",
-  "Show MM:SS above 60 seconds, or seconds alone at 60 and below. Local effects use native expiry times; tooltips identify estimates.": "残り時間は60秒を超えると分:秒（MM:SS）、60秒以下では秒のみで表示します。自身の効果には標準の終了時刻を使用し、推定時間はツールチップで示します。",
+  "Show whole hours from one hour, MM:SS under an hour, and seconds alone at 60 and below. Local effects use native expiry times; tooltips identify estimates.": "残り時間は1時間以上では時間のみ（例: 5h）、1時間未満では分:秒（MM:SS）、60秒以下では秒のみで表示します。自身の効果には標準の終了時刻を使用し、推定時間はツールチップで示します。",
   "Show debuffs first": "弱体効果を先に表示",
   "Show descriptions, equipment requirements and supported instance details on hover or focus.": "ホバー・フォーカス時に説明・装備条件・対応する個体情報を表示します。",
   "Show details": "詳細を表示",

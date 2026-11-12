@@ -165,11 +165,11 @@ namespace xiui
             {
                 ui::status_strip_settings settings;
                 struct timer_case { unsigned seconds; const char* text; };
-                const std::array<timer_case, 9> cases{{{1, "1"}, {59, "59"}, {60, "60"}, {61, "01:01"},
-                    {119, "01:59"}, {120, "02:00"}, {3599, "59:59"}, {3600, "60:00"}, {21420, "357:00"}}};
+                const std::array<timer_case, 11> cases{{{1, "1"}, {59, "59"}, {60, "60"}, {61, "01:01"},
+                    {119, "01:59"}, {120, "02:00"}, {3599, "59:59"}, {3600, "1h"}, {7199, "1h"}, {18540, "5h"}, {21420, "5h"}}};
                 for (const auto& test : cases)
                     Check(ui::StatusTimerText({41, 0, 1000, 1000 + uint64_t{test.seconds} * 1000}, 1000, settings) == test.text,
-                        "native countdowns use total minutes and seconds, switching to seconds alone at 60");
+                        "native countdowns show whole hours, then MM:SS under an hour and seconds alone at 60");
                 Check(ui::StatusTimerText({41, 0, 1000, 61001}, 1000, settings) == "01:01",
                     "fractional seconds round up at the minute boundary");
                 combat_status range{}; range.id = 4; range.estimated = true; range.earliest = 62000; range.expires = 121000;

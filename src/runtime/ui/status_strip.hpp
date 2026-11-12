@@ -65,7 +65,7 @@ namespace xiui::ui
             case 4: return module_option::Choice("Status alignment", "Align the strip within the available width.", &this->placement, placements, 3).Ordered(202).VisibleWhen(this->enabled);
             case 5: return module_option::Slider("Status X offset", "Horizontal offset in pixels.", &this->offset_x, -500, 500, 1).Ordered(210, true).VisibleWhen(this->enabled);
             case 6: return module_option::Slider("Status Y offset", "Vertical offset in pixels.", &this->offset_y, -100, 100, 1).Ordered(211).VisibleWhen(this->enabled);
-            case 7: return module_option::Toggle("Status timers", "Show MM:SS above 60 seconds, or seconds alone at 60 and below. Local effects use native expiry times; tooltips identify estimates.", &this->timers).Ordered(850).VisibleWhen(this->enabled);
+            case 7: return module_option::Toggle("Status timers", "Show whole hours from one hour, MM:SS under an hour, and seconds alone at 60 and below. Local effects use native expiry times; tooltips identify estimates.", &this->timers).Ordered(850).VisibleWhen(this->enabled);
             case 8: return module_option::Toggle("Crowd-control timers only", "Limit countdown labels to sleep, petrification, stun, charm and terror.", &this->crowd_control_only).Ordered(851).VisibleWhen(this->enabled && this->timers);
             case 9: return module_option::Toggle("Unknown timer markers", "Show ? for unknown durations or unconfirmed secondary effects.", &this->uncertainty).Ordered(852).VisibleWhen(this->enabled && this->timers);
             case 10: return module_option::Toggle("Status tooltips", "Show game effect names and descriptions on hover or deliberate controller inspection.", &this->tooltips).Ordered(870).VisibleWhen(this->enabled);
@@ -132,7 +132,9 @@ namespace xiui::ui
     inline auto StatusDurationText(const unsigned seconds) -> std::string
     {
         char text[24]{};
-        if (seconds > 60) std::snprintf(text, sizeof(text), "%02u:%02u", seconds / 60, seconds % 60);
+        // Whole hours only; minutes appear once under an hour.
+        if (seconds >= 3600) std::snprintf(text, sizeof(text), "%uh", seconds / 3600);
+        else if (seconds > 60) std::snprintf(text, sizeof(text), "%02u:%02u", seconds / 60, seconds % 60);
         else std::snprintf(text, sizeof(text), "%u", seconds);
         return text;
     }

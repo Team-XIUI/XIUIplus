@@ -2687,7 +2687,7 @@
   "Show configured key bindings or controller positions.": "Show configured key bindings or controller positions.",
   "Show controller button artwork and trigger badges.": "Show controller button artwork and trigger badges.",
   "Show countdown or Ready text.": "Show countdown or Ready text.",
-  "Show MM:SS above 60 seconds, or seconds alone at 60 and below. Local effects use native expiry times; tooltips identify estimates.": "Show MM:SS above 60 seconds, or seconds alone at 60 and below. Local effects use native expiry times; tooltips identify estimates.",
+  "Show whole hours from one hour, MM:SS under an hour, and seconds alone at 60 and below. Local effects use native expiry times; tooltips identify estimates.": "Show whole hours from one hour, MM:SS under an hour, and seconds alone at 60 and below. Local effects use native expiry times; tooltips identify estimates.",
   "Show debuffs first": "Show debuffs first",
   "Show descriptions, equipment requirements and supported instance details on hover or focus.": "Show descriptions, equipment requirements and supported instance details on hover or focus.",
   "Show details": "Show details",
