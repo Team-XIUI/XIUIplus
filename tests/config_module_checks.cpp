@@ -614,8 +614,15 @@ namespace xiui
         source.UpdateSelection(0, 0, false, ReadNativePartyCursor(nativeRoot));
         if (!check(ReadNativePartyCursor(nativeRoot) == -1 && ReadNativePartyCursor(0) == -1 && !player.selected && !source.members_[7].selected,
             "closing native party selection clears the cursor without stale highlights")) return false;
+        // Event hiding is a shared visibility rule (Party lists default on); the lists themselves stay renderable.
+        module_visibility_settings visibility;
+        std::array<hud_module*, 2> lists{&party, &alliance};
+        visibility.SetModules(lists); visibility.Load(settings_store::FromIniText(""));
+        module_visibility_context eventContext{}; eventContext.event_active = true;
         source.cutscene_ = true;
-        if (!check(!party.ShouldRender(snapshot) && !alliance.ShouldRender(snapshot), "event hiding applies to each list")) return false;
+        if (!check(party.ShouldRender(snapshot) && alliance.ShouldRender(snapshot) &&
+            !visibility.Visible(party.Id(), eventContext) && !visibility.Visible(alliance.Id(), eventContext) && visibility.Visible(party.Id(), {}),
+            "event hiding applies to each list")) return false;
         source.cutscene_ = false;
         party.preview_ = false; party.bottom_ = true;
         ui::design_system design;
@@ -637,10 +644,11 @@ namespace xiui
         party.tp_ = false;
         if (!check(!party.Option(51).visible, "hiding TP also hides its display selector")) return false;
         party.tp_ = true; party.tp_display_ = 0;
+        party.jobs_ = true; // Job text defaults off; the row only exists with it on.
         const float inlineJobs = party.EntryHeight();
         party.job_placement_ = party_module::jobs_below;
         if (!check(party.EntryHeight() > inlineJobs, "a separate job row reserves its own text height")) return false;
-        party.job_placement_ = party_module::jobs_name;
+        party.job_placement_ = party_module::jobs_name; party.jobs_ = false;
         player.cast = {"Cure IV", 4, ::GetTickCount64() - 500, 0, 4};
         for (const int placement : {party_module::cast_separate, party_module::cast_name, party_module::cast_mp, party_module::cast_tp})
         {
@@ -819,6 +827,9 @@ namespace xiui
         if (!check(party.RowHeight(true, 32) > oneStatusRow && party.BuffColumns(0) == 1,
             "all 32 statuses can wrap within the party window without overlapping another member")) return false;
         party.buff_limit_ = 12;
+        if (!check(party.status_placement_ == party_module::status_left && !party.status_frame_,
+            "separate status effects default to the left without a window")) return false;
+        party.status_frame_ = true;
         const ui::rect frame{500, 50, 420, 600}, row{513, 85, 394, party.RowHeight(true, 20)};
         const auto left = party.StatusLayout(row, frame, 20);
         const auto first = party.StatusIconBounds(left, 0), wrapped = party.StatusIconBounds(left, 8);
@@ -1229,13 +1240,19 @@ namespace xiui
         {
             runtime.alliance_first_.State().enabled = (mask & 1) != 0;
             runtime.alliance_second_.State().enabled = (mask & 2) != 0;
-            runtime.config_.module = &runtime.party_;
+            runtime.SelectConfigModule(&runtime.party_);
             const auto page = runtime.ActiveConfigPage();
             if (!check(page.SectionCount() == 3 && (runtime.ActiveConfigPage().SectionCount() > 1), "all Party settings selectors remain available for restoring disabled lists")) return false;
             for (size_t index = 1; index < 3; ++index)
             {
                 auto* module = page.SectionModule(index);
-                click(runtime.ConfigLayout().Section(index, 3));
+                // List selectors are sidebar destinations; settle the submenu expansion before clicking one.
+                runtime.ConfigSidebarRows();
+                for (auto& [id, transition] : runtime.config_.sidebar_animation.pages) transition.started = 0;
+                const auto rows = runtime.ConfigSidebarRows();
+                const auto row = std::find_if(rows.begin(), rows.end(), [&](const auto& item) { return item.child && item.id == "party/" + std::to_string(index); });
+                if (!check(row != rows.end() && row->available, "alliance destinations stay available while their lists are disabled")) return false;
+                click({row->bounds.x, row->bounds.y, 16, row->bounds.height});
                 if (!check(runtime.config_.module == module && module->PreviewVisible() == module->State().enabled &&
                     module->ShouldRender({}) == module->State().enabled, "alliance visibility controls both live rendering and the edit preview")) return false;
             }
@@ -1279,7 +1296,8 @@ namespace xiui
         };
         for (auto* module : runtime.modules_.All())
         {
-            if (module == &runtime.general_) continue;
+            // Scale-only proxies such as the World Target Bar are enabled from their owner's settings.
+            if (module == &runtime.general_ || module->ContentOptionCount() == 0) continue;
             const auto enabled = module->Option(0);
             if (!check(enabled.kind == module_option_kind::toggle && enabled.toggle != nullptr,
                 "every configurable module exposes its existing enable switch")) return false;

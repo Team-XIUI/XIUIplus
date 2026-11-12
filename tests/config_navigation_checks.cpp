@@ -1685,48 +1685,77 @@ namespace xiui
             if (!check(ids.insert(page.id).second && std::strcmp(page.id, "chat2") != 0 &&
                 std::strcmp(page.id, "container") != 0 && std::strcmp(page.id, "gamehud") != 0,
                 "sidebar identities are unique without duplicate secondary windows or retired demos")) return false;
+        // Expanded categories shift the sidebar, so click each category's current row.
         const auto select = [&](const char* id) {
-            const auto page = std::find_if(pages.begin(), pages.end(), [&](const auto& item) { return std::strcmp(item.id, id) == 0; });
-            if (!check(page != pages.end(), "the requested category is available")) return false;
-            click(runtime.ConfigLayout().ModuleTab(static_cast<size_t>(page - pages.begin())));
+            runtime.ConfigSidebarRows();
+            for (auto& [name, transition] : runtime.config_.sidebar_animation.pages) transition.started = 0;
+            const auto rows = runtime.ConfigSidebarRows();
+            const auto row = std::find_if(rows.begin(), rows.end(), [&](const auto& item) { return !item.child && item.id == id; });
+            if (!check(row != rows.end(), "the requested category is available")) return false;
+            click(row->bounds);
             return true;
+        };
+        // Lists and windows are sidebar destinations under their category; settle the submenu before clicking one.
+        const auto section = [&](const size_t index) {
+            runtime.ConfigSidebarRows();
+            for (auto& [id, transition] : runtime.config_.sidebar_animation.pages) transition.started = 0;
+            const auto rows = runtime.ConfigSidebarRows();
+            const auto id = std::string{runtime.ActiveConfigPage().id} + "/" + std::to_string(index);
+            const auto row = std::find_if(rows.begin(), rows.end(), [&](const auto& item) { return item.child && item.id == id; });
+            if (!check(row != rows.end() && row->available, "the requested list destination is available")) return false;
+            click({row->bounds.x, row->bounds.y, 16, row->bounds.height});
+            return true;
+        };
+        // Topic rows are hit-tested by row; the Appearance group expands its categories when selected.
+        const auto topic = [&](const size_t target) {
+            for (size_t attempt = 0; attempt < 2; ++attempt)
+            {
+                const auto rows = runtime.ConfigTopicRows();
+                auto row = std::find_if(rows.begin(), rows.end(), [&](const auto& item) { return item.section == target; });
+                if (row == rows.end()) row = std::find_if(rows.begin(), rows.end(), [](const auto& item) { return item.parent; });
+                if (row == rows.end()) return false;
+                click(ui::SettingsTopicBounds(runtime.ConfigLayout().Submenu(static_cast<size_t>(row - rows.begin()), rows.size()), *row));
+                if (runtime.config_.section == target) return true;
+            }
+            return false;
         };
         if (!select("general") || !check(runtime.config_.module == &runtime.general_, "General owns shared settings")) return false;
         if (!select("inventory") || !check(runtime.ActiveConfigPage().Contains(&runtime.equipment_) &&
             runtime.ActiveConfigPage().Contains(&runtime.satchel_), "Inventory groups equipment and Satchel with the dots")) return false;
         if (!select("chat") || !check(runtime.config_.module == &runtime.chat_, "Chat opens the first window editor")) return false;
-        click(runtime.ConfigLayout().Section(1));
+        if (!section(1)) return false;
         if (!check(runtime.config_.module == &runtime.chat_second_ && std::strcmp(runtime.ActiveConfigPage().id, "chat") == 0,
             "the second chat window retains its parent category")) return false;
         const bool firstChat = runtime.chat_.State().enabled, secondChat = runtime.chat_second_.State().enabled;
+        // Windows keep the shared topic, so open General before using its Enabled row.
+        if (!topic(0)) return false;
         click(runtime.ConfigLayout().OptionRow(0));
         if (!check(runtime.chat_second_.State().enabled != secondChat && runtime.chat_.State().enabled == firstChat,
             "secondary-window controls preserve the first window preference")) return false;
         if (!select("party") || !check(runtime.ActiveConfigPage().Count() == 3, "Party owns all three lists")) return false;
         const bool firstParty = runtime.party_.State().enabled, firstAlliance = runtime.alliance_first_.State().enabled;
         const bool secondAlliance = runtime.alliance_second_.State().enabled;
-        click(runtime.ConfigLayout().Section(2, 3));
+        if (!section(2)) return false;
         click(runtime.ConfigLayout().OptionRow(0));
         if (!check(runtime.alliance_second_.State().enabled != secondAlliance && runtime.party_.State().enabled == firstParty &&
             runtime.alliance_first_.State().enabled == firstAlliance, "the third list changes independently")) return false;
-        click(runtime.ConfigLayout().Section(0, 3));
+        if (!section(0)) return false;
         const auto topics = runtime.party_.ConfigSections();
         if (!check(topics.size() == party_module::section_count && runtime.HasConfigSubmenu(), "Party exposes its current shared topic menu")) return false;
-        for (size_t topic = 0; topic < topics.size(); ++topic)
+        for (size_t index = 0; index < topics.size(); ++index)
         {
-            click(runtime.ConfigLayout().Submenu(topic, topics.size()));
-            if (!check(runtime.config_.section == topic && runtime.GroupOptionCount() != 0, "topic activation selects a populated page")) return false;
-            for (const auto index : runtime.GroupOptionSlots())
+            if (!check(topic(index) && runtime.GroupOptionCount() != 0, "topic activation selects a populated page")) return false;
+            for (const auto option : runtime.GroupOptionSlots())
             {
-                if (index >= runtime.party_.OptionCount()) continue;
-                if (!check(runtime.party_.ConfigSectionContains(topic, index), "displayed controls retain their topic identity")) return false;
+                if (option >= runtime.party_.OptionCount()) continue;
+                if (!check(runtime.party_.ConfigSectionContains(index, option), "displayed controls retain their topic identity")) return false;
             }
         }
+        if (!topic(0)) return false;
         runtime.config_.scroll = 4; runtime.config_.active_color = &runtime.party_.low_hp_;
-        click(runtime.ConfigLayout().Submenu(party_module::status_section, topics.size()));
-        if (!check(runtime.config_.scroll == 0 && runtime.config_.active_color == nullptr,
+        if (!check(topic(party_module::status_section) && runtime.config_.scroll == 0 && runtime.config_.active_color == nullptr,
             "switching topics clears stale scrolling and color editors")) return false;
-        click(runtime.ConfigLayout().Section(1, 3));
+        if (!section(1)) return false;
         if (!check(runtime.config_.module == &runtime.alliance_first_ && runtime.config_.section == party_module::status_section,
             "switching lists retains the topic and original module identity")) return false;
         for (const float height : {350.0f, 600.0f})
