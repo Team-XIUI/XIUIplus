@@ -38,6 +38,7 @@ namespace xiui
         float columns{12}, slots{12}, size{36}, gap{4}, gap_y{-1};
         float diamond_spacing{-1}, diamond_gap{-1}, group_spacing{32}, prompt_size{16}, prompt_gap_x{8}, prompt_gap_y{2};
         bool custom_text{}, label_wrap{}, button_icons{true};
+        int label_position{}; // 0 below icons, 1 above
         std::array<module_text_profile, 7> text{};
         bool locked{true}, heading{true}, labels{}, bindings{true}, resources{true}, cooldowns{true};
         bool empty{true}, background{}, tooltips{true};
@@ -158,7 +159,7 @@ namespace xiui
             slot_cooldown_style, slot_cooldown_color, slot_cooldown_text,
             slot_binding_anchor, slot_binding_x, slot_binding_y, slot_count_anchor, slot_count_x, slot_count_y,
             slot_timer_anchor, slot_timer_x, slot_timer_y, slot_mp_cost, slot_cost_anchor, slot_cost_x, slot_cost_y,
-            slot_apply_all, slot_reset, crossbar_animations, skillchain_predictions, skillchain_rules, magic_burst_settings, keybinds, shared_expanded, vertical_gap, per_bar_text, label_wrap, diamond_spacing, diamond_gap, group_spacing, button_icons, prompt_size, prompt_gap_x, prompt_gap_y, visibility_mode, visibility_delay, visibility_fade, use_global, base_options };
+            slot_apply_all, slot_reset, crossbar_animations, skillchain_predictions, skillchain_rules, magic_burst_settings, keybinds, shared_expanded, vertical_gap, per_bar_text, label_wrap, label_position, diamond_spacing, diamond_gap, group_spacing, button_icons, prompt_size, prompt_gap_x, prompt_gap_y, visibility_mode, visibility_delay, visibility_fade, use_global, base_options };
         enum class dialog : uint8_t { none, picker, editor, palettes, name, delete_palette, delete_macro, import, setup, palette_dropdown, slot_menu, bar_menu, keybinds, icons };
         enum class control_kind : uint8_t { button, field, choice, list, toggle, label, slider, dropdown, icon };
         enum icon_control : int { field_icon_query = 8, command_icon_picker = 566, command_icon_default = 567, command_icon_back = 568,

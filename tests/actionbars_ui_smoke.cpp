@@ -789,6 +789,34 @@ namespace xiui
             crossbar.diamond_gap = -1; module.Layout(action_bar_count);
             Check(crossbar.state.bounds.height == defaultHeight && module.SlotBounds({action_surface::crossbar, 0, 2}).y == original[0][2].y, "-1 restores the default diamond geometry");
         }
+        static auto LabelPlacement(void) -> void
+        {
+            action_store store; action_executor executor; actionbars_module module; ui::design_system design;
+            module.Initialize(nullptr, &store, &executor); module.ApplyTextDefaults(ui::theme::CreateDefault());
+            auto& bar = module.bars_[0]; bar.heading = false; bar.labels = true; bar.state.bounds.x = 80; bar.state.bounds.y = 60;
+            store.Assign(action_surface::hotbar, 0, 0, Command("Bludgeon"));
+            const module_render_context context{design, nullptr, true, nullptr, {0, 0, 1280, 900}};
+            const auto measure = [&] {
+                module.Layout(0); design.BeginContentBounds(); module.RenderBar(0, context);
+                return std::pair{module.SlotBounds({action_surface::hotbar, 0, 0}), design.EndContentBounds()};
+            };
+            const auto [below, belowContent] = measure(); const float height = bar.state.bounds.height;
+            bar.label_position = 1;
+            const auto [above, aboveContent] = measure();
+            const float bottom = bar.state.bounds.y + bar.state.bounds.height;
+            Check(bar.state.bounds.height == height && above.y == below.y + 16, "Above labels move the reserved label row above the icons without changing bar height");
+            Check(bottom - (above.y + above.height) < bottom - (below.y + below.height) - 15, "Above labels let the bar's bottom edge sit flush with its icons");
+            Check(aboveContent.y < above.y - 8 && belowContent.y + belowContent.height > below.y + below.height + 8, "action labels draw on their selected side");
+            const auto hit = module.HitTest(above.x + above.width / 2, above.y + above.height / 2);
+            Check(hit && hit->slot.surface == action_surface::hotbar && hit->slot.slot == 0, "Above labels keep matching slot pointer targets");
+            auto& crossbar = module.bars_[action_bar_count]; crossbar.state.enabled = true; crossbar.labels = true; module.Layout(action_bar_count);
+            const auto crossbarBelow = module.SlotBounds({action_surface::crossbar, 0, 0});
+            crossbar.label_position = 1; module.Layout(action_bar_count);
+            Check(module.SlotBounds({action_surface::crossbar, 0, 0}).y == crossbarBelow.y + 16, "crossbar labels above reserve space above the top slots");
+            settings_store saved{""}; module.Save(saved);
+            actionbars_module restored; restored.Initialize(nullptr, &store, &executor); restored.Load(saved);
+            Check(restored.bars_[0].label_position == 1 && restored.bars_[action_bar_count].label_position == 1, "Label position persists per bar");
+        }
         static auto EmptyBarEditBounds(void) -> void
         {
             action_store store; action_executor executor; actionbars_module module; ui::design_system design;
@@ -2442,7 +2470,7 @@ namespace xiui
             Check(legacy.ReadString("session.config", "topic_id") == "keybinds", "topic identity persists independently of its ordinal");
             Check(runtime->config_.section == 2 && !module.DialogOpen(), "new Keybinds topic selections round trip without reopening transient workspaces");
         }
-        static auto Run(void) -> void { GlobalSettings(); GlobalCaption(); ControllerVisuals(); Ownership(); DirectInteraction(); LibraryPlacement(); LibraryEditorReturn(); StandaloneLibrary(); BarControlsAndCrossbarGeometry(); EmptyBarEditBounds(); ShiftSlotDragging(); Editing(); KeyboardAndCrossbar(); Persistence(); SlotStylePersistence(); SlotStyleCompatibility(); SlotFrameProfileOverlay(); SlotTextDefaults(); SlotStyleActions(); SlotStyleGeometry(); Keybinds(); ControllerSetup(); RuntimeOwnership(); NumberBindingOwnership(); AshitaBoundKeys(); NativeMacroKeyboardOwnership(); EditModeManagement(); DependentSettings(); WorkspaceCursors(); FloatingWorkspaces(); LibraryCategories(); LibraryLayoutAndSearch(); LibraryGridNavigation(); Configuration(); }
+        static auto Run(void) -> void { GlobalSettings(); GlobalCaption(); ControllerVisuals(); Ownership(); DirectInteraction(); LibraryPlacement(); LibraryEditorReturn(); StandaloneLibrary(); BarControlsAndCrossbarGeometry(); LabelPlacement(); EmptyBarEditBounds(); ShiftSlotDragging(); Editing(); KeyboardAndCrossbar(); Persistence(); SlotStylePersistence(); SlotStyleCompatibility(); SlotFrameProfileOverlay(); SlotTextDefaults(); SlotStyleActions(); SlotStyleGeometry(); Keybinds(); ControllerSetup(); RuntimeOwnership(); NumberBindingOwnership(); AshitaBoundKeys(); NativeMacroKeyboardOwnership(); EditModeManagement(); DependentSettings(); WorkspaceCursors(); FloatingWorkspaces(); LibraryCategories(); LibraryLayoutAndSearch(); LibraryGridNavigation(); Configuration(); }
     };
 }
 
@@ -2450,7 +2478,7 @@ auto main(const int argc, char** argv) -> int
 {
     if (argc == 2 && std::strcmp(argv[1], "--crossbar-layout-only") == 0)
     {
-        try { xiui::actionbars_ui_test::BarControlsAndCrossbarGeometry(); std::puts("Crossbar trigger halves, slot geometry and pointer targets passed."); return 0; }
+        try { xiui::actionbars_ui_test::BarControlsAndCrossbarGeometry(); xiui::actionbars_ui_test::LabelPlacement(); std::puts("Crossbar trigger halves, slot geometry and pointer targets passed."); return 0; }
         catch (const std::exception& error) { std::fprintf(stderr, "Crossbar layout check failed: %s\n", error.what()); return 1; }
     }
     if (argc == 2 && std::strcmp(argv[1], "--macro-editor-only") == 0)

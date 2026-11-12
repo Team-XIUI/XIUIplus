@@ -98,7 +98,7 @@ namespace xiui
     {
         return (index >= size && index <= padding) || index == selected_text ||
             (index >= slot_frame && index <= slot_reset) || index == vertical_gap || index == per_bar_text ||
-            index == label_wrap || index >= base_options;
+            index == label_wrap || index == label_position || index >= base_options;
     }
 
     auto actionbars_module::Initialize(IAshitaCore* core, action_store* store, action_executor* executor) -> void
@@ -192,6 +192,7 @@ namespace xiui
             bar.size = number("icon_size", bar.size, 16, 72); bar.gap = number("spacing", bar.gap, 0, 32);
             bar.gap_y = number("vertical_spacing", -1, -1, 32); bar.custom_text = settings.ReadBool(section.c_str(), "custom_text", false);
             bar.label_wrap = settings.ReadBool(section.c_str(), "label_wrap", false); bar.button_icons = settings.ReadBool(section.c_str(), "button_icons", true);
+            bar.label_position = std::clamp(settings.ReadInt(section.c_str(), "label_position", 0), 0, 1);
             bar.diamond_spacing = number("diamond_spacing", -1, -1, 128); bar.diamond_gap = number("diamond_vertical_spacing", -1, -1, 128); bar.group_spacing = number("group_spacing", 32, 0, 128);
             bar.prompt_size = number("prompt_size", 16, 8, 48); bar.prompt_gap_x = number("prompt_gap_x", 8, 0, 48); bar.prompt_gap_y = number("prompt_gap_y", 2, 0, 48);
             const auto slotSection = section + ".slots"; auto& style = bar.style;
@@ -358,6 +359,7 @@ namespace xiui
             const auto section = std::string{"actionbars."} + bar_ids[barIndex]; const auto bar = this->SavedPresentation(barIndex);
             settings.WriteFloat(section.c_str(), "vertical_spacing", bar.gap_y); settings.WriteBool(section.c_str(), "custom_text", bar.custom_text);
             settings.WriteBool(section.c_str(), "label_wrap", bar.label_wrap); settings.WriteBool(section.c_str(), "button_icons", bar.button_icons);
+            settings.WriteInt(section.c_str(), "label_position", bar.label_position);
             for (const auto& [key, value] : {std::pair{"diamond_spacing", bar.diamond_spacing}, {"diamond_vertical_spacing", bar.diamond_gap}, {"group_spacing", bar.group_spacing}, {"prompt_size", bar.prompt_size}, {"prompt_gap_x", bar.prompt_gap_x}, {"prompt_gap_y", bar.prompt_gap_y}}) settings.WriteFloat(section.c_str(), key, value);
             for (size_t role = 0; role < this->text_.size(); ++role) SaveTextProfile(settings, ("text.actionbars.bar" + std::to_string(barIndex) + "." + std::to_string(role)).c_str(), bar.text[role]);
         }
@@ -437,7 +439,7 @@ namespace xiui
         if (index == bank) return this->view_ == action_bar_count && topic == "layout";
         if (index == shared_expanded || index == visibility_mode || index == visibility_delay || index == visibility_fade) return topic == "controller";
         if (index == vertical_gap || index == diamond_spacing || index == diamond_gap || index == group_spacing) return topic == "layout";
-        if (index == per_bar_text || index == label_wrap) return topic == "text";
+        if (index == per_bar_text || index == label_wrap || index == label_position) return topic == "text";
         if (index == button_icons || index == prompt_size || index == prompt_gap_x || index == prompt_gap_y) return topic == "controller";
         if (index == crossbar_animations) return topic == "controller";
         if (index >= skillchain_predictions && index <= magic_burst_settings) return topic == "skillchains";
@@ -481,7 +483,8 @@ namespace xiui
         case shared_expanded: return controllerOnly(module_option::Toggle("Shared expanded bank", "Both trigger orders use a separate Shared bank. Ordered-bank assignments are retained.", &this->shared_expanded_));
         case vertical_gap: return module_option::Slider("Vertical spacing", "Row spacing; -1 follows horizontal spacing.", &bar.gap_y, -1, 32, 1).Ordered(122);
         case per_bar_text: return module_option::Toggle("Independent text styles", "Customize text for this bar instead of the shared Action Bars styles.", &bar.custom_text).Ordered(-50).VisibleWhen(this->view_ != global_view);
-        case label_wrap: return module_option::Toggle("Wrap action labels", "Allow up to two lines below action icons.", &bar.label_wrap).VisibleWhen(bar.labels);
+        case label_wrap: return module_option::Toggle("Wrap action labels", "Allow up to two lines per action label.", &bar.label_wrap).VisibleWhen(bar.labels);
+        case label_position: { static constexpr const char* positions[]{"Below", "Above"}; return module_option::Choice("Label position", "Place action names below or above their icons. Label space is reserved on the same side, so the other edge stays flush with the icons.", &bar.label_position, positions, 2).VisibleWhen(bar.labels); }
         case diamond_spacing: return controllerOnly(module_option::Slider("Diamond spacing", "Space between D-pad and face-button diamonds; -1 uses the default.", &bar.diamond_spacing, -1, 128, 1).Ordered(123));
         case diamond_gap: return controllerOnly(module_option::Slider("Diamond vertical spacing", "Space between the top and bottom slots of each diamond; -1 keeps room for the center button icons.", &bar.diamond_gap, -1, 128, 1).Ordered(123));
         case group_spacing: return controllerOnly(module_option::Slider("Trigger group spacing", "Space between the left and right crossbar groups.", &bar.group_spacing, 0, 128, 1).Ordered(124));
@@ -514,7 +517,7 @@ namespace xiui
         case size: return module_option::Slider("Slot size", "Overall slot dimensions; artwork padding is configured under Slots.", &bar.size, 16, 72, 1).Ordered(120, true);
         case gap: return module_option::Slider("Spacing", "Space between slots; crossbar diamonds keep their shape.", &bar.gap, 0, 32, 1).Ordered(121);
         case heading: return module_option::Toggle("Action set caption", "Show the selected action set below the icons. Click it to switch sets.", &bar.heading);
-        case labels: return module_option::Toggle("Action labels", "Show action names below their icons.", &bar.labels);
+        case labels: return module_option::Toggle("Action labels", "Show action names below or above their icons.", &bar.labels);
         case bindings: return module_option::Toggle("Key / button labels", "Show configured key bindings or controller positions.", &bar.bindings).Ordered(100);
         case resources: return module_option::Toggle("Item counts and charges", "Show the current inventory quantity or remaining charges.", &bar.resources).Ordered(200);
         case cooldowns: return module_option::Toggle("Recast display", "Show live cooldown overlays and remaining recast time.", &bar.cooldowns).Ordered(400);

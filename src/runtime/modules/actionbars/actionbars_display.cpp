@@ -23,6 +23,8 @@ namespace xiui
         { return bar.background ? container.padding + 3 : 2; }
         auto DiamondWidth(const actionbar_presentation& bar) -> float { return bar.size * 3 + bar.gap * 2; }
         auto LabelHeight(const actionbar_presentation& bar) -> float { return bar.labels ? (bar.label_wrap ? 32.0f : 16.0f) : 0.0f; }
+        // Label space reserved above each icon row when labels sit above.
+        auto LabelLead(const actionbar_presentation& bar) -> float { return bar.label_position == 1 ? LabelHeight(bar) : 0.0f; }
         // Top-to-bottom slot offset; -1 keeps an empty center row for button prompts.
         auto DiamondSpan(const actionbar_presentation& bar) -> float
         {
@@ -36,7 +38,7 @@ namespace xiui
         {
             const auto columns = static_cast<size_t>(std::clamp(bar.columns, 1.0f, 12.0f)), slots = static_cast<size_t>(std::clamp(bar.slots, 1.0f, 12.0f));
             const auto rows = (slots + columns - 1) / columns;
-            return static_cast<float>(rows) * (bar.size + (bar.labels ? (bar.label_wrap ? 32 : 16) : 0)) + static_cast<float>(rows - 1) * (bar.gap_y < 0 ? bar.gap : bar.gap_y);
+            return static_cast<float>(rows) * (bar.size + LabelHeight(bar)) + static_cast<float>(rows - 1) * (bar.gap_y < 0 ? bar.gap : bar.gap_y);
         }
         auto Alpha(const D3DCOLOR color, const float opacity) -> D3DCOLOR
         { return (color & 0x00FFFFFF) | (static_cast<D3DCOLOR>(static_cast<float>(color >> 24) * std::clamp(opacity, 0.0f, 1.0f)) << 24); }
@@ -156,14 +158,14 @@ namespace xiui
         if (value.surface == action_surface::hotbar)
         {
             const auto columns = static_cast<size_t>(std::clamp(bar.columns, 1.0f, 12.0f));
-            const float y = bounds.y + pad + (std::max(38.0f, GridHeight(bar)) - GridHeight(bar)) / 2;
-            return {bounds.x + pad + rail + static_cast<float>(value.slot % columns) * (bar.size + bar.gap), y + static_cast<float>(value.slot / columns) * (bar.size + (bar.gap_y < 0 ? bar.gap : bar.gap_y) + (bar.labels ? (bar.label_wrap ? 32 : 16) : 0)), bar.size, bar.size};
+            const float y = bounds.y + pad + (std::max(38.0f, GridHeight(bar)) - GridHeight(bar)) / 2 + LabelLead(bar);
+            return {bounds.x + pad + rail + static_cast<float>(value.slot % columns) * (bar.size + bar.gap), y + static_cast<float>(value.slot / columns) * (bar.size + (bar.gap_y < 0 ? bar.gap : bar.gap_y) + LabelHeight(bar)), bar.size, bar.size};
         }
         constexpr float x[]{1, 2, 1, 0}, y[]{0, 1, 2, 1};
         const auto position = value.slot % 4;
         const float groupX = bounds.x + pad + static_cast<float>(this->CrossbarHalf(value.bar)) * (GroupWidth(bar) + bar.group_spacing);
         return {groupX + (value.slot >= 4 ? DiamondWidth(bar) + DiamondGap(bar) : 0) + x[position] * (bar.size + bar.gap),
-            bounds.y + pad + bank_header + y[position] * DiamondSpan(bar) / 2, bar.size, bar.size};
+            bounds.y + pad + bank_header + LabelLead(bar) + y[position] * DiamondSpan(bar) / 2, bar.size, bar.size};
     }
 
     auto actionbars_module::BarNumberBounds(const size_t index) const -> ui::rect
@@ -178,7 +180,7 @@ namespace xiui
     {
         const auto& bar = this->bars_[index]; const auto& bounds = bar.state.bounds; const auto pad = Padding(bar, this->container_);
         if (index == action_bar_count) { const auto number = this->BarNumberBounds(index); return {number.x, number.y + 40, 22, 18}; }
-        return {bounds.x + bounds.width - pad - 20, bounds.y + pad + (std::min(std::max(38.0f, GridHeight(bar)), bar.size) - 18) / 2, 20, 18};
+        return {bounds.x + bounds.width - pad - 20, bounds.y + pad + LabelLead(bar) + (std::min(std::max(38.0f, GridHeight(bar)), bar.size) - 18) / 2, 20, 18};
     }
     auto actionbars_module::PaletteBounds(const size_t index) const -> ui::rect
     {
@@ -397,8 +399,9 @@ namespace xiui
                 while (split != std::string::npos && design.MeasureText(name.substr(0, split).c_str(), profile.style) > labelWidth) split = split ? name.find_last_of(' ', split - 1) : std::string::npos;
                 if (split != std::string::npos) { first = name.substr(0, split); second = name.substr(split + 1); }
             }
-            const float textHeight = design.TextHeight(profile.style);
-            const ui::rect labelBounds{contentBounds.x - bar.gap / 2, contentBounds.y + contentBounds.height + 1, contentBounds.width + bar.gap, textHeight * (bar.label_wrap ? 2 : 1)};
+            const float textHeight = design.TextHeight(profile.style), lines = second.empty() ? 1.0f : 2.0f;
+            const float labelY = bar.label_position == 1 ? contentBounds.y - 1 - textHeight * lines : contentBounds.y + contentBounds.height + 1;
+            const ui::rect labelBounds{contentBounds.x - bar.gap / 2, labelY, contentBounds.width + bar.gap, textHeight * (bar.label_wrap ? 2 : 1)};
             const auto label = xiui::ui::FitText(design, first, labelWidth, profile.style);
             context.DrawText(label.c_str(), {labelBounds.x, labelBounds.y, labelBounds.width, textHeight}, labelBounds, profile);
             if (!second.empty()) { const auto next = xiui::ui::FitText(design, second, labelWidth, profile.style); context.DrawText(next.c_str(), {labelBounds.x, labelBounds.y + textHeight, labelBounds.width, textHeight}, labelBounds, profile); }

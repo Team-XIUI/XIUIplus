@@ -2,6 +2,8 @@
 
 ## Unreleased
 
+- Action labels: new **Label position** (Action Bars → Text, shown with Action labels on) puts action names above the icons instead of below. The label space moves with them, so a hotbar's bottom edge sits flush with its icons and the bar can be placed at the very bottom of the screen. Crossbars support it too.
+
 - Charmed pets: fix charmed beasts using the jug pet frame, or showing no frame when the jug frame was turned off. Charmed pets now use the Charmed pet frame and its Sic/Reward recasts. After a successful Charm, the frame estimates how long the pet stays charmed from the beast's level, your charisma and Charm+ gear; XIUI+ checks the beast automatically and hides that check's reply. Familiar extends the estimate. Pets charmed before XIUI+ loaded show the lifetime as unavailable.
 
 - Player Bar: the small Attack Timing and Recovery bars above TP and HP now draw behind the HP and TP labels instead of covering them. `/xiuiplus player` opens Player Bar settings directly, and `/xiuiplus minimap` now previews the minimap like selecting it in Configuration.
