@@ -6,6 +6,7 @@
 #include "input/keyboard_policy.hpp"
 
 #include <algorithm>
+#include <array>
 #include <cmath>
 #include <cstdio>
 #include <cstring>
@@ -1765,6 +1766,18 @@ namespace xiui
                     Check(KeyboardAllowsGlobalBinding(layout, key, 0), "number-row bindings remain eligible in Full, Compact and unavailable keyboard layouts");
             Check(!KeyboardAllowsGlobalBinding(true, 'F', 0) && !KeyboardAllowsGlobalBinding({}, 'F', 0) &&
                 !KeyboardAllowsGlobalBinding(true, VK_NUMPAD1, 0), "number bindings do not take ordinary Full-mode typing or numpad movement");
+            // Uses an installed French layout only; loading one would change the user's language list.
+            std::array<HKL, 32> layouts{};
+            const auto layoutCount = std::max(0, ::GetKeyboardLayoutList(static_cast<int>(layouts.size()), layouts.data()));
+            const auto french = std::find_if(layouts.begin(), layouts.begin() + layoutCount,
+                [](const HKL layout) { return (reinterpret_cast<uintptr_t>(layout) & 0xFFFF) == 0x040C; });
+            if (french != layouts.begin() + layoutCount)
+            {
+                const auto e = static_cast<LPARAM>(0x03u << 16);
+                Check(!KeyboardTypesDigit('2', e, *french) && !KeyboardAllowsGlobalBinding(true, '2', e, *french) &&
+                    KeyboardAllowsGlobalBinding(false, '2', e, *french) && KeyboardAllowsGlobalBinding({}, '2', e, *french),
+                    "AZERTY's unshifted top row types letters in Full mode and stays a number binding in Compact mode");
+            }
             auto runtime = std::make_unique<hud_runtime>(); auto& module = runtime->actionbars_;
             runtime->action_store_.SetContext({7, 3, {}});
             module.Initialize(nullptr, &runtime->action_store_, &runtime->action_executor_);

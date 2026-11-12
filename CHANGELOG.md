@@ -8,6 +8,8 @@
 
 - Chat channels: Ctrl or Alt with S, P, L, ; and T switch a message you are typing to Say, Party, Linkshell, Linkshell 2 or Tell, like the native chat line. Keys follow their physical position, so Alt+M on AZERTY selects Linkshell 2.
 
+- AZERTY keyboards: in Full keyboard mode, starting a message with é, è, ç, à or other top-row letters types them instead of firing a hotbar slot bound to that key. Compact layouts keep top-row hotbar keys.
+
 - Buffs/Debuffs: keyboard players can press numpad + to cycle to chat and then Buffs and press Enter to cancel the selected effect, in every keyboard layout. Right-click a cancellable effect on your own Buffs/Debuffs to cancel it; the release must land on the same icon.
 
 - Native menus: commands, shop Buy/Cancel prompts, NPC choices and other menus that open above the game's chat log now open above XIUI+ chat instead of behind it. **Keep menus above chat** is on by default under Native UI → HUD Windows → Window Placement; windows with a custom position stay where you placed them. Item details and the job change menu no longer follow a shared command anchor.
