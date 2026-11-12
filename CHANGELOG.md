@@ -2,6 +2,8 @@
 
 ## Unreleased
 
+- Satchel: items now appear in the same order as the game's own Item menu, including any order you set with the menu's **Sort** → Auto or Manual. Before, Satchel listed items by their hidden storage slot, so its order rarely matched the game. **Custom order** starts from the game's order; items you drag keep their positions. A new **Game order** choice (Satchel → Layout → Display order) always follows the game's list. Saved characters keep the order they had when last seen.
+
 - Target: status effects now sit directly under the HP bar for every target. Before, Mob Info rows and the enemy Attack timer pushed a monster's debuffs lower than your own buffs. Mob Info and the timer now appear below the statuses.
 
 - Target Mob Info: damage is now shown as **Weaknesses** and **Resistances**, as in Lua XIUI 1.8.4, instead of every damage type at x1.00. Each row lists only what the monster takes more or less damage from, strongest first, as icons and amounts, for example `[Slash][Pierce] +25%` `[Water] Absorbs [Impact] -12.5% Magic -12.5%`. Icons with the same change share one percentage. **Percentages** and **Group by percentage** turn these off, and **Headings** adds Weak:/Resists: labels. Reduced physical, magic, ranged and breath damage and elemental absorbs now appear too. In the XIV 1.0 theme they sit in the top right above the Job and behavior icons; in the XI theme they continue that icon row. **Position** → Own row or Independent moves them. If you had Physical damage or Element damage on, both new rows start on. Element and status ranks stay in their own groups, since they change magic accuracy rather than damage.

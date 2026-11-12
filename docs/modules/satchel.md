@@ -8,6 +8,8 @@ Dragging in Custom order softly tints and outlines occupied or empty destination
 
 **Start in:** [satchel_module.cpp](../../src/runtime/modules/satchel/satchel_module.cpp), [satchel_actions.cpp](../../src/runtime/modules/satchel/satchel_actions.cpp), [satchel_source.cpp](../../src/runtime/modules/satchel/satchel_source.cpp), [hud_runtime_satchel.cpp](../../src/runtime/hud_runtime_satchel.cpp).
 
+**Native item order:** [satchel_native_order.cpp](../../src/runtime/modules/satchel/satchel_native_order.cpp) reads the client's per-container list behind the Item menu's Sort → Auto/Manual. FFXiMain keeps 18 sort objects in a table found by signature; each holds its container ID at `+0`, a loaded flag at `+4`, the active list index at `+0xC`, per-list counts at `+0x18` and four 81-entry `{u32 key, u16 item, u16 slot}` lists at `+0x804`. New items are appended to the end. The client saves these lists as `USER/<character hex>/is.dat`, `bs.dat` and so on at logout, not live. Unmatched signatures fall back to slot order.
+
 **Keep intact:** Every item-changing path revalidates captured identity and real native state. Cached/slip views stay read only. Locked HUD and ordinary native menus do not disable pointer controls; popup/search ownership ends on dismissal, with owned releases drained.
 
 Dismissed popups retain native mouse blocking and held movement capture until the owned release.

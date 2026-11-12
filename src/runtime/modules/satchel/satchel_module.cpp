@@ -51,7 +51,7 @@ namespace xiui
         }
         constexpr const char* profile_sections[]{"text.satchel.title", "text.satchel.caption", "text.satchel.quantity", "text.satchel.tooltip"};
         constexpr const char* empty_slot_key = "empty";
-        constexpr const char* sort_names[]{"Custom order", "Name", "Item ID", "Quantity"};
+        constexpr const char* sort_names[]{"Custom order", "Name", "Item ID", "Quantity", "Game order"};
         constexpr size_t picker_rows = 8;
         constexpr float item_menu_width = 252, item_menu_header = 30, item_menu_row = 24;
         constexpr float sidebar_width = 136, sidebar_gap = 12, bag_pitch = 28, scroll_gutter = 14;
@@ -156,7 +156,7 @@ namespace xiui
         this->container_.opacity = number("opacity", 0.35f, 0.1f, 1); this->container_.padding = number("padding", 8, 0, 24);
         if (store.ReadInt("satchel", "container_opacity_version", 0) < 1 && std::abs(this->container_.opacity - 1.0f) < 0.002f)
             this->container_.opacity = 0.35f;
-        this->sort_ = std::clamp(store.ReadInt("satchel", "display_sort", 0), 0, 3);
+        this->sort_ = std::clamp(store.ReadInt("satchel", "display_sort", 0), 0, 4);
         this->selected_text_ = std::clamp(store.ReadInt("satchel", "selected_text", 0), 0, 3);
         for (size_t i = 0; i < this->text_.size(); ++i) this->text_[i] = LoadTextProfile(store, profile_sections[i], this->text_[i]);
         this->rebuild_ = true;
@@ -222,7 +222,7 @@ namespace xiui
         case rows: return module_option::Slider("Rows", "Set the window height for this many item rows. Dragging the resize grip adjusts it freely.", &this->rows_, 1, 128, 1).Ordered(111);
         case icon_size: return module_option::Slider("Icon size", "Native item artwork size in pixels.", &this->icon_size_, 24, 64, 1).Ordered(120);
         case spacing: return module_option::Slider("Slot spacing", "Pixels between item cells.", &this->spacing_, 0, 16, 1).Ordered(300);
-        case sort: return module_option::Choice("Display order", "Change the presentation without sorting game inventory. Drag between item cells in Custom order to rearrange.", &this->sort_, sort_names, 4).Ordered(-30);
+        case sort: return module_option::Choice("Display order", "Change the presentation without sorting game inventory. Custom order starts from the game's item list; drag between item cells to rearrange. Game order always follows the native Item menu.", &this->sort_, sort_names, 5).Ordered(-30);
         case background: return module_option::Toggle("Container", "Use the shared native game window around the browser.", &this->background_, module_option_group::appearance).Ordered(-10);
         case frames: return module_option::Toggle("Slot frames", "Draw flat backgrounds and thin rounded outlines around item cells. Native item quality borders remain intact.", &this->frames_, module_option_group::appearance).Ordered(470);
         case opacity: return module_option::Slider("Container opacity", "Opacity of the outer container and slot outlines.", &this->container_.opacity, 0.1f, 1, 0.05f, module_option_group::appearance).Ordered(450).VisibleWhen(this->background_ || this->frames_);

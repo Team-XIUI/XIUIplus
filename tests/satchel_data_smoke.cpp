@@ -139,6 +139,16 @@ namespace xiui
             Check(SatchelDecodeSlip(29312, std::span<const uint8_t>{extra}.first(23)).empty() && SatchelSlipCatalog(1).empty(),
                 "unknown and truncated slips do not produce stored items");
 
+            std::vector<satchel_item> ordered(4);
+            for (uint8_t index = 0; index < 4; ++index) { ordered[index].id = static_cast<uint16_t>(10 * (index + 1)); ordered[index].slot = index + 1; }
+            const auto entry = [](const uint16_t id, const uint8_t slot) { return satchel_native_entry{id, slot}; };
+            const std::array<satchel_native_entry, 4> nativeOrder{entry(30, 3), entry(99, 1), entry(10, 1), entry(20, 2)};
+            SatchelApplyNativeOrder(ordered, nativeOrder);
+            Check(ordered[0].slot == 3 && ordered[1].slot == 1 && ordered[2].slot == 2 && ordered[3].slot == 4,
+                "native list order applies by item and slot; stale entries are ignored and unlisted items follow in slot order");
+
+            satchel_item listedLater{}; listedLater.id = 4096; listedLater.slot = 1; listedLater.count = 12;
+            live.bags[0].items.push_back(listedLater);
             const auto path = std::filesystem::temp_directory_path() / ("xiui-satchel-" + std::to_string(::GetCurrentProcessId()) + "-" + std::to_string(::GetTickCount64()));
             satchel_cache cache; cache.Initialize(path.string());
             satchel_cache peer; peer.Initialize(path.string());
@@ -166,6 +176,8 @@ namespace xiui
                 restored.ReadOrder(live.identity, -1) == std::vector<std::string>{"0:2:29312", "0:1:10"} &&
                 restored.ReadOrder(alt.identity, -1) == std::vector<std::string>{"0:1:10", "0:2:29312"},
                 "atomic cache round trip retains stacks, full extra data, flags and local visual order");
+            Check(restored.Characters()[0].bags[0].items.size() == 2 && restored.Characters()[0].bags[0].items[0].slot == 2 &&
+                restored.Characters()[0].bags[0].items[1].slot == 1, "offline records keep the native item list order");
             Check(restored.Characters()[1].identity == alt.identity && restored.Characters()[1].gil == 222,
                 "clients initialized together cannot erase another character's inventory or layout");
             live.gil = 1000; alt.gil = 333;

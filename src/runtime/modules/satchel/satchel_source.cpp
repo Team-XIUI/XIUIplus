@@ -175,6 +175,7 @@ namespace xiui
         for (uint8_t bag = 0; bag < next.bags.size(); ++bag)
         {
             next.bags[bag] = ReadBag(*inventory, bag, inventoryState.bags[bag].ready, SatchelBagAccessible(bag, this->in_mog_house_));
+            if (next.bags[bag].ready) SatchelApplyNativeOrder(next.bags[bag].items, this->native_order_.Read(bag));
             const auto nativeCapacity = inventory->GetContainerCountMax(bag);
             if (bag != 3 && nativeCapacity != 0) next.ready = next.ready && next.bags[bag].ready;
             if (!next.bags[bag].ready && this->snapshot_.character_id == characterId)

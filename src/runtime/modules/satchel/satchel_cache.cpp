@@ -1,5 +1,6 @@
 #include "satchel_cache.hpp"
 #include "satchel_identity.hpp"
+#include "satchel_native_order.hpp"
 
 #include <algorithm>
 #include <charconv>
@@ -170,6 +171,19 @@ namespace xiui
                 if (!valid) break;
                 const auto expected = store.ReadInt(bagSection.c_str(), "items", -1);
                 if (expected < 0 || static_cast<size_t>(expected) != storage.items.size()) { valid = false; break; }
+                // Saved item-list order; older files without it keep slot order.
+                std::vector<satchel_native_entry> order;
+                const auto text = store.ReadString(bagSection.c_str(), "order");
+                for (size_t start = 0; start < text.size() && order.size() < 80;)
+                {
+                    const auto end = std::min(text.find(',', start), text.size());
+                    uint64_t slot{};
+                    if (!Number(text.substr(start, end - start), slot) || slot == 0 || slot > 80) { order.clear(); break; }
+                    const auto found = std::find_if(storage.items.begin(), storage.items.end(), [&](const auto& item) { return item.slot == slot; });
+                    if (found != storage.items.end()) order.emplace_back(found->id, static_cast<uint8_t>(slot));
+                    start = end + 1;
+                }
+                SatchelApplyNativeOrder(storage.items, order);
             }
             if (valid && snapshot.bags[0].capacity != 0)
                 this->characters_.push_back(std::move(snapshot));
@@ -262,8 +276,13 @@ namespace xiui
                 const auto& storage = snapshot.bags[bag];
                 store.WriteInt(bagSection.c_str(), "capacity", static_cast<int>(storage.capacity));
                 store.WriteInt(bagSection.c_str(), "items", static_cast<int>(storage.items.size()));
+                std::string order;
                 for (const auto& item : storage.items)
+                {
                     store.WriteString(bagSection.c_str(), ("item." + std::to_string(item.slot)).c_str(), EncodeItem(item));
+                    order += (order.empty() ? "" : ",") + std::to_string(item.slot);
+                }
+                if (!order.empty()) store.WriteString(bagSection.c_str(), "order", order);
             }
         }
         size_t index{};

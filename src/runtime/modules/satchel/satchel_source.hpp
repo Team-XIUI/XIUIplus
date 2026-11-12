@@ -1,6 +1,7 @@
 #pragma once
 
 #include "satchel_model.hpp"
+#include "satchel_native_order.hpp"
 #include "modules/inventory/inventory_source.hpp"
 
 #include <optional>
@@ -24,6 +25,7 @@ namespace xiui
         friend struct satchel_data_test;
 #endif
         satchel_snapshot snapshot_{};
+        satchel_native_order native_order_{};
         uint64_t next_scan_{}, generation_{};
         uint64_t next_identity_scan_{};
         uint32_t server_character_{};

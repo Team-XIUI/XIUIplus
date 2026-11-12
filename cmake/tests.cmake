@@ -245,6 +245,7 @@ add_test(NAME xiui_satchel_actions_smoke COMMAND xiui_satchel_actions_smoke)
 add_executable(xiui_satchel_data_smoke
     tests/satchel_data_smoke.cpp
     src/runtime/modules/satchel/satchel_source.cpp
+    src/runtime/modules/satchel/satchel_native_order.cpp
     src/runtime/modules/satchel/satchel_identity.cpp
     src/runtime/modules/satchel/satchel_cache.cpp
     src/runtime/settings/settings_store.cpp

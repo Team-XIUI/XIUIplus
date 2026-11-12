@@ -185,6 +185,7 @@ set(XIUI_HUD_SOURCES
     src/runtime/modules/party/party_entry_layout.cpp
     src/runtime/modules/inventory/inventory_source.cpp
     src/runtime/modules/satchel/satchel_source.cpp
+    src/runtime/modules/satchel/satchel_native_order.cpp
     src/runtime/modules/satchel/satchel_identity.cpp
     src/runtime/modules/satchel/satchel_cache.cpp
     src/runtime/modules/satchel/satchel_actions.cpp
