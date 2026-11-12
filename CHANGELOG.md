@@ -2,6 +2,8 @@
 
 ## Unreleased
 
+- Target: new **Hide when targeting yourself** (Target → General) hides the Target window while your own character is the main target. It is off by default.
+
 - Player Bar and Party colors: in the XIV 1.0 theme, HP and MP **Fill top** and **Fill bottom** now apply; colors left at their defaults keep the XIV 1.0 palette. Text **Top color** and **Bottom color** now run from the top of the text to its baseline, so both colors show instead of a blend of the two. Attack and recovery timer bars no longer pick up the TP or HP bar's glow.
 
 - Action labels: new **Label position** (Action Bars → Text, shown with Action labels on) puts action names above the icons instead of below. The label space moves with them, so a hotbar's bottom edge sits flush with its icons and the bar can be placed at the very bottom of the screen. Crossbars support it too.

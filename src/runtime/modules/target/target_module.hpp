@@ -23,6 +23,7 @@ namespace xiui
         struct settings
         {
             bool hide_when_empty{false};
+            bool hide_self{false};
             bool show_distance{true};
             bool show_percent{true};
             bool show_label{true};
@@ -139,12 +140,13 @@ namespace xiui
         static constexpr size_t mob_info_options_start = display_options_start + target_display_settings::option_count;
         static constexpr size_t world_options_start = mob_info_options_start + target_mob_info::option_count;
         static constexpr size_t ring_options_start = world_options_start + world_target_bar::option_count;
+        static constexpr size_t hide_self_option = ring_options_start + target_ring_settings::option_count + 6;
         meter_animation_state hp_animation_{};
         D3DCOLOR name_color_{unclaimed_name_color};
         bool has_health_{true};
         std::array<target_view, 3> views_{};
         std::array<meter_animation_state, 3> detail_animations_{};
-        bool details_ready_{};
+        bool details_ready_{}, self_target_{};
         bool mob_info_display_allowed_{true};
         std::vector<ui::status_tooltip> status_hits_{};
         uint32_t controller_status_entity_{};

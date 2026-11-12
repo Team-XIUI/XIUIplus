@@ -123,6 +123,7 @@ namespace xiui
         this->settings_.status_text = LoadTextProfile(store, "text.target.status", this->settings_.status_text);
         this->state_.enabled = store.ReadBool("target", "enabled", true);
         this->settings_.hide_when_empty = store.ReadBool("target", "hide_when_empty", false);
+        this->settings_.hide_self = store.ReadBool("target", "hide_self", false);
         this->settings_.show_distance = store.ReadBool("target", "show_distance", true);
         this->settings_.show_percent = store.ReadBool("target", "show_percent", true);
         this->settings_.show_label = store.ReadBool("target", "show_label", true);
@@ -177,6 +178,7 @@ namespace xiui
         store.WriteInt("target", "name_anchor_version", 1);
         store.WriteInt("target", "distance_color_version", 1);
         store.WriteBool("target", "hide_when_empty", this->settings_.hide_when_empty);
+        store.WriteBool("target", "hide_self", this->settings_.hide_self);
         store.WriteBool("target", "show_distance", this->settings_.show_distance);
         store.WriteBool("target", "show_percent", this->settings_.show_percent);
         store.WriteBool("target", "show_label", this->settings_.show_label);
@@ -203,7 +205,7 @@ namespace xiui
         store.WriteRect("layout.target", this->state_.bounds);
     }
 
-    auto target_module::ContentOptionCount(void) const -> size_t { return ring_options_start + target_ring_settings::option_count + 6; }
+    auto target_module::ContentOptionCount(void) const -> size_t { return hide_self_option + 1; }
 
     auto target_module::OnContentOptionChanged(const size_t index) -> void
     {
@@ -244,6 +246,7 @@ namespace xiui
     auto target_module::ContentConfigSectionContains(const size_t section, const size_t index) -> bool
     {
         if (section >= this->ConfigSections().size() || index >= this->OptionCount()) return false;
+        if (index == hide_self_option) return this->config_view_ == 0 && section == 0;
         if (index >= ring_options_start + target_ring_settings::option_count) return this->config_view_ == 0 && section == 8;
         if (this->config_view_ == 4) return index >= ring_options_start && section == target_ring_settings::Section(index - ring_options_start);
         if (this->config_view_ == 3) return index >= world_options_start && index < ring_options_start && section == world_target_bar::Section(index - world_options_start);
@@ -267,6 +270,8 @@ namespace xiui
 
     auto target_module::ContentOption(const size_t index) -> module_option
     {
+        if (index == hide_self_option)
+            return module_option::Toggle("Hide when targeting yourself", "Hide the Target window while your own character is the main target.", &this->settings_.hide_self);
         if (index >= ring_options_start + target_ring_settings::option_count)
         {
             const auto family = index - ring_options_start - target_ring_settings::option_count;
@@ -306,6 +311,7 @@ namespace xiui
 
     auto target_module::ShouldRender(const hud_snapshot& snapshot) const -> bool
     {
+        if (this->settings_.hide_self && this->self_target_) return false;
         return this->state_.enabled && (!this->settings_.hide_when_empty || (this->details_ready_ ? this->views_[0].id != 0 ||
             (!this->ChildIndependent(true) && this->ChildVisible(true, false)) : snapshot.target_valid));
     }
@@ -376,7 +382,7 @@ namespace xiui
         const auto player = memory != nullptr ? xiui::ashita::View(memory->GetPlayer()) : nullptr;
         this->details_ready_ = target != nullptr && entities != nullptr && xiui::ashita::View(memory->GetParty()) != nullptr && player != nullptr;
         if (!this->details_ready_ || player->GetIsZoning() || player->GetLoginStatus() != static_cast<uint8_t>(Ashita::FFXI::Enums::LoginStatus::LoggedIn))
-        { this->views_ = {}; this->detail_animations_ = {}; return; }
+        { this->views_ = {}; this->detail_animations_ = {}; this->self_target_ = false; return; }
         const auto main = target->GetTargetIndex(0);
         const auto secondary = target->GetIsSubTargetActive() != 0 ? target->GetTargetIndex(1) : 0;
         const auto update = [&](size_t slot, uint32_t index) {
@@ -385,6 +391,7 @@ namespace xiui
             if (previous != this->views_[slot].id) this->detail_animations_[slot] = {};
         };
         update(0, main);
+        this->self_target_ = this->views_[0].id != 0 && this->views_[0].id == xiui::ashita::View(memory->GetParty())->GetMemberServerId(0);
         update(1, secondary != main ? secondary : 0);
         const auto* actor = combat.Find(this->views_[0].id);
         const auto recipient = actor != nullptr ? actor->target : 0;

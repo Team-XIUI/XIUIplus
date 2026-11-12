@@ -314,7 +314,7 @@ Regenerate with `./scripts/update-docs.ps1`. Each bullet is one visual row; [emp
 - HP label | Name
 - Cast bar | Lock highlight
 - Enemy ID | Player HP percent
-- Monster HP percent
+- Monster HP percent | Hide when targeting yourself
 
 ### Appearance / Size & Position
 
@@ -4947,4 +4947,4 @@ Regenerate with `./scripts/update-docs.ps1`. Each bullet is one visual row; [emp
 
 ## Coverage
 
-358 registered modules, 620 distinct pages, 5121 controls across those pages, and 2355 selector/view combinations.
+358 registered modules, 620 distinct pages, 5122 controls across those pages, and 2355 selector/view combinations.

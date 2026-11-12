@@ -22,6 +22,19 @@ namespace xiui
             if (!Check(EntityNameColor(16, 0, false, false, 0) == 0xFF123456 && native == 0xFFFFFFFF,
                 "shared custom palette is opt-in and reaches existing entity-name consumers")) { restore(); return false; }
             target_module target; target.ApplyTextDefaults(ui::theme::CreateDefault()); target.Load(settings_store::FromIniText(""));
+            {
+                target_module self; self.Load(settings_store::FromIniText("[target]\nhide_self=1\n")); self.state_.enabled = true;
+                self.details_ready_ = true; self.views_[0].id = 42; self.self_target_ = true;
+                const auto option = self.Option(target_module::hide_self_option);
+                size_t pages{};
+                for (size_t section = 0; section < self.ConfigSections().size(); ++section) pages += self.ConfigSectionContains(section, target_module::hide_self_option);
+                if (!Check(self.settings_.hide_self && !self.ShouldRender({}) && option.label != nullptr && pages == 1 && self.ConfigSectionContains(0, target_module::hide_self_option),
+                    "Hide when targeting yourself hides the Target window and appears once on the General page")) { restore(); return false; }
+                self.self_target_ = false;
+                if (!Check(self.ShouldRender({}), "other targets still show the Target window")) { restore(); return false; }
+                self.settings_.hide_self = false; self.self_target_ = true;
+                if (!Check(self.ShouldRender({}), "targeting yourself still shows the window when the option is off")) { restore(); return false; }
+            }
             const auto reserved = target_module::display_options_start + target_display_settings::base_options + 1;
             size_t owners{};
             for (size_t section = 0; section < target.ConfigSections().size(); ++section) owners += target.ConfigSectionContains(section, reserved);
