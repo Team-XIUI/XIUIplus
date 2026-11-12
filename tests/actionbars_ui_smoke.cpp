@@ -770,6 +770,24 @@ namespace xiui
             }
             const auto up = original[0][0], right = original[0][1], down = original[0][2], left = original[0][3];
             Check(up.y + up.height <= left.y && right.y + right.height <= down.y && left.x + left.width <= up.x && up.x + up.width <= right.x, "each controller diamond uses three non-overlapping rows and columns");
+            const float defaultHeight = crossbar.state.bounds.height;
+            module.active_bank_ = crossbar_bank::none; module.shared_expanded_ = false;
+            crossbar.diamond_gap = 2; module.Layout(action_bar_count);
+            std::vector<ui::rect> compact;
+            for (size_t half = 0; half < 2; ++half)
+                for (size_t slot = 0; slot < 8; ++slot)
+                {
+                    const auto rect = module.SlotBounds({action_surface::crossbar, half, slot});
+                    for (const auto& previous : compact) Check(!Overlaps(previous, rect), "compact crossbar diamonds keep every icon separate");
+                    compact.push_back(rect);
+                    const auto hit = module.HitTest(rect.x + rect.width / 2, rect.y + rect.height / 2);
+                    Check(hit && hit->slot.bar == half && hit->slot.slot == slot, "compact crossbar icons keep matching pointer targets");
+                }
+            Check(std::abs(compact[2].y - compact[0].y - (crossbar.size + 2)) < 0.01f && std::abs(compact[1].y - (compact[0].y + compact[2].y) / 2) < 0.01f && compact[3].y == compact[1].y,
+                "Diamond vertical spacing stacks top and bottom slots and centers the sides");
+            Check(crossbar.state.bounds.height == defaultHeight - crossbar.size - (crossbar.gap_y < 0 ? crossbar.gap : crossbar.gap_y) * 2 + 2, "closing the diamond center shrinks the crossbar height");
+            crossbar.diamond_gap = -1; module.Layout(action_bar_count);
+            Check(crossbar.state.bounds.height == defaultHeight && module.SlotBounds({action_surface::crossbar, 0, 2}).y == original[0][2].y, "-1 restores the default diamond geometry");
         }
         static auto EmptyBarEditBounds(void) -> void
         {

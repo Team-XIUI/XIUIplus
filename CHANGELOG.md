@@ -2,6 +2,8 @@
 
 ## Unreleased
 
+- Crossbar: new **Diamond vertical spacing** (Action Bars → Crossbar → Appearance → Size & Position) closes the empty center of each diamond, as XIUI Legacy's vertical slot gap did. At 0 or more, the top and bottom slots stack with that gap and the side slots sit between them. The default, -1, keeps room for the center button icons. Center button icons now stay centered when Vertical spacing differs from horizontal spacing.
+
 - Fonts: every font installed on your PC can now be chosen for HUD text, Global Text, notifications and the configuration window, including Consolas and the rest of XIUI Legacy's Windows fonts. Text elements and Global Text also gain **Font weight** (Default, Regular or Bold) and **Italic**. In a font list, type a letter to jump to fonts starting with it, or use Page Up/Down; controller shoulder buttons page the list.
 
 - Macro waits: `<wait3.6>` written without a space now waits like `<wait 3.6>`. Before, a macro using it sent every line at once, so only the first ranged attack fired and the final `/echo` showed immediately.

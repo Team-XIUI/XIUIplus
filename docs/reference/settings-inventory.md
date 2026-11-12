@@ -3344,7 +3344,7 @@ Regenerate with `./scripts/update-docs.ps1`. Each bullet is one visual row; [emp
 - Reset scale | [empty]
 - Slot size | Spacing
 - Vertical spacing | Diamond spacing
-- Trigger group spacing
+- Diamond vertical spacing | Trigger group spacing
 
 ### Appearance / Window
 
@@ -3428,7 +3428,7 @@ Regenerate with `./scripts/update-docs.ps1`. Each bullet is one visual row; [emp
 - Reset scale | [empty]
 - Slot size | Spacing
 - Vertical spacing | Diamond spacing
-- Trigger group spacing
+- Diamond vertical spacing | Trigger group spacing
 
 ### Appearance / Window
 
@@ -3512,7 +3512,7 @@ Regenerate with `./scripts/update-docs.ps1`. Each bullet is one visual row; [emp
 - Reset scale | [empty]
 - Slot size | Spacing
 - Vertical spacing | Diamond spacing
-- Trigger group spacing
+- Diamond vertical spacing | Trigger group spacing
 
 ### Appearance / Window
 
@@ -3596,7 +3596,7 @@ Regenerate with `./scripts/update-docs.ps1`. Each bullet is one visual row; [emp
 - Reset scale | [empty]
 - Slot size | Spacing
 - Vertical spacing | Diamond spacing
-- Trigger group spacing
+- Diamond vertical spacing | Trigger group spacing
 
 ### Appearance / Window
 

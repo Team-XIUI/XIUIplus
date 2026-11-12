@@ -22,7 +22,14 @@ namespace xiui
         auto Padding(const actionbar_presentation& bar, const ui::container_style& container) -> float
         { return bar.background ? container.padding + 3 : 2; }
         auto DiamondWidth(const actionbar_presentation& bar) -> float { return bar.size * 3 + bar.gap * 2; }
-        auto DiamondHeight(const actionbar_presentation& bar) -> float { return bar.size * 3 + (bar.gap_y < 0 ? bar.gap : bar.gap_y) * 2 + (bar.labels ? (bar.label_wrap ? 96 : 48) : 0); }
+        auto LabelHeight(const actionbar_presentation& bar) -> float { return bar.labels ? (bar.label_wrap ? 32.0f : 16.0f) : 0.0f; }
+        // Top-to-bottom slot offset; -1 keeps an empty center row for button prompts.
+        auto DiamondSpan(const actionbar_presentation& bar) -> float
+        {
+            const float row = bar.size + (bar.gap_y < 0 ? bar.gap : bar.gap_y) + LabelHeight(bar);
+            return bar.diamond_gap < 0 ? row * 2 : bar.size + LabelHeight(bar) + bar.diamond_gap;
+        }
+        auto DiamondHeight(const actionbar_presentation& bar) -> float { return DiamondSpan(bar) + bar.size + LabelHeight(bar); }
         auto DiamondGap(const actionbar_presentation& bar) -> float { return bar.diamond_spacing < 0 ? std::max(8.0f, bar.gap * 2 + 4) : bar.diamond_spacing; }
         auto GroupWidth(const actionbar_presentation& bar) -> float { return DiamondWidth(bar) * 2 + DiamondGap(bar); }
         auto GridHeight(const actionbar_presentation& bar) -> float
@@ -156,7 +163,7 @@ namespace xiui
         const auto position = value.slot % 4;
         const float groupX = bounds.x + pad + static_cast<float>(this->CrossbarHalf(value.bar)) * (GroupWidth(bar) + bar.group_spacing);
         return {groupX + (value.slot >= 4 ? DiamondWidth(bar) + DiamondGap(bar) : 0) + x[position] * (bar.size + bar.gap),
-            bounds.y + pad + bank_header + y[position] * (bar.size + (bar.gap_y < 0 ? bar.gap : bar.gap_y) + (bar.labels ? (bar.label_wrap ? 32 : 16) : 0)), bar.size, bar.size};
+            bounds.y + pad + bank_header + y[position] * DiamondSpan(bar) / 2, bar.size, bar.size};
     }
 
     auto actionbars_module::BarNumberBounds(const size_t index) const -> ui::rect
@@ -522,7 +529,7 @@ namespace xiui
                         {
                             auto top = this->SlotBounds({action_surface::crossbar, layerBank, diamond * 4}); top.x += offsetX;
                             const float centerX = top.x + bar.size / 2;
-                            const float centerY = top.y + bar.size + bar.gap + (bar.labels ? (bar.label_wrap ? 32 : 16) : 0) + bar.size / 2 + layer.y;
+                            const float centerY = top.y + DiamondSpan(bar) / 2 + bar.size / 2 + layer.y;
                             const float iconSize = std::max(4.0f, std::min({bar.prompt_size, bar.size / 2, (bar.size / 2 + bar.gap - 3) / 1.07f}));
                             const float offset = iconSize / 2 + 2;
                             constexpr float x[]{0, 1, 0, -1}, y[]{-1, 0, 1, 0};
