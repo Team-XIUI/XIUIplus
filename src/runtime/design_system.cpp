@@ -1728,6 +1728,8 @@ namespace xiui::ui
         double advance{};
         const float phase = std::fmod(static_cast<float>(::GetTickCount64()) * 0.001f * style.sheen.speed, 1.0f);
         const float sheenCenter = x - style.sheen.width + phase * (maxWidth + style.sheen.width * 2.0f);
+        // Text gradients run from the line top to the baseline; descenders keep the bottom color.
+        const float lineTop = y + offsetY - 0.5f, lineBottom = lineTop + std::max(1.0f, font.ascent * rasterScale);
         const std::string_view content{text};
         for (size_t position = 0; position < content.size();)
         {
@@ -1747,12 +1749,27 @@ namespace xiui::ui
                     const float left = this->transform_.InverseX(std::round(this->transform_.X(x + static_cast<float>(advance) + metrics.offset + offsetX))) - glyph.padding * rasterScale - 0.5f;
                     const float top = this->transform_.InverseY(std::round(this->transform_.Y(y + baselineOffset + offsetY))) - glyph.padding * rasterScale - 0.5f;
                     const float right = left + glyph.width * rasterScale, bottom = top + glyph.height * rasterScale;
-                    const D3DCOLOR topLeft = sheen ? SheenColor(style.sheen.color, left, sheenCenter, style.sheen.width) : style.top_color;
-                    const D3DCOLOR topRight = sheen ? SheenColor(style.sheen.color, right, sheenCenter, style.sheen.width) : style.top_color;
-                    const D3DCOLOR bottomLeft = sheen ? topLeft : style.bottom_color;
-                    const D3DCOLOR bottomRight = sheen ? topRight : style.bottom_color;
-                    AppendFadedQuad(vertices, {{{left, top, 0, 1, topLeft, glyph.u0, glyph.v0}, {right, top, 0, 1, topRight, glyph.u1, glyph.v0},
-                        {left, bottom, 0, 1, bottomLeft, glyph.u0, glyph.v1}, {right, bottom, 0, 1, bottomRight, glyph.u1, glyph.v1}}}, this->clip_bounds_, this->vertical_fade_);
+                    if (sheen || style.top_color == style.bottom_color)
+                    {
+                        const D3DCOLOR topLeft = sheen ? SheenColor(style.sheen.color, left, sheenCenter, style.sheen.width) : style.top_color;
+                        const D3DCOLOR topRight = sheen ? SheenColor(style.sheen.color, right, sheenCenter, style.sheen.width) : style.top_color;
+                        AppendFadedQuad(vertices, {{{left, top, 0, 1, topLeft, glyph.u0, glyph.v0}, {right, top, 0, 1, topRight, glyph.u1, glyph.v0},
+                            {left, bottom, 0, 1, topLeft, glyph.u0, glyph.v1}, {right, bottom, 0, 1, topRight, glyph.u1, glyph.v1}}}, this->clip_bounds_, this->vertical_fade_);
+                    }
+                    else
+                    {
+                        // Map the gradient to the text line, not the padded glyph bitmap, so both colors stay visible.
+                        const float cuts[]{top, std::clamp(lineTop, top, bottom), std::clamp(lineBottom, top, bottom), bottom};
+                        const auto color = [&](const float at) { return LerpColor(style.top_color, style.bottom_color, (at - lineTop) / (lineBottom - lineTop)); };
+                        const auto v = [&](const float at) { return glyph.v0 + (glyph.v1 - glyph.v0) * (at - top) / (bottom - top); };
+                        for (size_t band = 0; band < 3; ++band)
+                        {
+                            const float a = cuts[band], b = cuts[band + 1];
+                            if (b <= a) continue;
+                            AppendFadedQuad(vertices, {{{left, a, 0, 1, color(a), glyph.u0, v(a)}, {right, a, 0, 1, color(a), glyph.u1, v(a)},
+                                {left, b, 0, 1, color(b), glyph.u0, v(b)}, {right, b, 0, 1, color(b), glyph.u1, v(b)}}}, this->clip_bounds_, this->vertical_fade_);
+                        }
+                    }
                 }
             }
             advance += metrics.advance + static_cast<double>(tracking);

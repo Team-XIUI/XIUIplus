@@ -176,6 +176,17 @@ namespace xiui::ui
         return std::max(18.0f, text.style.scale * 20) * (details ? 2 : 1) + (textOnly ? 0 : height + 4) + 4;
     }
 
+    namespace
+    {
+        // Timers borrow the resource bar's shape; its glow belongs to that resource, not the timer.
+        auto TimerStyle(meter_style style, const float height) -> meter_style
+        {
+            style.height = height;
+            style.glow_enabled = style.fill_glow_enabled = false;
+            return style;
+        }
+    }
+
     auto DrawTiming(const attack_prediction& timer, const char* name, const char* details, const rect& bounds,
         const meter_style& meter, const module_text_profile& profile, const float height, const bool textOnly, const bool drain,
         const D3DCOLOR color, const D3DCOLOR ready, const float readySeconds, const module_render_context& context) -> float
@@ -195,7 +206,7 @@ namespace xiui::ui
         float y = bounds.y + lineHeight;
         if (!textOnly)
         {
-            auto style = meter; style.height = height;
+            const auto style = TimerStyle(meter, height);
             context.DrawBar({bounds.x, y, bounds.width, height + 2}, drain ? 1 - timer.ratio : timer.ratio,
                 MeterGradientTop(tint), tint, 0, style);
             y += height + 4;
@@ -212,7 +223,7 @@ namespace xiui::ui
         const module_text_profile& profile, const int textMode, const bool drain, const D3DCOLOR color, const module_render_context& context) -> float
     {
         if (!timer.active) return 0;
-        auto style = meter; style.height = bounds.height;
+        const auto style = TimerStyle(meter, bounds.height);
         context.DrawBar(bounds, drain ? 1 - timer.ratio : timer.ratio, MeterGradientTop(color), color, 0, style);
         float y = bounds.y;
         if (textMode > 0)

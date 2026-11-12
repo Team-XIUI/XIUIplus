@@ -498,7 +498,9 @@ namespace xiui
         const auto hpValue = this->settings_.show_values ? FormatPartyResource(hp.current, hp.percent, hp.maximum, true, this->settings_.hp_display) : std::string{};
         const auto mpValue = this->settings_.show_values ? FormatPartyResource(mp.current, mp.percent, mp.maximum, true, this->settings_.mp_display) : std::string{};
         const auto tpValue = this->settings_.show_values ? std::to_string(snapshot.tp) : std::string{};
-        auto hpTop = xiv1 ? 0xFFD8C1B6 : this->settings_.hp_color_top, hpBottom = xiv1 ? 0xFFBC7160 : this->settings_.hp_color;
+        auto hpTop = this->settings_.hp_color_top, hpBottom = this->settings_.hp_color;
+        auto mpTop = this->settings_.mp_color_top, mpBottom = this->settings_.mp_color;
+        if (xiv1) { ui::Xiv1ResourceFill(0, hpTop, hpBottom); ui::Xiv1ResourceFill(1, mpTop, mpBottom); }
         const bool hpKnown = hp.maximum != 0 || (this->source_ != nullptr && this->source_->Available());
         auto hpText = hpKnown ? TintTextProfile(this->settings_.value_text, ui::HPValueColor(hp.percent)) : this->settings_.value_text;
         const auto hpState = hp.maximum != 0 ? PlayerHPState(hp.current, hp.maximum, this->settings_.hp_warning, this->settings_.hp_critical) :
@@ -572,7 +574,7 @@ namespace xiui
                 ranges = MPPreviewRanges(preview, mp.current, mp.maximum, preview.player_id, sampledAt, context.Design().GetTheme());
             }
             context.DrawMeter(meterBounds(rows[1], mpStyle), !xiv1 && this->settings_.show_labels ? i18n::Text("MP") : "", xiv1 ? "" : mpValue.c_str(),
-                mp.ratio, xiv1 ? 0xFFD5DDB0 : this->settings_.mp_color_top, xiv1 ? 0xFF9FAE58 : this->settings_.mp_color, mpStyle,
+                mp.ratio, mpTop, mpBottom, mpStyle,
                 this->mp_animation_, true, &this->settings_.mp_label_text, &this->settings_.mp_value_text,
                 ui::meter_text_anchor::automatic, ui::meter_text_anchor::automatic, meter_fill_mode::single, {}, ranges);
         }

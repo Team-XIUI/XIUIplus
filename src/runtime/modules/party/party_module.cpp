@@ -1388,11 +1388,7 @@ namespace xiui
             }
             auto fill = this->fills_[index];
             auto fillTop = this->fill_tops_[index];
-            if (this->xiv1_theme_ && index < 2)
-            {
-                fillTop = index == 0 ? 0xFFD8C1B6 : 0xFFD5DDB0;
-                fill = index == 0 ? 0xFFBC7160 : 0xFF9FAE58;
-            }
+            if (this->xiv1_theme_) ui::Xiv1ResourceFill(index, fillTop, fill);
             if (member.distance_known && member.distance > 20.8f)
             {
                 const auto alpha = static_cast<uint32_t>(member.distance > 50 ? 115 : 178);

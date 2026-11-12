@@ -12,6 +12,16 @@ namespace xiui::ui
     inline auto Xiv1ResourceTrack(const rect& row, const size_t index) -> rect
     { return {row.x, row.y + 1, row.width, Xiv1ResourceHeight(index)}; }
 
+    // XIV 1.0 HP/MP fills replace each color still at the shared XIUI+ default; customized colors stay.
+    inline auto Xiv1ResourceFill(const size_t index, D3DCOLOR& top, D3DCOLOR& bottom) -> void
+    {
+        if (index > 1) return;
+        constexpr D3DCOLOR defaultTop[]{0xFF723638, 0xFF556438}, defaultBottom[]{0xFFFF797D, 0xFFBFE07D};
+        constexpr D3DCOLOR themeTop[]{0xFFD8C1B6, 0xFFD5DDB0}, themeBottom[]{0xFFBC7160, 0xFF9FAE58};
+        if (top == defaultTop[index]) top = themeTop[index];
+        if (bottom == defaultBottom[index]) bottom = themeBottom[index];
+    }
+
     inline auto Xiv1ResourceLabel(module_text_profile source) -> module_text_profile
     {
         source = TintTextProfile(source, 0xFFE3D2A0);

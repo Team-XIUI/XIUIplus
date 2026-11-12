@@ -1,6 +1,7 @@
 #include "modules/player/player_module.hpp"
 #include "modules/party/party_source.hpp"
 #include "ui/health_colors.hpp"
+#include "ui/xiv1_resource_layout.hpp"
 
 #include <cstdio>
 #include <stdexcept>
@@ -25,6 +26,14 @@ namespace xiui
         using namespace xiui;
         try
         {
+            D3DCOLOR top = 0xFF723638, bottom = 0xFFFF797D; ui::Xiv1ResourceFill(0, top, bottom);
+            Check(top == 0xFFD8C1B6 && bottom == 0xFFBC7160, "XIV 1.0 replaces default HP fills with its palette");
+            top = 0xFF102030; bottom = 0xFFFF797D; ui::Xiv1ResourceFill(0, top, bottom);
+            Check(top == 0xFF102030 && bottom == 0xFFBC7160, "customized HP Fill top survives the XIV 1.0 palette");
+            top = 0xFF556438; bottom = 0xFF405060; ui::Xiv1ResourceFill(1, top, bottom);
+            Check(top == 0xFFD5DDB0 && bottom == 0xFF405060, "customized MP Fill bottom survives the XIV 1.0 palette");
+            top = 0xFF723638; bottom = 0xFFFF797D; ui::Xiv1ResourceFill(2, top, bottom);
+            Check(top == 0xFF723638 && bottom == 0xFFFF797D, "TP fills are not replaced by the HP/MP palette");
             player_module defaults;
             defaults.Load(settings_store::FromIniText("[player]\nhp_display=4\nmp_display=4\n"));
             Check(defaults.Settings().hp_display == 0 && defaults.Settings().mp_display == 0,
