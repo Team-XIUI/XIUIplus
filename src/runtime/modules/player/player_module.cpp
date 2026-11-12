@@ -511,6 +511,53 @@ namespace xiui
         }
         const auto tpText = this->settings_.tp_ready_text && snapshot.tp >= 1000 ?
             TintTextProfile(this->settings_.tp_value_text, this->settings_.tp_ready_color) : this->settings_.tp_value_text;
+
+        const double now = ::GetTickCount64() / 1000.0;
+        auto attack = this->timing_ != nullptr ? this->timing_->Player(now) : attack_prediction{};
+        auto recovery = this->timing_ != nullptr ? this->timing_->Recovery().Predict(now) : attack_prediction{};
+        if (context.IsEditing())
+        {
+            attack = {true, true, false, 0.6f, 1.6f, 4};
+            recovery = {true, true, false, 0.4f, 5.4f, 9};
+        }
+        const bool attackShown = this->timers_.attack && attack.active;
+        const bool recoveryShown = this->timers_.resting && recovery.active && (context.IsEditing() || !this->timers_.hide_full || !this->timing_->Recovery().Full());
+        ui::rect timer{panel.x + 6 + this->timers_.offset_x, panel.y + panel.height + this->timers_.spacing + this->timers_.offset_y, panel.width - 12, 0};
+        const auto drawAttack = [&] {
+            const auto tp = context.IsEditing() ? tp_prediction{4, 7, 13.6f, 65, false} : this->timing_->TP(this->timers_.Goal(), now);
+            const auto bounds = this->AttackTimerBounds(snapshot);
+            const auto details = ui::TPDetails(tp, this->timers_.Goal(), this->timers_, this->timers_.attack_layout == 2);
+            const bool soon = attack.known && (attack.state.empty() || attack.state == "Ready") && attack.seconds <= this->timers_.ready_seconds;
+            const auto text = soon ? TintTextProfile(this->timers_.attack_text, this->timers_.ready_color) : this->timers_.attack_text;
+            const float height = this->timers_.attack_layout == 2 ? ui::DrawMiniTiming(attack, details.c_str(), bounds, this->settings_.tp_style,
+                text, this->timers_.mini_text, this->timers_.direction == 1, soon ? this->timers_.ready_color : this->timers_.attack_color, context) :
+                ui::DrawTiming(attack, "Attack", details.c_str(), bounds, this->settings_.tp_style, this->timers_.attack_text,
+                    this->timers_.height, this->timers_.display == 1, this->timers_.direction == 1, this->timers_.attack_color,
+                    this->timers_.ready_color, this->timers_.ready_seconds, context);
+            timer.y = std::max(timer.y, bounds.y + height + this->timers_.spacing);
+        };
+        const auto drawRecovery = [&] {
+            const auto details = context.IsEditing() ? std::string{"Last tick: HP +24  MP +18  Goal ~28s"} : ui::RecoveryDetails(this->timing_->Recovery(), now, this->timers_);
+            const auto observed = this->timing_ != nullptr ? this->timing_->Recovery().LastObservedTick() : 0;
+            const bool flash = this->timers_.flash && observed > 0 && now - observed < 0.35;
+            const auto color = flash ? this->timers_.ready_color : this->timers_.rest_color;
+            auto bounds = this->RecoveryTimerBounds(snapshot);
+            if (this->timers_.recovery_layout == 0) bounds.y = timer.y;
+            else if (this->timers_.recovery_layout == 1 && attackShown && this->timers_.attack_layout == 1)
+                bounds.y = this->AttackTimerBounds(snapshot).y - bounds.height - this->timers_.spacing;
+            if (this->timers_.recovery_layout == 2)
+            {
+                const auto text = flash ? TintTextProfile(this->timers_.rest_text, this->timers_.ready_color) : this->timers_.rest_text;
+                ui::DrawMiniTiming(recovery, details.c_str(), bounds, this->settings_.hp_style, text, this->timers_.recovery_mini_text,
+                    this->timers_.direction == 1, color, context);
+            }
+            else ui::DrawTiming(recovery, "Resting tick", details.c_str(), bounds, this->settings_.hp_style, this->timers_.rest_text,
+                this->timers_.height, this->timers_.display == 1, this->timers_.direction == 1, color, color, 0, context);
+        };
+        // Mini bars sit in the caption space above HP/TP; draw them before the meters so labels stay readable.
+        if (attackShown && this->timers_.attack_layout == 2) drawAttack();
+        if (recoveryShown && this->timers_.recovery_layout == 2) drawRecovery();
+
         this->hp_animation_.Bind((uint64_t{snapshot.hp_max} << 32) | (this->source_ != nullptr ? this->source_->Members()[0].id : 0));
         const auto healRanges = this->settings_.heal_preview.Ranges(this->heal_prediction_, this->source_ != nullptr ? this->source_->Members()[0].id : 0, ::GetTickCount64(), hp.ratio);
         context.DrawMeter(meterBounds(rows[0], hpStyle), !xiv1 && this->settings_.show_labels ? i18n::Text("HP") : "", xiv1 ? "" : hpValue.c_str(), hp.ratio, hpTop, hpBottom, hpStyle, this->hp_animation_, true, &this->settings_.label_text, &hpText,
@@ -568,48 +615,7 @@ namespace xiui
         }
         this->state_.content_bounds = {footprint.x - panel.x, footprint.y - panel.y, footprint.width, footprint.height};
 
-        const double now = ::GetTickCount64() / 1000.0;
-        auto attack = this->timing_ != nullptr ? this->timing_->Player(now) : attack_prediction{};
-        auto recovery = this->timing_ != nullptr ? this->timing_->Recovery().Predict(now) : attack_prediction{};
-        if (context.IsEditing())
-        {
-            attack = {true, true, false, 0.6f, 1.6f, 4};
-            recovery = {true, true, false, 0.4f, 5.4f, 9};
-        }
-        ui::rect timer{panel.x + 6 + this->timers_.offset_x, panel.y + panel.height + this->timers_.spacing + this->timers_.offset_y, panel.width - 12, 0};
-        if (this->timers_.attack && attack.active)
-        {
-            const auto tp = context.IsEditing() ? tp_prediction{4, 7, 13.6f, 65, false} : this->timing_->TP(this->timers_.Goal(), now);
-            const auto bounds = this->AttackTimerBounds(snapshot);
-            const auto details = ui::TPDetails(tp, this->timers_.Goal(), this->timers_, this->timers_.attack_layout == 2);
-            const bool soon = attack.known && (attack.state.empty() || attack.state == "Ready") && attack.seconds <= this->timers_.ready_seconds;
-            const auto text = soon ? TintTextProfile(this->timers_.attack_text, this->timers_.ready_color) : this->timers_.attack_text;
-            const float height = this->timers_.attack_layout == 2 ? ui::DrawMiniTiming(attack, details.c_str(), bounds, this->settings_.tp_style,
-                text, this->timers_.mini_text, this->timers_.direction == 1, soon ? this->timers_.ready_color : this->timers_.attack_color, context) :
-                ui::DrawTiming(attack, "Attack", details.c_str(), bounds, this->settings_.tp_style, this->timers_.attack_text,
-                    this->timers_.height, this->timers_.display == 1, this->timers_.direction == 1, this->timers_.attack_color,
-                    this->timers_.ready_color, this->timers_.ready_seconds, context);
-            timer.y = std::max(timer.y, bounds.y + height + this->timers_.spacing);
-        }
-        if (this->timers_.resting && recovery.active && (context.IsEditing() || !this->timers_.hide_full || !this->timing_->Recovery().Full()))
-        {
-            const auto details = context.IsEditing() ? std::string{"Last tick: HP +24  MP +18  Goal ~28s"} : ui::RecoveryDetails(this->timing_->Recovery(), now, this->timers_);
-            const auto observed = this->timing_ != nullptr ? this->timing_->Recovery().LastObservedTick() : 0;
-            const bool flash = this->timers_.flash && observed > 0 && now - observed < 0.35;
-            const auto color = flash ? this->timers_.ready_color : this->timers_.rest_color;
-            auto bounds = this->RecoveryTimerBounds(snapshot);
-            if (this->timers_.recovery_layout == 0) bounds.y = timer.y;
-            else if (this->timers_.recovery_layout == 1 && this->timers_.attack && attack.active && this->timers_.attack_layout == 1)
-                bounds.y = this->AttackTimerBounds(snapshot).y - bounds.height - this->timers_.spacing;
-            if (this->timers_.recovery_layout == 2)
-            {
-                const auto text = flash ? TintTextProfile(this->timers_.rest_text, this->timers_.ready_color) : this->timers_.rest_text;
-                ui::DrawMiniTiming(recovery, details.c_str(), bounds, this->settings_.hp_style, text, this->timers_.recovery_mini_text,
-                    this->timers_.direction == 1, color, context);
-            }
-            else ui::DrawTiming(recovery, "Resting tick", details.c_str(), bounds, this->settings_.hp_style, this->timers_.rest_text,
-                this->timers_.height, this->timers_.display == 1, this->timers_.direction == 1, color, color, 0, context);
-        }
-
+        if (attackShown && this->timers_.attack_layout != 2) drawAttack();
+        if (recoveryShown && this->timers_.recovery_layout != 2) drawRecovery();
     }
 } // namespace xiui

@@ -1648,10 +1648,12 @@ namespace xiui
                     state.player.x, state.player.y, state.markers.size(), this->minimap_maps_.Count(), this->minimap_maps_.SourceName());
             return true;
         }
-        else if (::_stricmp(command, "minimap") == 0)
+        else if (::_stricmp(command, "minimap") == 0 || ::_stricmp(command, "player") == 0)
         {
-            this->SelectConfigModule(&this->minimap_);
-            this->SetVisible(true); this->SetEditing(true); return true;
+            // Opening Configuration clears the selected-module preview, so select afterwards.
+            this->SetVisible(true); this->SetEditing(true);
+            this->SelectConfigModule(::_stricmp(command, "player") == 0 ? static_cast<hud_module*>(&this->player_) : &this->minimap_);
+            return true;
         }
         else if (::_stricmp(command, "commands") == 0 || ::_stricmp(command, "menu") == 0 || ::_stricmp(command, "compass") == 0 || ::_stricmp(command, "world") == 0 || ::_stricmp(command, "weather") == 0 || ::_stricmp(command, "clock") == 0)
         {

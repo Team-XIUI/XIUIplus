@@ -12,7 +12,7 @@ HP and MP default to current numbers without the maximum. A versioned migration 
 
 The global XIV 1.0 theme resolves 12-pixel copper gauges, salmon HP, olive MP and blue TP, with text centered over the lower rim. TP uses a single 0–3000 fill with 1000/2000 threshold marks and the same bar/value sizing as HP/MP. `ui/xiv1_resource_layout.hpp` shares champagne-gold labels and lining italic values with Party. Saved styles and formats remain intact, and Show Labels still applies. Mini timing anchors use the resolved tracks.
 
-Mini attack and recovery bars sit immediately above TP and HP, respectively, with zero default gap. Optional mini text sits above the timer. The old matching two-pixel gap migrates once; later custom gaps and timer offsets remain active.
+Mini attack and recovery bars sit immediately above TP and HP, respectively, with zero default gap. They draw before the meters so HP/TP labels stay on top. Optional mini text sits above the timer. `/xiuiplus player` opens Player Bar settings with the sample timers previewed. The old matching two-pixel gap migrates once; later custom gaps and timer offsets remain active.
 
 **Focused check:** `./scripts/check.ps1 -Name player-resources`; use `mp-preview` or `heal-prediction` for overlays.
 
