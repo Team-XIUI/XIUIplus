@@ -1700,30 +1700,35 @@ namespace xiui
         if (layout.completion_rows == 0) return;
         const auto& theme = context.Design().GetTheme();
         const auto& bounds = layout.completion;
-        context.Design().FillRect(bounds, theme.colors.chrome | 0xFF000000);
-        ui::container_style style{}; style.padding = 3;
-        context.DrawContainer(bounds, style);
+        // Match this window's Background, Frame and Opacity; DrawLog leaves the covered rows empty.
+        this->DrawWindowContainer(context, bounds);
         auto text = ChatThemeProfile(context.Design(), this->chrome_);
         text.placement = 0; text.offset_x = text.offset_y = 0; text.style.alignment = ui::text_alignment::left;
         const size_t selected = this->editor_.CompletionIndex();
         const size_t first = selected / layout.completion_rows * layout.completion_rows;
         const auto& matches = this->editor_.Completions();
-        char title[80]{};
-        std::snprintf(title, sizeof(title), "Completion  %zu-%zu / %zu", first + 1, std::min(first + layout.completion_rows, matches.size()), matches.size());
+        const auto title = i18n::Format("Completion  %zu-%zu / %zu", first + 1, std::min(first + layout.completion_rows, matches.size()), matches.size());
         const ui::rect header{bounds.x + 9, bounds.y + 4, bounds.width - 18, 18};
-        context.DrawText(title, header, header, text);
+        context.DrawText(title.c_str(), header, header, text);
+        const auto kindLabel = [](const chat_completion_kind kind) {
+            return i18n::Text(kind == chat_completion_kind::auto_translate ? "Auto-translate" : kind == chat_completion_kind::command ? "Command" :
+                kind == chat_completion_kind::player ? "Player" : "Text");
+        };
+        auto badge = text; badge.style.scale *= 0.8f; badge.style.alignment = ui::text_alignment::right;
+        float badgeWidth{};
+        for (size_t row = 0; row < layout.completion_rows && first + row < matches.size(); ++row)
+            badgeWidth = std::max(badgeWidth, context.Design().MeasureText(kindLabel(matches[first + row].kind), badge.style) + 4);
+        badgeWidth = std::min(badgeWidth, (bounds.width - 12) * 0.5f);
         for (size_t row = 0; row < layout.completion_rows && first + row < matches.size(); ++row)
         {
             const auto& match = matches[first + row];
             const ui::rect at{bounds.x + 6, bounds.y + 24 + row * layout.completion_row_height, bounds.width - 12, layout.completion_row_height};
             if (first + row == selected) context.Design().FillRect(at, theme.colors.selected | 0xB0000000);
-            const ui::rect label{at.x + 5, at.y, std::max(1.0f, at.width - 95), at.height};
+            const ui::rect label{at.x + 5, at.y, std::max(1.0f, at.width - badgeWidth - 17), at.height};
             const auto name = match.kind == chat_completion_kind::auto_translate ? std::string{chat_cap_open} + match.label + std::string{chat_cap_close} : match.label;
             DrawThemedChatText(context, name, label, TintTextProfile(text, theme.colors.text));
-            auto badge = text; badge.style.scale *= 0.8f; badge.style.alignment = ui::text_alignment::right;
-            const auto* kind = match.kind == chat_completion_kind::auto_translate ? "Auto-translate" : match.kind == chat_completion_kind::command ? "Command" : match.kind == chat_completion_kind::player ? "Player" : "Text";
-            const ui::rect badgeBounds{at.x + at.width - 90, at.y, 84, at.height};
-            context.DrawText(kind, badgeBounds, badgeBounds, badge);
+            const ui::rect badgeBounds{at.x + at.width - 6 - badgeWidth, at.y, badgeWidth, at.height};
+            context.DrawText(kindLabel(match.kind), badgeBounds, badgeBounds, badge);
         }
         auto help = text; help.style.scale *= 0.78f;
         const ui::rect footer{bounds.x + 9, bounds.y + bounds.height - 20, bounds.width - 18, 16};
@@ -1740,7 +1745,7 @@ namespace xiui
         return span.name ? ChatNameColor(color) : color;
     }
 
-    auto chat_module::DrawLog(const hud_snapshot& snapshot, const module_render_context& context, const ui::rect& log, const ui::rect& scrollbar) -> void
+    auto chat_module::DrawLog(const hud_snapshot& snapshot, const module_render_context& context, const ui::rect& log, const ui::rect& scrollbar, const float coveredFrom) -> void
     {
         const auto now = ::GetTickCount64();
         const auto& theme = context.Design().GetTheme();
@@ -1775,7 +1780,9 @@ namespace xiui
             begin = std::max(begin, std::min(visibleBegin, static_cast<size_t>(first - this->rows_.begin())));
         }
         {
-            const auto clip = context.Design().Clip(logClip);
+            auto drawClip = logClip;
+            if (coveredFrom > drawClip.y) drawClip.height = std::min(drawClip.height, coveredFrom - drawClip.y);
+            const auto clip = context.Design().Clip(drawClip);
             const auto fade = context.Design().FadeTop(log.y, std::min(12.0f, lineHeight * .6f));
             float y = log.y + log.height - static_cast<float>(end - begin) * lineHeight + scrollOffset;
             for (size_t index = begin; index < end; ++index, y += lineHeight)
@@ -1855,7 +1862,7 @@ namespace xiui
             const ui::rect label{layout.tabs[index].x + 5.0f, layout.tabs[index].y, layout.tabs[index].width - 10.0f, layout.tabs[index].height};
             if (this->tabs_[index].unread > 0) context.Design().FillRect({label.x + label.width - 1.0f, label.y + 3.0f, 3.0f, 3.0f}, theme.colors.accent);
         }
-        if (frame.height > 0) this->DrawLog(snapshot, context, layout.log, layout.scrollbar);
+        if (frame.height > 0) this->DrawLog(snapshot, context, layout.log, layout.scrollbar, layout.completion_rows > 0 ? layout.completion.y : 0.0f);
         const auto& tab = this->tabs_[this->active_tab_];
         if (this->HistoryFocused())
         {

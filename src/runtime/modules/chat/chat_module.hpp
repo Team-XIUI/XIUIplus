@@ -304,7 +304,8 @@ namespace xiui
             if (!this->HistoryExpanded()) return this->active_tab_;
             return this->history_view_.tab == 0 && this->CombinedHistory() ? 200 : static_cast<int>(100 + this->history_view_.tab);
         }
-        auto DrawLog(const hud_snapshot& snapshot, const module_render_context& context, const ui::rect& log, const ui::rect& scrollbar) -> void;
+        // Rows at or below coveredFrom are hidden behind an open completion list.
+        auto DrawLog(const hud_snapshot& snapshot, const module_render_context& context, const ui::rect& log, const ui::rect& scrollbar, float coveredFrom = 0.0f) -> void;
         auto DrawWindowContainer(const module_render_context& context, const ui::rect& bounds) const -> void;
         auto HandleHistoryMouse(uint32_t message, WPARAM wParam, float x, float y, const ui::design_system& design) -> bool;
         auto HistorySoundTarget(const ui::design_system& design, float x, float y) const -> uint32_t;
