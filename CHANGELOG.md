@@ -2,6 +2,8 @@
 
 ## Unreleased
 
+- Fonts: every font installed on your PC can now be chosen for HUD text, Global Text, notifications and the configuration window, including Consolas and the rest of XIUI Legacy's Windows fonts. Text elements and Global Text also gain **Font weight** (Default, Regular or Bold) and **Italic**. In a font list, type a letter to jump to fonts starting with it, or use Page Up/Down; controller shoulder buttons page the list.
+
 - Macro waits: `<wait3.6>` written without a space now waits like `<wait 3.6>`. Before, a macro using it sent every line at once, so only the first ranged attack fired and the final `/echo` showed immediately.
 
 - Item and status icons: fix Equipment, Satchel, Action Bars and native status icons showing blank or slot names on Ashita builds that store icons as complete .bmp files or report a different icon size. `/xiuiplus equipment status` reports how many equipped icons loaded and the bitmap details of the first one that did not.

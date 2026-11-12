@@ -63,6 +63,13 @@ namespace xiui
             this->config_.choice_input.Move(key == VK_UP ? -1 : key == VK_DOWN ? 1 : key == VK_HOME ? -4096 : 4096);
             this->ui_sounds_.Play(ui::native_ui_sound::hover);
         }
+        else if (key == VK_PRIOR || key == VK_NEXT)
+        {
+            this->config_.choice_input.Page(key == VK_PRIOR ? -1 : 1);
+            this->ui_sounds_.Play(ui::native_ui_sound::hover);
+        }
+        else if (((key >= 'A' && key <= 'Z') || (key >= '0' && key <= '9')) && this->config_.choice_input.Jump(static_cast<char>(key)))
+            this->ui_sounds_.Play(ui::native_ui_sound::hover);
         return true;
     }
 

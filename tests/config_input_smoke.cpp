@@ -199,6 +199,12 @@ int main(int argc, char** argv)
         std::puts("Global text controls, all-module updates, independent overrides, profile persistence and embedded Grammara font passed.");
         return 0;
     }
+    if (argc == 2 && std::strcmp(argv[1], "--fonts-only") == 0)
+    {
+        if (!xiui::config_input_test::FontChoices()) return 1;
+        std::puts("Installed font list, saved families, missing-font fallback, weight, italic, chat weight and dropdown navigation passed.");
+        return 0;
+    }
     if (argc == 2 && std::strcmp(argv[1], "--target-recipient-theme-only") == 0)
     {
         if (!xiui::config_input_test::TargetOfTargetThemeDefaults()) return 1;

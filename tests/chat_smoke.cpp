@@ -148,7 +148,7 @@ namespace xiui
                 "name brightness preserves message hue and alpha without clipping white");
             ui::design_system design; design.SetAppearanceTheme(ui::xiv1_appearance);
             auto selectedStyle = ui::theme::CreateDefault().body_text;
-            for (int font = 1; font < ui::font_count; ++font)
+            for (int font = 1; font < ui::builtin_font_count; ++font)
             {
                 selectedStyle.font = font;
                 const auto resolved = ChatThemeStyle(design, selectedStyle);

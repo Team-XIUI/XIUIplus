@@ -6,8 +6,13 @@
 
 namespace xiui
 {
-    inline auto ChatRunWeight(const ui::design_system& design, const bool emphasis) -> ui::font_weight
-    { return emphasis ? ui::font_weight::bold : design.IsXiv1Theme() ? ui::font_weight::medium : ui::font_weight::regular; }
+    // Emphasis stays bold; a saved text weight replaces the chat body weight.
+    inline auto ChatRunWeight(const ui::design_system& design, const bool emphasis, const ui::text_style& style = {}) -> ui::font_weight
+    {
+        if (emphasis) return ui::font_weight::bold;
+        if (style.weight_choice != ui::text_weight_default) return style.ChosenWeight();
+        return design.IsXiv1Theme() ? ui::font_weight::medium : ui::font_weight::regular;
+    }
 
     inline auto ChatThemeStyle(const ui::design_system& design, const ui::text_style& style, const bool tab = false) -> ui::text_style
     {
@@ -27,7 +32,7 @@ namespace xiui
     inline auto ChatInputStyle(const ui::design_system& design, const ui::text_style& style) -> ui::text_style
     {
         auto result = ChatThemeStyle(design, style);
-        result.weight = ChatRunWeight(design, false);
+        result.weight = ChatRunWeight(design, false, style);
         return result;
     }
 

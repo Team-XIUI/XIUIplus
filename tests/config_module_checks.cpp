@@ -152,7 +152,7 @@ namespace xiui
         const auto entry = party.LayoutEntry(row, true, {true, true, true, true});
         ui::design_system design;
         module_render_context context{design, nullptr, true};
-        for (int font = 0; font < ui::font_count; ++font)
+        for (int font = 0; font < ui::builtin_font_count; ++font)
         {
             auto& profile = party.text_[party_module::tp_text];
             profile.style.font = font; profile.style.scale = 0.867f;

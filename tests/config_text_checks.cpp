@@ -1,4 +1,5 @@
 #include "config_input_fixture.hpp"
+#include "modules/chat/chat_theme.hpp"
 
 namespace xiui
 {
@@ -284,7 +285,7 @@ namespace xiui
         if (!check(sizes && styles > 70, "global size reaches hidden modules, both chat windows, alliances, timers and recipient text")) return false;
         name.style.scale = 0.8f;
         const auto family = runtime.general_.Option(sizeIndex + 1);
-        if (!check(family.kind == module_option_kind::dropdown && family.choice_count == ui::font_count && std::strcmp(family.choices[3], "Grammara") == 0,
+        if (!check(family.kind == module_option_kind::dropdown && family.choice_count == static_cast<size_t>(ui::FontCount()) && ui::FontCount() > ui::builtin_font_count && std::strcmp(family.choices[3], "Grammara") == 0,
             "global fonts include all bundled and Windows faces")) return false;
         *family.choice = 3; runtime.general_.OnOptionChanged(sizeIndex + 1);
         bool fonts = true;
@@ -359,5 +360,126 @@ namespace xiui
         char actual[LF_FACESIZE]{}; ::GetTextFaceA(dc, LF_FACESIZE, actual);
         ::SelectObject(dc, previous); ::DeleteObject(font); ::DeleteDC(dc);
         return check(::_stricmp(actual, "Grammara") == 0, "Grammara resolves to its own face rather than a Windows fallback");
+    }
+
+    auto config_input_test::FontChoices(void) -> bool
+    {
+        const auto names = ui::FontNames();
+        const auto find = [&](const char* label) {
+            for (int index = 0; index < ui::FontCount(); ++index) if (std::strcmp(names[index], label) == 0) return index;
+            return -1;
+        };
+        bool legacy = true;
+        for (const char* family : {"Arial", "Calibri", "Consolas", "Courier New", "Georgia", "Lucida Console", "Microsoft Sans Serif",
+            "Segoe UI", "Tahoma", "Times New Roman", "Trebuchet MS", "Verdana"})
+            legacy &= find(family) >= 0;
+        const int consolas = find("Consolas"), arial = find("Arial");
+        if (!check(legacy && consolas >= ui::builtin_font_count && find("Bahnschrift") < 0 && find("Segoe UI") == 1 &&
+            ui::FontFamilyIndex("consolas") == consolas && ui::FontFamily(consolas) == "Consolas" && ui::FontFamily(2).empty() &&
+            std::strcmp(names[0], "XIUI+ (Bahnschrift)") == 0 && arial < consolas,
+            "installed Windows fonts, including every XIUI Legacy family, follow the XIUI+ faces once and in name order")) return false;
+
+        auto store = settings_store::FromIniText("");
+        ui::text_style style{}; style.font = consolas; style.font_explicit = true; style.weight_choice = ui::text_weight_regular; style.italic = true;
+        SaveTextStyle(store, "fonts.installed", style);
+        const auto loaded = LoadTextStyle(store, "fonts.installed", {});
+        if (!check(loaded.font == consolas && loaded.font_explicit && loaded.weight_choice == ui::text_weight_regular && loaded.italic &&
+            store.ReadInt("fonts.installed", "font", -1) == 0 && store.ReadString("fonts.installed", "font_family") == "Consolas",
+            "installed fonts save by family with weight and italic, and older builds read the XIUI+ face")) return false;
+        style.font = 2; SaveTextStyle(store, "fonts.installed", style);
+        SaveTextStyle(store, "fonts.builtin", ui::text_style{});
+        if (!check(LoadTextStyle(store, "fonts.installed", {}).font == 2 && store.ReadString("fonts.installed", "font_family", "kept").empty() &&
+            store.ReadString("fonts.builtin", "font_family", "absent") == "absent",
+            "returning to a built-in face clears its family, and sections that never used one gain no key")) return false;
+
+        store.WriteString("fonts.shared", "font_family", "XIUI Missing Test Font");
+        const auto missing = LoadTextStyle(store, "fonts.shared", {});
+        SaveTextStyle(store, "fonts.shared", missing);
+        ui::text_rasterizer rasterizer;
+        if (!check(missing.font >= ui::builtin_font_count && ui::FontFamily(missing.font) == "XIUI Missing Test Font" &&
+            ui::FontFamilyIndex("xiui missing test font") == missing.font && store.ReadString("fonts.shared", "font_family") == "XIUI Missing Test Font" &&
+            !rasterizer.Metrics(missing.font, 15).available && rasterizer.Rasterize(missing.font, 15, 'W').has_value() &&
+            ui::FontFamilyIndex("") == 0 && ui::FontFamilyIndex(std::string(40, 'x')) == 0,
+            "a shared profile's missing font keeps its saved name and draws with the XIUI+ face")) return false;
+
+        const auto coverage = [&](const ui::font_variant variant) {
+            const auto glyph = rasterizer.Rasterize(consolas, 15, 'W', variant);
+            return glyph ? glyph->masks[0] : std::vector<uint8_t>{};
+        };
+        const auto sum = [](const std::vector<uint8_t>& mask) { size_t total{}; for (const auto value : mask) total += value; return total; };
+        const auto regular = coverage(ui::font_weight::regular), bold = coverage(ui::font_weight::bold), slanted = coverage({ui::font_weight::regular, true});
+        if (!check(rasterizer.Metrics(consolas, 15).available && !regular.empty() && sum(bold) > sum(regular) + sum(regular) / 10 &&
+            slanted.size() == regular.size() && slanted != regular,
+            "installed fonts render their own bold and italic glyphs")) return false;
+
+        // Tall-metric families such as Noto Sans would otherwise resize HUD rows and drop values onto their bars.
+        bool boxes = true, unclipped = true, symbols{};
+        int measured{};
+        for (int index = ui::builtin_font_count; index < ui::FontCount(); ++index)
+        {
+            symbols = symbols || std::strcmp(names[index], "Wingdings") == 0 || std::strcmp(names[index], "Webdings") == 0;
+            for (const int pixels : {11, 15, 24})
+            {
+                const auto reference = rasterizer.Metrics(0, pixels), metrics = rasterizer.Metrics(index, pixels);
+                if (!metrics.available) continue;
+                ++measured;
+                boxes &= metrics.height == reference.height && metrics.ascent == reference.ascent;
+                for (const uint32_t codepoint : {static_cast<uint32_t>('g'), 0xC5u})
+                {
+                    const auto glyph = rasterizer.Rasterize(index, pixels, codepoint);
+                    if (!glyph) continue;
+                    const auto& mask = glyph->masks[0];
+                    bool clean = true;
+                    for (int x = 0; x < glyph->width; ++x) clean &= mask[x] == 0 && mask[(glyph->height - 1) * glyph->width + x] == 0;
+                    if (!clean) std::fprintf(stderr, "%s clips U+%04X at %dpx\n", names[index], codepoint, pixels);
+                    unclipped &= clean;
+                }
+            }
+        }
+        if (!check(measured > 100 && boxes && unclipped && !symbols,
+            "installed text fonts share the XIUI+ line box and baseline without clipping tall or descending glyphs; symbol fonts are not listed")) return false;
+
+        hud_runtime runtime;
+        const auto start = runtime.general_.GlobalTextStart();
+        const auto global = [&](const text_property property) { return runtime.general_.Option(start + static_cast<size_t>(property)); };
+        const auto weight = global(text_property::weight), italic = global(text_property::italic), font = global(text_property::font);
+        if (!check(weight.kind == module_option_kind::choice && weight.choice_count == 3 && std::strcmp(weight.choices[2], "Bold") == 0 &&
+            italic.kind == module_option_kind::toggle && font.choice_count == static_cast<size_t>(ui::FontCount()),
+            "Global Text offers every font, a weight choice and italic")) return false;
+        *weight.choice = ui::text_weight_bold; runtime.general_.OnOptionChanged(start + static_cast<size_t>(text_property::weight));
+        *italic.toggle = true; runtime.general_.OnOptionChanged(start + static_cast<size_t>(text_property::italic));
+        *font.choice = consolas; runtime.general_.OnOptionChanged(start + static_cast<size_t>(text_property::font));
+        auto& name = runtime.player_.Settings().name_text;
+        const auto nameWeight = TextProfileOption(16, name), nameItalic = TextProfileOption(17, name);
+        if (!check(nameWeight.choice == &name.style.weight_choice && nameItalic.toggle == &name.style.italic && text_profile_option_count == 18,
+            "every module text element exposes its own weight and italic")) return false;
+        *nameWeight.choice = ui::text_weight_regular;
+        const auto variants = [](hud_runtime& hud, const int font, const int chosen, const auto& name) {
+            bool all = true; size_t count{};
+            for (auto* module : hud.modules_.All()) module->VisitTextSettings([&](ui::text_style& style) {
+                ++count; all &= style.font == font && style.italic && (&style == &name.style ? style.weight_choice == ui::text_weight_regular : style.weight_choice == chosen);
+            });
+            return all && count > 70;
+        };
+        hud_runtime restored; restored.LoadSettings(runtime.CaptureSettings());
+        if (!check(variants(runtime, consolas, ui::text_weight_bold, name) && variants(restored, consolas, ui::text_weight_bold, restored.player_.Settings().name_text),
+            "global font, weight and italic reach all HUD text, keep a module override and survive profile reloads")) return false;
+
+        ui::design_system design;
+        auto chatStyle = ui::theme::CreateDefault().body_text; chatStyle.weight_choice = ui::text_weight_bold; chatStyle.italic = true;
+        auto overridden = chatStyle; overridden.weight = ui::font_weight::medium;
+        if (!check(chatStyle.Variant().weight == ui::font_weight::bold && chatStyle.Variant().italic && overridden.Variant().weight == ui::font_weight::medium &&
+            ChatRunWeight(design, false, chatStyle) == ui::font_weight::bold && ChatRunWeight(design, true) == ui::font_weight::bold &&
+            ChatRunWeight(design, false) == ui::font_weight::regular,
+            "chat prose follows a saved weight while emphasis stays bold and code overrides keep precedence")) return false;
+
+        ui::choice_dropdown dropdown; *font.choice = 0; dropdown.Open(font, {0, 0, 120, 24});
+        const auto label = [&] { return std::string{font.ChoiceText(static_cast<size_t>(dropdown.Highlighted()))}; };
+        const bool jumped = dropdown.Jump('c') && (label().front() == 'C' || label().front() == 'c');
+        const auto first = dropdown.Highlighted();
+        const bool next = dropdown.Jump('C') && dropdown.Highlighted() > first && std::tolower(static_cast<unsigned char>(label().front())) == 'c';
+        const auto before = dropdown.Highlighted(); dropdown.Page(1);
+        return check(jumped && next && dropdown.Highlighted() == std::min(before + dropdown.VisibleCount(), ui::FontCount() - 1) && !dropdown.Jump('~'),
+            "long dropdowns jump by first letter and page by their visible rows");
     }
 }

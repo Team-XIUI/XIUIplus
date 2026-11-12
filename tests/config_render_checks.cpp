@@ -81,7 +81,7 @@ namespace xiui
         runtime.CloseChoiceInput();
         if (!check(!names.style.font_explicit && runtime.party_.TextStyle(names).font == ui::xiv1_italic_font,
             "cancelling font selection retains automatic theme typography")) return false;
-        for (int font = 0; font < ui::font_count; ++font)
+        for (int font = 0; font < ui::builtin_font_count; ++font)
         {
             choose(runtime.party_, fontOption, font);
             if (!check(names.style.font_explicit && design.ResolveHudText(runtime.party_.TextStyle(names)).font == font &&

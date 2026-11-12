@@ -241,7 +241,7 @@ namespace xiui
         std::vector<rendered_row> rows_{};
         uint64_t cache_revision_{UINT64_MAX};
         float cache_width_{}, cache_scale_{}, cache_spacing_{}, cache_hud_scale_{};
-        int cache_font_{-1};
+        int cache_font_{-1}, cache_variant_{-1};
         bool cache_xiv1_{};
         int cache_tab_{-1};
         int cache_timestamp_mode_{-1};

@@ -52,6 +52,7 @@ Regenerate with `./scripts/update-docs.ps1`. Each bullet is one visual row; [emp
 
 - Show text | [empty]
 - Font | Size (px)
+- Font weight | Italic
 - Alignment | Letter spacing
 - X offset | Y offset
 - Top color | Bottom color
@@ -64,6 +65,7 @@ Regenerate with `./scripts/update-docs.ps1`. Each bullet is one visual row; [emp
 
 - Show text | [empty]
 - Font | Size (px)
+- Font weight | Italic
 - Alignment | Letter spacing
 - X offset | Y offset
 - Top color | Bottom color
@@ -133,6 +135,7 @@ Regenerate with `./scripts/update-docs.ps1`. Each bullet is one visual row; [emp
 
 - Show text | [empty]
 - Font | Size (px)
+- Font weight | Italic
 - Alignment | Letter spacing
 - X offset | Y offset
 - Top color | Bottom color
@@ -180,6 +183,7 @@ Regenerate with `./scripts/update-docs.ps1`. Each bullet is one visual row; [emp
 
 - Show text | [empty]
 - Font | Size (px)
+- Font weight | Italic
 - Alignment | Letter spacing
 - X offset | Y offset
 - Top color | Bottom color
@@ -231,6 +235,7 @@ Regenerate with `./scripts/update-docs.ps1`. Each bullet is one visual row; [emp
 
 - Show text | [empty]
 - Font | Size (px)
+- Font weight | Italic
 - Alignment | Letter spacing
 - X offset | Y offset
 - Top color | Bottom color
@@ -289,6 +294,7 @@ Regenerate with `./scripts/update-docs.ps1`. Each bullet is one visual row; [emp
 
 - Show text | [empty]
 - Font | Size (px)
+- Font weight | Italic
 - Alignment | Letter spacing
 - X offset | Y offset
 - Top color | Bottom color
@@ -347,6 +353,7 @@ Regenerate with `./scripts/update-docs.ps1`. Each bullet is one visual row; [emp
 
 - Show text | [empty]
 - Font | Size (px)
+- Font weight | Italic
 - Alignment | Letter spacing
 - X offset | Y offset
 - Shadow | Shadow color
@@ -358,6 +365,7 @@ Regenerate with `./scripts/update-docs.ps1`. Each bullet is one visual row; [emp
 
 - Show text | [empty]
 - Font | Size (px)
+- Font weight | Italic
 - Alignment | Letter spacing
 - X offset | Y offset
 - Top color | Bottom color
@@ -369,6 +377,7 @@ Regenerate with `./scripts/update-docs.ps1`. Each bullet is one visual row; [emp
 
 - Show text | [empty]
 - Font | Size (px)
+- Font weight | Italic
 - Alignment | Letter spacing
 - X offset | Y offset
 - Top color | Bottom color
@@ -409,6 +418,7 @@ Regenerate with `./scripts/update-docs.ps1`. Each bullet is one visual row; [emp
 
 - Mob information | Show text
 - Font | Size (px)
+- Font weight | Italic
 - Letter spacing | [empty]
 - X offset | Y offset
 - Row spacing | [empty]
@@ -525,6 +535,7 @@ Regenerate with `./scripts/update-docs.ps1`. Each bullet is one visual row; [emp
 
 - Show text | Follow target text
 - Font | Size (px)
+- Font weight | Italic
 - Name position | Alignment
 - Letter spacing | [empty]
 - X offset | Y offset
@@ -537,6 +548,7 @@ Regenerate with `./scripts/update-docs.ps1`. Each bullet is one visual row; [emp
 
 - Show text | Follow target text
 - Font | Size (px)
+- Font weight | Italic
 - Name position | Alignment
 - Letter spacing | [empty]
 - X offset | Y offset
@@ -549,6 +561,7 @@ Regenerate with `./scripts/update-docs.ps1`. Each bullet is one visual row; [emp
 
 - Show text | Follow target text
 - Font | Size (px)
+- Font weight | Italic
 - Name position | Alignment
 - Letter spacing | [empty]
 - X offset | Y offset
@@ -616,6 +629,7 @@ Regenerate with `./scripts/update-docs.ps1`. Each bullet is one visual row; [emp
 
 - Show text | [empty]
 - Font | Size (px)
+- Font weight | Italic
 - Alignment | Letter spacing
 - X offset | Y offset
 - Top color | Bottom color
@@ -627,6 +641,7 @@ Regenerate with `./scripts/update-docs.ps1`. Each bullet is one visual row; [emp
 
 - Show text | [empty]
 - Font | Size (px)
+- Font weight | Italic
 - Alignment | Letter spacing
 - X offset | Y offset
 - Top color | Bottom color
@@ -756,6 +771,7 @@ Regenerate with `./scripts/update-docs.ps1`. Each bullet is one visual row; [emp
 
 - Show text | Follow target text
 - Font | Size (px)
+- Font weight | Italic
 - Name position | Alignment
 - Letter spacing | [empty]
 - X offset | Y offset
@@ -768,6 +784,7 @@ Regenerate with `./scripts/update-docs.ps1`. Each bullet is one visual row; [emp
 
 - Show text | Follow target text
 - Font | Size (px)
+- Font weight | Italic
 - Name position | Alignment
 - Letter spacing | [empty]
 - X offset | Y offset
@@ -780,6 +797,7 @@ Regenerate with `./scripts/update-docs.ps1`. Each bullet is one visual row; [emp
 
 - Show text | Follow target text
 - Font | Size (px)
+- Font weight | Italic
 - Name position | Alignment
 - Letter spacing | [empty]
 - X offset | Y offset
@@ -925,6 +943,7 @@ Regenerate with `./scripts/update-docs.ps1`. Each bullet is one visual row; [emp
 
 - Show text | [empty]
 - Font | Size (px)
+- Font weight | Italic
 - Alignment | Letter spacing
 - X offset | Y offset
 - Shadow | Shadow color
@@ -935,6 +954,7 @@ Regenerate with `./scripts/update-docs.ps1`. Each bullet is one visual row; [emp
 
 - Show text | [empty]
 - Font | Size (px)
+- Font weight | Italic
 - Alignment | Letter spacing
 - X offset | Y offset
 - Top color | Bottom color
@@ -1021,6 +1041,7 @@ Regenerate with `./scripts/update-docs.ps1`. Each bullet is one visual row; [emp
 
 - Show text | [empty]
 - Font | Size (px)
+- Font weight | Italic
 - Alignment | Letter spacing
 - X offset | Y offset
 - Top color | Bottom color
@@ -1033,6 +1054,7 @@ Regenerate with `./scripts/update-docs.ps1`. Each bullet is one visual row; [emp
 
 - Show text | [empty]
 - Font | Size (px)
+- Font weight | Italic
 - Alignment | Letter spacing
 - X offset | Y offset
 - Top color | Bottom color
@@ -1142,6 +1164,7 @@ Regenerate with `./scripts/update-docs.ps1`. Each bullet is one visual row; [emp
 
 - Show text | [empty]
 - Font | Size (px)
+- Font weight | Italic
 - Alignment | Letter spacing
 - X offset | Y offset
 - Top color | Bottom color
@@ -1154,6 +1177,7 @@ Regenerate with `./scripts/update-docs.ps1`. Each bullet is one visual row; [emp
 
 - Show text | [empty]
 - Font | Size (px)
+- Font weight | Italic
 - Alignment | Letter spacing
 - X offset | Y offset
 - Top color | Bottom color
@@ -1264,6 +1288,7 @@ Regenerate with `./scripts/update-docs.ps1`. Each bullet is one visual row; [emp
 
 - Show text | [empty]
 - Font | Size (px)
+- Font weight | Italic
 - Alignment | Letter spacing
 - X offset | Y offset
 - Top color | Bottom color
@@ -1276,6 +1301,7 @@ Regenerate with `./scripts/update-docs.ps1`. Each bullet is one visual row; [emp
 
 - Show text | [empty]
 - Font | Size (px)
+- Font weight | Italic
 - Alignment | Letter spacing
 - X offset | Y offset
 - Top color | Bottom color
@@ -1384,6 +1410,7 @@ Regenerate with `./scripts/update-docs.ps1`. Each bullet is one visual row; [emp
 
 - Show text | [empty]
 - Font | Size (px)
+- Font weight | Italic
 - Alignment | Letter spacing
 - X offset | Y offset
 - Top color | Bottom color
@@ -1396,6 +1423,7 @@ Regenerate with `./scripts/update-docs.ps1`. Each bullet is one visual row; [emp
 
 - Show text | [empty]
 - Font | Size (px)
+- Font weight | Italic
 - Alignment | Letter spacing
 - X offset | Y offset
 - Top color | Bottom color
@@ -1485,6 +1513,7 @@ Regenerate with `./scripts/update-docs.ps1`. Each bullet is one visual row; [emp
 
 - Show text | [empty]
 - Font | Size (px)
+- Font weight | Italic
 - Alignment | Letter spacing
 - X offset | Y offset
 - Top color | Bottom color
@@ -1497,6 +1526,7 @@ Regenerate with `./scripts/update-docs.ps1`. Each bullet is one visual row; [emp
 
 - Show text | [empty]
 - Font | Size (px)
+- Font weight | Italic
 - Alignment | Letter spacing
 - X offset | Y offset
 - Top color | Bottom color
@@ -1575,6 +1605,7 @@ Regenerate with `./scripts/update-docs.ps1`. Each bullet is one visual row; [emp
 
 - Show text | [empty]
 - Font | Size (px)
+- Font weight | Italic
 - Alignment | Letter spacing
 - X offset | Y offset
 - Top color | Bottom color
@@ -1587,6 +1618,7 @@ Regenerate with `./scripts/update-docs.ps1`. Each bullet is one visual row; [emp
 
 - Show text | [empty]
 - Font | Size (px)
+- Font weight | Italic
 - Alignment | Letter spacing
 - X offset | Y offset
 - Top color | Bottom color
@@ -1638,6 +1670,7 @@ Regenerate with `./scripts/update-docs.ps1`. Each bullet is one visual row; [emp
 
 - Show text | [empty]
 - Font | Size (px)
+- Font weight | Italic
 - Alignment | Letter spacing
 - X offset | Y offset
 - Top color | Bottom color
@@ -1650,6 +1683,7 @@ Regenerate with `./scripts/update-docs.ps1`. Each bullet is one visual row; [emp
 
 - Show text | [empty]
 - Font | Size (px)
+- Font weight | Italic
 - Alignment | Letter spacing
 - X offset | Y offset
 - Top color | Bottom color
@@ -1725,6 +1759,7 @@ Regenerate with `./scripts/update-docs.ps1`. Each bullet is one visual row; [emp
 
 - Show text | [empty]
 - Font | Size (px)
+- Font weight | Italic
 - Alignment | Letter spacing
 - X offset | Y offset
 - Top color | Bottom color
@@ -1737,6 +1772,7 @@ Regenerate with `./scripts/update-docs.ps1`. Each bullet is one visual row; [emp
 
 - Show job text | Show text
 - Font | Size (px)
+- Font weight | Italic
 - Alignment | Letter spacing
 - X offset | Y offset
 - Top color | Bottom color
@@ -1748,6 +1784,7 @@ Regenerate with `./scripts/update-docs.ps1`. Each bullet is one visual row; [emp
 
 - Show text | [empty]
 - Font | Size (px)
+- Font weight | Italic
 - Alignment | Letter spacing
 - X offset | Y offset
 - Top color | Bottom color
@@ -1893,6 +1930,7 @@ Regenerate with `./scripts/update-docs.ps1`. Each bullet is one visual row; [emp
 
 - Show text | [empty]
 - Font | Size (px)
+- Font weight | Italic
 - Alignment | Letter spacing
 - X offset | Y offset
 - Top color | Bottom color
@@ -1905,6 +1943,7 @@ Regenerate with `./scripts/update-docs.ps1`. Each bullet is one visual row; [emp
 
 - Show job text | Show text
 - Font | Size (px)
+- Font weight | Italic
 - Alignment | Letter spacing
 - X offset | Y offset
 - Top color | Bottom color
@@ -1916,6 +1955,7 @@ Regenerate with `./scripts/update-docs.ps1`. Each bullet is one visual row; [emp
 
 - Show text | [empty]
 - Font | Size (px)
+- Font weight | Italic
 - Alignment | Letter spacing
 - X offset | Y offset
 - Top color | Bottom color
@@ -2060,6 +2100,7 @@ Regenerate with `./scripts/update-docs.ps1`. Each bullet is one visual row; [emp
 
 - Show text | [empty]
 - Font | Size (px)
+- Font weight | Italic
 - Alignment | Letter spacing
 - X offset | Y offset
 - Top color | Bottom color
@@ -2072,6 +2113,7 @@ Regenerate with `./scripts/update-docs.ps1`. Each bullet is one visual row; [emp
 
 - Show job text | Show text
 - Font | Size (px)
+- Font weight | Italic
 - Alignment | Letter spacing
 - X offset | Y offset
 - Top color | Bottom color
@@ -2083,6 +2125,7 @@ Regenerate with `./scripts/update-docs.ps1`. Each bullet is one visual row; [emp
 
 - Show text | [empty]
 - Font | Size (px)
+- Font weight | Italic
 - Alignment | Letter spacing
 - X offset | Y offset
 - Top color | Bottom color
@@ -2209,6 +2252,7 @@ Regenerate with `./scripts/update-docs.ps1`. Each bullet is one visual row; [emp
 
 - Show text | [empty]
 - Font | Size (px)
+- Font weight | Italic
 - Alignment | Letter spacing
 - X offset | Y offset
 - Top color | Bottom color
@@ -2262,6 +2306,7 @@ Regenerate with `./scripts/update-docs.ps1`. Each bullet is one visual row; [emp
 
 - Show text | [empty]
 - Font | Size (px)
+- Font weight | Italic
 - Alignment | Letter spacing
 - X offset | Y offset
 - Top color | Bottom color
@@ -2300,6 +2345,7 @@ Regenerate with `./scripts/update-docs.ps1`. Each bullet is one visual row; [emp
 
 - Show text | [empty]
 - Font | Size (px)
+- Font weight | Italic
 - Alignment | Letter spacing
 - X offset | Y offset
 - Top color | Bottom color
@@ -2338,6 +2384,7 @@ Regenerate with `./scripts/update-docs.ps1`. Each bullet is one visual row; [emp
 
 - Show text | [empty]
 - Font | Size (px)
+- Font weight | Italic
 - Alignment | Letter spacing
 - X offset | Y offset
 - Top color | Bottom color
@@ -2377,6 +2424,7 @@ Regenerate with `./scripts/update-docs.ps1`. Each bullet is one visual row; [emp
 
 - Show text | [empty]
 - Font | Size (px)
+- Font weight | Italic
 - Alignment | Letter spacing
 - X offset | Y offset
 - Top color | Bottom color
@@ -2415,6 +2463,7 @@ Regenerate with `./scripts/update-docs.ps1`. Each bullet is one visual row; [emp
 
 - Show text | [empty]
 - Font | Size (px)
+- Font weight | Italic
 - Alignment | Letter spacing
 - X offset | Y offset
 - Top color | Bottom color
@@ -2454,6 +2503,7 @@ Regenerate with `./scripts/update-docs.ps1`. Each bullet is one visual row; [emp
 
 - Show text | [empty]
 - Font | Size (px)
+- Font weight | Italic
 - Alignment | Letter spacing
 - X offset | Y offset
 - Top color | Bottom color
@@ -2493,6 +2543,7 @@ Regenerate with `./scripts/update-docs.ps1`. Each bullet is one visual row; [emp
 
 - Show text | [empty]
 - Font | Size (px)
+- Font weight | Italic
 - Alignment | Letter spacing
 - X offset | Y offset
 - Top color | Bottom color
@@ -2527,6 +2578,7 @@ Regenerate with `./scripts/update-docs.ps1`. Each bullet is one visual row; [emp
 
 - Show text | [empty]
 - Font | Size (px)
+- Font weight | Italic
 - Alignment | Letter spacing
 - X offset | Y offset
 - Top color | Bottom color
@@ -2579,6 +2631,7 @@ Regenerate with `./scripts/update-docs.ps1`. Each bullet is one visual row; [emp
 - Text element | Independent text styles
 - Show text | [empty]
 - Font | Size (px)
+- Font weight | Italic
 - Alignment | Letter spacing
 - X offset | Y offset
 - Top color | Bottom color
@@ -2652,6 +2705,7 @@ Regenerate with `./scripts/update-docs.ps1`. Each bullet is one visual row; [emp
 - Text element | Independent text styles
 - Show text | [empty]
 - Font | Size (px)
+- Font weight | Italic
 - Alignment | Letter spacing
 - X offset | Y offset
 - Top color | Bottom color
@@ -2725,6 +2779,7 @@ Regenerate with `./scripts/update-docs.ps1`. Each bullet is one visual row; [emp
 - Text element | Independent text styles
 - Show text | [empty]
 - Font | Size (px)
+- Font weight | Italic
 - Alignment | Letter spacing
 - X offset | Y offset
 - Top color | Bottom color
@@ -2798,6 +2853,7 @@ Regenerate with `./scripts/update-docs.ps1`. Each bullet is one visual row; [emp
 - Text element | Independent text styles
 - Show text | [empty]
 - Font | Size (px)
+- Font weight | Italic
 - Alignment | Letter spacing
 - X offset | Y offset
 - Top color | Bottom color
@@ -2871,6 +2927,7 @@ Regenerate with `./scripts/update-docs.ps1`. Each bullet is one visual row; [emp
 - Text element | Independent text styles
 - Show text | [empty]
 - Font | Size (px)
+- Font weight | Italic
 - Alignment | Letter spacing
 - X offset | Y offset
 - Top color | Bottom color
@@ -2944,6 +3001,7 @@ Regenerate with `./scripts/update-docs.ps1`. Each bullet is one visual row; [emp
 - Text element | Independent text styles
 - Show text | [empty]
 - Font | Size (px)
+- Font weight | Italic
 - Alignment | Letter spacing
 - X offset | Y offset
 - Top color | Bottom color
@@ -3017,6 +3075,7 @@ Regenerate with `./scripts/update-docs.ps1`. Each bullet is one visual row; [emp
 - Text element | Independent text styles
 - Show text | [empty]
 - Font | Size (px)
+- Font weight | Italic
 - Alignment | Letter spacing
 - X offset | Y offset
 - Top color | Bottom color
@@ -3090,6 +3149,7 @@ Regenerate with `./scripts/update-docs.ps1`. Each bullet is one visual row; [emp
 - Text element | Independent text styles
 - Show text | [empty]
 - Font | Size (px)
+- Font weight | Italic
 - Alignment | Letter spacing
 - X offset | Y offset
 - Top color | Bottom color
@@ -3163,6 +3223,7 @@ Regenerate with `./scripts/update-docs.ps1`. Each bullet is one visual row; [emp
 - Text element | Independent text styles
 - Show text | [empty]
 - Font | Size (px)
+- Font weight | Italic
 - Alignment | Letter spacing
 - X offset | Y offset
 - Top color | Bottom color
@@ -3236,6 +3297,7 @@ Regenerate with `./scripts/update-docs.ps1`. Each bullet is one visual row; [emp
 - Text element | Independent text styles
 - Show text | [empty]
 - Font | Size (px)
+- Font weight | Italic
 - Alignment | Letter spacing
 - X offset | Y offset
 - Top color | Bottom color
@@ -3309,6 +3371,7 @@ Regenerate with `./scripts/update-docs.ps1`. Each bullet is one visual row; [emp
 
 - Independent text styles | Show text
 - Font | Size (px)
+- Font weight | Italic
 - Alignment | Letter spacing
 - X offset | Y offset
 - Top color | Bottom color
@@ -3392,6 +3455,7 @@ Regenerate with `./scripts/update-docs.ps1`. Each bullet is one visual row; [emp
 
 - Independent text styles | Show text
 - Font | Size (px)
+- Font weight | Italic
 - Alignment | Letter spacing
 - X offset | Y offset
 - Top color | Bottom color
@@ -3475,6 +3539,7 @@ Regenerate with `./scripts/update-docs.ps1`. Each bullet is one visual row; [emp
 
 - Independent text styles | Show text
 - Font | Size (px)
+- Font weight | Italic
 - Alignment | Letter spacing
 - X offset | Y offset
 - Top color | Bottom color
@@ -3558,6 +3623,7 @@ Regenerate with `./scripts/update-docs.ps1`. Each bullet is one visual row; [emp
 
 - Independent text styles | Show text
 - Font | Size (px)
+- Font weight | Italic
 - Alignment | Letter spacing
 - X offset | Y offset
 - Top color | Bottom color
@@ -3632,6 +3698,7 @@ Regenerate with `./scripts/update-docs.ps1`. Each bullet is one visual row; [emp
 
 - Show text | [empty]
 - Font | Size (px)
+- Font weight | Italic
 - Alignment | Letter spacing
 - X offset | Y offset
 - Top color | Bottom color
@@ -3743,6 +3810,7 @@ Regenerate with `./scripts/update-docs.ps1`. Each bullet is one visual row; [emp
 
 - Show text | [empty]
 - Font | Size (px)
+- Font weight | Italic
 - Alignment | Letter spacing
 - X offset | Y offset
 - Top color | Bottom color
@@ -3850,6 +3918,7 @@ Regenerate with `./scripts/update-docs.ps1`. Each bullet is one visual row; [emp
 
 - Show text | [empty]
 - Font | Size (px)
+- Font weight | Italic
 - Alignment | Letter spacing
 - X offset | Y offset
 - Top color | Bottom color
@@ -3902,6 +3971,7 @@ Regenerate with `./scripts/update-docs.ps1`. Each bullet is one visual row; [emp
 
 - Show text | [empty]
 - Font | Size (px)
+- Font weight | Italic
 - Alignment | Letter spacing
 - X offset | Y offset
 - Top color | Bottom color
@@ -3926,6 +3996,7 @@ Regenerate with `./scripts/update-docs.ps1`. Each bullet is one visual row; [emp
 
 - Show text | [empty]
 - Font | Size (px)
+- Font weight | Italic
 - Alignment | Letter spacing
 - X offset | Y offset
 - Top color | Bottom color
@@ -3960,6 +4031,7 @@ Regenerate with `./scripts/update-docs.ps1`. Each bullet is one visual row; [emp
 
 - Show text | [empty]
 - Font | Size (px)
+- Font weight | Italic
 - Alignment | Letter spacing
 - X offset | Y offset
 - Top color | Bottom color
@@ -3987,6 +4059,7 @@ Regenerate with `./scripts/update-docs.ps1`. Each bullet is one visual row; [emp
 
 - Show text | [empty]
 - Font | Size (px)
+- Font weight | Italic
 - Alignment | Letter spacing
 - X offset | Y offset
 - Top color | Bottom color
@@ -4008,6 +4081,7 @@ Regenerate with `./scripts/update-docs.ps1`. Each bullet is one visual row; [emp
 ### Global Text
 
 - Global font | Global text size (px)
+- Global font weight | Global italic
 - Letter spacing | [empty]
 - Drop shadow | Shadow color
 - Soft shadow | [empty]
@@ -4155,6 +4229,7 @@ Regenerate with `./scripts/update-docs.ps1`. Each bullet is one visual row; [emp
 
 - Show text | [empty]
 - Font | Size (px)
+- Font weight | Italic
 - Alignment | Letter spacing
 - X offset | Y offset
 - Top color | Bottom color
@@ -4264,6 +4339,7 @@ Regenerate with `./scripts/update-docs.ps1`. Each bullet is one visual row; [emp
 
 - Show text | [empty]
 - Font | Size (px)
+- Font weight | Italic
 - Alignment | Letter spacing
 - X offset | Y offset
 - Top color | Bottom color
@@ -4354,6 +4430,7 @@ Regenerate with `./scripts/update-docs.ps1`. Each bullet is one visual row; [emp
 
 - Show text | [empty]
 - Font | Size (px)
+- Font weight | Italic
 - Alignment | Letter spacing
 - X offset | Y offset
 - Top color | Bottom color
@@ -4408,6 +4485,7 @@ Regenerate with `./scripts/update-docs.ps1`. Each bullet is one visual row; [emp
 
 - Show text | [empty]
 - Font | Size (px)
+- Font weight | Italic
 - Alignment | Letter spacing
 - X offset | Y offset
 - Top color | Bottom color
@@ -4420,6 +4498,7 @@ Regenerate with `./scripts/update-docs.ps1`. Each bullet is one visual row; [emp
 
 - Show text | Zoom readout
 - Font | Size (px)
+- Font weight | Italic
 - Alignment | Letter spacing
 - X offset | Y offset
 - Top color | Bottom color
@@ -4454,6 +4533,7 @@ Regenerate with `./scripts/update-docs.ps1`. Each bullet is one visual row; [emp
 
 - Show text | [empty]
 - Font | Size (px)
+- Font weight | Italic
 - Alignment | Letter spacing
 - X offset | Y offset
 - Top color | Bottom color
@@ -4479,6 +4559,7 @@ Regenerate with `./scripts/update-docs.ps1`. Each bullet is one visual row; [emp
 
 - Show text | [empty]
 - Font | Size (px)
+- Font weight | Italic
 - Alignment | Letter spacing
 - X offset | Y offset
 - Top color | Bottom color
@@ -4504,6 +4585,7 @@ Regenerate with `./scripts/update-docs.ps1`. Each bullet is one visual row; [emp
 
 - Show text | [empty]
 - Font | Size (px)
+- Font weight | Italic
 - Alignment | Letter spacing
 - X offset | Y offset
 - Top color | Bottom color
@@ -4529,6 +4611,7 @@ Regenerate with `./scripts/update-docs.ps1`. Each bullet is one visual row; [emp
 
 - Show text | [empty]
 - Font | Size (px)
+- Font weight | Italic
 - Alignment | Letter spacing
 - X offset | Y offset
 - Top color | Bottom color
@@ -4554,6 +4637,7 @@ Regenerate with `./scripts/update-docs.ps1`. Each bullet is one visual row; [emp
 
 - Show text | [empty]
 - Font | Size (px)
+- Font weight | Italic
 - Alignment | Letter spacing
 - X offset | Y offset
 - Top color | Bottom color
@@ -4778,6 +4862,7 @@ Regenerate with `./scripts/update-docs.ps1`. Each bullet is one visual row; [emp
 
 - Show text | [empty]
 - Font | Size (px)
+- Font weight | Italic
 - Alignment | Letter spacing
 - X offset | Y offset
 - Top color | Bottom color
@@ -4814,6 +4899,7 @@ Regenerate with `./scripts/update-docs.ps1`. Each bullet is one visual row; [emp
 
 - Show text | [empty]
 - Font | Size (px)
+- Font weight | Italic
 - Alignment | Letter spacing
 - X offset | Y offset
 - Top color | Bottom color
@@ -4851,6 +4937,7 @@ Regenerate with `./scripts/update-docs.ps1`. Each bullet is one visual row; [emp
 
 - Show text | [empty]
 - Font | Size (px)
+- Font weight | Italic
 - Alignment | Letter spacing
 - X offset | Y offset
 - Top color | Bottom color
@@ -4860,4 +4947,4 @@ Regenerate with `./scripts/update-docs.ps1`. Each bullet is one visual row; [emp
 
 ## Coverage
 
-358 registered modules, 620 distinct pages, 4943 controls across those pages, and 2355 selector/view combinations.
+358 registered modules, 620 distinct pages, 5121 controls across those pages, and 2355 selector/view combinations.

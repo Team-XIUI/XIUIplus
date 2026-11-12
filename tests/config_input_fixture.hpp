@@ -152,6 +152,7 @@ namespace xiui
         static auto PartyPresets(const char* classicPath = nullptr, const char* xivPath = nullptr) -> bool;
         static auto ThemedButtons(void) -> bool;
         static auto GlobalText(void) -> bool;
+        static auto FontChoices(void) -> bool;
         static auto Attribution(void) -> bool;
         static auto TargetOfTargetSettings(void) -> bool;
         static auto TargetOfTargetThemeDefaults(void) -> bool;

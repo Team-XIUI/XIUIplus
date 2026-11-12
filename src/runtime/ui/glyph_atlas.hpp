@@ -18,9 +18,9 @@ namespace xiui::ui
     public:
         ~glyph_atlas(void) { this->Clear(); }
         auto Clear(void) -> void;
-        auto Metrics(int font, int pixels, font_weight weight = font_weight::face_default) -> raster_font_metrics { return this->rasterizer_.Metrics(FontIndex(font), pixels, weight); }
-        auto Advance(int font, int pixels, uint32_t codepoint, font_weight weight = font_weight::face_default) -> float;
-        auto Get(IDirect3DDevice8* device, int font, int pixels, uint32_t codepoint, const std::function<void()>& beforeUpload, font_weight weight = font_weight::face_default) -> atlas_glyph;
+        auto Metrics(int font, int pixels, font_variant variant = {}) -> raster_font_metrics { return this->rasterizer_.Metrics(FontIndex(font), pixels, variant); }
+        auto Advance(int font, int pixels, uint32_t codepoint, font_variant variant = {}) -> float;
+        auto Get(IDirect3DDevice8* device, int font, int pixels, uint32_t codepoint, const std::function<void()>& beforeUpload, font_variant variant = {}) -> atlas_glyph;
 
     private:
         struct page
@@ -40,7 +40,7 @@ namespace xiui::ui
         std::vector<page> pages_{};
         std::unordered_map<uint64_t, entry> glyphs_{};
         uint64_t touched_{};
-        auto Entry(int font, int pixels, uint32_t codepoint, font_weight weight) -> entry&;
+        auto Entry(int font, int pixels, uint32_t codepoint, font_variant variant) -> entry&;
         auto NewPage(IDirect3DDevice8* device, int size) -> std::optional<size_t>;
     };
 }

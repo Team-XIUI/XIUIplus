@@ -453,6 +453,11 @@ namespace xiui
                 const auto previous = this->config_.choice_input.Highlighted(); this->config_.choice_input.Move(Direction(value));
                 if (previous != this->config_.choice_input.Highlighted()) this->ui_sounds_.Play(ui::native_ui_sound::hover);
             }
+            else if (value == action::previous_tab || value == action::next_tab)
+            {
+                const auto previous = this->config_.choice_input.Highlighted(); this->config_.choice_input.Page(Direction(value));
+                if (previous != this->config_.choice_input.Highlighted()) this->ui_sounds_.Play(ui::native_ui_sound::hover);
+            }
             else if (value == action::confirm) this->SelectChoiceInput(this->config_.choice_input.Highlighted());
             else if (value == action::actions) this->PreviewChoiceInput(this->config_.choice_input.Highlighted());
             return true;

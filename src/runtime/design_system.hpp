@@ -111,11 +111,18 @@ namespace xiui::ui
         glow_effect glow{};
         sheen_effect sheen{};
         bool theme_text{true};
+        // Code-owned override, such as chat emphasis; weight_choice is the saved setting.
         font_weight weight{};
         bool font_explicit{};
+        int weight_choice{};
+        bool italic{};
 
         auto ThemeFont(const int fallback) const -> int
         { return this->theme_text && this->font == 0 && !this->font_explicit ? fallback : this->font; }
+        auto ChosenWeight(void) const -> font_weight
+        { return this->weight_choice == text_weight_regular ? font_weight::regular : this->weight_choice == text_weight_bold ? font_weight::bold : font_weight::face_default; }
+        auto Variant(void) const -> font_variant
+        { return {this->weight != font_weight::face_default ? this->weight : this->ChosenWeight(), this->italic}; }
     };
 
     struct color_tokens

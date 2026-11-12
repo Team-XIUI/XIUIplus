@@ -14,7 +14,7 @@ Use the [generated settings inventory](settings-inventory.md) for current pages 
 - Put dimensions near the top of visual settings. Keep width and height on the same row when both are editable.
 - Keep each object's X and Y offsets on the same row. Separate the offsets of bars, arrows, target panels, text and shadows.
 - Follow dimensions with placement/alignment, offsets, spacing, padding and opacity.
-- Start text styling with **Font / Size**, then **Placement / Letter spacing**, **X offset / Y offset**, gradient colors and each text effect with its own controls.
+- Start text styling with **Font / Size**, then **Font weight / Italic**, **Placement / Letter spacing**, **X offset / Y offset**, gradient colors and each text effect with its own controls.
 - Keep gradient top/bottom colors together. Keep shadow, stroke, glow and animation controls with their own related settings.
 - Keep available and unavailable controls in consistent positions. An empty cell can keep a related pair on the next row; it is never an input target.
 - Preserve the native ordering of message types, filters, sounds and other domain lists that already have a meaningful order.

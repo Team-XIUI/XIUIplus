@@ -219,12 +219,14 @@ namespace xiui
         case 13: return module_option::Color("Glow color", "Text glow tint.", &profile.style.glow.color, module_option_group::text).Ordered(701).VisibleWhen(profile.style.glow.enabled);
         case 14:
         {
-            auto option = module_option::Dropdown("Font", "Font face for this text element.", &profile.style.font, ui::font_names, ui::font_count).Ordered(100, true);
+            auto option = module_option::Dropdown("Font", "Font face for this text element, including fonts installed on this PC.", &profile.style.font, ui::FontNames(), ui::FontCount()).Ordered(100, true);
             option.choice_explicit = &profile.style.font_explicit;
             option.group = module_option_group::text;
             return option;
         }
-        case 15: return module_option::Toggle("Show text", "Show this text element while retaining its style and offsets.", &profile.visible, module_option_group::text).Ordered(-50);
+        case text_profile_visible_option: return module_option::Toggle("Show text", "Show this text element while retaining its style and offsets.", &profile.visible, module_option_group::text).Ordered(-50);
+        case 16: return module_option::Choice("Font weight", "Default keeps the font's tuned weight.", &profile.style.weight_choice, ui::text_weight_names, std::size(ui::text_weight_names), module_option_group::text).Ordered(102);
+        case 17: return module_option::Toggle("Italic", "Slant this text element.", &profile.style.italic, module_option_group::text).Ordered(103);
         default: return {};
         }
     }

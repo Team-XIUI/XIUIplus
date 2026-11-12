@@ -31,7 +31,7 @@ namespace xiui
         {
             const auto theme = ui::theme::CreateDefault();
             module_text_profile profile{theme.caption_text};
-            const auto toggle = TextProfileOption(text_profile_option_count - 1, profile);
+            const auto toggle = TextProfileOption(text_profile_visible_option, profile);
             Check(profile.visible && toggle.toggle == &profile.visible, "text roles start visible and expose a shared toggle");
             *toggle.toggle = false; profile.offset_x = 9; profile.style.glow.enabled = true;
             auto store = settings_store::FromIniText(""); SaveTextProfile(store, "text.test", profile);

@@ -9,7 +9,7 @@
 namespace xiui::ui
 {
     struct raster_font_metrics { float height{18}, ascent{15}, digit_advance{8}; bool available{}; };
-    auto NativeFontMetrics(int font, int pixels, font_weight weight = font_weight::face_default) -> raster_font_metrics;
+    auto NativeFontMetrics(int font, int pixels, font_variant variant = {}) -> raster_font_metrics;
     struct raster_glyph
     {
         int width{}, height{}, padding{};
@@ -22,12 +22,13 @@ namespace xiui::ui
     public:
         ~text_rasterizer(void) { this->Clear(); }
         auto Clear(void) -> void;
-        auto Metrics(int font, int pixels, font_weight weight = font_weight::face_default) -> raster_font_metrics;
-        auto Advance(int font, int pixels, uint32_t codepoint, font_weight weight = font_weight::face_default) -> float;
-        auto Rasterize(int font, int pixels, uint32_t codepoint, font_weight weight = font_weight::face_default) -> std::optional<raster_glyph>;
+        auto Metrics(int font, int pixels, font_variant variant = {}) -> raster_font_metrics;
+        auto Advance(int font, int pixels, uint32_t codepoint, font_variant variant = {}) -> float;
+        auto Rasterize(int font, int pixels, uint32_t codepoint, font_variant variant = {}) -> std::optional<raster_glyph>;
 
     private:
-        struct face { HFONT handle{}; raster_font_metrics metrics{}; uint64_t touched{}; int embolden{}; };
+        // shift moves drawing (supersampled pixels) onto the layout baseline; extent is the drawn box bottom below the layout top.
+        struct face { HFONT handle{}; raster_font_metrics metrics{}; uint64_t touched{}; int embolden{}; int shift{}; float extent{}; };
         std::map<uint32_t, face> faces_{};
         HDC dc_{};
         HBITMAP bitmap_{};
@@ -36,8 +37,8 @@ namespace xiui::ui
         int width_{}, height_{};
         uint64_t touched_{};
         embedded_font grammara_{};
-        auto Face(int font, int pixels, font_weight weight) -> face*;
-        auto GlyphFace(int font, int pixels, uint32_t codepoint, font_weight weight) -> face*;
+        auto Face(int font, int pixels, font_variant variant) -> face*;
+        auto GlyphFace(int font, int pixels, uint32_t codepoint, font_variant variant) -> face*;
         auto Surface(int width, int height) -> bool;
     };
 }

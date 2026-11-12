@@ -226,7 +226,8 @@ namespace xiui
     };
 
     constexpr size_t meter_style_option_count = 30;
-    constexpr size_t text_profile_option_count = 16;
+    constexpr size_t text_profile_option_count = 18;
+    constexpr size_t text_profile_visible_option = 15;
     using text_settings_visitor = std::function<void(ui::text_style&)>;
 
     inline auto VisitTextProfiles(const text_settings_visitor& visit, const std::span<module_text_profile> profiles) -> void

@@ -1639,9 +1639,10 @@ namespace xiui
         const bool themed = design.IsXiv1Theme();
         const auto style = ChatThemeStyle(design, this->text_.style);
         if (this->cache_xiv1_ == themed && this->cache_hud_scale_ == hudScale && this->cache_revision_ == this->History().Revision() && this->cache_width_ == width && this->cache_scale_ == style.scale &&
-            this->cache_spacing_ == style.letter_spacing && this->cache_font_ == style.font && this->cache_tab_ == filter && this->cache_timestamp_mode_ == timestampMode) return;
+            this->cache_spacing_ == style.letter_spacing && this->cache_font_ == style.font && this->cache_variant_ == style.Variant().Key() && this->cache_tab_ == filter && this->cache_timestamp_mode_ == timestampMode) return;
         const bool incremental = this->cache_xiv1_ == themed && this->cache_hud_scale_ == hudScale && this->cache_revision_ != UINT64_MAX && this->cache_revision_ != this->History().Revision() && this->cache_tab_ == filter && this->cache_width_ == width &&
-            this->cache_scale_ == style.scale && this->cache_spacing_ == style.letter_spacing && this->cache_font_ == style.font && this->cache_timestamp_mode_ == timestampMode && !this->History().Lines().empty();
+            this->cache_scale_ == style.scale && this->cache_spacing_ == style.letter_spacing && this->cache_font_ == style.font && this->cache_variant_ == style.Variant().Key() &&
+            this->cache_timestamp_mode_ == timestampMode && !this->History().Lines().empty();
         size_t previousRows{};
         const size_t oldLastRows = incremental ? std::count_if(this->rows_.begin(), this->rows_.end(), [this](const rendered_row& row) { return row.sequence == this->cache_last_sequence_; }) : 0;
         if (incremental)
@@ -1660,7 +1661,7 @@ namespace xiui
             float used{};
             const auto finish = [&] { this->rows_.push_back(std::move(row)); row = {line.sequence, line.mode, line.color}; used = 0.0f; };
             const auto append = [&](const std::string& token, const int color, const bool timestamp = false, const bool prompt = false, const bool emphasis = false, const bool name = false) {
-                auto runStyle = style; runStyle.weight = ChatRunWeight(design, emphasis);
+                auto runStyle = style; runStyle.weight = ChatRunWeight(design, emphasis, style);
                 const auto tokenWidth = MeasureChatText(design, token, runStyle) + ChatThemeTracking(runStyle) +
                     (prompt ? dialogue_prompt_padding : 0.0f);
                 if (used > 0.0f && used + tokenWidth > width)
@@ -1718,7 +1719,7 @@ namespace xiui
         this->cache_xiv1_ = themed;
         this->cache_revision_ = this->History().Revision(); this->cache_width_ = width; this->cache_hud_scale_ = hudScale;
         this->cache_scale_ = style.scale; this->cache_spacing_ = style.letter_spacing;
-        this->cache_font_ = style.font;
+        this->cache_font_ = style.font; this->cache_variant_ = style.Variant().Key();
         this->cache_tab_ = filter; this->cache_timestamp_mode_ = timestampMode;
         this->cache_last_sequence_ = this->History().Lines().empty() ? 0 : this->History().Lines().back().sequence;
     }
@@ -1827,7 +1828,7 @@ namespace xiui
                     const auto color = this->SpanColor(row, span, snapshot.chat_colors, context.Design().IsXiv1Theme());
                     auto profile = FadeText(TintTextProfile(this->text_, color), motion.opacity);
                     if (!span.emphasis && !span.timestamp) profile = ChatBodyProfile(context.Design(), profile);
-                    profile.style.weight = ChatRunWeight(context.Design(), span.emphasis);
+                    profile.style.weight = ChatRunWeight(context.Design(), span.emphasis, profile.style);
                     profile.placement = 0; profile.style.alignment = ui::text_alignment::left;
                     const float padding = span.dialogue_prompt ? dialogue_prompt_padding : 0.0f;
                     ui::rect bounds{x + padding, y, std::max(0.0f, log.x + log.width - x - padding), lineHeight};

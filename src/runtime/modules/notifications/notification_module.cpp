@@ -60,7 +60,7 @@ namespace xiui
         group.style.rise = number("rise", 36.0f, 0.0f, 120.0f);
         auto text = InheritGlobalTextStyle(store, group.style);
         text.scale = number("text_scale", text.scale, 0.5f, ui::text_max_scale);
-        text.font = ui::FontIndex(store.ReadInt(section.c_str(), "font", text.font));
+        text.font = ReadFontChoice(store, section.c_str(), text.font);
         group.text = LoadTextProfile(store, textSection.c_str(), {text});
         group.style.visible_count = number("visible_count", 5.0f, 1.0f, 8.0f);
         const float spacing = store.ReadFloat(section.c_str(), "row_spacing", 4.0f);
@@ -105,7 +105,7 @@ namespace xiui
         store.WriteFloat(section.c_str(), "duration", group.style.duration);
         store.WriteFloat(section.c_str(), "rise", group.style.rise);
         store.WriteFloat(section.c_str(), "text_scale", group.text.style.scale);
-        store.WriteInt(section.c_str(), "font", group.text.style.font);
+        WriteFontChoice(store, section.c_str(), group.text.style.font);
         SaveTextProfile(store, textSection.c_str(), group.text);
         store.WriteFloat(section.c_str(), "visible_count", group.style.visible_count);
         store.WriteFloat(section.c_str(), "row_spacing", group.style.row_spacing);
@@ -170,7 +170,7 @@ namespace xiui
         case 23: return module_option::Color("Key item color", "New key-item text.", &group.style.key_item_color, module_option_group::colors).VisibleWhen(events.key_items);
         case 24: return module_option::Color("Gil color", "Gil-gain text.", &group.style.gil_color, module_option_group::colors).VisibleWhen(events.gil);
         case 25: return module_option::Color("Treasure color", "New treasure-pool item text.", &group.style.treasure_color, module_option_group::colors).VisibleWhen(events.treasure);
-        case 26: return module_option::Dropdown("Font", "Font face for notification text.", &group.text.style.font, ui::font_names, ui::font_count).Ordered(100, true);
+        case 26: return module_option::Dropdown("Font", "Font face for notification text.", &group.text.style.font, ui::FontNames(), ui::FontCount()).Ordered(100, true);
         case 27: return module_option::Dropdown("Group count", "Independent notification stacks. Existing event assignments are retained when a group is temporarily disabled.", &this->group_count_, counts, std::size(counts));
         case 28: return module_option::Element("Group", "Choose the stack to customize or move.", &this->selected_group_, group_names, this->GroupCount()).Ordered(-100).VisibleWhen(this->GroupCount() > 2 || this->groups_[1].state.enabled);
         case 29: return module_option::Dropdown("Stack direction", "Grow above or below the anchor.", &group.direction, directions, 2).Ordered(201);

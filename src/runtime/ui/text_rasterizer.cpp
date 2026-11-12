@@ -3,6 +3,8 @@
 
 #include <cmath>
 #include <cstring>
+#include <mutex>
+#include <unordered_map>
 
 namespace
 {
@@ -64,13 +66,17 @@ namespace
 
 namespace xiui::ui
 {
-    auto NativeFontMetrics(const int font, const int pixels, const font_weight weight) -> raster_font_metrics
+    auto NativeFontMetrics(const int font, const int pixels, const font_variant variant) -> raster_font_metrics
     {
-        static std::array<std::optional<raster_font_metrics>, font_count * 91 * font_weight_count> cache{};
+        static std::mutex lock{};
+        static std::unordered_map<uint32_t, raster_font_metrics> cache{};
         const int family = FontIndex(font), size = std::clamp(pixels, 6, 96);
-        auto& metrics = cache[(family * font_weight_count + static_cast<int>(weight)) * 91 + size - 6];
-        if (!metrics) { text_rasterizer rasterizer; metrics = rasterizer.Metrics(family, size, weight); }
-        return *metrics;
+        const auto key = static_cast<uint32_t>((family * font_variant_count + variant.Key()) * 128 + size);
+        { const std::lock_guard guard{lock}; if (const auto found = cache.find(key); found != cache.end()) return found->second; }
+        text_rasterizer rasterizer;
+        const auto metrics = rasterizer.Metrics(family, size, variant);
+        const std::lock_guard guard{lock};
+        return cache.emplace(key, metrics).first->second;
     }
 
     auto text_rasterizer::Clear(void) -> void
@@ -86,29 +92,33 @@ namespace xiui::ui
         this->grammara_.Clear();
     }
 
-    auto text_rasterizer::Face(const int font, const int pixels, const font_weight weight) -> face*
+    auto text_rasterizer::Face(const int font, const int pixels, const font_variant variant) -> face*
     {
-        const int family = std::clamp(font, 0, font_count), size = std::clamp(pixels, 1, text_max_raster_pixels);
-        const auto key = static_cast<uint32_t>((family * font_weight_count + static_cast<int>(weight)) * 1024 + size);
+        const bool fallback = font == cjk_fallback_font;
+        const int family = fallback ? cjk_fallback_font : FontIndex(font), size = std::clamp(pixels, 1, text_max_raster_pixels);
+        const auto key = static_cast<uint32_t>((family * font_variant_count + variant.Key()) * 1024 + size);
         if (auto found = this->faces_.find(key); found != this->faces_.end()) { found->second.touched = ++this->touched_; return &found->second; }
         if (this->dc_ == nullptr) this->dc_ = ::CreateCompatibleDC(nullptr);
-        if (this->dc_ == nullptr || (family == 3 && !this->grammara_.Load())) return nullptr;
-        const auto name = family == font_count ? "Yu Gothic UI" : font_faces[family].family;
+        if (this->dc_ == nullptr || (family == grammara_font && !this->grammara_.Load())) return nullptr;
+        const auto* entry = fallback ? nullptr : &FontEntry(family);
+        const wchar_t* name = fallback ? L"Yu Gothic UI" : entry->wide_family.c_str();
+        const auto weight = variant.weight;
         const int faceWeight = weight == font_weight::medium ? FW_MEDIUM : weight == font_weight::regular ? FW_NORMAL : weight == font_weight::bold ? FW_BOLD :
-            family == font_count ? FW_BOLD : font_faces[family].weight;
-        const bool italic = family < font_count && font_faces[family].italic;
-        auto handle = ::CreateFontA(-size * samples, 0, 0, 0, faceWeight, italic ? TRUE : FALSE, FALSE, FALSE,
-            family == font_count ? DEFAULT_CHARSET : ANSI_CHARSET, OUT_TT_PRECIS, CLIP_DEFAULT_PRECIS,
+            fallback ? FW_BOLD : entry->weight;
+        const bool italic = variant.italic || (!fallback && entry->italic);
+        // Installed fonts may have non-Western names or glyphs; built-ins keep their established mapping.
+        auto handle = ::CreateFontW(-size * samples, 0, 0, 0, faceWeight, italic ? TRUE : FALSE, FALSE, FALSE,
+            fallback || !entry->builtin ? DEFAULT_CHARSET : ANSI_CHARSET, OUT_TT_PRECIS, CLIP_DEFAULT_PRECIS,
             NONANTIALIASED_QUALITY, DEFAULT_PITCH, name);
         if (handle == nullptr) return nullptr;
         const auto previous = ::SelectObject(this->dc_, handle);
-        char selected[LF_FACESIZE]{}; ::GetTextFaceA(this->dc_, LF_FACESIZE, selected);
-        TEXTMETRICA metrics{}; ::GetTextMetricsA(this->dc_, &metrics);
+        wchar_t selected[LF_FACESIZE]{}; ::GetTextFaceW(this->dc_, LF_FACESIZE, selected);
+        TEXTMETRICW metrics{}; ::GetTextMetricsW(this->dc_, &metrics);
         // Static families may map Medium back to Regular; strengthen their supersampled coverage.
         const int embolden = weight == font_weight::medium && metrics.tmWeight < FW_MEDIUM ?
             std::max(1, static_cast<int>(std::lround(size / 15.0f))) : 0;
         raster_font_metrics result{metrics.tmHeight / static_cast<float>(samples), metrics.tmAscent / static_cast<float>(samples), 0,
-            ::_stricmp(selected, name) == 0};
+            ::_wcsicmp(selected, name) == 0};
         for (wchar_t digit = L'0'; digit <= L'9'; ++digit)
         {
             SIZE extent{}; ::GetTextExtentPoint32W(this->dc_, &digit, 1, &extent);
@@ -116,13 +126,25 @@ namespace xiui::ui
         }
         ::SelectObject(this->dc_, previous);
         result.digit_advance += static_cast<float>(embolden) / samples;
-        if (family == 3 && !result.available) { ::DeleteObject(handle); return nullptr; }
+        // GDI substitutes missing faces; Grammara and installed choices fall back to XIUI+ text instead.
+        if ((family == grammara_font || (!fallback && !entry->builtin)) && !result.available) { ::DeleteObject(handle); return nullptr; }
+        int shift{};
+        float extent = result.height;
+        // HUD layouts are tuned to the XIUI+ faces. Installed fonts take Bahnschrift's line box and baseline at
+        // this size, so tall accent or descender metrics change only the glyphs, never module heights or text rows.
+        if (!fallback && !entry->builtin)
+            if (const auto* reference = this->Face(0, pixels, variant))
+            {
+                shift = static_cast<int>(std::lround((reference->metrics.ascent - result.ascent) * samples));
+                extent = shift / static_cast<float>(samples) + result.height;
+                result.height = reference->metrics.height; result.ascent = reference->metrics.ascent;
+            }
         if (this->faces_.size() >= 64)
         {
             const auto oldest = std::min_element(this->faces_.begin(), this->faces_.end(), [](const auto& a, const auto& b) { return a.second.touched < b.second.touched; });
             ::DeleteObject(oldest->second.handle); this->faces_.erase(oldest);
         }
-        return &this->faces_.emplace(key, face{handle, result, ++this->touched_, embolden}).first->second;
+        return &this->faces_.emplace(key, face{handle, result, ++this->touched_, embolden, shift, extent}).first->second;
     }
 
     auto text_rasterizer::Surface(const int width, const int height) -> bool
@@ -141,18 +163,18 @@ namespace xiui::ui
         return true;
     }
 
-    auto text_rasterizer::Metrics(const int font, const int pixels, const font_weight weight) -> raster_font_metrics
+    auto text_rasterizer::Metrics(const int font, const int pixels, const font_variant variant) -> raster_font_metrics
     {
-        const auto* face = this->Face(font, pixels, weight);
+        const auto* face = this->Face(font, pixels, variant);
         if (face == nullptr && font != 0)
-        { auto fallback = this->Metrics(0, pixels, weight); fallback.available = false; return fallback; }
+        { auto fallback = this->Metrics(0, pixels, variant); fallback.available = false; return fallback; }
         return face != nullptr ? face->metrics : raster_font_metrics{pixels * 1.2f, static_cast<float>(pixels), pixels * 0.6f, false};
     }
 
-    auto text_rasterizer::Advance(const int font, const int pixels, const uint32_t codepoint, const font_weight weight) -> float
+    auto text_rasterizer::Advance(const int font, const int pixels, const uint32_t codepoint, const font_variant variant) -> float
     {
-        auto* face = this->GlyphFace(font, pixels, codepoint, weight);
-        if (face == nullptr && font != 0) return this->Advance(0, pixels, codepoint, weight);
+        auto* face = this->GlyphFace(font, pixels, codepoint, variant);
+        if (face == nullptr && font != 0) return this->Advance(0, pixels, codepoint, variant);
         if (face == nullptr) return pixels * 0.6f;
         const auto previous = ::SelectObject(this->dc_, face->handle);
         std::array<wchar_t, 2> text{}; const auto length = Text(codepoint, text);
@@ -161,24 +183,26 @@ namespace xiui::ui
         return (extent.cx + static_cast<float>(face->embolden)) / samples;
     }
 
-    auto text_rasterizer::Rasterize(const int font, const int pixels, const uint32_t codepoint, const font_weight weight) -> std::optional<raster_glyph>
+    auto text_rasterizer::Rasterize(const int font, const int pixels, const uint32_t codepoint, const font_variant variant) -> std::optional<raster_glyph>
     {
-        auto* face = this->GlyphFace(font, pixels, codepoint, weight);
-        if (face == nullptr && font != 0) return this->Rasterize(0, pixels, codepoint, weight);
+        auto* face = this->GlyphFace(font, pixels, codepoint, variant);
+        if (face == nullptr && font != 0) return this->Rasterize(0, pixels, codepoint, variant);
         if (face == nullptr) return std::nullopt;
         raster_glyph result;
-        result.advance = this->Advance(font, pixels, codepoint, weight);
+        result.advance = this->Advance(font, pixels, codepoint, variant);
         result.ascent = face->metrics.ascent;
         result.padding = static_cast<int>(std::ceil(pixels / 15.0f * 5)) + 2;
+        // Fonts drawn above the shared baseline need room for their tallest glyphs.
+        if (face->shift < 0) result.padding = std::max(result.padding, static_cast<int>(std::ceil(-face->shift / static_cast<float>(samples))) + 1);
         result.width = static_cast<int>(std::ceil(result.advance)) + result.padding * 2 + 1;
-        result.height = static_cast<int>(std::ceil(face->metrics.height)) + result.padding * 2;
+        result.height = static_cast<int>(std::ceil(std::max(face->metrics.height, face->extent))) + result.padding * 2;
         if (!this->Surface(result.width * samples, result.height * samples)) return std::nullopt;
         const auto previous = ::SelectObject(this->dc_, face->handle);
         for (int y = 0; y < result.height * samples; ++y)
             std::memset(this->pixels_ + y * this->width_, 0, result.width * samples * sizeof(uint32_t));
         ::SetBkMode(this->dc_, TRANSPARENT); ::SetTextColor(this->dc_, RGB(255, 255, 255)); ::SetTextAlign(this->dc_, TA_LEFT | TA_TOP);
         std::array<wchar_t, 2> text{}; const auto length = Text(codepoint, text);
-        ::TextOutW(this->dc_, result.padding * samples, result.padding * samples, text.data(), length);
+        ::TextOutW(this->dc_, result.padding * samples, result.padding * samples + face->shift, text.data(), length);
         ::GdiFlush(); ::SelectObject(this->dc_, previous);
         std::vector<uint8_t> coverage;
         const int sampleWidth = result.width * samples, sampleHeight = result.height * samples;
@@ -206,9 +230,9 @@ namespace xiui::ui
         return result;
     }
 
-    auto text_rasterizer::GlyphFace(const int font, const int pixels, const uint32_t codepoint, const font_weight weight) -> face*
+    auto text_rasterizer::GlyphFace(const int font, const int pixels, const uint32_t codepoint, const font_variant variant) -> face*
     {
-        auto* selected = this->Face(font, pixels, weight);
+        auto* selected = this->Face(font, pixels, variant);
         if (selected == nullptr || codepoint <= 255) return selected;
         std::array<wchar_t, 2> text{};
         const auto length = Text(codepoint, text);
@@ -217,7 +241,7 @@ namespace xiui::ui
         const auto found = ::GetGlyphIndicesW(this->dc_, text.data(), length, glyphs.data(), GGI_MARK_NONEXISTING_GLYPHS);
         ::SelectObject(this->dc_, previous);
         if (found != GDI_ERROR && std::all_of(glyphs.begin(), glyphs.begin() + length, [](WORD glyph) { return glyph != 0xFFFF; })) return selected;
-        if (auto* fallback = this->Face(font_count, pixels, weight)) return fallback;
+        if (auto* fallback = this->Face(cjk_fallback_font, pixels, variant)) return fallback;
         return selected;
     }
 }

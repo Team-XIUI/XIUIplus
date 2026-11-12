@@ -1416,6 +1416,14 @@ namespace xiui
                 this->core_->GetChatManager()->Writef(1, false, "[XIUI+] Fonts: Bahnschrift %s; Segoe UI %s; Tahoma %s; Grammara %s.",
                     this->design_system_.FontAvailable(0) ? "ready" : "unavailable", this->design_system_.FontAvailable(1) ? "ready" : "unavailable",
                     this->design_system_.FontAvailable(2) ? "ready" : "unavailable", this->design_system_.FontAvailable(3) ? "ready" : "unavailable");
+            if (this->core_ != nullptr && this->core_->GetChatManager() != nullptr)
+            {
+                const auto& global = this->general_.GlobalTextStyle();
+                const auto& face = ui::FontEntry(global.font);
+                this->core_->GetChatManager()->Writef(1, false, "[XIUI+] Font list: %d entries (%d after the XIUI+ faces). Global text: %s (%s), weight %s, italic %s.",
+                    ui::FontCount(), ui::FontCount() - ui::builtin_font_count, face.label.c_str(), this->design_system_.FontAvailable(global.font) ? "ready" : "unavailable",
+                    ui::text_weight_names[std::clamp(global.weight_choice, 0, 2)], global.italic ? "on" : "off");
+            }
             return true;
         }
         else if (::_stricmp(command, "recast status") == 0)

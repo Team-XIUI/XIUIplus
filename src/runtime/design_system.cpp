@@ -255,7 +255,7 @@ namespace xiui::ui
         this->device_ = device;
         if (this->device_ != nullptr && this->device_->TestCooperativeLevel() == D3D_OK)
         {
-            for (int font = 0; font < font_count; ++font) this->glyphs_.Metrics(font, 15);
+            for (int font = 0; font < builtin_font_count; ++font) this->glyphs_.Metrics(font, 15);
             this->CreateDotTexture();
             this->icons_.SetDevice(device);
             this->CreatePixelShader();
@@ -1714,7 +1714,7 @@ namespace xiui::ui
         if (this->device_ == nullptr || text == nullptr || maxWidth <= 0.0f) return;
         const int pixels = ScaledTextPixelSize(style.scale, this->transform_.y);
         const float rasterScale = 1 / this->transform_.y;
-        const auto font = this->glyphs_.Metrics(style.font, pixels, style.weight);
+        const auto font = this->glyphs_.Metrics(style.font, pixels, style.Variant());
         const float tracking = style.letter_spacing * TextPixelScale(style.scale);
         IDirect3DTexture8* texture{};
         std::vector<text_vertex> vertices;
@@ -1733,12 +1733,12 @@ namespace xiui::ui
         {
             auto codepoint = xiui::NextUtf8(content, position);
             if (codepoint < 32) codepoint = '?';
-            const auto metrics = TextGlyphMetrics(codepoint, this->glyphs_.Advance(style.font, pixels, codepoint, style.weight) * rasterScale,
+            const auto metrics = TextGlyphMetrics(codepoint, this->glyphs_.Advance(style.font, pixels, codepoint, style.Variant()) * rasterScale,
                 font.digit_advance * rasterScale, style.tabular_numbers);
             if (advance + metrics.advance > maxWidth + 0.001) break;
             if (codepoint != ' ')
             {
-                const auto glyph = this->glyphs_.Get(this->device_, style.font, pixels, codepoint, flush, style.weight);
+                const auto glyph = this->glyphs_.Get(this->device_, style.font, pixels, codepoint, flush, style.Variant());
                 auto* nextTexture = glyph.textures[static_cast<size_t>(mask)];
                 if (texture != nextTexture) { flush(); texture = nextTexture; }
                 if (texture != nullptr)
@@ -1763,7 +1763,7 @@ namespace xiui::ui
     auto design_system::TextHeight(const text_style& source) const -> float
     {
         const auto style = this->ResolveHudText(source);
-        return this->glyphs_.Metrics(style.font, ScaledTextPixelSize(style.scale, this->transform_.y), style.weight).height / this->transform_.y;
+        return this->glyphs_.Metrics(style.font, ScaledTextPixelSize(style.scale, this->transform_.y), style.Variant()).height / this->transform_.y;
     }
 
     auto design_system::Submit(const D3DPRIMITIVETYPE type, const UINT primitives, const void* vertices, const UINT stride) const -> void
@@ -1787,14 +1787,14 @@ namespace xiui::ui
         const auto style = this->ResolveHudText(source);
         if (text == nullptr) return 0;
         const int pixels = ScaledTextPixelSize(style.scale, this->transform_.y);
-        const auto font = this->glyphs_.Metrics(style.font, pixels, style.weight);
+        const auto font = this->glyphs_.Metrics(style.font, pixels, style.Variant());
         double width{};
         const std::string_view content{text};
         for (size_t position = 0; position < content.size();)
         {
             auto codepoint = xiui::NextUtf8(content, position);
             if (codepoint < 32) codepoint = '?';
-            width += TextGlyphMetrics(codepoint, this->glyphs_.Advance(style.font, pixels, codepoint, style.weight), font.digit_advance, style.tabular_numbers).advance / this->transform_.y;
+            width += TextGlyphMetrics(codepoint, this->glyphs_.Advance(style.font, pixels, codepoint, style.Variant()), font.digit_advance, style.tabular_numbers).advance / this->transform_.y;
             if (position < content.size()) width += style.letter_spacing * TextPixelScale(style.scale);
         }
         return static_cast<float>(width);

@@ -9,8 +9,23 @@ namespace xiui
     {
         static constexpr const char* flags[]{"size_set", "font_set", "letter_spacing_set", "shadow_enabled_set", "shadow_color_set",
             "shadow_x_set", "shadow_y_set", "shadow_soft_set", "stroke_enabled_set", "stroke_color_set", "glow_enabled_set",
-            "glow_color_set", "sheen_enabled_set", "sheen_color_set", "sheen_width_set", "sheen_speed_set"};
+            "glow_color_set", "sheen_enabled_set", "sheen_color_set", "sheen_width_set", "sheen_speed_set", "weight_set", "italic_set"};
+        static_assert(std::size(flags) == text_property_count);
         return flags[static_cast<size_t>(property)];
+    }
+
+    auto ReadFontChoice(const settings_store& store, const char* section, const int fallback) -> int
+    {
+        const auto family = store.ReadString(section, "font_family");
+        return family.empty() ? ui::FontIndex(store.ReadInt(section, "font", fallback)) : ui::FontFamilyIndex(family);
+    }
+
+    auto WriteFontChoice(const settings_store& store, const char* section, const int font) -> void
+    {
+        const auto family = ui::FontFamily(font);
+        // Older builds read font 0 for an installed family. Sections that never used one stay unchanged.
+        store.WriteInt(section, "font", family.empty() ? font : 0);
+        if (!family.empty() || !store.ReadString(section, "font_family").empty()) store.WriteString(section, "font_family", family);
     }
 
     auto CopyTextProperty(ui::text_style& target, const ui::text_style& source, const text_property property) -> void
@@ -33,6 +48,8 @@ namespace xiui
         case text_property::sheen_color: target.sheen.color = source.sheen.color; break;
         case text_property::sheen_width: target.sheen.width = source.sheen.width; break;
         case text_property::sheen_speed: target.sheen.speed = source.sheen.speed; break;
+        case text_property::weight: target.weight_choice = source.weight_choice; break;
+        case text_property::italic: target.italic = source.italic; break;
         default: break;
         }
     }
@@ -45,8 +62,10 @@ namespace xiui
             return std::isfinite(saved) ? std::clamp(saved, minimum, maximum) : value;
         };
         style.scale = number("scale", style.scale, 0.5f, ui::text_max_scale);
-        style.font = ui::FontIndex(store.ReadInt(section, "font", style.font));
+        style.font = ReadFontChoice(store, section, style.font);
         style.font_explicit = store.ReadBool(section, "font_explicit", style.font_explicit || store.ReadBool(section, "font_set", false));
+        style.weight_choice = std::clamp(store.ReadInt(section, "weight", style.weight_choice), ui::text_weight_default, ui::text_weight_bold);
+        style.italic = store.ReadBool(section, "italic", style.italic);
         style.letter_spacing = number("letter_spacing", style.letter_spacing, -1, 6);
         style.shadow.enabled = store.ReadBool(section, "shadow_enabled", style.shadow.enabled);
         style.shadow.color = store.ReadArgb(section, "shadow_color", style.shadow.color);
@@ -67,8 +86,10 @@ namespace xiui
     auto SaveTextStyle(const settings_store& store, const char* section, const ui::text_style& style) -> void
     {
         store.WriteFloat(section, "scale", style.scale);
-        store.WriteInt(section, "font", style.font);
+        WriteFontChoice(store, section, style.font);
         store.WriteBool(section, "font_explicit", style.font_explicit);
+        store.WriteInt(section, "weight", style.weight_choice);
+        store.WriteBool(section, "italic", style.italic);
         store.WriteFloat(section, "letter_spacing", style.letter_spacing);
         store.WriteBool(section, "shadow_enabled", style.shadow.enabled);
         store.WriteArgb(section, "shadow_color", style.shadow.color);

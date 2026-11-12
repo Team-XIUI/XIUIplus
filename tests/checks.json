@@ -275,6 +275,14 @@
       "requires_arguments": false
     },
     {
+      "name": "fonts",
+      "target": "xiui_config_input_smoke",
+      "arguments": [
+        "--fonts-only"
+      ],
+      "requires_arguments": false
+    },
+    {
       "name": "target-recipient-theme",
       "target": "xiui_config_input_smoke",
       "arguments": [

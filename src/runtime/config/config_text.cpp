@@ -1,6 +1,7 @@
 #include "config_text.hpp"
 
 #include "modules/module.hpp"
+#include "settings/text_style_settings.hpp"
 
 #include <algorithm>
 #include <cmath>
@@ -19,7 +20,7 @@ namespace xiui::ui
             const float value = store.ReadFloat(section, key, fallback);
             return std::isfinite(value) ? std::clamp(value, minimum, maximum) : fallback;
         };
-        this->font = FontIndex(store.ReadInt(section, "font", this->font));
+        this->font = xiui::ReadFontChoice(store, section, this->font);
         this->size = number("size", this->size, 8, 18);
         this->letter_spacing = number("letter_spacing", this->letter_spacing, -1, 4);
         this->shadow.enabled = store.ReadBool(section, "shadow_enabled", this->shadow.enabled);
@@ -39,7 +40,7 @@ namespace xiui::ui
 
     auto config_text_settings::Save(const settings_store& store) const -> void
     {
-        store.WriteInt(section, "font", this->font);
+        xiui::WriteFontChoice(store, section, this->font);
         store.WriteFloat(section, "size", this->size);
         store.WriteFloat(section, "letter_spacing", this->letter_spacing);
         store.WriteBool(section, "shadow_enabled", this->shadow.enabled);
@@ -62,7 +63,7 @@ namespace xiui::ui
         static constexpr const char* outlines[]{"Off", "Buttons only", "All text"};
         switch (index)
         {
-        case 0: return module_option::Dropdown("Config font", "Font for configuration labels, buttons, menus and dialogs.", &this->font, font_names, font_count).Ordered(100, true);
+        case 0: return module_option::Dropdown("Config font", "Font for configuration labels, buttons, menus and dialogs.", &this->font, FontNames(), FontCount()).Ordered(100, true);
         case 1: return module_option::Slider("Letter spacing", "Additional pixels between configuration letters.", &this->letter_spacing, -1, 4, 0.1f, module_option_group::text).Ordered(201);
         case 2: return module_option::Toggle("Drop shadow", "Shadow behind configuration text.", &this->shadow.enabled, module_option_group::effects).Ordered(600, true);
         case 3: return module_option::Color("Shadow color", "Shadow color and opacity.", &this->shadow.color).Ordered(601).VisibleWhen(this->shadow.enabled);

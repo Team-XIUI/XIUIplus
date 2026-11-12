@@ -63,7 +63,7 @@ namespace xiui::config_checks
         using namespace xiui;
         ui::text_rasterizer rasterizer;
         ui::design_system design;
-        for (int family = 0; family < ui::font_count; ++family)
+        for (int family = 0; family < ui::builtin_font_count; ++family)
         {
             float previousHeight{}, previousAdvance{};
             for (const int pixels : {8, 15, 23, 38})

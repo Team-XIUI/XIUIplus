@@ -4,6 +4,7 @@
 #include "config_scrollbar.hpp"
 
 #include <algorithm>
+#include <cctype>
 #include <optional>
 
 namespace xiui::ui
@@ -34,6 +35,21 @@ namespace xiui::ui
             this->highlighted_ = std::clamp(this->highlighted_ + delta, 0, std::max(0, static_cast<int>(this->option_.choice_count) - 1));
             if (this->highlighted_ < this->first_) this->first_ = this->highlighted_;
             if (this->highlighted_ >= this->first_ + this->VisibleCount()) this->first_ = this->highlighted_ - this->VisibleCount() + 1;
+        }
+        auto Page(int direction) -> void { this->Move(direction * this->VisibleCount()); }
+        // Highlights the next choice starting with letter, wrapping, so long lists such as fonts stay quick to reach.
+        auto Jump(const char letter) -> bool
+        {
+            const int count = static_cast<int>(this->option_.choice_count);
+            const auto wanted = std::tolower(static_cast<unsigned char>(letter));
+            for (int step = 1; step <= count; ++step)
+            {
+                const int index = (this->highlighted_ + step) % count;
+                const char* label = this->option_.ChoiceText(static_cast<size_t>(index));
+                if (label != nullptr && std::tolower(static_cast<unsigned char>(label[0])) == wanted)
+                { this->Move(index - this->highlighted_); return true; }
+            }
+            return false;
         }
         auto Bounds(const D3DVIEWPORT8& viewport) const -> rect
         {
