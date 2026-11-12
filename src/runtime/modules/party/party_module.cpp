@@ -108,13 +108,14 @@ namespace xiui
         const auto bounds = this->state_.bounds;
         const auto* source = this->source_;
         const auto presetAlliances = this->preset_alliances_;
+        const auto copySources = this->copy_sources_;
         const auto* timing = this->timing_;
         const auto* mpPreviewSource = this->mp_preview_source_;
         auto* healPrediction = this->heal_prediction_;
         const auto* moduleEnabled = this->module_enabled_;
         *this = party_module{this->group_};
         this->state_.bounds = bounds;
-        this->source_ = source; this->preset_alliances_ = presetAlliances;
+        this->source_ = source; this->preset_alliances_ = presetAlliances; this->copy_sources_ = copySources;
         this->timing_ = timing;
         this->mp_preview_source_ = mpPreviewSource; this->heal_prediction_ = healPrediction;
         this->module_enabled_ = moduleEnabled;
@@ -127,6 +128,7 @@ namespace xiui
         const auto group = this->group_;
         const auto* source = this->source_;
         const auto presetAlliances = this->preset_alliances_;
+        const auto copySources = this->copy_sources_;
         const auto* timing = this->timing_;
         const auto* mpPreviewSource = this->mp_preview_source_;
         auto* healPrediction = this->heal_prediction_;
@@ -135,7 +137,7 @@ namespace xiui
         const auto* moduleEnabled = this->module_enabled_;
         *this = party;
         this->group_ = group;
-        this->source_ = source; this->preset_alliances_ = presetAlliances;
+        this->source_ = source; this->preset_alliances_ = presetAlliances; this->copy_sources_ = copySources;
         this->timing_ = timing;
         this->mp_preview_source_ = mpPreviewSource; this->heal_prediction_ = healPrediction;
         this->state_.enabled = state.enabled;
@@ -356,6 +358,17 @@ namespace xiui
                 width ? &this->selection_width_extension_ : &this->selection_height_extension_, width ? -128.0f : -64.0f, width ? 256.0f : 128.0f, 1,
                 module_option_group::appearance).Ordered(width ? 410 : 411, width).VisibleWhen(this->selection_);
         }
+        if (index >= copy_options_start && index < copy_options_start + 2)
+        {
+            static constexpr const char* labels[]{"Copy Party settings", "Copy Alliance 1 settings", "Copy Alliance 2 settings"};
+            const auto* source = this->copy_sources_[index - copy_options_start];
+            auto option = module_option::Action(labels[source != nullptr ? source->group_ : 0],
+                "Use that list's layout, bars, colors, text and other settings here, like Lua XIUI's copy buttons. Position, scale, visibility and Hide in preview stay the same.",
+                "Copy").Ordered(index == copy_options_start ? 1900 : 1901, index == copy_options_start);
+            option.confirmation = "This replaces this alliance list's settings with the selected list's. Its position, scale and visibility stay the same.";
+            option.available = this->group_ != 0 && source != nullptr;
+            return option;
+        }
         if (index == leader_option)
             return module_option::Toggle("Show party leader", "Show a yellow dot beside the party or alliance leader's name.", &this->show_leader_).Ordered(10);
         if (index >= job_text_options_start && index < job_text_options_start + 2)
@@ -567,6 +580,7 @@ namespace xiui
     {
         if (section >= this->ConfigSections().size() || index >= this->OptionCount() || index == 2) return false;
         if (index >= selection_size_options_start && index < selection_size_options_start + 2) return section == selection_section;
+        if (index >= copy_options_start) return this->group_ != 0 && section == general_section;
         if (index == leader_option) return section == general_section;
         if (index >= job_text_options_start || (index >= 7 && index <= 11) || index == 49)
             return section == text_section && this->selected_text_ == 1;
@@ -618,6 +632,11 @@ namespace xiui
 
     auto party_module::OnContentOptionChanged(const size_t index) -> void
     {
+        if (index >= copy_options_start && index < copy_options_start + 2)
+        {
+            if (const auto* source = this->copy_sources_[index - copy_options_start]; source != nullptr && this->group_ != 0) this->CopyPreferences(*source);
+            return;
+        }
         if (index >= preset_options_start && index < preset_options_start + 2 && this->group_ == 0)
         {
             const auto preset = index == preset_options_start ? 0u : 2u;

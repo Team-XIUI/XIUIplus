@@ -27,6 +27,7 @@ namespace xiui
         auto SetHealPrediction(heal_prediction_source* source) -> void { this->heal_prediction_ = source; }
         auto SetMPPreview(const cast_cost_source* source) -> void { this->mp_preview_source_ = source; }
         auto SetPresetAlliances(party_module& first, party_module& second) -> void { this->preset_alliances_ = {&first, &second}; }
+        auto SetCopySources(const party_module& first, const party_module& second) -> void { this->copy_sources_ = {&first, &second}; }
         auto SetModuleEnabled(const bool* enabled) -> void { this->module_enabled_ = enabled; }
         auto ApplyMeterDefaults(const ui::meter_style& style) -> void override;
         auto VisitTextSettings(const text_settings_visitor& visit) -> void override
@@ -41,7 +42,7 @@ namespace xiui
         auto PreviewVisible(void) const -> bool override { return this->ModuleEnabled() && this->state_.enabled && (this->group_ == 0 || !this->hide_preview_); }
         auto Load(const settings_store& settings) -> void override;
         auto Save(const settings_store& settings) const -> void override;
-        auto ContentOptionCount(void) const -> size_t override { return selection_size_options_start + 2; }
+        auto ContentOptionCount(void) const -> size_t override { return copy_options_start + 2; }
         auto ContentOption(size_t index) -> module_option override;
         auto ConfigSections(void) const -> std::span<const module_config_section> override;
         auto ContentConfigSectionContains(size_t section, size_t index) -> bool override;
@@ -95,7 +96,9 @@ namespace xiui
         static constexpr size_t job_text_options_start = preset_options_start + 2;
         static constexpr size_t leader_option = job_text_options_start + 2;
         static constexpr size_t selection_size_options_start = leader_option + 1;
+        static constexpr size_t copy_options_start = selection_size_options_start + 2;
         std::array<party_module*, 2> preset_alliances_{};
+        std::array<const party_module*, 2> copy_sources_{};
         static constexpr size_t heading_text = 6;
         static constexpr size_t tp_text = 9;
         static constexpr size_t mp_text = 10;

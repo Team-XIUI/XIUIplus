@@ -887,6 +887,19 @@ namespace xiui
             extendedFrame.x == originalFrame.x - 16 && extendedFrame.y == originalFrame.y - 6 &&
             party.BarWidthLimit() == contentWidth && party.MemberHeight(player) == entryHeight,
             "selection sizing extends both edges without moving party content or changing row spacing")) return false;
+        alliance.SetCopySources(party, third);
+        const auto copyParty = alliance.Option(party_module::copy_options_start), copyOther = alliance.Option(party_module::copy_options_start + 1);
+        if (!check(copyParty.available && copyParty.kind == module_option_kind::action && copyParty.confirmation != nullptr &&
+            std::string_view{copyParty.label} == "Copy Party settings" && std::string_view{copyOther.label} == "Copy Alliance 2 settings" &&
+            alliance.ConfigSectionContains(party_module::general_section, party_module::copy_options_start) &&
+            !party.Option(party_module::copy_options_start).available && !party.ConfigSectionContains(party_module::general_section, party_module::copy_options_start),
+            "alliance lists offer Lua-style copy actions from Party and the other alliance")) return false;
+        auto copied = alliance;
+        copied.OnOptionChanged(party_module::copy_options_start);
+        if (!check(copied.layout_ == party.layout_ && copied.bar_widths_ == party.bar_widths_ && copied.tp_ == party.tp_ &&
+            copied.selection_width_extension_ == 32 && copied.GroupIndex() == 1 && copied.state_.bounds.x == 450 && copied.state_.bounds.y == 30 &&
+            copied.state_.enabled == alliance.state_.enabled && copied.copy_sources_ == alliance.copy_sources_,
+            "copying Party settings keeps the alliance's position, visibility and copy sources")) return false;
         party.Save(store); alliance.Save(store); third.Save(store); store.Flush();
         store.WriteFloat("party", "frame_size", 12); store.WriteBool("party", "scan_lines", false);
         store.WriteFloat("party", "status_frame_size", 1); store.WriteBool("party", "status_scan_lines", false);

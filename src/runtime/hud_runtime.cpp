@@ -251,6 +251,8 @@ namespace xiui
         this->general_.SetGameHudModule(this->game_hud_);
         this->game_hud_.BindNativeOptions(this->general_, this->general_.NameplatesOption(), this->actionbars_, this->actionbars_.NativeKeysOptionIndex());
         this->party_.SetPresetAlliances(this->alliance_first_, this->alliance_second_);
+        this->alliance_first_.SetCopySources(this->party_, this->alliance_second_);
+        this->alliance_second_.SetCopySources(this->party_, this->alliance_first_);
         std::vector<hud_module*> configurable;
         for (const auto& page : this->ConfigPages())
             if (page.primary != &this->general_ && page.primary != &this->game_hud_)

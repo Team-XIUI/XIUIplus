@@ -2,6 +2,8 @@
 
 ## Unreleased
 
+- Alliance lists: new **Copy Party settings** and **Copy Alliance 1/2 settings** buttons (Party → Alliance 1 or Alliance 2 → General) give that alliance list the same layout, bars, colors and text, like Lua XIUI's copy buttons. Its position, scale and visibility stay the same, and you confirm before anything changes.
+
 - Satchel: items now appear in the same order as the game's own Item menu, including any order you set with the menu's **Sort** → Auto or Manual. Before, Satchel listed items by their hidden storage slot, so its order rarely matched the game. **Custom order** starts from the game's order; items you drag keep their positions. A new **Game order** choice (Satchel → Layout → Display order) always follows the game's list. Saved characters keep the order they had when last seen.
 
 - Target: status effects now sit directly under the HP bar for every target. Before, Mob Info rows and the enemy Attack timer pushed a monster's debuffs lower than your own buffs. Mob Info and the timer now appear below the statuses.
