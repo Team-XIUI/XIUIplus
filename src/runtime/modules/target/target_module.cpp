@@ -439,7 +439,7 @@ namespace xiui
             name.resize(last);
         }
         auto meterStyle = recipient && !options.follow_meter ? options.meter : this->settings_.hp_style;
-        if (xiv1) { meterStyle.height = 12; meterStyle.bookends = true; }
+        if (xiv1) meterStyle.height = 12;
         const float meterHeight = xiv1 ? 14 : recipient ? options.BarHeight(this->settings_.hp_style.height + 2) : std::max(1.0f, meterStyle.height) + 2;
         if (recipient) meterStyle.height = std::max(1.0f, meterHeight - 2);
         const ui::rect nameBounds{panel.x + nameInset, panel.y + (xiv1 ? 8.0f : 5.0f), nameWidth, 20};

@@ -1396,7 +1396,7 @@ namespace xiui
                 fillTop = (fillTop & 0xFFFFFF) | (((fillTop >> 24) * alpha / 255) << 24);
             }
             auto meterStyle = this->meters_[index];
-            if (this->xiv1_theme_) { meterStyle.height = ui::Xiv1ResourceHeight(index); meterStyle.bookends = true; }
+            if (this->xiv1_theme_) meterStyle.height = ui::Xiv1ResourceHeight(index);
             const float textWidth = context.MeterTextBounds(bounds, meterStyle).width;
             const auto fitted = xiui::ui::FitText(design, value, textWidth, valueStyle.style);
             const auto label = xiui::ui::FitText(design, this->labels_ ? resourceLabel : "", textWidth, this->text_[2].style);

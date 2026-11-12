@@ -485,11 +485,7 @@ namespace xiui
 
         const auto rows = this->ResourceRows(snapshot);
         auto hpStyle = this->settings_.hp_style, mpStyle = this->settings_.mp_style, tpStyle = this->settings_.tp_style;
-        if (xiv1)
-        {
-            hpStyle.height = mpStyle.height = ui::xiv1_resource_height; tpStyle.height = ui::xiv1_tp_height;
-            for (auto* style : {&hpStyle, &mpStyle, &tpStyle}) style->bookends = true;
-        }
+        if (xiv1) { hpStyle.height = mpStyle.height = ui::xiv1_resource_height; tpStyle.height = ui::xiv1_tp_height; }
         const auto meterBounds = [&](const ui::rect& row, const ui::meter_style& style) -> ui::rect {
             if (xiv1) return {row.x, row.y, row.width, style.height + 2};
             return PlayerMeterBounds(row, style);

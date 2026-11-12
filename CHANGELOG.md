@@ -2,6 +2,8 @@
 
 ## Unreleased
 
+- XIV 1.0 theme: **Bookends** now turns end caps off for Modern-style HP, MP and TP bars on the Player Bar, Party and Target. Before, the theme always drew them and the setting only affected the small timer bars. Window theme bars already followed the setting and are unchanged.
+
 - Target: new **Hide when targeting yourself** (Target → General) hides the Target window while your own character is the main target. It is off by default.
 
 - Player Bar and Party colors: in the XIV 1.0 theme, HP and MP **Fill top** and **Fill bottom** now apply; colors left at their defaults keep the XIV 1.0 palette. Text **Top color** and **Bottom color** now run from the top of the text to its baseline, so both colors show instead of a blend of the two. Attack and recovery timer bars no longer pick up the TP or HP bar's glow.
