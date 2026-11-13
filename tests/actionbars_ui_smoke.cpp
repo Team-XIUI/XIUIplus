@@ -938,6 +938,18 @@ namespace xiui
             module.HandleControllerAction(controller_action::confirm, false);
             Check(store.AllPalettes().size() == count && module.dialog_ == actionbars_module::dialog::palettes, "fresh initial Confirm cancels deletion");
             module.CloseDialog();
+            {
+                const auto context = store.Context();
+                store.SetContext({1, 2, {}});
+                module.OpenPalettes();
+                module.ActivateControl(Control(module, "Separate for this subjob"));
+                Check(store.SubjobSet(action_surface::hotbar) == action_subjob_set::separate && module.dialog_ == actionbars_module::dialog::palettes, "a subjob can take its own copy of the shared palettes");
+                module.ActivateControl(Control(module, "Share with other subjobs..."));
+                Check(module.dialog_ == actionbars_module::dialog::share_palettes && module.focused_control_ == Control(module, "Cancel"), "discarding subjob palettes starts on Cancel");
+                module.ActivateControl(Control(module, "Use shared"));
+                Check(store.SubjobSet(action_surface::hotbar) == action_subjob_set::shared && module.dialog_ == actionbars_module::dialog::palettes, "a subjob can return to the shared palettes");
+                module.CloseDialog(); store.SetContext(context);
+            }
             for (size_t view = 0; view <= action_bar_count; ++view)
             {
                 module.SelectConfigView(view);

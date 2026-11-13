@@ -71,12 +71,18 @@ namespace
         const auto first = store.ActivePalette(action_surface::hotbar)->id;
         Check(store.Assign(action_surface::hotbar, 0, 0, Spell(144, "Fire")), "assign a typed action");
         store.SetContext({1, 3, {}});
-        Check(store.Resolve(action_surface::hotbar, 0, 0).Empty(), "subjob contexts do not overwrite one another");
+        Check(store.SubjobSet(action_surface::hotbar) == action_subjob_set::shared && store.Resolve(action_surface::hotbar, 0, 0).id == 144, "a new subjob uses the job's shared palettes");
+        Check(store.SeparateSubjob(action_surface::hotbar) && store.SubjobSet(action_surface::hotbar) == action_subjob_set::separate &&
+            store.Resolve(action_surface::hotbar, 0, 0).id == 144, "separating a subjob starts from a copy of the shared palettes");
         store.Assign(action_surface::hotbar, 0, 0, Spell(145, "Fire II"));
+        store.SetContext({1, 2, {}});
+        Check(store.ActivePalette(action_surface::hotbar)->id == first && store.Resolve(action_surface::hotbar, 0, 0).id == 144, "a separated subjob does not change the shared palettes");
+        store.SetContext({1, 3, {}});
+        Check(!store.ShareSubjob(action_surface::hotbar) && store.Resolve(action_surface::hotbar, 0, 0).id == 145, "discarding a subjob's own palettes needs confirmation");
         store.SetScope(action_surface::hotbar, 0, action_scope::shared_subjob);
-        Check(store.Resolve(action_surface::hotbar, 0, 0).id == 145, "switching storage scope copies the current actions");
+        Check(store.SubjobSet(action_surface::hotbar) == action_subjob_set::unavailable && store.Resolve(action_surface::hotbar, 0, 0).id == 144, "shared-subjob storage ignores subjob palettes");
         store.SetContext({1, 4, {}});
-        Check(store.Resolve(action_surface::hotbar, 0, 0).id == 145, "shared-subjob storage survives a subjob change");
+        Check(store.Resolve(action_surface::hotbar, 0, 0).id == 144, "shared-subjob storage survives a subjob change");
         Check(store.Resolve(action_surface::hotbar, 1, 0).Empty(), "other bars retain their own slots");
         const auto shared = store.ActivePalette(action_surface::hotbar)->id;
         const auto second = store.Copy(shared, "Burst");
@@ -91,6 +97,16 @@ namespace
         store.SetContext({1, 2, {}});
         store.SetScope(action_surface::hotbar, 0, action_scope::job_subjob);
         Check(store.ActivePalette(action_surface::hotbar)->id == first && store.Resolve(action_surface::hotbar, 0, 0).id == 144, "returning to an existing scope preserves its assignments");
+        store.SetContext({1, 3, {}});
+        const auto before = store.AllPalettes().size();
+        Check(store.Resolve(action_surface::hotbar, 0, 0).id == 145 && store.ShareSubjob(action_surface::hotbar, 0, true) && store.AllPalettes().size() == before - 1 &&
+            store.SubjobSet(action_surface::hotbar) == action_subjob_set::shared && store.Resolve(action_surface::hotbar, 0, 0).id == 144, "a subjob can return to the shared palettes");
+        action_palette own{}; own.name = "Own"; own.job = 7; own.subjob = 8; own.surfaces = 1; own.actions.hotbar[0][0] = Spell(146, "Fire III");
+        store.ImportPalette(own, action_surface::hotbar, 0, true);
+        store.SetContext({7, 8, {}});
+        Check(store.SubjobSet(action_surface::hotbar) == action_subjob_set::separate && store.ShareSubjob(action_surface::hotbar), "subjob palettes become the shared set when the job has none");
+        store.SetContext({7, 9, {}});
+        Check(store.Resolve(action_surface::hotbar, 0, 0).id == 146, "other subjobs inherit the newly shared palettes");
         store.SetContext({1, 2, "Ifrit"});
         store.SetPetAware(action_surface::hotbar, 0, true);
         Check(store.Assign(action_surface::hotbar, 0, 0, Spell(146, "Fire III"), true), "create a pet variant");

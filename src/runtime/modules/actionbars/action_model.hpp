@@ -11,6 +11,7 @@ namespace xiui
     enum class action_kind : uint8_t { none, spell, ability, weapon_skill, item, equip, pet, macro, native_macro, command };
     enum class action_surface : uint8_t { hotbar, crossbar };
     enum class action_scope : uint8_t { global, shared_subjob, job_subjob };
+    enum class action_subjob_set : uint8_t { unavailable, shared, separate };
 
     struct native_macro_ref
     {

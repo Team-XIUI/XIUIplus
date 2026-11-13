@@ -14,6 +14,8 @@ The icon picker groups Game, original XIUI and Vincerno artwork with cached name
 
 Import reads XIUI, tHotBar and tCrossBar actions, shared macros and hotbar/crossbar palettes only. `action_import.*` owns the restricted data parser and atomic action-store commit; HUD settings, positions and controller configuration are outside this boundary. Native profile-file sharing remains separate. Focused check: `./scripts/check.ps1 -Name actions-import`.
 
+Under **Main job + subjob** storage a subjob uses the job's shared palettes (subjob 0) until the palette window's **Separate for this subjob** copies them; **Share with other subjobs** returns to the shared set, or promotes the subjob's palettes when the job has none. New palettes join whichever set is in use, so one job can mix shared and separate subjobs as in the Lua addon. `xiui_actionbars_data_smoke` covers the fallback and both actions.
+
 Global visuals are opt-in per hotbar. Preserve independent shapes, assignments, keys and positions; unlinking restores saved local visuals. The detailed guide records remaining Lua compatibility gaps.
 
 **Keep intact:** Keep native macro suppression separate from crossbar activation. All execution uses the validated executor. Pointer management can work over native menus; unclaimed keyboard/controller navigation remains native. Shared library edits must not silently assign slots.

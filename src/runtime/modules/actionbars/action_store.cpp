@@ -159,6 +159,68 @@ namespace xiui
         const auto scope = this->Scope(surface, bar);
         return {static_cast<uint8_t>(scope == action_scope::global ? 0 : this->context_.job), static_cast<uint8_t>(scope == action_scope::job_subjob ? this->context_.subjob : 0)};
     }
+    auto action_store::Has(action_surface surface, uint8_t job, uint8_t subjob) const -> bool
+    { return std::any_of(this->palettes_.begin(), this->palettes_.end(), [&](const auto& p) { return p.job == job && p.subjob == subjob && (p.surfaces & (1 << static_cast<int>(surface))) != 0; }); }
+    // A subjob without palettes of its own uses the job's shared set, so new palettes join that set.
+    auto action_store::Home(action_surface surface, size_t bar) const -> std::pair<uint8_t, uint8_t>
+    {
+        auto [job, subjob] = this->Key(surface, bar);
+        if (subjob != 0 && !this->Has(surface, job, subjob)) subjob = 0;
+        return {job, subjob};
+    }
+    auto action_store::SubjobSet(action_surface surface, size_t bar) const -> action_subjob_set
+    {
+        const auto [job, subjob] = this->Key(surface, bar);
+        if (job == 0 || subjob == 0) return action_subjob_set::unavailable;
+        return this->Has(surface, job, subjob) ? action_subjob_set::separate : action_subjob_set::shared;
+    }
+    auto action_store::SeparateSubjob(action_surface surface, size_t bar) -> bool
+    {
+        if (this->SubjobSet(surface, bar) != action_subjob_set::shared) return false;
+        const auto [job, subjob] = this->Key(surface, bar);
+        std::vector<action_palette> copies; std::string selected;
+        const auto* active = this->ActivePalette(surface, bar);
+        for (const auto* source : this->Palettes(surface, bar))
+        {
+            auto copy = *source;
+            do { copy.id = "palette-" + std::to_string(this->sequence_++); } while (std::any_of(this->palettes_.begin(), this->palettes_.end(), [&](const auto& p) { return p.id == copy.id; }));
+            copy.job = job; copy.subjob = subjob; copy.surfaces = static_cast<uint8_t>(1 << static_cast<int>(surface));
+            if (source == active) selected = copy.id;
+            copies.push_back(std::move(copy));
+        }
+        if (this->palettes_.size() + copies.size() > 512) return false;
+        if (copies.empty()) return !this->Create("Default", surface, bar).empty();
+        for (auto& copy : copies) this->palettes_.push_back(std::move(copy));
+        if (!selected.empty()) this->Select(surface, selected, bar);
+        this->Touch(); return true;
+    }
+    auto action_store::ShareSubjob(action_surface surface, size_t bar, const bool discard) -> bool
+    {
+        if (this->SubjobSet(surface, bar) != action_subjob_set::separate) return false;
+        const auto [job, subjob] = this->Key(surface, bar);
+        const auto bit = static_cast<uint8_t>(1 << static_cast<int>(surface));
+        const bool shared = this->Has(surface, job, 0);
+        if (shared && !discard) return false;
+        std::vector<action_palette> moved;
+        for (auto& palette : this->palettes_)
+        {
+            if (palette.job != job || palette.subjob != subjob || (palette.surfaces & bit) == 0) continue;
+            if (!shared && palette.surfaces == bit) { palette.subjob = 0; continue; }
+            if (!shared)
+            {
+                auto copy = palette; copy.subjob = 0; copy.surfaces = bit;
+                do { copy.id = "palette-" + std::to_string(this->sequence_++); } while (std::any_of(this->palettes_.begin(), this->palettes_.end(), [&](const auto& p) { return p.id == copy.id; }));
+                moved.push_back(std::move(copy));
+            }
+            palette.surfaces &= static_cast<uint8_t>(~bit);
+        }
+        std::erase_if(this->palettes_, [](const auto& p) { return p.surfaces == 0; });
+        for (auto& palette : moved) this->palettes_.push_back(std::move(palette));
+        // The subjob's selection follows its palettes when they become the shared set.
+        if (shared) std::erase_if(this->selections_, [&](const auto& s) { return s.surface == surface && s.job == job && s.subjob == subjob; });
+        else for (auto& s : this->selections_) if (s.surface == surface && s.job == job && s.subjob == subjob) s.subjob = 0;
+        this->Touch(); return true;
+    }
     auto action_store::PetAware(action_surface surface, size_t bar) const -> bool
     { return surface == action_surface::hotbar ? bar < this->hotbar_pet_.size() && this->hotbar_pet_[bar] : bar < this->crossbar_pet_.size() && this->crossbar_pet_[bar]; }
     auto action_store::SetPetAware(action_surface surface, size_t bar, bool enabled) -> void
@@ -209,9 +271,8 @@ namespace xiui
         action_layout previous{};
         if (const auto* palette = this->ActivePalette(surface, bar)) previous = palette->actions;
         if (surface == action_surface::hotbar) this->hotbar_scope_[bar] = scope; else this->crossbar_scope_[bar] = scope;
-        const auto [job, subjob] = this->Key(surface, bar);
-        const bool existing = std::any_of(this->palettes_.begin(), this->palettes_.end(), [&](const auto& p) { return p.job == job && p.subjob == subjob && (p.surfaces & (1 << static_cast<int>(surface))) != 0; });
-        if (!existing)
+        const auto [job, subjob] = this->Home(surface, bar);
+        if (!this->Has(surface, job, subjob))
         {
             const auto id = this->Create("Default", surface, bar);
             for (auto& p : this->palettes_) if (p.id == id) p.actions = std::move(previous);
@@ -223,7 +284,7 @@ namespace xiui
     {
         name = Trim(std::move(name));
         if (name.empty() || name.size() > 120 || name.find_first_of("\r\n") != std::string::npos || this->palettes_.size() >= 512) return {};
-        const auto [job, subjob] = this->Key(surface, bar);
+        const auto [job, subjob] = this->Home(surface, bar);
         std::string id;
         do { id = "palette-" + std::to_string(this->sequence_++); } while (std::any_of(this->palettes_.begin(), this->palettes_.end(), [&](const auto& p) { return p.id == id; }));
         action_palette palette{}; palette.id = id; palette.name = std::move(name); palette.job = job; palette.subjob = subjob; palette.surfaces = static_cast<uint8_t>(1 << static_cast<int>(surface));

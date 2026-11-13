@@ -22,7 +22,7 @@ namespace xiui
     auto actionbars_module::WindowDialog(void) const -> dialog
     {
         if (IsWindowDialog(this->dialog_)) return this->dialog_;
-        if (this->dialog_ == dialog::name || this->dialog_ == dialog::delete_palette) return dialog::palettes;
+        if (this->dialog_ == dialog::name || this->dialog_ == dialog::delete_palette || this->dialog_ == dialog::share_palettes) return dialog::palettes;
         if (this->dialog_ == dialog::delete_macro) return dialog::editor;
         return this->library_popup_ ? dialog::picker : dialog::none;
     }
@@ -50,7 +50,7 @@ namespace xiui
     }
     auto actionbars_module::WindowMinimum(const size_t index) const -> ui::point
     {
-        constexpr ui::point minimum[]{{520, 420}, {500, 440}, {480, 548}, {620, 416}, {620, 360}};
+        constexpr ui::point minimum[]{{520, 420}, {500, 468}, {480, 548}, {620, 416}, {620, 360}};
         if (index == 0)
         {
             const auto& metrics = this->library_metrics_;

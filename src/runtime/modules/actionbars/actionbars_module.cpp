@@ -38,7 +38,7 @@ namespace xiui
         constexpr const char* equipment_slots[]{"main", "sub", "range", "ammo", "head", "body", "hands", "legs", "feet", "neck", "waist", "ear1", "ear2", "ring1", "ring2", "back"};
         constexpr size_t visible_results = 9;
         constexpr int result_first = 10000, category_first = 200, palette_first = 3000;
-        constexpr int command_new = 510, command_copy = 511, command_rename = 512, command_delete = 513, command_up = 514, command_down = 515, command_select = 516;
+        constexpr int command_new = 510, command_copy = 511, command_rename = 512, command_delete = 513, command_up = 514, command_down = 515, command_select = 516, command_subjob = 517;
         constexpr int command_preview = 530, command_import = 531, command_learned = 532, command_all_actions = 534;
         constexpr int menu_library = 550, menu_edit = 551, menu_palettes = 552, menu_lock = 553, menu_shape = 554, menu_settings = 555, menu_keybinds = 556;
         constexpr int new_macro = 560, new_command = 561, new_native = 562;
@@ -504,7 +504,7 @@ namespace xiui
         case edit: { auto option = module_option::Action("Actions & macros", "Open Actions & Macros from the destination tabs.", "Open library").Ordered(-70); option.available = false; return option; }
         case palettes: { auto option = module_option::Action("Action sets", "Open Action Sets from the destination tabs.", "Manage sets").Ordered(-60); option.available = false; return option; }
         case import: { auto option = module_option::Action("Import XIUI / tHotBar / tCrossBar", "Import macros and palettes from XIUI, tHotBar or tCrossBar saved data.", "Preview import"); option.available = false; return option; }
-        case scope: return module_option::Choice("Action storage", "Choose which job context supplies the action sets. A new context starts with a copy; existing contexts keep their saved actions.", &this->storage_scope_, scopes, 3);
+        case scope: return module_option::Choice("Action storage", "Choose which job context supplies the action sets. A new context starts with a copy; existing contexts keep their saved actions. With Main job + subjob, a subjob uses the job's shared palettes until you separate it in the palette window.", &this->storage_scope_, scopes, 3);
         case pet_aware: return module_option::Toggle("Pet-aware assignments", "Use matching pet overrides when available. The editor can save actions for the current pet.", &this->storage_pet_);
         case columns: return module_option::Slider("Columns", "Wrap normal bars into a grid.", &bar.columns, 1, 12, 1).Ordered(110, true).VisibleWhen(this->view_ != action_bar_count && this->shape_ == 6);
         case slots: return module_option::Slider("Visible slots", "Unused assignments beyond this number remain saved.", &bar.slots, 1, 12, 1).Ordered(111).VisibleWhen(this->view_ != action_bar_count && this->shape_ == 6);
@@ -996,7 +996,7 @@ namespace xiui
         case command_cancel:
             if (this->library_edit_ && this->dialog_ == dialog::editor) { this->CloseLibraryEditor(); break; }
             if (this->dialog_ == dialog::delete_macro) { this->dialog_ = dialog::editor; this->focused_control_ = command_macro_delete; }
-            else if (this->dialog_ == dialog::name || this->dialog_ == dialog::delete_palette) { this->dialog_ = dialog::palettes; this->focused_control_ = command_cancel; }
+            else if (this->dialog_ == dialog::name || this->dialog_ == dialog::delete_palette || this->dialog_ == dialog::share_palettes) { this->dialog_ = dialog::palettes; this->focused_control_ = command_cancel; }
             else this->CloseDialog();
             break;
         case command_save:
@@ -1049,6 +1049,19 @@ namespace xiui
             }
             else { this->dialog_ = dialog::delete_palette; this->focused_control_ = command_cancel; }
             break;
+        case command_subjob:
+        {
+            if (!this->store_) break;
+            const auto surface = this->selected_.surface; const auto bar = this->selected_.bar;
+            const char* notice = nullptr;
+            if (this->dialog_ == dialog::share_palettes) { if (this->store_->ShareSubjob(surface, bar, true)) notice = "This subjob now uses the job's shared palettes."; }
+            else if (this->store_->SubjobSet(surface, bar) == action_subjob_set::shared) { if (this->store_->SeparateSubjob(surface, bar)) notice = "This subjob now has its own copy of the palettes."; }
+            else if (this->store_->ShareSubjob(surface, bar)) notice = "These palettes are now shared by the job's other subjobs.";
+            else if (this->store_->SubjobSet(surface, bar) == action_subjob_set::separate) { this->dialog_ = dialog::share_palettes; this->focused_control_ = command_cancel; break; }
+            this->OpenPalettes(surface == action_surface::crossbar, bar);
+            if (notice != nullptr) this->Notice(notice);
+            break;
+        }
         case command_up: case command_down: if (this->store_) this->store_->Move(this->palette_id_, id == command_up ? -1 : 1); break;
         case command_select:
             if (this->dialog_ == dialog::palette_dropdown) this->OpenPalettes(this->selected_.surface == action_surface::crossbar, this->selected_.bar);
@@ -1139,7 +1152,7 @@ namespace xiui
             return {std::clamp(bounds.x, viewport.x + 8, std::max(viewport.x + 8, viewport.x + viewport.width - width - 8)), std::clamp(y, viewport.y + 8, std::max(viewport.y + 8, viewport.y + viewport.height - height - 8)), width, height};
         }
         if (this->IsWindowDialog(this->dialog_)) return this->WindowBounds();
-        const bool compact = this->dialog_ == dialog::name || this->dialog_ == dialog::delete_palette || this->dialog_ == dialog::delete_macro;
+        const bool compact = this->dialog_ == dialog::name || this->dialog_ == dialog::delete_palette || this->dialog_ == dialog::delete_macro || this->dialog_ == dialog::share_palettes;
         const float width = std::min(compact ? 440.0f : 720.0f, std::max(280.0f, viewport.width - 32));
         const float height = std::min(compact ? 220.0f : 548.0f, std::max(220.0f, viewport.height - 32));
         if (compact)
@@ -1251,6 +1264,9 @@ namespace xiui
             button(command_down, x, top + 190, width, "Move down", palettes.size() > 1);
             button(command_delete, x, top + 242, width, "Delete...", palettes.size() > 1, false, true);
             button(command_import, x, top + 294, width, "Import...");
+            const auto set = this->store_ ? this->store_->SubjobSet(this->selected_.surface, this->selected_.bar) : action_subjob_set::unavailable;
+            if (set == action_subjob_set::shared) button(command_subjob, x, top + 332, width, "Separate for this subjob");
+            else if (set == action_subjob_set::separate) button(command_subjob, x, top + 332, width, "Share with other subjobs...");
             button(command_cancel, right - 104, bounds.y + bounds.height - 44, 104, "Done");
             return result;
         }
@@ -1258,6 +1274,11 @@ namespace xiui
         {
             field(field_name, top + 20, "Palette name", this->name_value_);
             footer(); button(command_save, right - 104, bounds.y + bounds.height - 44, 104, this->name_action_ == command_copy ? "Duplicate" : this->name_action_ == command_rename ? "Rename" : "Create", !Trim(this->name_value_).empty());
+            return result;
+        }
+        if (this->dialog_ == dialog::share_palettes)
+        {
+            footer(); button(command_subjob, right - 104, bounds.y + bounds.height - 44, 104, "Use shared", true, false, true);
             return result;
         }
         if (this->dialog_ == dialog::delete_palette || this->dialog_ == dialog::delete_macro)
@@ -1941,6 +1962,7 @@ namespace xiui
             case dialog::palettes: title = this->selected_.surface == action_surface::crossbar ? "Crossbar action sets" : "Hotbar action sets (all bars)"; break;
             case dialog::name: title = this->name_action_ == command_copy ? "Duplicate palette" : this->name_action_ == command_rename ? "Rename palette" : "New palette"; break;
             case dialog::delete_palette: title = "Delete palette?"; break;
+            case dialog::share_palettes: title = "Use shared palettes?"; break;
             case dialog::delete_macro: title = "Delete shared macro?"; break;
             case dialog::import: title = "Import macros and palettes"; break;
             case dialog::setup: title = "Controller Setup"; break;
@@ -1981,6 +2003,8 @@ namespace xiui
             if (this->dialog_ == dialog::delete_macro) description = "Remove \"" + this->draft_.name + "\" from the library?\nAssigned slots keep their commands.";
             controls.Text(description.c_str(), {bounds.x + 16, bounds.y + 60, bounds.width - 32, 72}, managementText);
         }
+        if (this->dialog_ == dialog::share_palettes)
+            controls.Text(i18n::Text("Remove this subjob's own palettes and their assignments?\nIt will use the palettes shared by the job."), {bounds.x + 16, bounds.y + 60, bounds.width - 32, 72}, managementText);
         if (this->dialog_ == dialog::import)
         {
             float y = bounds.y + 164;

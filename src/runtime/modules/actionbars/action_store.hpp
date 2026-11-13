@@ -17,6 +17,11 @@ namespace xiui
         auto Context(void) const -> const action_context& { return this->context_; }
         auto Scope(action_surface surface, size_t bar = 0) const -> action_scope;
         auto SetScope(action_surface surface, size_t bar, action_scope scope) -> void;
+        // Under job + subjob storage a subjob uses the job's shared palettes until it is given its own.
+        auto SubjobSet(action_surface surface, size_t bar = 0) const -> action_subjob_set;
+        auto SeparateSubjob(action_surface surface, size_t bar = 0) -> bool;
+        // Fails without discard when shared palettes already exist and the subjob's own would be removed.
+        auto ShareSubjob(action_surface surface, size_t bar = 0, bool discard = false) -> bool;
         auto PetAware(action_surface surface, size_t bar = 0) const -> bool;
         auto SetPetAware(action_surface surface, size_t bar, bool enabled) -> void;
         auto Palettes(action_surface surface, size_t bar = 0) const -> std::vector<const action_palette*>;
@@ -60,6 +65,8 @@ namespace xiui
         uint64_t sequence_{1}, revision_{};
         bool changed_{};
         auto Key(action_surface surface, size_t bar) const -> std::pair<uint8_t, uint8_t>;
+        auto Home(action_surface surface, size_t bar) const -> std::pair<uint8_t, uint8_t>;
+        auto Has(action_surface surface, uint8_t job, uint8_t subjob) const -> bool;
         auto Touch(void) -> void;
         auto Ensure(action_surface surface, size_t bar) -> void;
     };
