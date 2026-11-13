@@ -53,9 +53,9 @@ namespace xiui
         if (character == this->profile_character_)
         {
             this->profile_observed_character_ = std::move(character);
-            const bool resumed = !this->profile_character_ready_;
             this->profile_character_ready_ = true;
-            if (resumed) this->SaveSettings();
+            // Zoning out already saved; only saves made meanwhile still owe the profile file a write.
+            if (this->profile_save_skipped_) this->SaveSettingsSoon();
             return true;
         }
         if (character == this->profile_observed_character_) return false;

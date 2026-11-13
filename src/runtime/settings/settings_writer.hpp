@@ -2,6 +2,7 @@
 
 #include "settings_store.hpp"
 
+#include <atomic>
 #include <chrono>
 #include <condition_variable>
 #include <mutex>
@@ -33,7 +34,8 @@ namespace xiui
         bool writing_{};
         bool immediate_{};
         bool stopping_{};
-        bool failed_{};
+        int attempts_{};
+        std::atomic_bool failed_{};
 
         auto Run(void) -> void;
     };

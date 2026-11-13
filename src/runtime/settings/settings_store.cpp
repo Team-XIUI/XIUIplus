@@ -98,10 +98,28 @@ namespace xiui
             return result;
         }
 
+        // Scanners and other readers hold settings files open for a moment; brief retries outlast them.
+        template<typename Attempt>
+        auto RetryShared(Attempt attempt) -> bool
+        {
+            for (DWORD delay = 0;; delay = delay == 0 ? 20 : delay * 2)
+            {
+                if (delay != 0) ::Sleep(delay);
+                if (attempt()) return true;
+                const auto error = ::GetLastError();
+                if (delay >= 320 || (error != ERROR_ACCESS_DENIED && error != ERROR_SHARING_VIOLATION && error != ERROR_LOCK_VIOLATION))
+                { ::SetLastError(error); return false; }
+            }
+        }
+
         auto ReadIniFile(const std::string& path, std::string& text) -> bool
         {
-            const auto file = ::CreateFileA(path.c_str(), GENERIC_READ, FILE_SHARE_READ | FILE_SHARE_WRITE | FILE_SHARE_DELETE,
-                nullptr, OPEN_EXISTING, FILE_ATTRIBUTE_NORMAL, nullptr);
+            HANDLE file = INVALID_HANDLE_VALUE;
+            RetryShared([&] {
+                file = ::CreateFileA(path.c_str(), GENERIC_READ, FILE_SHARE_READ | FILE_SHARE_WRITE | FILE_SHARE_DELETE,
+                    nullptr, OPEN_EXISTING, FILE_ATTRIBUTE_NORMAL, nullptr);
+                return file != INVALID_HANDLE_VALUE;
+            });
             if (file == INVALID_HANDLE_VALUE) return ::GetLastError() == ERROR_FILE_NOT_FOUND;
             LARGE_INTEGER size{};
             bool complete = ::GetFileSizeEx(file, &size) && size.QuadPart >= 0 && size.QuadPart <= maximum_ini_size;
@@ -123,7 +141,11 @@ namespace xiui
         }
     }
 
+    namespace { std::atomic<uint32_t> file_lookups{}; }
+
     settings_store::settings_store(std::string path) : path_(std::move(path)) {}
+
+    auto settings_store::FileLookups(void) -> uint32_t { return file_lookups; }
 
     auto settings_store::CachedFile(std::string path) -> settings_store
     {
@@ -131,6 +153,13 @@ namespace xiui
         result.cache_sections_ = true;
         result.cache_file_loaded_ = result.CacheFile();
         return result;
+    }
+
+    auto settings_store::IndexFile(void) const -> void
+    {
+        if (this->cache_sections_ || this->path_.empty()) return;
+        this->cache_sections_ = true;
+        this->cache_file_loaded_ = this->CacheFile();
     }
 
     auto settings_store::AtomicFile(std::string path) -> settings_store
@@ -194,7 +223,13 @@ namespace xiui
     auto settings_store::OverlayPreferences(const settings_store& source) const -> void
     {
         for (const auto& [section, values] : source.writes_)
-            if (ProfileSection(section)) for (const auto& [key, value] : values) this->writes_[section][key] = value;
+        {
+            if (!ProfileSection(section)) continue;
+            // Both maps share an order, so new sections are copied whole at the end.
+            if (this->writes_.empty() || this->writes_.key_comp()(std::prev(this->writes_.end())->first, section))
+                this->writes_.emplace_hint(this->writes_.end(), section, values);
+            else for (const auto& [key, value] : values) this->writes_[section][key] = value;
+        }
     }
 
     auto settings_store::ToIniText(void) const -> std::string
@@ -236,6 +271,7 @@ namespace xiui
         {
             // Keep Windows' INI parsing, but fetch each section once per load.
             std::vector<char> buffer(4096);
+            ++file_lookups;
             while (::GetPrivateProfileSectionA(section, buffer.data(), static_cast<DWORD>(buffer.size()), this->path_.c_str()) == buffer.size() - 2)
                 buffer.resize(buffer.size() * 2);
             for (const char* line = buffer.data(); *line != '\0'; line += std::strlen(line) + 1)
@@ -252,10 +288,14 @@ namespace xiui
         return found != foundSection->second.end() ? &found->second : nullptr;
     }
 
-    auto settings_store::CacheFile(void) -> bool
+    auto settings_store::CacheFile(void) const -> bool
     {
         std::string bytes;
-        if (!ReadIniFile(this->path_, bytes)) return false;
+        return ReadIniFile(this->path_, bytes) && this->CacheText(std::move(bytes));
+    }
+
+    auto settings_store::CacheText(std::string bytes) const -> bool
+    {
         if (bytes.starts_with("\xFF\xFE"))
         {
             if (bytes.size() % 2 != 0) return false;
@@ -264,6 +304,7 @@ namespace xiui
             bytes = IniKey(std::wstring_view{wide});
         }
         std::string_view text{bytes};
+        if (text.starts_with("\xEF\xBB\xBF")) text.remove_prefix(3);
         const auto trim = [](std::string_view value) {
             const auto start = value.find_first_not_of(" \t\r");
             return start == value.npos ? std::string_view{} : value.substr(start, value.find_last_not_of(" \t\r") - start + 1);
@@ -307,12 +348,23 @@ namespace xiui
         else if (this->path_.empty())
             std::snprintf(value, size, "%s", fallback != nullptr ? fallback : "");
         else
+        {
+            ++file_lookups;
             ::GetPrivateProfileStringA(section, key, fallback, value, size, this->path_.c_str());
+        }
     }
 
     auto settings_store::WriteText(const char* section, const char* key, const char* value) const -> void
     {
-        this->writes_[section][key] = value;
+        auto& hint = this->write_hint_;
+        if (hint.fields == nullptr || ::_stricmp(hint.name.c_str(), section) != 0)
+        {
+            const auto found = this->writes_.try_emplace(section).first;
+            hint.name = found->first; hint.fields = &found->second;
+        }
+        const auto field = hint.fields->lower_bound(key);
+        if (field != hint.fields->end() && ::_stricmp(field->first.c_str(), key) == 0) field->second = value;
+        else hint.fields->emplace_hint(field, key, value);
     }
 
     auto settings_store::ReadBool(const char* section, const char* key, const bool fallback) const -> bool
@@ -331,9 +383,11 @@ namespace xiui
             int number{};
             const auto parsed = std::from_chars(value->data(), value->data() + value->size(), number);
             if (parsed.ec == std::errc{} && parsed.ptr == value->data() + value->size()) return number;
+            ++file_lookups;
             return static_cast<int>(::GetPrivateProfileIntA(section, key, fallback, this->path_.c_str()));
         }
         if (this->path_.empty()) return fallback;
+        ++file_lookups;
         return static_cast<int>(::GetPrivateProfileIntA(section, key, fallback, this->path_.c_str()));
     }
 
@@ -436,7 +490,10 @@ namespace xiui
         else
         {
             auto changes = this->writes_;
-            const auto current = settings_store::CachedFile(this->path_);
+            // Diff against the bytes already read; a second read could fail and fall back to per-section parsing.
+            settings_store current{this->path_};
+            current.cache_sections_ = true;
+            current.cache_file_loaded_ = current.CacheText(original);
             for (auto section = changes.begin(); section != changes.end();)
             {
                 for (auto field = section->second.begin(); field != section->second.end();)
@@ -447,7 +504,7 @@ namespace xiui
                 }
                 if (section->second.empty()) section = changes.erase(section); else ++section;
             }
-            if (changes.empty()) { this->writes_.clear(); return true; }
+            if (changes.empty()) { this->writes_.clear(); this->write_hint_.fields = nullptr; return true; }
             if (original.starts_with("\xFF\xFE"))
             {
                 if (original.size() % 2 != 0) return false;
@@ -465,7 +522,7 @@ namespace xiui
             }
         }
         if (text.size() > maximum_ini_size) return false;
-        if (text == original) { this->writes_.clear(); return true; }
+        if (text == original) { this->writes_.clear(); this->write_hint_.fields = nullptr; return true; }
         static std::atomic<uint32_t> serial{};
         const auto temporary = this->path_ + "." + std::to_string(::GetCurrentProcessId()) + "." + std::to_string(++serial) + ".tmp";
         const auto file = ::CreateFileA(temporary.c_str(), GENERIC_WRITE, 0, nullptr, CREATE_NEW, FILE_ATTRIBUTE_NORMAL, nullptr);
@@ -474,12 +531,12 @@ namespace xiui
         const bool complete = ::WriteFile(file, text.data(), static_cast<DWORD>(text.size()), &written, nullptr) != FALSE &&
             written == text.size() && ::FlushFileBuffers(file) != FALSE;
         ::CloseHandle(file);
-        if (!complete || !::MoveFileExA(temporary.c_str(), this->path_.c_str(), MOVEFILE_REPLACE_EXISTING | MOVEFILE_WRITE_THROUGH))
+        if (!complete || !RetryShared([&] { return ::MoveFileExA(temporary.c_str(), this->path_.c_str(), MOVEFILE_REPLACE_EXISTING | MOVEFILE_WRITE_THROUGH) != FALSE; }))
         { ::DeleteFileA(temporary.c_str()); return false; }
         ::WritePrivateProfileStringA(nullptr, nullptr, nullptr, this->path_.c_str());
         this->reads_.clear();
         this->cache_file_loaded_ = false;
-        this->writes_.clear();
+        this->writes_.clear(); this->write_hint_.fields = nullptr;
         return true;
     }
 } // namespace xiui

@@ -146,11 +146,14 @@ namespace xiui
         auto resolved = identity.value_or("");
         if (!SatchelStableIdentity(resolved, characterId))
         {
-            if (this->server_character_ != characterId || now >= this->next_identity_scan_)
+            // The connection cannot change within a zone; Reset() re-resolves it after zoning.
+            if (this->server_character_ != characterId || (!this->server_identity_ && now >= this->next_identity_scan_))
             {
+                if (this->server_character_ != characterId) this->identity_retry_ = 1000;
                 this->server_identity_ = ReadSatchelServerIdentity(characterId);
                 this->server_character_ = characterId;
-                this->next_identity_scan_ = now + 1000;
+                this->next_identity_scan_ = now + this->identity_retry_;
+                this->identity_retry_ = std::min<uint64_t>(this->identity_retry_ * 2, 30000);
             }
             if (this->server_identity_) resolved = *this->server_identity_;
         }

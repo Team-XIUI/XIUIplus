@@ -11,6 +11,8 @@ namespace xiui
 
     auto settings_writer::Queue(settings_store snapshot) -> void
     {
+        // Replaced snapshots are large; free them after the lock is released.
+        std::optional<settings_store> replaced, retried;
         std::lock_guard lock(this->mutex_);
         if (!this->worker_.joinable())
         {
@@ -20,6 +22,7 @@ namespace xiui
         if (!this->pending_)
             this->deadline_ = std::chrono::steady_clock::now() + std::chrono::milliseconds{150};
         // Every job contains all settings, so the newest snapshot replaces older work.
+        replaced = std::move(this->pending_); retried = std::move(this->retry_);
         this->pending_ = std::move(snapshot);
         this->retry_.reset();
         this->wake_.notify_all();
@@ -41,9 +44,9 @@ namespace xiui
         return !this->failed_;
     }
 
+    // Polled every frame, so it must not wait on a write in progress.
     auto settings_writer::HasFailed(void) const -> bool
     {
-        std::lock_guard lock(this->mutex_);
         return this->failed_;
     }
 
@@ -67,18 +70,33 @@ namespace xiui
             if (this->stopping_) return;
             this->wake_.wait_until(lock, this->deadline_, [this] { return this->stopping_ || this->immediate_; });
             if (this->stopping_) return;
-            auto snapshot = std::move(*this->pending_);
+            std::optional<settings_store> snapshot{std::move(*this->pending_)};
             this->pending_.reset();
             this->writing_ = true;
             lock.unlock();
             bool saved = false;
-            try { saved = snapshot.Flush(); }
+            try { saved = snapshot->Flush(); }
             catch (...) {}
+            if (saved) snapshot.reset();
             lock.lock();
             this->writing_ = false;
             this->failed_ = !saved;
-            if (!saved && !this->pending_) this->retry_ = std::move(snapshot);
+            this->attempts_ = saved || this->pending_ ? 0 : this->attempts_ + 1;
+            if (!saved && !this->pending_)
+            {
+                // Try a blocked write again shortly; after a few attempts it waits for the next save.
+                if (this->attempts_ < 4)
+                {
+                    this->pending_ = std::move(snapshot); snapshot.reset();
+                    this->deadline_ = std::chrono::steady_clock::now() + std::chrono::seconds{2};
+                }
+                else this->retry_ = std::move(snapshot);
+            }
             this->wake_.notify_all();
+            if (snapshot && !this->retry_.has_value())
+            {
+                lock.unlock(); snapshot.reset(); lock.lock();
+            }
         }
     }
 } // namespace xiui

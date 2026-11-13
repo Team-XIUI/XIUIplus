@@ -59,7 +59,8 @@ namespace xiui
     auto experience_module::NeedsSave(const uint64_t now) -> bool
     {
         if (now < this->next_save_ || !this->source_.tracker.Started()) return false;
-        this->next_save_ = now + 30000; return true;
+        // Zone changes and unload also save; this only bounds what a crash can lose.
+        this->next_save_ = now + 300000; return true;
     }
 
     auto experience_module::GoalRemaining(void) const -> std::optional<uint64_t>

@@ -3,7 +3,12 @@ cmake_minimum_required(VERSION 3.22)
 set(ASHITA_PROJECT_NAME "XIUIplus")
 file(STRINGS "${CMAKE_SOURCE_DIR}/VERSION" XIUI_VERSION LIMIT_COUNT 1)
 set_property(DIRECTORY APPEND PROPERTY CMAKE_CONFIGURE_DEPENDS "${CMAKE_SOURCE_DIR}/VERSION")
-project(${ASHITA_PROJECT_NAME} VERSION ${XIUI_VERSION} LANGUAGES C CXX)
+# A short release name such as 0.21 is 0.2.1 for the version resource and Ashita number.
+set(XIUI_NUMERIC_VERSION "${XIUI_VERSION}")
+if (XIUI_VERSION MATCHES "^([0-9]+)\\.([0-9])([0-9])$")
+    set(XIUI_NUMERIC_VERSION "${CMAKE_MATCH_1}.${CMAKE_MATCH_2}.${CMAKE_MATCH_3}")
+endif()
+project(${ASHITA_PROJECT_NAME} VERSION ${XIUI_NUMERIC_VERSION} LANGUAGES C CXX)
 # VERSION may omit the patch (e.g. 0.2); the version resource and Ashita number still need one.
 if (NOT PROJECT_VERSION_PATCH)
     set(PROJECT_VERSION_PATCH 0)

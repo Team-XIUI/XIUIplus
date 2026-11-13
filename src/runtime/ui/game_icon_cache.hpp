@@ -30,6 +30,8 @@ namespace xiui::ui
         auto SetDevice(IDirect3DDevice8* device) -> void;
         auto Shutdown(void) -> void;
         auto Item(uint32_t id) -> IDirect3DTexture8*;
+        // True while an item icon is waiting for a later frame's creation budget.
+        auto ItemPending(uint32_t id) const -> bool { return id != 0 && this->resources_ != nullptr && this->device_ != nullptr && !this->items_.contains(id); }
         auto Status(uint32_t id) -> IDirect3DTexture8*;
         auto StatusIcon(uint32_t id, int preference = 0) -> game_icon_view;
         auto PhysicalDamageIcon(size_t index) const -> game_icon_view;
@@ -56,6 +58,8 @@ namespace xiui::ui
         IResourceManager* resources_{};
         IDirect3DDevice8* device_{};
         uint64_t access_{};
+        uint64_t frame_access_{};
+        uint32_t frame_created_{};
         std::unordered_map<uint32_t, entry> items_{};
         resources::custom_icon_library custom_icons_{};
         std::unordered_map<std::string, entry> custom_textures_{};

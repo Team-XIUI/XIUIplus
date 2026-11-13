@@ -97,7 +97,8 @@ namespace xiui::ui
         const bool fallback = font == cjk_fallback_font;
         const int family = fallback ? cjk_fallback_font : FontIndex(font), size = std::clamp(pixels, 1, text_max_raster_pixels);
         const auto key = static_cast<uint32_t>((family * font_variant_count + variant.Key()) * 1024 + size);
-        if (auto found = this->faces_.find(key); found != this->faces_.end()) { found->second.touched = ++this->touched_; return &found->second; }
+        if (auto found = this->faces_.find(key); found != this->faces_.end())
+        { found->second.touched = ++this->touched_; return found->second.handle != nullptr ? &found->second : nullptr; }
         if (this->dc_ == nullptr) this->dc_ = ::CreateCompatibleDC(nullptr);
         if (this->dc_ == nullptr || (family == grammara_font && !this->grammara_.Load())) return nullptr;
         const auto* entry = fallback ? nullptr : &FontEntry(family);
@@ -127,24 +128,27 @@ namespace xiui::ui
         ::SelectObject(this->dc_, previous);
         result.digit_advance += static_cast<float>(embolden) / samples;
         // GDI substitutes missing faces; Grammara and installed choices fall back to XIUI+ text instead.
-        if ((family == grammara_font || (!fallback && !entry->builtin)) && !result.available) { ::DeleteObject(handle); return nullptr; }
+        // A missing family is remembered, or every draw and measure would create the font again.
+        const bool missing = (family == grammara_font || (!fallback && !entry->builtin)) && !result.available;
+        if (missing) { ::DeleteObject(handle); handle = nullptr; }
         int shift{};
         float extent = result.height;
         // HUD layouts are tuned to the XIUI+ faces. Installed fonts take Bahnschrift's line box and baseline at
         // this size, so tall accent or descender metrics change only the glyphs, never module heights or text rows.
-        if (!fallback && !entry->builtin)
+        if (!missing && !fallback && !entry->builtin)
             if (const auto* reference = this->Face(0, pixels, variant))
             {
                 shift = static_cast<int>(std::lround((reference->metrics.ascent - result.ascent) * samples));
                 extent = shift / static_cast<float>(samples) + result.height;
                 result.height = reference->metrics.height; result.ascent = reference->metrics.ascent;
             }
-        if (this->faces_.size() >= 64)
+        if (this->faces_.size() >= 256)
         {
             const auto oldest = std::min_element(this->faces_.begin(), this->faces_.end(), [](const auto& a, const auto& b) { return a.second.touched < b.second.touched; });
             ::DeleteObject(oldest->second.handle); this->faces_.erase(oldest);
         }
-        return &this->faces_.emplace(key, face{handle, result, ++this->touched_, embolden, shift, extent}).first->second;
+        auto& created = this->faces_.emplace(key, face{handle, result, ++this->touched_, embolden, shift, extent}).first->second;
+        return missing ? nullptr : &created;
     }
 
     auto text_rasterizer::Surface(const int width, const int height) -> bool

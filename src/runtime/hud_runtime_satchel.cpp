@@ -35,7 +35,7 @@ namespace xiui
         this->satchel_.SetFocusStyle(this->general_.FocusStyle());
         this->satchel_.SetConfigText(&this->general_.ConfigText());
         this->satchel_.Update(now);
-        if (this->satchel_.TakeSettingsChanged()) this->SaveSettings();
+        if (this->satchel_.TakeSettingsChanged()) this->SaveSettingsSoon();
     }
 
     auto hud_runtime::HandleSatchelCommand(std::string_view command) -> bool
@@ -83,7 +83,6 @@ namespace xiui
             }
             else this->SuspendSatchelInput();
             this->satchel_.Open(open);
-            this->SaveSettings();
         }
         else if (this->core_ != nullptr && this->core_->GetChatManager() != nullptr)
             this->core_->GetChatManager()->Write(1, false, "[XIUI+] /xiuiplus satchel [open|close|config|status]; /xiuiplus focus satchel for controller browsing.");

@@ -126,9 +126,15 @@ namespace xiui
         store.WriteFloat("minimap", "shadow_x", this->shadow_x_); store.WriteFloat("minimap", "shadow_y", this->shadow_y_);
         for (size_t chunk = 0; chunk < 32; ++chunk)
         {
-            std::ostringstream values;
-            for (size_t slot = 0; slot < 32; ++slot) values << this->zone_zoom_[chunk * 32 + slot] << ' ';
-            store.WriteString("minimap.zoom", std::to_string(chunk).c_str(), values.str());
+            // %g matches the stream formatting this replaced, at a fraction of its cost per save.
+            std::string values;
+            for (size_t slot = 0; slot < 32; ++slot)
+            {
+                char text[24]{};
+                std::snprintf(text, sizeof(text), "%g ", this->zone_zoom_[chunk * 32 + slot]);
+                values += text;
+            }
+            store.WriteString("minimap.zoom", std::to_string(chunk).c_str(), values);
         }
         SaveTextProfile(store, "text.minimap.labels", this->text_);
         SaveTextProfile(store, "text.minimap.zoom", this->zoom_text_);

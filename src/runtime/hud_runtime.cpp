@@ -434,6 +434,7 @@ namespace xiui
         this->ReleaseChatInput();
         this->SetEditing(false);
         this->ui_sounds_.Shutdown();
+        if (this->deferred_save_ != 0) this->SaveSettings();
         this->settings_writer_.Stop();
         this->profile_writer_.Stop();
         if ((this->settings_writer_.HasFailed() || this->profile_writer_.HasFailed()) && this->core_ != nullptr && this->core_->GetChatManager() != nullptr)
@@ -676,7 +677,11 @@ namespace xiui
             const bool consumed = chat->HandleMouse(message, wParam, static_cast<float>(cursor.x), static_cast<float>(cursor.y), this->editing_, this->design_system_,
                 {static_cast<float>(viewport.X), static_cast<float>(viewport.Y), static_cast<float>(viewport.Width), static_cast<float>(viewport.Height)}, save,
                 this->core_ != nullptr ? this->core_->GetChatManager() : nullptr);
-            if (save) { if (resizing) this->CommitModulePosition(*chat); this->SaveSettings(); }
+            if (save)
+            {
+                if (resizing) this->CommitModulePosition(*chat);
+                if (message == WM_MOUSEWHEEL) this->SaveSettingsSoon(); else this->SaveSettings();
+            }
             if (!this->editing_) this->SetChatMouseCapture(consumed || this->ChatAt(static_cast<float>(cursor.x), static_cast<float>(cursor.y)) != nullptr);
             if (consumed)
             {
@@ -698,7 +703,7 @@ namespace xiui
             bool save{};
             if (this->minimap_.HandleMouseWheel(static_cast<short>(HIWORD(wParam)), static_cast<float>(cursor.x), static_cast<float>(cursor.y), save))
             {
-                if (save) this->SaveSettings();
+                if (save) this->SaveSettingsSoon();
                 return true;
             }
         }
@@ -1490,7 +1495,13 @@ namespace xiui
         else if (::_stricmp(command, "save sync") == 0)
         {
             this->FinishInteraction();
-            try { this->FlushSettings(); message = "[XIUI+] Current settings saved."; }
+            try
+            {
+                this->FlushSettings();
+                char text[112]{};
+                std::snprintf(text, sizeof(text), "[XIUI+] Current settings saved (capture %.1f ms, %u file lookups).", this->save_capture_ms_, this->save_file_lookups_);
+                message = text;
+            }
             catch (const std::exception&) { message = "[XIUI+] Settings save failed; pending settings were retained."; }
         }
         else if (::_stricmp(command, "save") == 0)
@@ -2209,6 +2220,8 @@ namespace xiui
 
     auto hud_runtime::LoadSettings(const settings_store& source, layout_viewport viewport) -> void
     {
+        // Captured snapshots lack legacy and marker keys; index their file once instead of one disk parse per key.
+        source.IndexFile();
         if (!viewport.Valid() && this->device_ != nullptr)
         {
             D3DVIEWPORT8 actual{};
@@ -2311,9 +2324,19 @@ namespace xiui
         return store;
     }
 
+    // Coalesces saves for rapid, low-stakes changes such as wheel zoom.
+    auto hud_runtime::SaveSettingsSoon(void) const -> void
+    {
+        if (this->deferred_save_ == 0) this->deferred_save_ = ::GetTickCount64() + 1000;
+    }
+
     auto hud_runtime::SaveSettings(void) const -> void
     {
+        this->deferred_save_ = 0;
         if (this->settings_path_.empty()) return;
+        LARGE_INTEGER started{}, finished{}, frequency{};
+        ::QueryPerformanceCounter(&started);
+        const auto lookups = settings_store::FileLookups();
         auto store = this->CaptureSettings();
         if (this->profiles_.Ready())
         {
@@ -2327,9 +2350,14 @@ namespace xiui
                 profile.WriteString("profile", "name", active.name);
                 profile.WriteInt("profile", "version", 1);
                 this->profile_writer_.Queue(std::move(profile));
+                this->profile_save_skipped_ = false;
             }
+            else this->profile_save_skipped_ = true;
         }
         this->settings_writer_.Queue(std::move(store));
+        this->save_file_lookups_ = settings_store::FileLookups() - lookups;
+        ::QueryPerformanceCounter(&finished); ::QueryPerformanceFrequency(&frequency);
+        this->save_capture_ms_ = static_cast<float>(finished.QuadPart - started.QuadPart) * 1000.0f / static_cast<float>(frequency.QuadPart);
     }
 
     auto hud_runtime::EnsureLayout(const D3DVIEWPORT8& viewport) -> void
@@ -2959,7 +2987,7 @@ namespace xiui
         this->equipment_source_.Update(this->core_, this->inventory_source_.State(), now);
         this->target_.Update(this->core_);
         this->target_.UpdateDetails(this->core_, this->combat_source_, this->party_source_, now);
-        if (this->experience_.NeedsSave(now)) this->SaveSettings();
+        if (this->experience_.NeedsSave(now) || (this->deferred_save_ != 0 && now >= this->deferred_save_)) this->SaveSettings();
         this->world_source_.Update(this->core_, now);
         if (this->minimap_.State().enabled && this->device_ != nullptr && this->ContextVisible(this->minimap_))
             this->minimap_source_.Update(this->core_, now, this->minimap_.NpcsEnabled(), this->minimap_.DistantPartyEnabled() && this->ContextVisible(this->minimap_) && this->GameWindowFocused() && !this->editing_, this->minimap_.EnemiesEnabled());

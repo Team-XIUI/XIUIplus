@@ -28,6 +28,7 @@ namespace xiui
         satchel_native_order native_order_{};
         uint64_t next_scan_{}, generation_{};
         uint64_t next_identity_scan_{};
+        uint64_t identity_retry_{1000};
         uint32_t server_character_{};
         std::optional<std::string> server_identity_{};
         bool syncing_{}, in_mog_house_{};

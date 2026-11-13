@@ -2,9 +2,30 @@
 
 #include <algorithm>
 #include <cmath>
+#include <mutex>
+#include <set>
 
 namespace xiui
 {
+    namespace
+    {
+        struct section_less
+        {
+            auto operator()(const std::string& left, const std::string& right) const -> bool { return ::_stricmp(left.c_str(), right.c_str()) < 0; }
+        };
+
+        // Sections seen with an installed family. Saving consults this instead of rereading the settings file,
+        // which Windows parses from disk on every lookup.
+        auto FamilySection(const char* section, const bool remember) -> bool
+        {
+            static std::mutex mutex;
+            static std::set<std::string, section_less> sections;
+            std::lock_guard lock{mutex};
+            if (remember) { sections.emplace(section); return true; }
+            return sections.contains(section);
+        }
+    }
+
     auto TextPropertyFlag(const text_property property) -> const char*
     {
         static constexpr const char* flags[]{"size_set", "font_set", "letter_spacing_set", "shadow_enabled_set", "shadow_color_set",
@@ -17,6 +38,7 @@ namespace xiui
     auto ReadFontChoice(const settings_store& store, const char* section, const int fallback) -> int
     {
         const auto family = store.ReadString(section, "font_family");
+        if (!family.empty()) FamilySection(section, true);
         return family.empty() ? ui::FontIndex(store.ReadInt(section, "font", fallback)) : ui::FontFamilyIndex(family);
     }
 
@@ -25,7 +47,8 @@ namespace xiui
         const auto family = ui::FontFamily(font);
         // Older builds read font 0 for an installed family. Sections that never used one stay unchanged.
         store.WriteInt(section, "font", family.empty() ? font : 0);
-        if (!family.empty() || !store.ReadString(section, "font_family").empty()) store.WriteString(section, "font_family", family);
+        if (!family.empty() || FamilySection(section, false)) store.WriteString(section, "font_family", family);
+        if (!family.empty()) FamilySection(section, true);
     }
 
     auto CopyTextProperty(ui::text_style& target, const ui::text_style& source, const text_property property) -> void

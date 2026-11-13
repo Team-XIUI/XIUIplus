@@ -299,7 +299,7 @@ namespace xiui
                 {
                     const float amount = option.step > 0 ? option.step : (option.maximum - option.minimum) / 100;
                     const float next = ui::slider_value_input::Normalize(*option.slider + Direction(value) * amount, option.minimum, option.maximum, option.step);
-                    if (next != *option.slider) { *option.slider = next; this->config_.module->OnOptionChanged(item.index); this->SaveSettings(); }
+                    if (next != *option.slider) { *option.slider = next; this->config_.module->OnOptionChanged(item.index); this->SaveSettingsSoon(); }
                 }
                 return true;
             }
@@ -565,7 +565,7 @@ namespace xiui
                 const auto shift = static_cast<uint8_t>(focus.modal_item == 3 ? 24 : 16 - focus.modal_item * 8);
                 const int component = static_cast<int>((color >> shift) & 255);
                 const auto next = (color & ~(0xFFu << shift)) | (static_cast<uint32_t>(std::clamp(component + Direction(value), 0, 255)) << shift);
-                this->config_.color_picker.SetColor(next); this->ApplyPickedColor(); this->SaveSettings();
+                this->config_.color_picker.SetColor(next); this->ApplyPickedColor(); this->SaveSettingsSoon();
             }
             else if (value == action::actions) { this->config_.color_picker.Restore(); this->ApplyPickedColor(); this->SaveSettings(); }
             return true;

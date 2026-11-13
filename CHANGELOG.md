@@ -1,5 +1,15 @@
 # Changelog
 
+## 0.21 — 2026-11-12
+
+Changes since 0.2:
+
+- Performance: fix stutter introduced in 0.2 when zooming the minimap, opening or closing Satchel, scrolling chat channels, adjusting sliders with a controller and during the periodic experience autosave. With built-in fonts, every settings save reread the settings file hundreds of times; saves no longer read it at all, and rapid changes are saved together about a second later.
+- Settings: fix "Settings save failed" appearing repeatedly. A file briefly held open by another program is retried automatically instead of waiting for your next change.
+- Profiles: switching profiles is faster, especially to one saved by an older version.
+- Satchel: the saved inventory file is no longer rewritten every 30 seconds and after every gil or gear change; it updates at most every 30 seconds, and when you zone or unload. New item icons appear over a few frames instead of all at once, and very large grids can no longer exhaust the icon cache.
+- Fonts: a saved font that is not installed on this PC no longer slows every frame that draws it.
+
 ## 0.2 — 2026-11-11
 
 Changes since the last published release, 0.1.41-alpha:

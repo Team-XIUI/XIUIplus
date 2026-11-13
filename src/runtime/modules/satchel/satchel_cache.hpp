@@ -29,8 +29,12 @@ namespace xiui
         std::map<std::pair<std::string, int>, std::vector<std::string>> orders_{};
         std::optional<satchel_snapshot> pending_{};
         uint64_t pending_since_{};
+        bool settled_{};
+        std::string written_{};
+        uint64_t last_write_{};
         std::map<std::string, std::unique_ptr<settings_writer>> writers_{};
 
+        auto Commit(uint64_t now) -> void;
         auto Queue(const std::string& identity) -> void;
     };
 }

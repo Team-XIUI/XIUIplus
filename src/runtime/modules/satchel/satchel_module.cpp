@@ -1355,7 +1355,7 @@ namespace xiui
                 const ui::rect icon{bounds.x + 4, bounds.y + 4, this->icon_size_, this->icon_size_};
                 auto* texture = context.Icons() ? context.Icons()->Item(cell.item.id) : nullptr;
                 if (texture) design.DrawTexture(texture, icon);
-                else
+                else if (!context.Icons() || !context.Icons()->ItemPending(cell.item.id))
                 {
                     auto fallback = this->text_[1]; fallback.style.alignment = ui::text_alignment::center;
                     context.DrawText(this->Name(cell.item.id).c_str(), bounds, bounds, fallback);

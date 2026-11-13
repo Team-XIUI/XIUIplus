@@ -395,6 +395,10 @@ namespace xiui
         WPARAM confirmation_key_release_{};
         std::string profile_error_{};
         bool settings_error_reported_{};
+        mutable uint64_t deferred_save_{};
+        mutable float save_capture_ms_{};
+        mutable uint32_t save_file_lookups_{};
+        mutable bool profile_save_skipped_{};
         bool visible_{true};
         bool editing_{false};
         hud_snapshot layout_snapshot_{};
@@ -604,6 +608,7 @@ namespace xiui
         auto LoadSettings(void) -> void;
         auto LoadSettings(const settings_store& store, layout_viewport viewport = {}) -> void;
         auto SaveSettings(void) const -> void;
+        auto SaveSettingsSoon(void) const -> void;
         auto CaptureSettings(void) const -> settings_store;
         auto DrainSettings(void) const -> bool;
         auto DrawProfileControls(void) -> void;

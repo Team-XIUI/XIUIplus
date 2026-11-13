@@ -157,8 +157,8 @@ namespace xiui
                 !cache.Characters()[0].bags[0].accessible, "settled complete observations become read-only offline records");
             const auto observed = cache.Characters()[0].observed;
             Check(observed > 1700000000ULL, "offline observation timestamps use wall-clock epoch seconds");
-            cache.characters_[0].observed -= 31;
-            cache.Observe(live, 410); cache.Observe(live, 710);
+            cache.characters_[0].observed -= 601;
+            cache.Observe(live, 40000); cache.Observe(live, 40300);
             Check(cache.Characters()[0].observed >= observed, "unchanged complete inventories refresh stale observation dates after settling");
             auto partial = live; partial.gil = 0; partial.bags[0].ready = false;
             cache.Observe(partial, 500); cache.Observe(partial, 1000);

@@ -34,7 +34,7 @@ namespace xiui::ui
             if (texture != nullptr) texture->Release();
         }
         this->atlases_.clear();
-        this->access_ = 0;
+        this->access_ = this->frame_access_ = 0;
     }
 
     auto game_icon_cache::SetResources(IResourceManager* resources) -> void
@@ -111,6 +111,7 @@ namespace xiui::ui
 
     auto game_icon_cache::UpdateCustomIcons(void) -> void
     {
+        this->frame_access_ = this->access_; this->frame_created_ = 0;
         const auto generation = this->custom_icons_.Catalog().generation;
         if (generation != this->custom_generation_)
         {
@@ -237,12 +238,17 @@ namespace xiui::ui
             return found->second.texture;
         }
 
-        constexpr size_t capacity = 256;
+        // A page of new icons spreads over several frames instead of stalling one.
+        constexpr uint32_t frameBudget = 12;
+        if (this->frame_created_ >= frameBudget) return nullptr;
+        constexpr size_t capacity = 1024;
         if (this->items_.size() >= capacity)
         {
             const auto oldest = std::min_element(this->items_.begin(), this->items_.end(), [](const auto& a, const auto& b) {
                 return a.second.last_use < b.second.last_use;
             });
+            // Textures used this frame may already be queued for drawing.
+            if (oldest->second.last_use > this->frame_access_) return nullptr;
             if (oldest->second.texture != nullptr)
                 oldest->second.texture->Release();
             this->items_.erase(oldest);
@@ -281,6 +287,7 @@ namespace xiui::ui
                 }
             }
         }
+        ++this->frame_created_;
         this->items_.emplace(key, entry{texture, ++this->access_});
         return texture;
     }

@@ -6,8 +6,8 @@
 #include <charconv>
 #include <chrono>
 #include <filesystem>
+#include <bitset>
 #include <limits>
-#include <set>
 #include <span>
 #include <string_view>
 
@@ -25,6 +25,11 @@ namespace xiui
         auto StableIdentity(const std::string_view identity, const uint32_t character = 0) -> bool
         {
             return SatchelStableIdentity(identity, character);
+        }
+
+        auto EpochSeconds(void) -> uint64_t
+        {
+            return static_cast<uint64_t>(std::chrono::duration_cast<std::chrono::seconds>(std::chrono::system_clock::now().time_since_epoch()).count());
         }
 
         auto Plain(const std::string_view text, const size_t limit) -> bool
@@ -107,10 +112,13 @@ namespace xiui
                 if (bag == 3) continue;
                 const auto& storage = snapshot.bags[bag];
                 if (storage.capacity > 80 || (storage.capacity != 0 && !storage.ready) || storage.items.size() > storage.capacity) return false;
-                std::set<uint8_t> slots;
+                std::bitset<81> slots;
                 for (const auto& item : storage.items)
+                {
                     if (item.id == 0 || item.id == 0xFFFF || item.count == 0 || item.bag != bag || item.slot == 0 ||
-                        item.slot > storage.capacity || !slots.insert(item.slot).second) return false;
+                        item.slot > storage.capacity || slots.test(item.slot)) return false;
+                    slots.set(item.slot);
+                }
             }
             return true;
         }
@@ -208,28 +216,42 @@ namespace xiui
 
     auto satchel_cache::Observe(const satchel_snapshot& snapshot, const uint64_t now) -> void
     {
-        if (!Complete(snapshot) || (this->writers_.size() >= 64 && !this->writers_.contains(snapshot.identity))) { this->pending_.reset(); return; }
+        // Zoning and logout publish an incomplete snapshot; keep the last settled one.
+        if (!Complete(snapshot) || (this->writers_.size() >= 64 && !this->writers_.contains(snapshot.identity))) { this->Commit(now); return; }
         const auto found = std::find_if(this->characters_.begin(), this->characters_.end(), [&](const auto& current) { return current.identity == snapshot.identity; });
-        const auto observed = static_cast<uint64_t>(std::chrono::duration_cast<std::chrono::seconds>(std::chrono::system_clock::now().time_since_epoch()).count());
-        if (found != this->characters_.end() && SameData(snapshot, *found) && observed >= found->observed && observed - found->observed < 30)
-        { this->pending_.reset(); return; }
+        const auto observed = EpochSeconds();
+        if (found != this->characters_.end() && SameData(snapshot, *found) && observed >= found->observed && observed - found->observed < 600)
+        { this->pending_.reset(); this->settled_ = false; return; }
         if (!this->pending_ || !SameData(snapshot, *this->pending_))
         {
-            this->pending_ = snapshot; this->pending_since_ = now;
+            if (this->pending_ && this->pending_->identity != snapshot.identity) this->Commit(now);
+            this->pending_ = snapshot; this->pending_since_ = now; this->settled_ = false;
             return;
         }
         if (now < this->pending_since_ || now - this->pending_since_ < 300) return;
-        auto cached = snapshot;
-        cached.read_only = true; cached.observed = observed; cached.bags[3] = {};
+        this->settled_ = true;
+        // Gil and gear change constantly in combat; the first change writes at once, later ones are batched.
+        if (this->written_ == snapshot.identity && now >= this->last_write_ && now - this->last_write_ < 30000) return;
+        this->Commit(now);
+    }
+
+    auto satchel_cache::Commit(const uint64_t now) -> void
+    {
+        if (!this->pending_ || !this->settled_) { this->pending_.reset(); this->settled_ = false; return; }
+        auto cached = std::move(*this->pending_);
+        this->pending_.reset(); this->settled_ = false;
+        const auto identity = cached.identity;
+        cached.read_only = true; cached.observed = EpochSeconds(); cached.bags[3] = {};
         for (auto& bag : cached.bags)
         {
             bag.accessible = false;
             for (auto& item : bag.items) item.read_only = true;
         }
+        const auto found = std::find_if(this->characters_.begin(), this->characters_.end(), [&](const auto& current) { return current.identity == identity; });
         if (found != this->characters_.end()) *found = std::move(cached);
         else if (this->characters_.size() < 64) this->characters_.push_back(std::move(cached));
-        this->pending_.reset();
-        this->Queue(snapshot.identity);
+        this->written_ = identity; this->last_write_ = now;
+        this->Queue(identity);
     }
 
     auto satchel_cache::ReadOrder(const std::string& identity, const int view) const -> std::vector<std::string>
@@ -300,7 +322,8 @@ namespace xiui
 
     auto satchel_cache::Stop(void) -> void
     {
+        this->Commit(this->last_write_);
         for (auto& [identity, writer] : this->writers_) writer->Stop();
-        this->pending_.reset();
+        this->written_.clear();
     }
 }
