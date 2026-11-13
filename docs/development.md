@@ -89,19 +89,33 @@ The November 1, 2026 live XIV1.0 setup is captured in both reset defaults and th
 
 DLL releases live in the public [xiuiplus-releases repository](https://github.com/Team-XIUI/xiuiplus-releases/releases). Its independent `main` contains public download instructions only; development source and history remain in private `Shuu-37/XIUIplus`. The development checkout's `origin` stays private. Use `--repo Team-XIUI/xiuiplus-releases` explicitly for every GitHub release command.
 
-Use the version Cody requests. Otherwise, reuse an already-incremented, unpublished development version; if none is prepared, increment the furthest-right numeric component after the latest published release: `0.1.2` → `0.1.3` (and `0.1.9` → `0.1.10`). Do not bump again just because `VERSION` already contains the next release number. Keep `VERSION` numeric for CMake/Windows. Alpha tags use the fixed `-alpha` suffix: `v0.1.2-alpha` → `v0.1.3-alpha`. Do not add or increment an alpha counter such as `-alpha.1`.
+### Versions
 
-Generate all version fields from `VERSION`, including Ashita's `GetVersion()`. Ashita displays a numeric compatibility value with two decimals: `major + minor / 10 + patch / 100`, so `0.1.3` displays as `0.13`. A short release name such as `0.21` builds as `0.2.1`, so Ashita shows `0.21` and the startup message keeps `0.21`. The startup message and Windows file/product metadata keep the complete semantic version. The standalone packaging check compares the loaded plugin's displayed value with its Windows version resource.
+`VERSION` holds one line: the release name exactly as players see it. It is a number with two decimals and an optional channel, such as `0.21-alpha` or `0.30`. Nothing else is written by hand:
 
-Preserve the shipped defaults unless a capture was requested. Run `./scripts/package.ps1` and require all packaging checks to pass. Commit and push the intended source on private `main`, then create and push an annotated source tag at that commit. Never push that source tag or private branch into the public repository.
+| Shown where | Value for `0.21-alpha` | Derived by |
+| --- | --- | --- |
+| Source tag and public release tag | `v0.21-alpha` | `scripts/release.ps1` |
+| Public release title | `XIUI+ 0.21-alpha` | `scripts/release.ps1` |
+| Startup message, Windows file details | `0.21-alpha` | `CMakeLists.txt` |
+| Ashita plugin list | `0.21` | `src/shared/version.hpp.in` |
+| Windows numeric file version | `0.21.0.0` | `config/version.rc.in` |
 
-Upload only `dist/XIUIplus.dll` and the generated `dist/SHA256SUMS.txt`; no companion runtime or external assets are needed. With the private source tag pushed and public release notes written:
+Ashita can only show a number with two decimals, which is why the format has exactly two. The next release after `0.21` is `0.22`; after `0.29` comes `0.30`, and after `0.99` comes `1.00`. Always write both decimals: `0.3` is rejected, since it would sort below `0.21`. CMake fails the build on any other shape, including three-part versions such as `0.1.41`, which earlier releases used.
+
+Use the version Cody requests. Otherwise add 0.01 to the latest published release and keep its channel. Do not bump again when `VERSION` already names an unpublished release. The channel has no counter: `-alpha`, never `-alpha.1`.
+
+### Publishing
+
+Preserve the shipped defaults unless a capture was requested. Set `VERSION`, move the `CHANGELOG.md` notes under that version, write the player-facing notes file, then commit and push private `main`. Publish with:
 
 ```powershell
-gh release create v0.1.2-alpha dist/XIUIplus.dll dist/SHA256SUMS.txt --repo Team-XIUI/xiuiplus-releases --target main --prerelease --latest=false --title 'XIUI+ 0.1.2-alpha' --notes-file out/release-notes.md
+./scripts/release.ps1 -NotesFile out/release-notes.md
 ```
 
-GitHub creates the public release tag on the public repository's own `main`; it shares the version name with the private source tag, not its Git history. Use a new tag for each release. Stable releases omit the channel suffix and prerelease flags and use `--latest`. Write short, player-facing patch notes for every new feature and fix since the last published public release. Compare its matching private source tag with the intended release commit; an unpublished development version or changelog heading is not the baseline. Update `CHANGELOG.md` and use an explicit notes file, since the public repository has no development PR history from which to generate notes. Verify uploaded asset hashes and release status after publication.
+It refuses to run with uncommitted or unpushed changes, an existing tag or release of that version, or a DLL whose version differs from `VERSION`. It runs `package.ps1` and its checks, tags the source commit in the private repository, creates the public release with `dist/XIUIplus.dll` and `dist/SHA256SUMS.txt`, and verifies the uploaded hash. `-WhatIf` stops before tagging. Every release is marked Latest; the channel is part of the name only. Never push the source tag or private branch into the public repository.
+
+GitHub creates the public release tag on the public repository's own `main`; it shares the version name with the private source tag, not its Git history. Use a new tag for each release. Write short, player-facing patch notes for every new feature and fix since the last published public release. Compare its matching private source tag with the intended release commit; an unpublished development version or changelog heading is not the baseline. The notes file is explicit because the public repository has no development PR history from which to generate notes.
 
 Preserve older public releases, their assets and public tags, including alpha versions, so users can download previous builds. Publishing a new release must not delete, overwrite or clean up older releases or tags. Retain private source tags too. Any historical release removal requires a separate explicit user request. The public README links to the Releases page, without a version-specific download link.
 

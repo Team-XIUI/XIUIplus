@@ -3,16 +3,15 @@ cmake_minimum_required(VERSION 3.22)
 set(ASHITA_PROJECT_NAME "XIUIplus")
 file(STRINGS "${CMAKE_SOURCE_DIR}/VERSION" XIUI_VERSION LIMIT_COUNT 1)
 set_property(DIRECTORY APPEND PROPERTY CMAKE_CONFIGURE_DEPENDS "${CMAKE_SOURCE_DIR}/VERSION")
-# A short release name such as 0.21 is 0.2.1 for the version resource and Ashita number.
-set(XIUI_NUMERIC_VERSION "${XIUI_VERSION}")
-if (XIUI_VERSION MATCHES "^([0-9]+)\\.([0-9])([0-9])$")
-    set(XIUI_NUMERIC_VERSION "${CMAKE_MATCH_1}.${CMAKE_MATCH_2}.${CMAKE_MATCH_3}")
+# VERSION is the release name: a two-decimal number and an optional channel, e.g. 0.21-alpha.
+# Tags, titles and every number shown to players derive from it; see docs/development.md.
+if (NOT XIUI_VERSION MATCHES "^([0-9]+)\\.([0-9][0-9])(-[a-z]+)?$")
+    message(FATAL_ERROR "VERSION must look like 0.21 or 0.21-alpha (two decimals), not '${XIUI_VERSION}'.")
 endif()
-project(${ASHITA_PROJECT_NAME} VERSION ${XIUI_NUMERIC_VERSION} LANGUAGES C CXX)
-# VERSION may omit the patch (e.g. 0.2); the version resource and Ashita number still need one.
-if (NOT PROJECT_VERSION_PATCH)
-    set(PROJECT_VERSION_PATCH 0)
-endif()
+set(XIUI_VERSION_MAJOR "${CMAKE_MATCH_1}")
+set(XIUI_VERSION_HUNDREDTHS "${CMAKE_MATCH_2}")
+string(REGEX REPLACE "^0" "" XIUI_VERSION_MINOR "${XIUI_VERSION_HUNDREDTHS}")
+project(${ASHITA_PROJECT_NAME} VERSION ${XIUI_VERSION_MAJOR}.${XIUI_VERSION_MINOR}.0 LANGUAGES C CXX)
 
 if (MSVC)
     string(REPLACE "/EHsc" "/EHa" CMAKE_CXX_FLAGS "${CMAKE_CXX_FLAGS}")

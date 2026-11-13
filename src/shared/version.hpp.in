@@ -3,6 +3,6 @@
 namespace xiui
 {
     inline constexpr char release_version[] = "@XIUI_VERSION@";
-    // Ashita prints its numeric plugin version with two decimal places.
-    inline constexpr double plugin_version = @PROJECT_VERSION_MAJOR@ + @PROJECT_VERSION_MINOR@ / 10.0 + @PROJECT_VERSION_PATCH@ / 100.0;
+    // Ashita prints this with two decimals, so it shows the release number unchanged.
+    inline constexpr double plugin_version = @XIUI_VERSION_MAJOR@.@XIUI_VERSION_HUNDREDTHS@;
 }
