@@ -68,7 +68,8 @@ int main(const int argc, char** argv)
         UINT versionLength{};
         Check(::VerQueryValueW(versionData.data(), L"\\", reinterpret_cast<void**>(&versionInfo), &versionLength) != FALSE &&
             versionLength >= sizeof(VS_FIXEDFILEINFO), "query numeric Windows version");
-        const auto expectedAshitaVersion = HIWORD(versionInfo->dwFileVersionMS) + LOWORD(versionInfo->dwFileVersionMS) / 100.0;
+        const auto expectedAshitaVersion = HIWORD(versionInfo->dwFileVersionMS) + LOWORD(versionInfo->dwFileVersionMS) / 10.0 +
+            HIWORD(versionInfo->dwFileVersionLS) / 100.0;
         char actualVersion[32]{}, expectedVersion[32]{};
         std::snprintf(actualVersion, sizeof(actualVersion), "%.2f", state.plugin->GetVersion());
         std::snprintf(expectedVersion, sizeof(expectedVersion), "%.2f", expectedAshitaVersion);

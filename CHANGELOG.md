@@ -1,6 +1,6 @@
 # Changelog
 
-## 0.21-alpha — 2026-11-12
+## 0.2.1-alpha — 2026-11-12
 
 Changes since 0.2:
 

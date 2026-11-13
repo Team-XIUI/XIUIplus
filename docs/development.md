@@ -91,19 +91,21 @@ DLL releases live in the public [xiuiplus-releases repository](https://github.co
 
 ### Versions
 
-`VERSION` holds one line: the release name exactly as players see it. It is a number with two decimals and an optional channel, such as `0.21-alpha` or `0.30`. Nothing else is written by hand:
+`VERSION` holds one line: the release name exactly as players see it. It is standard `MAJOR.MINOR.PATCH` with an optional channel, such as `0.2.1-alpha`. Nothing else is written by hand:
 
-| Shown where | Value for `0.21-alpha` | Derived by |
+| Shown where | Value for `0.2.1-alpha` | Derived by |
 | --- | --- | --- |
-| Source tag and public release tag | `v0.21-alpha` | `scripts/release.ps1` |
-| Public release title | `XIUI+ 0.21-alpha` | `scripts/release.ps1` |
-| Startup message, Windows file details | `0.21-alpha` | `CMakeLists.txt` |
+| Source tag and public release tag | `v0.2.1-alpha` | `scripts/release.ps1` |
+| Public release title | `XIUI+ 0.2.1-alpha` | `scripts/release.ps1` |
+| Startup message, Windows file details | `0.2.1-alpha` | `CMakeLists.txt` |
+| Windows numeric file version | `0.2.1.0` | `config/version.rc.in` |
 | Ashita plugin list | `0.21` | `src/shared/version.hpp.in` |
-| Windows numeric file version | `0.21.0.0` | `config/version.rc.in` |
 
-Ashita can only show a number with two decimals, which is why the format has exactly two. The next release after `0.21` is `0.22`; after `0.29` comes `0.30`, and after `0.99` comes `1.00`. Always write both decimals: `0.3` is rejected, since it would sort below `0.21`. CMake fails the build on any other shape, including three-part versions such as `0.1.41`, which earlier releases used.
+Fixes raise PATCH (`0.2.1` → `0.2.2`); feature releases raise MINOR and reset PATCH (`0.2.2` → `0.3.0`). Always write all three numbers. CMake fails the build on any other shape, such as `0.2` or `0.21`.
 
-Use the version Cody requests. Otherwise add 0.01 to the latest published release and keep its channel. Do not bump again when `VERSION` already names an unpublished release. The channel has no counter: `-alpha`, never `-alpha.1`.
+Ashita can only show one number with two decimals, so its plugin list shows `major + minor / 10 + patch / 100`: `0.2.1` appears as `0.21`. That line is the only place the name is abbreviated, and it carries into the next digit once MINOR or PATCH passes 9. Releases before `0.2.1` used other shapes (`0.2`, `0.1.41`); their tags stay as published.
+
+Use the version Cody requests. Otherwise raise PATCH from the latest published release and keep its channel. Do not bump again when `VERSION` already names an unpublished release. The channel has no counter: `-alpha`, never `-alpha.1`.
 
 ### Publishing
 

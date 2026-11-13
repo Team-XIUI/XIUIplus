@@ -10,7 +10,7 @@ Set-StrictMode -Version Latest
 $Root = Split-Path -Parent $PSScriptRoot
 $PublicRepo = 'Team-XIUI/xiuiplus-releases'
 $Version = (Get-Content -LiteralPath (Join-Path $Root 'VERSION') -Raw).Trim()
-if ($Version -notmatch '^\d+\.\d\d(-[a-z]+)?$') { throw "VERSION must look like 0.21 or 0.21-alpha, not '$Version'." }
+if ($Version -notmatch '^\d+\.\d+\.\d+(-[a-z]+)?$') { throw "VERSION must look like 0.2.1 or 0.2.1-alpha, not '$Version'." }
 $Tag = "v$Version"
 $Title = "XIUI+ $Version"
 $Notes = (Resolve-Path -LiteralPath $NotesFile).Path
