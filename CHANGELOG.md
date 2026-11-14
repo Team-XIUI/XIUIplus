@@ -1,5 +1,13 @@
 # Changelog
 
+## 0.2.2-alpha — 2026-11-14
+
+Changes since 0.2.1-alpha:
+
+- Visibility: fix the HUD disappearing and the native chat log showing for a moment when an NPC dialogue, cancelled menu or trade ends. Hide during events now waits for a cutscene that lasts.
+- Native menus: keep command, spell and other native menus above XIUI+ chat when the native log is short or resizes, without jumping as battle text arrives.
+- Action Bars: a subjob without palettes of its own uses the job's shared set. The palette window can give the current subjob its own copy or return it to the shared set.
+
 ## 0.2.1-alpha — 2026-11-12
 
 Changes since 0.2:
