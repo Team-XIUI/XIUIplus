@@ -1,8 +1,8 @@
 {
   "captured_at": "2026-11-01T11:04:02.6898052-08:00",
   "source": "AgentLink confirmed live save; same complete snapshot as reset defaults",
-  "settings_path": "C:\\Users\\Cody\\Desktop\\workspaces\\ffxi\\plugins\\xiui-plugin\\out\\defaults-capture-20261101-110355-197\\settings-source.ini",
-  "theme_path": "C:\\Users\\Cody\\Desktop\\workspaces\\ffxi\\plugins\\xiui-plugin\\out\\defaults-capture-20261101-110355-197\\theme-source.ini",
+  "settings_path": "out/defaults-capture-20261101-110355-197/settings-source.ini",
+  "theme_path": "out/defaults-capture-20261101-110355-197/theme-source.ini",
   "sections": 2667,
   "preferences": 15741,
   "defaults_sha256": "FCFD58084E9248BAE5F93434AEC67AD96FFF3A62A16CAD412E593531F2293BBB",

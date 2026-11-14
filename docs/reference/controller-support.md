@@ -43,7 +43,7 @@ For live diagnostics, AgentLink can forward existing Ashita diagnostic commands,
 
 Keep hardware identity/calibration/local bindings out of portable profiles; inspect/update the actual export and overlay rules when introducing them. Focus and held controls are transient. Preserve settings and drain writers before a coordinated host/runtime ABI update. Do not modify the immutable XIUI2 preset.
 
-Use a focused check for ownership, exactly-once activation, stale focus or persistence when the change warrants it. Describe controller support honestly if an input foundation or native capability is still missing. Cody checks visual/gameplay behavior; no broad suites or hardware manipulation without task-specific need.
+Use a focused check for ownership, exactly-once activation, stale focus or persistence when the change warrants it. Describe controller support honestly if an input foundation or native capability is still missing. The maintainer checks visual/gameplay behavior; no broad suites or hardware manipulation without task-specific need.
 
 For authorized live probes, separate deterministic action tests, supported device-injection tests and actual native gameplay checks. Use an observed press/release and a native transition to establish input delivery. Track and remove temporary diagnostic handlers; include neutral releases. If the user types, moves or loads UI during a probe, mark affected before/after comparisons inconclusive and never restore an older draft over their current one. A solo session cannot validate alliance selection.
 

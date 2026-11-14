@@ -2,7 +2,7 @@
 
 `native-ui` checks the main Native UI category, isolated edit modes, pointer/controller mode actions, independent position/visibility persistence and reset behavior. `xiui_native_hud_target_smoke --menus-only` covers native group movement, merchant/auction separation, suppression identity and restoring native coordinates.
 
-Choose the smallest check for the boundary changed. The default workflow does not require the complete suite or visual/gameplay checks; Cody verifies those in game.
+Choose the smallest check for the boundary changed. The default workflow does not require the complete suite or visual/gameplay checks; The maintainer verifies those in game.
 
 ```powershell
 ./scripts/check.ps1 -List

@@ -2173,12 +2173,12 @@ namespace xiui
             module.Focus(false);
             Check(idle.destination.width < 60 && std::string_view{ChatDestinationTag(module.InputDestination())} == "SAY",
                 "the abbreviated channel badge gives unused label space back to the draft");
-            for (const auto command : {"/s", "/p", "/l", "/l2", "/u", "/sh", "/y", "/t Cody", "/r", "/em", "/ae", "/aj", "/fishwatch", ""})
+            for (const auto command : {"/s", "/p", "/l", "/l2", "/u", "/sh", "/y", "/t Kupo", "/r", "/em", "/ae", "/aj", "/fishwatch", ""})
                 Check(std::strlen(ChatDestinationTag(DescribeChatDestination(command))) <= 3, "every destination tag is at most three characters");
             prefix("/unity "); module.SetNativeDestination(native.SendPrefix(), "Shio");
             Check(module.SendChannelLabel() == "Unity", "native mode changes refresh without observing a typed /cm command");
-            prefix("/tell Cody "); module.SetNativeDestination(native.SendPrefix(), "Shio");
-            Check(module.SendChannelLabel() == "Tell: Cody", "native locked tells include the actual recipient");
+            prefix("/tell Kupo "); module.SetNativeDestination(native.SendPrefix(), "Shio");
+            Check(module.SendChannelLabel() == "Tell: Kupo", "native locked tells include the actual recipient");
             Check(std::string_view{ChatDestinationTag(module.InputDestination())} == "TEL", "tell badges stay compact while retaining the full recipient label");
             module.Focus(true); const auto original = module.Layout(design);
             Check(original.input_text.x == idle.input_text.x && original.input_text.width == idle.input_text.width &&
@@ -2213,7 +2213,7 @@ namespace xiui
             module.editor_.Set("ordinary message");
             module.channel_ = chat_module::game_channel;
             module.active_tab_ = static_cast<int>(chat_tab::party);
-            Check(module.SendChannelLabel() == "Tell: Cody", "history filters do not select an outgoing channel");
+            Check(module.SendChannelLabel() == "Tell: Kupo", "history filters do not select an outgoing channel");
             prefix("/unknown "); module.SetNativeDestination(native.SendPrefix(), {});
             module.editor_.Set({});
             Check(module.SendChannelLabel() == "Say" && std::string_view{ChatDestinationTag(module.InputDestination())} == "SAY",

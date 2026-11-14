@@ -12,9 +12,9 @@ The former General sidebar category is now **Global**. Existing commands and sav
 
 Classic, XIV and XIVClassic use the normal confirmation dialog, with Cancel selected. Applying one restores its complete authored HUD preferences and layout, including enabled modules, positions, global/local scales, theme, text, bars, chat filters and action assignments. The active profile, saved profile collection, local input-device configuration and Basic/Advanced navigation state remain local.
 
-- **XIV:** Cody's complete XIV setup captured on October 20, 2026 in [hud-xiv.ini](../../config/hud-xiv.ini).
+- **XIV:** The maintainer's complete XIV setup captured on October 20, 2026 in [hud-xiv.ini](../../config/hud-xiv.ini).
 - **Classic:** The same complete setup with only the Party list changed to the XI/Classic Party preset, captured in [hud-classic.ini](../../config/hud-classic.ini). Both Alliance lists and every other module match XIV.
-- **XIVClassic:** Cody's complete XIV1.0 setup captured on November 1, 2026 in [hud-xivclassic.ini](../../config/hud-xivclassic.ini), including the current target/ToT layout, compact Party with XIV job icons, chat styling, shared Enemy List container and rounded Equipment grid. It selects XIV1.0 Theme and the single All chat window. This is an independent capture rather than a derivative of Classic.
+- **XIVClassic:** The maintainer's complete XIV1.0 setup captured on November 1, 2026 in [hud-xivclassic.ini](../../config/hud-xivclassic.ini), including the current target/ToT layout, compact Party with XIV job icons, chat styling, shared Enemy List container and rounded Equipment grid. It selects XIV1.0 Theme and the single All chat window. This is an independent capture rather than a derivative of Classic.
 
 Classic and XIV explicitly select XI Theme; XIVClassic selects XIV1.0 Theme. All retain the captured text effects and the game's current native Window Type. The preset buttons do not report a persistent selected state after custom edits. Captured layout viewport metadata lets the normal layout loader fit the saved positions to another game viewport.
 
@@ -78,4 +78,4 @@ Shared position metadata and gesture snapshots use `hud_module::LayoutId()`. Thi
 
 Configuration has its own **Menu Scale (%)** under Global → Config Settings. It enlarges the settings window and its dialogs from 100% to 200% independently of Global Scale. See [Configuration](configuration.md) for local persistence and viewport fitting.
 
-Focused check: `./scripts/check.ps1 -Name hud-scaling`. It covers geometry, shared gestures, committed snapshots, representative input regions, mode navigation, explicit preset ownership, and persistence. Cody verifies visual/gameplay behavior and physical controller acceptance.
+Focused check: `./scripts/check.ps1 -Name hud-scaling`. It covers geometry, shared gestures, committed snapshots, representative input regions, mode navigation, explicit preset ownership, and persistence. The maintainer verifies visual/gameplay behavior and physical controller acceptance.

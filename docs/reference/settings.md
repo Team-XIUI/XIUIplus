@@ -63,4 +63,4 @@ The focused check audits section/selector coverage, retained settings and positi
 bin/tests/xiui_config_input_smoke.exe --settings-presentation-only docs/reference/settings-inventory.md
 ```
 
-The inventory comes from isolated module instances; native filter labels require the live client. This is a software input/layout check. Cody checks visual and gameplay behavior.
+The inventory comes from isolated module instances; native filter labels require the live client. This is a software input/layout check. The maintainer checks visual and gameplay behavior.

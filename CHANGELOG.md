@@ -352,7 +352,7 @@ Changes since the last published release, 0.1.3-alpha:
 
 - Party/Alliance TP now fills once per 1,000 TP, overlaying the completed bar through 2,000 and 3,000 with the shared Player TP renderer. Numeric TP and existing settings remain intact.
 
-- XIV Party preset now uses Cody's October 16 captured Party settings (593 preferences across 24 sections) through the same embedded full-preference path as Classic. Preserve each list's position when applying; existing configurations and global defaults are retained on reload.
+- XIV Party preset now uses the maintainer's October 16 captured Party settings (593 preferences across 24 sections) through the same embedded full-preference path as Classic. Preserve each list's position when applying; existing configurations and global defaults are retained on reload.
 
 - Exclude Party/Alliance job icons from entry width, content inset and fitted container calculations. Icon anchors and offsets still apply.
 
@@ -394,14 +394,14 @@ Changes since the last published release, 0.1.3-alpha:
 - Added Target name/cast/lock and HP-percent switches, enemy ID suffixes, independent cast meter/text and optional shared entity palettes/HP gradients.
 - Added embedded status/job icon themes and per-list status overrides. Background/cursor themes remain out of scope. Added custom Ready Check PCM WAV selection with reload/test and built-in fallback.
 - Removed feature record 26 and refreshed the Markdown/HTML tracker: 15 of 26 records implemented. Feature enable states follow the latest captured live defaults; Mob Info and World Target Bar are enabled in the 22:40 capture. The settings inventory includes every registered module and alternate view; corrected Pet Target global-reset ordering and excluded a reserved empty Target control.
-- Refreshed new-install and Reset to defaults settings from Cody's live October 15 configuration: all 7,301 saved UI preferences across 409 sections, current layout and theme. Session data, profile metadata and retired demo settings are excluded; existing saved configurations remain authoritative.
+- Refreshed new-install and Reset to defaults settings from the maintainer's live October 15 configuration: all 7,301 saved UI preferences across 409 sections, current layout and theme. Session data, profile metadata and retired demo settings are excluded; existing saved configurations remain authoritative.
 - Configuration remembers the last category and settings page across reopening and reloads, with General as the initial fallback. Navigation stays local to the installation rather than traveling in shared profiles.
 - Fixed Player HP/MP fills after job changes by sharing Party's validated native resources. Stale previous-job maxima are rejected; confirmed full totals remain usable after damage or MP spending, and unknown maxima use native percentages without inventing totals.
 - Added Player HP/MP display formats, independent HP/MP/TP label/value profiles, configurable HP state gradients and TP-ready/overlay/flash colors, preserving existing saved text through migration.
 - Added a shared selected-spell MP cost overlay for Player and the actual local Party row, independent of Cast Cost visibility; Player Bar → General and Party → Resources control their own previews, both on by default. Uses native resource base MP cost without guessed modifiers.
 - Added independent Subtarget settings and Attached/Independent placement, plus a Detached Target of Target window. Separate windows share mouse/controller movement, centering, visibility and committed-position persistence; linked settings remain available.
 - Fixed Party/alliance job text to follow the rendered player name by default. Added independent Zone text controls so Jobs placement, offsets and typography no longer move or resize out-of-zone entries.
-- Saved Cody's current Party settings as the complete Classic preset, including the latest job-icon offsets. Applying it preserves the selected Party/alliance list's position and native connections.
+- Saved the maintainer's current Party settings as the complete Classic preset, including the latest job-icon offsets. Applying it preserves the selected Party/alliance list's position and native connections.
 - Added paired Party/alliance job-icon X/Y offsets. Icon offsets and cast-text offsets move their artwork without changing entry height or resource positions.
 - Fixed number-only TP clipping with explicit Left/Center/Right text placement by reserving its alignment padding as well as all four digits.
 - Fixed Party name-replacement casting to use the name's actual alignment and offsets. Compact Classic rows share the name-following icon and TP gutter; out-of-zone panels retain their bounds. Number-only TP reserves four digits and shows the full value without an ellipsis.

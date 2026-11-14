@@ -2,7 +2,7 @@
 
 Implemented October 15, 2026 as a native Target extension.
 
-Open **Target → World Target Bar → General → Enabled**. The default is a 120-pixel bar with a six-pixel HP track, centered ten pixels below the target's ground position. The October 15 22:40 default capture enables it with Cody's saved configuration; existing installations retain their own enable state. Target must remain enabled.
+Open **Target → World Target Bar → General → Enabled**. The default is a 120-pixel bar with a six-pixel HP track, centered ten pixels below the target's ground position. The October 15 22:40 default capture enables it with the maintainer's saved configuration; existing installations retain their own enable state. Target must remain enabled.
 
 Layout controls width/height and paired X/Y offsets. Bar Style, Animation, Effects and Colors use the normal meter controls. Colors follows Target's gradient and optional entity colors by default; turn that off for a custom gradient. Optional Name and HP percent each have their own text profile. The world bar needs no fixed screen-position setting: it follows the selected target and camera.
 
@@ -14,7 +14,7 @@ Rendering occurs outside Target's content-bounds measurement. Moving the camera 
 
 Implementation: [host projection](../../src/host/plugin.cpp), [versioned snapshot](../../src/shared/runtime_api.hpp), [settings/rendering](../../src/runtime/modules/target/world_target_bar.cpp) and [Target integration](../../src/runtime/modules/target/target_module.cpp). ABI 16 requires the development host/runtime pair to be replaced together; the standalone distribution remains one DLL.
 
-`xiui_config_input_smoke --mob-info-only` covers projection rejection, compact placement, settings round trips and category ownership alongside the Mob Info checks. See the [focused checks](../../tests/README.md) for shared settings/defaults and standalone startup validation. Cody checks appearance and gameplay.
+`xiui_config_input_smoke --mob-info-only` covers projection rejection, compact placement, settings round trips and category ownership alongside the Mob Info checks. See the [focused checks](../../tests/README.md) for shared settings/defaults and standalone startup validation. The maintainer checks appearance and gameplay.
 
 ## Healing recipient
 

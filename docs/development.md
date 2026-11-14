@@ -4,7 +4,7 @@ Run commands from the repository root. Use Visual Studio's x86 C++ tools, CMake/
 
 ## Build and install
 
-Normal installs use one standalone `plugins/XIUIplus.dll`. `./scripts/package.ps1` builds `XIUIplus_release` and its isolated startup/resource/compatibility checks, runs them, then publishes `dist/XIUIplus.dll`. Use `-SkipBuild` only when that same release has already passed those checks. Ordinary builds and commit/push requests retain the current `VERSION`. Change or publish a version only when Cody explicitly requests it.
+Normal installs use one standalone `plugins/XIUIplus.dll`. `./scripts/package.ps1` builds `XIUIplus_release` and its isolated startup/resource/compatibility checks, runs them, then publishes `dist/XIUIplus.dll`. Use `-SkipBuild` only when that same release has already passed those checks. Ordinary builds and commit/push requests retain the current `VERSION`. Change or publish a version only when the maintainer explicitly requests it.
 
 For targeted work:
 
@@ -105,7 +105,7 @@ Fixes raise PATCH (`0.2.1` → `0.2.2`); feature releases raise MINOR and reset 
 
 Ashita can only show one number with two decimals, so its plugin list shows `major + minor / 10 + patch / 100`: `0.2.1` appears as `0.21`. That line is the only place the name is abbreviated, and it carries into the next digit once MINOR or PATCH passes 9. Releases before `0.2.1` used other shapes (`0.2`, `0.1.41`); their tags stay as published.
 
-Use the version Cody requests. Otherwise raise PATCH from the latest published release and keep its channel. Do not bump again when `VERSION` already names an unpublished release. The channel has no counter: `-alpha`, never `-alpha.1`.
+Use the version the maintainer requests. Otherwise raise PATCH from the latest published release and keep its channel. Do not bump again when `VERSION` already names an unpublished release. The channel has no counter: `-alpha`, never `-alpha.1`.
 
 ### Publishing
 

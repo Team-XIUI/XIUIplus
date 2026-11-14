@@ -129,7 +129,7 @@ Action data, macro commands and presentation settings follow normal XIUI+ profil
 - `/xiuiplus actionbars status`: report palette/macro counts and native bridge status.
 - `/xiuiplus actionbars run <bar 1-10> <slot 1-12>`: execute a hotbar assignment with the normal input and character guards. Native gathering events pause an existing macro until the animation ends, retaining elapsed waits.
 
-Focused software checks cover storage, macro references, import boundaries, input normalization and UI ownership. Native builds and AgentLink status confirm the installed integration. Physical controller feel, remappers, visual polish and live action execution remain for Cody's gameplay acceptance; the implementation checks do not send live actions.
+Focused software checks cover storage, macro references, import boundaries, input normalization and UI ownership. Native builds and AgentLink status confirm the installed integration. Physical controller feel, remappers, visual polish and live action execution remain for the maintainer's gameplay acceptance; the implementation checks do not send live actions.
 
 ABI 18 adds the host-owned native macro runner and independent native-trigger suppression. Native macro replacement defaults off; using the XIUI+ crossbar remains a separate setup choice. Updating this contract requires a matching development host/runtime pair.
 

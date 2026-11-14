@@ -49,11 +49,17 @@ $StagedDefaults = Join-Path $Backup 'defaults.ini'
 & $Capture (Join-Path $Backup 'settings-source.ini') $StagedDefaults
 if ($LASTEXITCODE -ne 0) { throw 'Defaults capture failed. The baseline was not changed.' }
 $Rows = Get-Content -LiteralPath $StagedDefaults
+# Keep committed metadata free of local checkout paths.
+$PortablePath = {
+    param([string]$Path)
+    $Full = [IO.Path]::GetFullPath($Path)
+    if ($Full.StartsWith($Root, [StringComparison]::OrdinalIgnoreCase)) { [IO.Path]::GetRelativePath($Root, $Full) -replace '\\', '/' } else { $Full }
+}
 $Metadata = [ordered]@{
     captured_at = (Get-Date).ToString('o')
     source = if ($FromSaved) { 'saved snapshot' } else { 'AgentLink confirmed live save' }
-    settings_path = [IO.Path]::GetFullPath($SettingsPath)
-    theme_path = [IO.Path]::GetFullPath($ThemePath)
+    settings_path = & $PortablePath $SettingsPath
+    theme_path = & $PortablePath $ThemePath
     sections = @($Rows | Where-Object { $_ -match '^\[' }).Count
     preferences = @($Rows | Where-Object { $_ -match '^[^;\[\s][^=]*=' }).Count
     defaults_sha256 = (Get-FileHash -LiteralPath $StagedDefaults).Hash

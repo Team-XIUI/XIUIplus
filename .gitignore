@@ -13,9 +13,6 @@ GEMINI.md
 *.canvas.tsx
 /plans/
 
-# Agent instructions stay local
-/AGENTS.md
-
 # Editor state
 /.vs/
 CMakeUserPresets.json

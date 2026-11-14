@@ -34,7 +34,7 @@ Results use a darker native-themed panel for readability. Click a result or use 
 
 Mouse wheel and Page Up/Down browse longer result lists. Escape closes search; Ctrl+F selects the current query for replacement. Controller **Utilities → Search** opens the same field: use a keyboard to type, directions to select/page results, Confirm to open, Actions to clear and Cancel to close. Foreground loss closes search and releases typing ownership, preserving ordinary chat drafts.
 
-Focused checks: `xiui_config_input_smoke --settings-search-only` verifies matching, index isolation, HP bar/text navigation, disabled-category inspection, input release, icon expansion/collapse, clear-button focus retention and shared mouse/controller actions. The 6,541-entry default catalog built in about 19 ms in the focused check; live appearance remains for Cody to review.
+Focused checks: `xiui_config_input_smoke --settings-search-only` verifies matching, index isolation, HP bar/text navigation, disabled-category inspection, input release, icon expansion/collapse, clear-button focus retention and shared mouse/controller actions. The 6,541-entry default catalog built in about 19 ms in the focused check; live appearance remains for the maintainer to review.
 
 Use the arrow at the top-left to collapse the category sidebar to icons. Hover an icon to see its category name; click it as usual. Click the arrow again to restore labels. The saved choice reloads with the configuration layout, and the settings area immediately uses the freed width.
 

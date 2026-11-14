@@ -3,7 +3,7 @@
 Open **Party → General** and scroll below the regular settings to choose one of two clickable boxes. They appear side by side when space permits and stack in a narrow configuration window:
 
 - **Classic:** the captured FFXI-style party setup, with HP above MP, small TP text, SYNC text off, and the saved Classic text, job-icon and status layout.
-- **XIV:** Cody's October 16 captured Party settings: horizontal HP/MP/TP bars, custom name and HP-anchored job text, job-icon offsets, status rows and all other Party presentation preferences. The 593-preference snapshot is embedded from `config/party-xiv.ini`.
+- **XIV:** The maintainer's October 16 captured Party settings: horizontal HP/MP/TP bars, custom name and HP-anchored job text, job-icon offsets, status rows and all other Party presentation preferences. The 593-preference snapshot is embedded from `config/party-xiv.ini`.
 
 Each box describes its layout. Clicking anywhere in a box opens the existing confirmation dialog with **Cancel** selected. Explicit **Apply** replaces the custom appearance settings of Party and both Alliance lists. Every list retains its own position. Other modules and the shared healing potency adjustment keep their settings.
 
