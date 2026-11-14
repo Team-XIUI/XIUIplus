@@ -14,36 +14,47 @@ The wrapper builds only the selected target, then runs its catalogued arguments.
 
 ## Useful starting points
 
-- Localization: `localization` (English/Japanese lookup and fallback, reported settings/dialog labels, consistent numbered Hotbar captions, unchanged HP/MP/TP abbreviations, UTF-8 paragraph wrapping, local-only persistence and header geometry). CMake also validates source message coverage, catalogs and format arguments. `python tests/localization_sources_test.py` checks the source scanner's metadata, UTF-8 literals and user-content boundary.
+### Configuration
 
-- Global XIV 1.0 appearance: `xiv1-theme` (persistence, native Window Type isolation, controller access, text fade preservation and configured fonts overriding theme defaults across HUD text).
-- Independent XI Window Type: `window-theme` (Follow game defaults and placement, native write isolation, remembered custom skin, portable profiles, resets and shared controller navigation).
-
-- Explicit Edit Mode: `edit-mode` (live visibility, selected previews, hover controls, hidden input targets and shared toggle).
-- Full / Compact typing: `xiui_chat_smoke --full-keyboard-only` (first-key composition, native draft handoff, shortcut ownership, numpad movement and editor isolation).
-- Chat accents: `xiui_chat_smoke --encoding-only` (FFXI Western character bytes, mixed Japanese/auto-translate text, received messages and bounded submission).
-- First-load setup and native chat defaults: `setup-wizard` (navigation, exactly-once activation, native fallback, local progress and saved chat preservation).
-- HUD scale and Basic/Advanced: `hud-scaling` (geometry, shared gestures, representative input and preset preservation).
-- Complete captured setups: `hud-presets` (all preferences, Party-only Classic differences, independent reset baseline).
-- Edit-mode module resets: `module-menu` (shared dropdown, owned clicks, scoped resets and Cancel-first confirmation).
 - Config controls/input: `config-ui`, `choice-arrows`, `element-tabs`, `input-mode`.
-- Native macros: `xiui_native_hud_target_smoke --macros-only` checks execution suppression, instant palette timing, patch ownership, conflicts and restoration; `xiui_actionbars_ui_smoke --input-ownership-only` checks the saved preference and replacement routing alongside input ownership.
 - Config geometry: `config-resize`, `config-sidebar`, `scrollbar`; lookup: `settings-search`.
 - Config navigation memory: `config-memory` (mode, last page, scroll and window placement through close/reopen and reload).
 - Text: `config-text`, `global-text`, `text-rasterization`.
-- Installed directories and migration: `storage-paths` (byte preservation, inventories, source archives, conflicts, shared resources and interrupted-load retry).
+- Edit-mode module resets: `module-menu` (shared dropdown, owned clicks, scoped resets and Cancel-first confirmation).
+- Explicit Edit Mode: `edit-mode` (live visibility, selected previews, hover controls, hidden input targets and shared toggle).
+- HUD scale and Basic/Advanced: `hud-scaling` (geometry, shared gestures, representative input and preset preservation).
+- First-load setup and native chat defaults: `setup-wizard` (navigation, exactly-once activation, native fallback, local progress and saved chat preservation).
+
+### Settings, profiles and storage
+
 - Preferences/profiles: `settings` (dedicated store executable), `startup-settings` (disk-loaded positions and preferences through deferred viewport initialization and saving), `defaults` (passes the shipped INI automatically), `profile-sharing` (background files, cancellation, captured snapshots, corruption, failed writes, Unicode paths, controller routes, legacy keys and isolated imports), `profile-delete`, `party-presets`.
+- Complete captured setups: `hud-presets` (all preferences, Party-only Classic differences, independent reset baseline).
+- Installed directories and migration: `storage-paths` (byte preservation, inventories, source archives, conflicts, shared resources and interrupted-load retry).
 - Action imports: `actions-import` reads both XIUI release-writer fixtures plus tHotBar/tCrossBar examples, preserving shared macros, targets, palette context and existing HUD/controller preferences.
+- Localization: `localization` (English/Japanese lookup and fallback, reported settings/dialog labels, consistent numbered Hotbar captions, unchanged HP/MP/TP abbreviations, UTF-8 paragraph wrapping, local-only persistence and header geometry). CMake also validates source message coverage, catalogs and format arguments. `python tests/localization_sources_test.py` checks the source scanner's metadata, UTF-8 literals and user-content boundary.
+
+### Appearance
+
+- Global XIV 1.0 appearance: `xiv1-theme` (persistence, native Window Type isolation, controller access, text fade preservation and configured fonts overriding theme defaults across HUD text).
+- Independent XI Window Type: `window-theme` (Follow game defaults and placement, native write isolation, remembered custom skin, portable profiles, resets and shared controller navigation).
+- Target of Target theme defaults: `target-recipient-theme` (XIV 1.0 stacking, XI inline layout, explicit configuration choices and persistence).
+
+### Input, controller and chat
 
 - Controller: `controller-input` (host adapter/normalization), `controller-config` (shared config actions), `cursor-ownership` (pointer lifetime). Synthetic checks do not establish physical-device/native-keyboard acceptance.
+- Window focus and chat: `window-input` (hex editing, foreground draft/focus suspension, F → Enter over the combat menu, native full-log fallback and menu handoff); `xiui_keyboard_suppression_smoke` covers DirectInput reads before WM delivery and returning a fresh Enter to gameplay. `controller-input` also checks native cycle press/hold/release in both backends.
+- Full / Compact typing: `xiui_chat_smoke --full-keyboard-only` (first-key composition, native draft handoff, shortcut ownership, numpad movement and editor isolation).
+- Chat accents: `xiui_chat_smoke --encoding-only` (FFXI Western character bytes, mixed Japanese/auto-translate text, received messages and bounded submission).
+- Native macros: `xiui_native_hud_target_smoke --macros-only` checks execution suppression, instant palette timing, patch ownership, conflicts and restoration; `xiui_actionbars_ui_smoke --input-ownership-only` checks the saved preference and replacement routing alongside input ownership.
+
+### Host and features
+
 - Ashita: `ashita-compat` (4.16/4.30 virtual layouts, x86 calls, mouse normalization and separate plain/Shift trace retention). Standalone packaging also checks loader negotiation and actual initialization against normal, renamed and manually mapped cores with non-core handle hints, plus an SDK facade without Ashita version exports; see [compatibility](../docs/reference/ashita-compatibility.md).
-- Window focus and chat: `window-input` (hex editing, foreground draft/focus suspension, F â†’ Enter over the combat menu, native full-log fallback and menu handoff); `xiui_keyboard_suppression_smoke` covers DirectInput reads before WM delivery and returning a fresh Enter to gameplay. `controller-input` also checks native cycle press/hold/release in both backends.
 - Minimap: `minimap`, including named IDs, pinned edge toggles and burnt contour geometry.
 - Fishing: `fishing` (module, Extras, controller settings and persistence), `native-fishing` (validated stamina reads with party suppression active).
-- Other feature boundaries: `all-ui-visibility`, `target-rings`, `notification-feedback`, `heal-prediction`, `experience-model`. See `-List` and the dispatcher for the rest.
-- Target of Target theme defaults: `target-recipient-theme` (XIV 1.0 stacking, XI inline layout, explicit configuration choices and persistence).
 - Spell effects and target timers: `xiui_module_parity_smoke --spell-statuses-only` (all imported spell rules and packet variants), `--status-timers-only` (large countdown layout) and `--hud-parity-only` (shared HUD regressions).
 - World ring cameras: `target-ring-camera` exercises the host on an isolated Direct3D device with fixed-function and terrain-shader cameras, scene-end/copy boundaries, early-label rejection, frame lifetime and opt-in shader report saving/grouping/automatic completion.
+- Other feature boundaries: `all-ui-visibility`, `target-rings`, `notification-feedback`, `heal-prediction`, `experience-model`. See `-List` and the dispatcher for the rest.
 
 The dispatcher is [config_input_smoke.cpp](config_input_smoke.cpp). Fixture declarations live in [config_input_fixture.hpp](config_input_fixture.hpp), helpers in [config_check_support.cpp](config_check_support.cpp), and feature methods in `config_control_checks.cpp`, `config_navigation_checks.cpp`, `config_module_checks.cpp`, `config_profile_checks.cpp`, `config_render_checks.cpp` and `config_text_checks.cpp`. Existing specialized `*_checks.cpp` files remain separate. Keep new implementations with their feature rather than expanding the dispatcher.
 

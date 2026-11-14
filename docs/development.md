@@ -50,7 +50,7 @@ Require unload confirmation before replacement and a separate loaded/status resp
 
 The capture script reads `config/XIUIplus/settings.ini` and `theme.ini`, with a fallback for older installed layouts or an explicitly selected saved snapshot. Repository inputs are `config/XIUIplus-defaults.ini` and `config/XIUIplus-theme.ini`. Installers rely on the runtime to migrate and seed data; ordinary binary installation does not publish a theme over user settings. The standalone installer archives the previous `xiuinative.dll` under `config/XIUIplus/legacy/plugins/`, leaving one active plugin DLL. First upgrades must unload `xiuinative` and update any startup load command to `XIUIplus`.
 
-License notices remain embedded in the DLL. Startup no longer extracts them into the config directory; known generated filenames in the migrated licenses/legacy folders are removed across versions, and unrelated user-added files are preserved.
+License notices remain embedded in the DLL. Startup does not extract them into the config directory; known generated filenames in the migrated licenses/legacy folders are removed across versions, and unrelated user-added files are preserved.
 
 Focused check: `./scripts/check.ps1 -Name storage-paths`. Standalone packaging also checks the new first-load locations.
 

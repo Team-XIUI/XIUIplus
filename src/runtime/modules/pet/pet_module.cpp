@@ -329,7 +329,7 @@ namespace xiui
         case 1: return module_option::Toggle("Show this pet type", "Independent visibility for this pet category.", &type.enabled);
         case 2: return module_option::Toggle("HP percent", "Show native pet HP percent without inventing absolute HP.", &type.hp);
         case 3: return module_option::Toggle("MP percent", "Show native MP percent for avatars, spirits and automatons when available.", &type.mp).VisibleWhen(mpType);
-        case 4: return module_option::Toggle("TP", "Show valid native pet TP (0â€“3000).", &type.tp);
+        case 4: return module_option::Toggle("TP", "Show valid native pet TP (0\xE2\x80\x93" "3000).", &type.tp);
         case 5: return module_option::Toggle("Distance", "Show the native pet distance.", &type.distance);
         case 6: return module_option::Toggle("Job icon fallback", "Use the shared job artwork when pet portrait artwork is unavailable or hidden.", &type.icon).Ordered(-40);
         case 7: return module_option::Toggle("Ability recasts", "Use existing native ability timers and Ready charges.", &type.recasts);
