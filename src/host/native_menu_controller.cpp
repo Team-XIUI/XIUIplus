@@ -287,11 +287,11 @@ namespace xiui
         value.applied = target; value.moved = placement.enabled || shift != 0;
     }
 
-    auto native_menu_controller::UpdateChatShifts(const std::array<std::array<int, 4>, native_window_count>& native, const int logLine) -> void
+    auto native_menu_controller::UpdateChatShifts(const std::array<std::array<int, 4>, native_window_count>& native, const int logTop) -> void
     {
         this->chat_shifts_ = {};
         const float height = this->state_.reference_height;
-        if (logLine <= -32000 || height <= 0) return;
+        if (logTop <= -32000 || height <= 0) return;
         const float scaleX = this->layout_.viewport_width > 0 && this->state_.reference_width > 0 ? this->state_.reference_width / this->layout_.viewport_width : 1;
         const float scaleY = this->layout_.viewport_height > 0 ? height / this->layout_.viewport_height : 1;
         float top = 32000, left = 32000, right = -32000;
@@ -302,16 +302,42 @@ namespace xiui
             top = std::min(top, chat.y * scaleY);
             left = std::min(left, chat.x * scaleX); right = std::max(right, (chat.x + chat.width) * scaleX);
         }
-        if (right <= left || !std::isfinite(top) || logLine <= top) return;
-        const int shift = static_cast<int>(std::ceil(std::min(logLine - top, 16000.0f)));
+        if (right <= left || !std::isfinite(top)) return;
+        const auto candidate = [&](const size_t index) {
+            const auto& rect = native[index];
+            return rect[2] > rect[0] && rect[3] > height * .5f && rect[2] > left && rect[0] < right;
+        };
+        // The game rests these windows on the log's live top, which follows its message count and trails it by a frame.
+        std::array<bool, native_window_count> stacked{};
+        int base{-32000};
         for (size_t index = native_hud_window_count; index < native_window_count; ++index)
         {
-            const auto& rect = native[index];
-            // The game stacks these windows on its log line; one shared shift keeps that stack intact above XIUI+ chat.
-            if (this->layout_.windows[index].enabled || rect[2] <= rect[0] || rect[3] > logLine + 4 || rect[3] <= height * .5f ||
-                rect[2] <= left || rect[0] >= right) continue;
-            this->chat_shifts_[index] = static_cast<int16_t>(std::clamp(std::min(shift, rect[1]), 0, 16000));
+            const int bottom = native[index][3];
+            if (!candidate(index) || bottom < logTop - 12 || bottom > logTop + 8) continue;
+            stacked[index] = true; base = std::max(base, bottom);
         }
+        // Windows resting on a stacked window belong to the same stack; anything detached from it never lifts.
+        for (bool grew = base > -32000; grew;)
+        {
+            grew = false;
+            for (size_t index = native_hud_window_count; index < native_window_count; ++index)
+            {
+                if (stacked[index] || !candidate(index)) continue;
+                const auto& rect = native[index];
+                for (size_t below = native_hud_window_count; below < native_window_count && !stacked[index]; ++below)
+                    stacked[index] = stacked[below] && rect[3] >= native[below][1] - 8 && rect[3] <= native[below][3] &&
+                        rect[2] > native[below][0] && rect[0] < native[below][2];
+                grew |= stacked[index];
+            }
+        }
+        // Rest the lowest window above chat with the gap it kept above the log; one shared shift keeps the stack intact.
+        const float lift = base + 2 - top;
+        if (base <= -32000 || lift <= 0) return;
+        const int shift = static_cast<int>(std::ceil(std::min(lift, 16000.0f)));
+        for (size_t index = native_hud_window_count; index < native_window_count; ++index)
+            // A custom position keeps its place in the stack for the windows resting on it, without lifting.
+            if (stacked[index] && !this->layout_.windows[index].enabled)
+                this->chat_shifts_[index] = static_cast<int16_t>(std::clamp(std::min(shift, native[index][1]), 0, 16000));
     }
 
     auto native_menu_controller::UpdateOwnedContent(const menu& value) -> void
@@ -405,9 +431,10 @@ namespace xiui
             auto& value = this->windows_[this->window_count_++];
             value = {primitive, owner, resource, current, current, false, index, open};
             for (size_t old = 0; old < previousCount; ++old)
-                if (previous[old].primitive == primitive && previous[old].owner == owner && previous[old].resource == resource)
+                if (previous[old].primitive == primitive)
                 {
-                    if (previous[old].window == index) { value = previous[old]; value.open = open; }
+                    if (previous[old].owner == owner && previous[old].resource == resource && previous[old].window == index) { value = previous[old]; value.open = open; }
+                    // The client reuses these objects; the next window must not inherit the last one's offset as its own position.
                     else if (previous[old].moved && current == previous[old].applied &&
                         Reposition(this->reposition_, primitive, previous[old].original[0], previous[old].original[1]))
                     {
@@ -474,10 +501,17 @@ namespace xiui
         menu submitted{};
         if (pending != 0 && this->ReadWindow(pending, submitted))
             keep(submitted.primitive, submitted.owner, submitted.resource, submitted.window, submitted.open);
+        // A moved window that leaves the list returns to the game's position, so it cannot come back offset.
+        for (size_t old = 0; old < previousCount; ++old)
+        {
+            if (!previous[old].moved || std::any_of(this->windows_.begin(), this->windows_.begin() + this->window_count_,
+                [&](const auto& value) { return value.primitive == previous[old].primitive; })) continue;
+            auto leaving = previous[old]; this->MoveWindow(leaving, true);
+        }
         std::array<std::array<int, 4>, native_window_count> native{};
         native.fill({32000, 32000, -32000, -32000});
         uintptr_t logOwner{};
-        int logLine{-32000};
+        int logTop{-32000};
         Read(this->hud_slots_[static_cast<size_t>(native_hud_element::chat1)], logOwner);
         for (size_t at = 0; at < this->window_count_; ++at)
         {
@@ -491,8 +525,7 @@ namespace xiui
             const int dx = value.original[0] - position[0], dy = value.original[1] - position[1];
             auto& source = native[value.window];
             source = {std::min(source[0], frame[0] + dx), std::min(source[1], frame[1] + dy), std::max(source[2], frame[2] + dx), std::max(source[3], frame[3] + dy)};
-            // Menus anchor to the log's position line, not its message-dependent frame top.
-            if (logOwner != 0 && value.owner == logOwner) logLine = value.original[1];
+            if (logOwner != 0 && value.owner == logOwner) logTop = frame[1];
             const bool custom = this->layout_.windows[value.window].enabled;
             const float left = static_cast<float>(frame[0] + (custom ? value.original[0] - position[0] : 0));
             const float top = static_cast<float>(frame[1] + (custom ? value.original[1] - position[1] : 0));
@@ -509,7 +542,7 @@ namespace xiui
             this->origins_[value.window][0] = std::min(this->origins_[value.window][0], static_cast<int>(left));
             this->origins_[value.window][1] = std::min(this->origins_[value.window][1], static_cast<int>(top));
         }
-        this->UpdateChatShifts(native, logLine);
+        this->UpdateChatShifts(native, logTop);
         for (size_t at = 0; at < this->window_count_; ++at)
         {
             const auto window = this->windows_[at].window;

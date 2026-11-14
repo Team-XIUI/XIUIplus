@@ -357,7 +357,7 @@ namespace xiui
             controller.Shutdown();
 
             command = {}; magic = {}; details = {}; money = {}; storage = {};
-            initialize(storage, "menu    logwindo", {16, 898, 804, 1064}, 2);
+            initialize(storage, "menu    logwindo", {16, 930, 804, 1064}, 2);
             const std::array<int16_t, 2> logPosition{16, 930}; std::memcpy(storage.primitive.data() + 0x52, logPosition.data(), 4);
             initialize(command, "menu    shopbuy ", {16, 888, 128, 928}, 2);
             initialize(magic, "menu    shopmain", {16, 856, 128, 896}, 0);
@@ -377,6 +377,20 @@ namespace xiui
                 details.Coordinates() == std::array<int16_t, 2>{16, 48} && money.Coordinates() == std::array<int16_t, 2>{1500, 800} &&
                 storage.Coordinates() == logPosition && controller.State().windows[buy].y == 714,
                 "windows stacked on the native log line move together above stacked XIUI+ chat; other windows and the log stay native")) return false;
+            const auto logTop = [&](const int16_t top) { const std::array<int16_t, 4> frame{16, top, 804, 1064}; std::memcpy(storage.primitive.data() + 0x3A, frame.data(), sizeof(frame)); };
+            // The log shrinks to its recent messages and the game rests menus on its live top.
+            logTop(1026); Position(command.primitive.data(), nullptr, 16, 984); Position(magic.primitive.data(), nullptr, 16, 952); controller.Update(chatLayout);
+            if (!check(command.Coordinates() == std::array<int16_t, 2>{16, 714} && magic.Coordinates() == std::array<int16_t, 2>{16, 682},
+                "menus resting on a short native log lift to the same place above chat")) return false;
+            logTop(1010); Position(command.primitive.data(), nullptr, 16, 968); Position(magic.primitive.data(), nullptr, 16, 936); controller.Update(chatLayout);
+            if (!check(command.Coordinates() == std::array<int16_t, 2>{16, 714} && magic.Coordinates() == std::array<int16_t, 2>{16, 682},
+                "menus stay put above chat while the native log grows")) return false;
+            Position(command.primitive.data(), nullptr, 16, 700); controller.Update(chatLayout);
+            if (!check(command.Coordinates() == std::array<int16_t, 2>{16, 700} && magic.Coordinates() == std::array<int16_t, 2>{16, 936},
+                "windows detached from the log stack are never lifted")) return false;
+            logTop(930); Position(command.primitive.data(), nullptr, 16, 888); Position(magic.primitive.data(), nullptr, 16, 856); controller.Update(chatLayout);
+            if (!check(command.Coordinates() == std::array<int16_t, 2>{16, 714} && magic.Coordinates() == std::array<int16_t, 2>{16, 682},
+                "menus return above chat when they rest on the log again")) return false;
             chatLayout.windows[buy] = {true, false, 400, 300}; controller.Update(chatLayout);
             if (!check(command.Coordinates() == std::array<int16_t, 2>{300, 225} && magic.Coordinates() == std::array<int16_t, 2>{16, 682},
                 "a custom position overrides keeping menus above chat")) return false;
