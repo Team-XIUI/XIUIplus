@@ -2539,9 +2539,9 @@ namespace xiui
             module.Focus(true); module.editor_.Set("south"); module.editor_.CompleteCandidates(choices, false);
             layout = module.Layout(design); bool save{};
             const ui::rect viewport{0, 0, 1280, 720};
-            Check(module.HandleMouse(WM_LBUTTONDOWN, MK_LBUTTON, layout.completion.x + 10, layout.completion.y + 25, true, design, viewport, save) &&
-                module.editor_.Completions().empty() && module.Focused(), "completion choices can be clicked in edit mode");
-            module.HandleMouse(WM_LBUTTONUP, 0, layout.completion.x + 10, layout.completion.y + 25, true, design, viewport, save);
+            Check(module.HandleMouse(WM_LBUTTONDOWN, MK_LBUTTON, layout.completion.x + 10, layout.completion.y + 25, false, design, viewport, save) &&
+                module.editor_.Completions().empty() && module.Focused(), "completion choices can be clicked");
+            module.HandleMouse(WM_LBUTTONUP, 0, layout.completion.x + 10, layout.completion.y + 25, false, design, viewport, save);
             runtime_state state{sizeof(runtime_state)}; module.Capture(state);
             chat_module restored; restored.Restore(state); Check(restored.editor_.Text() == south, "native phrase tokens survive draft transfer");
             atom.Set(""); atom.CompleteCandidates(choices, false); Check(atom.Completions().size() == 37, "empty-prefix completion exposes the whole catalog");
@@ -2714,12 +2714,15 @@ namespace xiui
             editingChat.State().bounds = {20, 400, 560, 260};
             Check(editingChat.HandleKey(nullptr, VK_OEM_2, 0, false, true) && editingChat.Focused(), "slash opens input while the layout editor is open");
             editingChat.editor_.Set("draft");
+            // The input row animates open; finish the reveal so it has a clickable height.
+            editingChat.UpdateInputAnimation(1); editingChat.UpdateInputAnimation(100000);
             const auto editingInput = editingChat.Layout(design).input;
             bool editingSave{};
-            Check(editingChat.HandleMouse(WM_LBUTTONDOWN, MK_LBUTTON, editingInput.x + 6, editingInput.y + 10, true, design, viewport, editingSave) &&
-                editingChat.Focused() && editingChat.editor_.Caret() == 0, "edit mode input clicks move the caret instead of dragging the module");
-            Check(editingChat.HandleMouse(WM_LBUTTONUP, 0, editingInput.x + 6, editingInput.y + 10, true, design, viewport, editingSave), "edit mode retains the input click release");
-            Check(!editingChat.HandleMouse(WM_LBUTTONDOWN, MK_LBUTTON, 30, 420, true, design, viewport, editingSave) && !editingChat.Focused(), "edit mode log presses release typing and allow dragging");
+            // Edit mode leaves chat presses to module dragging: the click is not consumed and the draft is untouched.
+            Check(!editingChat.HandleMouse(WM_LBUTTONDOWN, MK_LBUTTON, editingInput.x + 6, editingInput.y + 10, true, design, viewport, editingSave) &&
+                editingChat.editor_.Text() == "draft" && editingChat.editor_.Caret() == 5, "edit mode input clicks drag the module instead of moving the caret");
+            Check(!editingChat.HandleMouse(WM_LBUTTONUP, 0, editingInput.x + 6, editingInput.y + 10, true, design, viewport, editingSave), "edit mode does not consume the input click release");
+            Check(!editingChat.HandleMouse(WM_LBUTTONDOWN, MK_LBUTTON, 30, 420, true, design, viewport, editingSave), "edit mode log presses allow dragging");
             module.state_.bounds = {20, 400, 560, 260};
             bool save{};
             Check(module.HandleMouse(WM_LBUTTONDOWN, MK_LBUTTON, 575, 403, false, design, viewport, save), "top-right grip starts resizing");

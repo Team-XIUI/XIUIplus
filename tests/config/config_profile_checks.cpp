@@ -850,8 +850,8 @@ namespace xiui
         if (!check(!xivClassicBytes.empty(), "complete XIVClassic preset is embedded")) return false;
         const auto xivClassicSource = settings_store::FromIniText(std::string_view{reinterpret_cast<const char*>(xivClassicBytes.data()), xivClassicBytes.size()});
         if (!check(xivClassicSource.ReadInt("appearance", "theme", -1) == ui::xiv1_appearance &&
-            xivClassicSource.ReadInt("chat", "source", -1) == 2 && !xivClassicSource.ReadBool("chat2", "enabled", true),
-            "the independent XIVClassic capture selects XIV 1.0 and the single All chat window")) return false;
+            xivClassicSource.ReadInt("chat", "source", -1) == 0 && !xivClassicSource.ReadBool("chat2", "enabled", true),
+            "the independent XIVClassic capture selects XIV 1.0 and one chat window following native Window 1")) return false;
         expected->LoadSettings(xivClassicSource, size); expected->EnsureLayout(viewport);
         const auto xivClassic = expected->CaptureSettings();
         if (!check(classicSource.ReadInt("appearance", "theme", -1) == ui::native_appearance &&

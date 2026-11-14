@@ -1,5 +1,7 @@
 param(
     [Parameter(Mandatory)][string]$NotesFile,
+    # GitHub repository that hosts the downloads.
+    [string]$PublicRepo = 'Team-XIUI/xiuiplus-releases',
     [switch]$SkipBuild,
     [switch]$WhatIf
 )
@@ -8,7 +10,6 @@ param(
 $ErrorActionPreference = 'Stop'
 Set-StrictMode -Version Latest
 $Root = Split-Path -Parent $PSScriptRoot
-$PublicRepo = 'Team-XIUI/xiuiplus-releases'
 $Version = (Get-Content -LiteralPath (Join-Path $Root 'config/VERSION') -Raw).Trim()
 if ($Version -notmatch '^\d+\.\d+\.\d+(-[a-z]+)?$') { throw "config/VERSION must look like 0.2.1 or 0.2.1-alpha, not '$Version'." }
 $Tag = "v$Version"

@@ -3637,5 +3637,14 @@
   "Potency: unknown": "効果量: 不明",
   "Base %s %s": "基本 %s %s",
   "%s %s (job bonus %s)": "%s %s（ジョブボーナス %s）",
-  "[XIUI+] This effect cannot be cancelled.": "[XIUI+] この効果は解除できません。"
+  "[XIUI+] This effect cannot be cancelled.": "[XIUI+] この効果は解除できません。",
+  "Grammara font (freeware, non-commercial).": "Grammaraフォント（フリーウェア、非商用）。",
+  "Tanyrus - Phoenix mob data snapshot (GPL-3.0-or-later).": "Tanyrus - Phoenixのモンスターデータスナップショット（GPL-3.0-or-later）。",
+  "Google - WebP image decoding (BSD-3-Clause).": "Google - WebP画像のデコード（BSD-3-Clause）。",
+  "Tsuda Kageyu - native function hooking (BSD-2-Clause).": "Tsuda Kageyu - ネイティブ関数のフック（BSD-2-Clause）。",
+  "Rich Geldreich and contributors - resource decompression (MIT).": "Rich Geldreich と貢献者 - リソースの展開（MIT）。",
+  "ThornyFFXI - mob damage and detection icons (MIT).": "ThornyFFXI - モンスターのダメージ・感知アイコン（MIT）。",
+  "AkadenTK and contributors - enhanced minimap artwork (CC BY-SA 4.0).": "AkadenTK と貢献者 - 高精細ミニマップ画像（CC BY-SA 4.0）。",
+  "Vincerno - custom macro icons (GPL-3.0).": "Vincerno - カスタムマクロアイコン（GPL-3.0）。",
+  "Tylas - job icons (BSD-3-Clause).": "Tylas - ジョブアイコン（BSD-3-Clause）。"
 }

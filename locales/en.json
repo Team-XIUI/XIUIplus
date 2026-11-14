@@ -3637,5 +3637,14 @@
   "Potency: unknown": "Potency: unknown",
   "Base %s %s": "Base %s %s",
   "%s %s (job bonus %s)": "%s %s (job bonus %s)",
-  "[XIUI+] This effect cannot be cancelled.": "[XIUI+] This effect cannot be cancelled."
+  "[XIUI+] This effect cannot be cancelled.": "[XIUI+] This effect cannot be cancelled.",
+  "Grammara font (freeware, non-commercial).": "Grammara font (freeware, non-commercial).",
+  "Tanyrus - Phoenix mob data snapshot (GPL-3.0-or-later).": "Tanyrus - Phoenix mob data snapshot (GPL-3.0-or-later).",
+  "Google - WebP image decoding (BSD-3-Clause).": "Google - WebP image decoding (BSD-3-Clause).",
+  "Tsuda Kageyu - native function hooking (BSD-2-Clause).": "Tsuda Kageyu - native function hooking (BSD-2-Clause).",
+  "Rich Geldreich and contributors - resource decompression (MIT).": "Rich Geldreich and contributors - resource decompression (MIT).",
+  "ThornyFFXI - mob damage and detection icons (MIT).": "ThornyFFXI - mob damage and detection icons (MIT).",
+  "AkadenTK and contributors - enhanced minimap artwork (CC BY-SA 4.0).": "AkadenTK and contributors - enhanced minimap artwork (CC BY-SA 4.0).",
+  "Vincerno - custom macro icons (GPL-3.0).": "Vincerno - custom macro icons (GPL-3.0).",
+  "Tylas - job icons (BSD-3-Clause).": "Tylas - job icons (BSD-3-Clause)."
 }

@@ -1,6 +1,6 @@
 # Settings inventory
 
-Generated 2026-11-11. Source: runtime option metadata and shared layout.
+Generated 2026-11-14. Source: runtime option metadata and shared layout.
 Regenerate with `./scripts/update-docs.ps1`. Each bullet is one visual row; [empty] preserves paired controls.
 
 ## Player Bar
@@ -427,7 +427,7 @@ Regenerate with `./scripts/update-docs.ps1`. Each bullet is one visual row; [emp
 - Soft shadow | Stroke
 - Glow | Mob level
 
-### Mob Info / Behavior
+### Mob Info / Job
 
 - Show group | Follow common text
 - Width | Icon size
@@ -435,7 +435,17 @@ Regenerate with `./scripts/update-docs.ps1`. Each bullet is one visual row; [emp
 - Icon spacing | Wrap row spacing
 - X offset | Y offset
 
-### Mob Info / Physical damage
+### Mob Info / Weaknesses
+
+- Show group | Headings
+- Percentages | Group by percentage
+- Follow common text | [empty]
+- Width | Icon size
+- Position | [empty]
+- Icon spacing | Wrap row spacing
+- X offset | Y offset
+
+### Mob Info / Element ranks
 
 - Show group | Headings
 - Follow common text | [empty]
@@ -823,6 +833,13 @@ Regenerate with `./scripts/update-docs.ps1`. Each bullet is one visual row; [emp
 - Status timer scale | Status tooltips
 - Status overflow count
 
+## Mob Job
+
+### General
+
+- Scale (%) | Lock proportions
+- Reset scale
+
 ## Mob Behavior
 
 ### General
@@ -844,14 +861,14 @@ Regenerate with `./scripts/update-docs.ps1`. Each bullet is one visual row; [emp
 - Scale (%) | Lock proportions
 - Reset scale
 
-## Mob Physical Damage
+## Mob Weaknesses
 
 ### General
 
 - Scale (%) | Lock proportions
 - Reset scale
 
-## Mob Element Damage
+## Mob Resistances
 
 ### General
 
@@ -873,6 +890,13 @@ Regenerate with `./scripts/update-docs.ps1`. Each bullet is one visual row; [emp
 - Reset scale
 
 ## Mob Immunities
+
+### General
+
+- Scale (%) | Lock proportions
+- Reset scale
+
+## Mob Traits
 
 ### General
 
@@ -1870,7 +1894,8 @@ Regenerate with `./scripts/update-docs.ps1`. Each bullet is one visual row; [emp
 - Show party leader | Show when solo
 - Show heading | Distance
 - Distance highlight | Hide in preview
-- Show SYNC
+- Show SYNC | [empty]
+- Copy Party settings | Copy Alliance 2 settings
 
 ### Appearance / Size & Position
 
@@ -2040,7 +2065,8 @@ Regenerate with `./scripts/update-docs.ps1`. Each bullet is one visual row; [emp
 - Show party leader | Show when solo
 - Show heading | Distance
 - Distance highlight | Hide in preview
-- Show SYNC
+- Show SYNC | [empty]
+- Copy Party settings | Copy Alliance 1 settings
 
 ### Appearance / Size & Position
 
@@ -4143,7 +4169,11 @@ Regenerate with `./scripts/update-docs.ps1`. Each bullet is one visual row; [emp
 - Cadence | Momentum
 - Chains | ChatMon
 - Cursor Pack | Find
-- Phoenix
+- Grammara | HeadsUp
+- libwebp | MinHook
+- miniz | MobDB
+- Phoenix | Remapster
+- Vincerno icons | XivParty
 
 ### Grid
 
@@ -4947,4 +4977,4 @@ Regenerate with `./scripts/update-docs.ps1`. Each bullet is one visual row; [emp
 
 ## Coverage
 
-358 registered modules, 620 distinct pages, 5122 controls across those pages, and 2355 selector/view combinations.
+360 registered modules, 623 distinct pages, 5153 controls across those pages, and 2359 selector/view combinations.

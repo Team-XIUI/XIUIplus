@@ -255,8 +255,8 @@ namespace xiui
             hud_runtime runtime;
             const auto pages = runtime.ConfigPages();
             const auto found = std::find_if(pages.begin(), pages.end(), [](const auto& page) { return std::string_view{page.id} == "inventory"; });
-            Check(found != pages.end() && found->Count() == 8 && found->SectionCount() == 3,
-                "one Inventory config page owns all six storage trackers, Equipment and Gil");
+            Check(found != pages.end() && found->Count() == 10 && found->SectionCount() == 5,
+                "one Inventory config page owns all six storage trackers, Satchel, Equipment, Gil and Treasure Pool");
             for (size_t i = 0; i < found->Count(); ++i)
             {
                 runtime.config_.module = found->Module(i);
@@ -264,8 +264,8 @@ namespace xiui
             }
             Check(runtime.inventory_[0].State().enabled && !runtime.inventory_[5].State().enabled, "only main Inventory starts enabled");
             const auto extras = std::find_if(pages.begin(), pages.end(), [](const auto& page) { return std::string_view{page.id} == "extras"; });
-            Check(extras != pages.end() && extras->Count() == 3 && extras->Module(0) == &runtime.compass_ && extras->Module(1) == &runtime.world_info_ && extras->Module(2) == &runtime.commands_,
-                "Extras consolidates Compass, World Info and Commands without replacing their modules");
+            Check(extras != pages.end() && extras->Count() == runtime.extras_pages_.size() && extras->Module(0) == &runtime.compass_ && extras->Module(1) == &runtime.world_info_,
+                "Extras groups Compass, World Info and the other extras without replacing their modules");
             for (size_t i = 0; i < extras->Count(); ++i)
             {
                 runtime.config_.module = extras->Module(i);

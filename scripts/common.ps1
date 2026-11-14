@@ -23,9 +23,9 @@ function Resolve-XiuiInstallPath {
     param([string]$PreferredPath)
     $Candidate = if (-not [string]::IsNullOrWhiteSpace($PreferredPath)) { $PreferredPath }
         elseif (-not [string]::IsNullOrWhiteSpace($env:XIUI_INSTALL_PATH)) { $env:XIUI_INSTALL_PATH }
-        else { 'C:/Games/PhoenixXI-dev/PhoenixXI' }
+        else { throw 'No game folder selected. Pass -InstallPath or set XIUI_INSTALL_PATH to the Ashita folder containing plugins.' }
     if (-not (Test-Path -LiteralPath (Join-Path $Candidate 'plugins') -PathType Container)) {
-        throw 'Phoenix install not found. Pass -InstallPath pointing to the Phoenix folder containing plugins.'
+        throw "Game folder not found: '$Candidate' has no plugins folder. Pass -InstallPath or set XIUI_INSTALL_PATH to the Ashita folder containing plugins."
     }
     return (Resolve-Path -LiteralPath $Candidate).Path
 }

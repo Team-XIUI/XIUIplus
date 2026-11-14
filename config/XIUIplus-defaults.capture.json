@@ -1,8 +1,8 @@
 {
   "captured_at": "2026-11-01T11:03:55.3556631-08:00",
   "source": "confirmed live save",
-  "settings_path": "C:\\Games\\PhoenixXI-dev\\PhoenixXI\\config\\xiuinative.ini",
-  "theme_path": "C:\\Games\\PhoenixXI-dev\\PhoenixXI\\config\\xiuinative-theme.ini",
+  "settings_path": "config/xiuinative.ini",
+  "theme_path": "config/xiuinative-theme.ini",
   "sections": 2667,
   "preferences": 15741,
   "defaults_sha256": "FCFD58084E9248BAE5F93434AEC67AD96FFF3A62A16CAD412E593531F2293BBB",

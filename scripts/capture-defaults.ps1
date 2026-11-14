@@ -5,6 +5,8 @@ param(
     [string]$ThemePath,
     [string]$OutputPath,
     [string]$ThemeOutputPath,
+    # Script that forwards commands to the running game and prints JSON replies; defaults to XIUI_GAME_CLI.
+    [string]$GameCli = $env:XIUI_GAME_CLI,
     [switch]$SkipBuild
 )
 
@@ -26,12 +28,11 @@ if (-not $ThemePath) {
 if (-not $OutputPath) { $OutputPath = Join-Path $Root 'config/XIUIplus-defaults.ini' }
 if (-not $ThemeOutputPath) { $ThemeOutputPath = Join-Path $Root 'config/XIUIplus-theme.ini' }
 if (-not $FromSaved) {
-    $AgentLink = Join-Path $Root '../phoenixlighting/scripts/game.ps1'
-    if (-not (Test-Path -LiteralPath $AgentLink)) { throw 'AgentLink CLI is missing. Use -FromSaved only for an explicitly selected saved snapshot.' }
-    $Probe = @(& $AgentLink '?state','?loaded XIUIplus' -Game $PhoenixInstall)
+    if (-not $GameCli -or -not (Test-Path -LiteralPath $GameCli)) { throw 'A live capture needs a game command script: pass -GameCli or set XIUI_GAME_CLI. Otherwise use -FromSaved with a saved settings file.' }
+    $Probe = @(& $GameCli '?state','?loaded XIUIplus' -Game $PhoenixInstall)
     $Loaded = @($Probe | Where-Object { $_ -is [string] -and $_.StartsWith('{') } | ForEach-Object { $_ | ConvertFrom-Json } | Where-Object { $_.step -eq '?loaded XIUIplus' -and $_.loaded })
-    if ($Loaded.Count -ne 1) { throw 'AgentLink did not confirm active XIUI+. The defaults were not changed.' }
-    $Save = (& $AgentLink '/xiuiplus save sync','wait 200' -Game $PhoenixInstall) -join "`n"
+    if ($Loaded.Count -ne 1) { throw 'The game did not confirm that XIUI+ is loaded. The defaults were not changed.' }
+    $Save = (& $GameCli '/xiuiplus save sync','wait 200' -Game $PhoenixInstall) -join "`n"
     if ($Save -notmatch '\[XIUI\+\] Current settings saved\.') { throw "XIUI+ did not confirm a completed save. $Save" }
 }
 if (-not (Test-Path -LiteralPath $SettingsPath) -or -not (Test-Path -LiteralPath $ThemePath)) { throw 'The settings and theme must both exist.' }
@@ -49,11 +50,16 @@ $StagedDefaults = Join-Path $Backup 'defaults.ini'
 & $Capture (Join-Path $Backup 'settings-source.ini') $StagedDefaults
 if ($LASTEXITCODE -ne 0) { throw 'Defaults capture failed. The baseline was not changed.' }
 $Rows = Get-Content -LiteralPath $StagedDefaults
-# Keep committed metadata free of local checkout paths.
+# Keep committed metadata free of local paths: record paths relative to the checkout or the game folder.
 $PortablePath = {
     param([string]$Path)
     $Full = [IO.Path]::GetFullPath($Path)
-    if ($Full.StartsWith($Root, [StringComparison]::OrdinalIgnoreCase)) { [IO.Path]::GetRelativePath($Root, $Full) -replace '\\', '/' } else { $Full }
+    foreach ($Base in @($Root, $PhoenixInstall)) {
+        if ($Base -and $Full.StartsWith([IO.Path]::GetFullPath($Base), [StringComparison]::OrdinalIgnoreCase)) {
+            return [IO.Path]::GetRelativePath($Base, $Full) -replace '\\', '/'
+        }
+    }
+    return Split-Path -Leaf $Full
 }
 $Metadata = [ordered]@{
     captured_at = (Get-Date).ToString('o')

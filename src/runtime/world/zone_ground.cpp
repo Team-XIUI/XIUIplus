@@ -6,7 +6,7 @@
 #include <fstream>
 #include <unordered_set>
 
-// Terrain decoding adapted from PhoenixLighting's zone_dat.cpp (xim DAT format).
+// Decodes zone terrain from the installed client DATs (xim DAT format).
 namespace xiui {
 namespace {
 using Bytes = std::vector<BYTE>;

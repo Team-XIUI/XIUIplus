@@ -13,7 +13,16 @@ namespace xiui::ui
         attribution{"ChatMon", "Windower - chat notification sounds.", "https://github.com/Windower/Lua/tree/live/addons/chatmon"},
         attribution{"Cursor Pack", "Kenney - cursor artwork (CC0).", "https://kenney.nl/assets/cursor-pack"},
         attribution{"Find", "MalRD, zombie343, sippius - storage-slip catalog (MIT).", "https://github.com/Sippius/Ashita-v4-addons/tree/main/find"},
-        attribution{"Phoenix", "Phoenix contributors - game rules and data.", "https://github.com/phoenixffxi/Phoenix"}};
+        attribution{"Grammara", "Grammara font (freeware, non-commercial).", "https://www.fontspace.com/grammara-font-f4454"},
+        attribution{"HeadsUp", "Tanyrus - Phoenix mob data snapshot (GPL-3.0-or-later).", "https://github.com/Tanyrus/headsup"},
+        attribution{"libwebp", "Google - WebP image decoding (BSD-3-Clause).", "https://chromium.googlesource.com/webm/libwebp"},
+        attribution{"MinHook", "Tsuda Kageyu - native function hooking (BSD-2-Clause).", "https://github.com/TsudaKageyu/minhook"},
+        attribution{"miniz", "Rich Geldreich and contributors - resource decompression (MIT).", "https://github.com/richgel999/miniz"},
+        attribution{"MobDB", "ThornyFFXI - mob damage and detection icons (MIT).", "https://github.com/ThornyFFXI/MobDB"},
+        attribution{"Phoenix", "Phoenix contributors - game rules and data.", "https://github.com/phoenixffxi/Phoenix"},
+        attribution{"Remapster", "AkadenTK and contributors - enhanced minimap artwork (CC BY-SA 4.0).", "https://github.com/AkadenTK/remapster_maps"},
+        attribution{"Vincerno icons", "Vincerno - custom macro icons (GPL-3.0).", "https://github.com/Vincerno/xiui-icons"},
+        attribution{"XivParty", "Tylas - job icons (BSD-3-Clause).", "https://github.com/Tylas11/XivParty"}};
 
     inline constexpr std::array ashita_credits{
         attribution{"Ashita", "The framework and plugin SDK that XIUI+ runs on.", "https://www.ashitaxi.com/"},
