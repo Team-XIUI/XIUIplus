@@ -40,7 +40,7 @@ Require unload confirmation before replacement and a separate loaded/status resp
 
 `/xiuiplus startup` reports measured initialization phases, device resources and the first HUD frame. The plugin total includes runtime creation; the runtime total and its phases are nested measurements. These timings start inside the plugin, after Windows loads the DLL. Settings use a single indexed file snapshot per load (`settings/settings_store.cpp`). Native signature discovery uses `src/shared/native_pattern.hpp`, retaining unique-match checks and all caller-specific address validation.
 
-`build_all.ps1` packages/installs standalone by default; `-SkipInstall` leaves its artifact uninstalled only when explicitly requested. It does not perform the AgentLink unload/reload steps itself.
+`build-all.ps1` packages/installs standalone by default; `-SkipInstall` leaves its artifact uninstalled only when explicitly requested. It does not perform the AgentLink unload/reload steps itself.
 
 ## Installed data
 
@@ -56,7 +56,7 @@ Focused check: `./scripts/check.ps1 -Name storage-paths`. Standalone packaging a
 
 ## Optional isolated host/runtime development
 
-The two-DLL pair is only for an explicitly selected isolated development install. `./scripts/build_all.ps1 -Development -InstallPath <isolated-Phoenix-path>` installs it. `./scripts/dev.ps1 -InstallPath <isolated-Phoenix-path>` watches it. Never apply these to the normal active standalone install without selecting that mode.
+The two-DLL pair is only for an explicitly selected isolated development install. `./scripts/build-all.ps1 -Development -InstallPath <isolated-Phoenix-path>` installs it. `./scripts/dev.ps1 -InstallPath <isolated-Phoenix-path>` watches it. Never apply these to the normal active standalone install without selecting that mode.
 
 `-RuntimeOnly` requires `-Development`; ABI changes require matching binaries and drained settings writers. `-SkipDevelopmentTests` (legacy alias `-SkipTests`) applies only to development checks. Standalone packaging retains its required startup check. Different feature definitions and MSVC runtimes prevent blindly sharing all HUD objects.
 

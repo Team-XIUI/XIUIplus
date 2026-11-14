@@ -20,7 +20,7 @@ namespace xiui
         std::array<int8_t, 10> statuses{};
         uint8_t minimum_level{}, maximum_level{}, flags{}, main_job{}, sub_job{};
         uint8_t traits{};     // regen, refresh, regain, shadows, counter bits
-        uint8_t add_effect{}; // build_mob_data.py ADD_EFFECTS index + 1; 0 is none
+        uint8_t add_effect{}; // build-mob-data.py ADD_EFFECTS index + 1; 0 is none
         uint8_t absorbs{};    // element bits in damage order
     };
 #pragma pack(pop)

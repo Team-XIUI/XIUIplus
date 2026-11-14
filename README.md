@@ -25,7 +25,7 @@ Shared development guidance lives in `AGENTS.md` and `docs/`. Local agent state 
 Windows, Visual Studio C++ with x86 tools, CMake/Ninja, Python and the Ashita v4 SDK are required. While XIUI+ is unloaded:
 
 ```powershell
-./scripts/build_all.ps1
+./scripts/build-all.ps1
 ```
 
 Normal builds install one DLL in the selected Phoenix setup. `ASHITA4_SDK_PATH` selects headers and libraries; it does not choose the running game. [Development](docs/development.md) explains explicit install paths and the separate two-DLL development mode.

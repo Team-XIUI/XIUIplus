@@ -8,7 +8,7 @@ $ErrorActionPreference = 'Stop'
 . (Join-Path $PSScriptRoot 'common.ps1')
 
 $Root = Split-Path -Parent $PSScriptRoot
-$BuildScript = Join-Path $PSScriptRoot 'build_all.ps1'
+$BuildScript = Join-Path $PSScriptRoot 'build-all.ps1'
 $ThemeSource = Join-Path $Root 'config\XIUIplus-theme.ini'
 $Sdk = Resolve-XiuiSdk -PreferredPath $SdkPath
 $AshitaRoot = Resolve-XiuiInstallPath -PreferredPath $InstallPath

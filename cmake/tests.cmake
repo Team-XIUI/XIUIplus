@@ -42,7 +42,7 @@ if (MSVC)
     target_link_options(xiui_world_overlay_smoke PRIVATE /SAFESEH:NO)
 endif()
 
-add_executable(xiui_capture_defaults tools/capture_defaults.cpp src/runtime/settings/settings_store.cpp)
+add_executable(xiui_capture_defaults src/tools/capture_defaults.cpp src/runtime/settings/settings_store.cpp)
 configure_xiui_target(xiui_capture_defaults)
 set_target_properties(xiui_capture_defaults PROPERTIES RUNTIME_OUTPUT_DIRECTORY "${CMAKE_SOURCE_DIR}/bin/tools")
 
