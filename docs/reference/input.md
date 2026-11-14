@@ -1,6 +1,6 @@
 # Mouse, keyboard and controller ownership
 
-This is the current input contract. Feature-specific actions belong in the [module notes](../modules/README.md).
+This is the current input contract. Feature-specific actions belong in the [feature guides](README.md).
 
 ## Source owners
 
@@ -71,7 +71,7 @@ Composition, compact focus and expanded history are distinct. Preserve channel, 
 
 Alt+Tab retains composition and window selection while suspending input. Each fresh opening of expanded history selects its first tab and starts at the newest messages with zero scroll in each history tab; a suspended, already-open history view retains its selected tab and position until deliberately closed.
 
-Native chat input (`0x11`) and other text editors (`0x21`) are different owners. Existing draft adoption does not establish arbitrary software-keyboard/IME transfer. See [Chat](../modules/chat.md) and [input details](chat-input.md).
+Native chat input (`0x11`) and other text editors (`0x21`) are different owners. Existing draft adoption does not establish arbitrary software-keyboard/IME transfer. See [Chat](chat.md) and [input details](chat.md#chat-input-limit-and-counter).
 
 ## Remaining acceptance
 

@@ -15,21 +15,21 @@ How to use XIUI+ in game. To install it, see the [README](../README.md#install).
 - Attack countdown, TP-goal estimates and resting ticks on the Player bar.
 - Target bar with name, HP, distance, cast progress and status timers, plus Subtarget and Target of Target.
 - Mob information on the Target bar: level, detection, damage adjustments and immunities (Phoenix data).
-- [World Target Bar](reference/world-target-bar.md), a small HP bar under the selected target, and [Target Rings](reference/target-rings.md).
+- [World Target Bar](reference/target.md#world-target-bar), a small HP bar under the selected target, and [Target Rings](reference/target.md#target-rings).
 - Cast Bar for your own spells and items, and Cast Cost for the highlighted action's cost and cooldown.
 
 **Party and enemies**
 - Party and two alliance lists with HP/MP/TP, jobs, statuses, cast progress, leaders, level sync and distance. Each list moves independently.
 - Enemy list with HP, distance and casts.
 - Pet HUD with vitals, effects, portraits and recasts.
-- Buffs and Debuffs windows with real countdowns. See [Status Effects](reference/status-effects.md).
-- [Heal prediction](reference/heal-prediction.md) on Party, Alliance and Player HP bars.
+- Buffs and Debuffs windows with real countdowns. See [Status Effects](reference/status.md#behavior).
+- [Heal prediction](reference/healing.md#heal-bar-prediction) on Party, Alliance and Player HP bars.
 - Ready Check with Yes/No prompts, results for all 18 members and optional sounds. It works with players using the original XIUI addon.
 
 **Chat**
 - Chat windows with tabs, game filters and colors, their own input line, Tab completion, scrollback and timestamps.
 - Message animations, a character counter and chat bubbles.
-- See [chat windows](reference/chat-windows.md), [typing](reference/chat-input.md) and [filters](reference/chat-filters.md).
+- See [chat windows](reference/chat.md#chat-window-behavior), [typing](reference/chat.md#chat-input-limit-and-counter) and [filters](reference/chat.md#native-chat-filters).
 
 **Action Bars**
 - Hotbars and a controller crossbar with macros, palettes and keybinds.
@@ -71,7 +71,7 @@ Things worth knowing:
 - **Edit Mode** (the dot in the footer) previews every enabled module at once. With it off, only the module you are editing is previewed.
 - **Basic and Advanced**: Basic settings offer the full HUD presets (Classic, XIV, XIVClassic), the theme and a global scale. Advanced has every module's settings. Switch with the settings icon in the footer. See [Basic settings and HUD scale](reference/hud-scaling.md).
 - **Search** (Ctrl+F, in Advanced) finds any setting by name.
-- **Party presets**: Party has its own [Classic and XIV presets](reference/party-presets.md), which keep each list's position.
+- **Party presets**: Party has its own [Classic and XIV presets](reference/party.md#party-presets), which keep each list's position.
 - **Reset**: the three-dot menu → **Reset to defaults** restores all settings and positions. `/xiuiplus layout defaults` resets positions only.
 - **Native UI Edit Mode**: with Edit Mode on, the two-icon selector on the right edge switches to editing the game's own windows.
 - Changes save automatically in the background.

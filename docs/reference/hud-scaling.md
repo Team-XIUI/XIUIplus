@@ -38,7 +38,7 @@ Width/height controls change the authored layout; scale leaves those values inta
 
 Disabled elements keep their local scale. Attached child windows follow their owner's scale; detach them to use their retained independent scale. Hotbars, chat windows, Alliance lists, inventory dots, notification groups, and independent world-info parts have distinct scale values.
 
-Native FFXI windows retain their existing controls. World-space [target rings](target-rings.md) have separate model-relative radius controls. World Target Bar and Chat Bubbles scale about their projected world anchors. World Target Bar has a stationary edit sample that cannot move its live world anchor. Chat Bubbles have no edit sample or corner handle; their scale remains available in settings.
+Native FFXI windows retain their existing controls. World-space [target rings](target.md#target-rings) have separate model-relative radius controls. World Target Bar and Chat Bubbles scale about their projected world anchors. World Target Bar has a stationary edit sample that cannot move its live world anchor. Chat Bubbles have no edit sample or corner handle; their scale remains available in settings.
 
 ## Edit controls
 

@@ -1,8 +1,26 @@
 # Status Effects
 
+Renders independent local Buffs/Debuffs and shared status strips/tooltips for other HUD modules.
+
+When Debuffs follows Buffs, inherited Appearance and Text controls remain visible and read-only. The text profile selector stays available for inspection; disable Follow Buffs settings under General to edit the retained Debuffs styles independently.
+
+Numpad + (every keyboard layout) or F (Compact layouts with XIUI+ chat) cycles chat → Buffs → Debuffs; Enter shares controller Confirm's native cancellation request. Right-click on a local effect cancels on the matching release over the same effect; `EffectAt` hit testing is independent of tooltips. Non-cancellable effects remain intact, with a chat message for keyboard attempts because keyboard browsing does not show the controller footer.
+
+**Start in:** [status_effects_module.cpp](../../src/runtime/modules/status/status_effects_module.cpp), [status_strip.hpp](../../src/runtime/ui/status_strip.hpp), [status_durations.hpp](../../src/runtime/combat/status_durations.hpp).
+
+**Keep intact:** Distinguish native timers from observed duration estimates. Do not fabricate arbitrary remote remaining time or unseen effects. Stable effect identities preserve inspection focus; hover/browsing never cancels an effect implicitly. Explicit local Confirm uses native cancellation flags and rechecks player/effect identity; remote inspection remains read-only.
+
+Countdown formatting is shared: whole hours (`5h`) from one hour, `MM:SS` under an hour and seconds alone at 60 and below, including estimated bounds. Buffs/Debuffs use font-aware strip measurement for drawing, height/wrapping, hover and controller inspection. Keep timer profiles and their effects intact for long durations; never substitute a smaller hour-specific style.
+
+**Focused check:** `./scripts/check.ps1 -Name status-snapshots`; display fixtures are in `tests/modules/status_display_checks.cpp`.
+
+Cancellation: `xiui_chat_smoke --status-cancel-only` checks native requests with a fake packet manager and never removes live effects.
+
+## Behavior
+
 XIUI+ uses the installed client's status icons, names and descriptions. Local countdowns come from actual client timers. Confirmed combat effects use the original XIUI duration database for estimated countdowns, identified in their hover tooltips.
 
-## Your Buffs and Debuffs
+### Your Buffs and Debuffs
 
 Open **Status Effects** in configuration, or use `/xiuiplus statuses`, `/xiuiplus buffs` or `/xiuiplus debuffs`. The page selects **Buffs** or **Debuffs**. These are independent HUD modules: enable either, move each in edit mode, and adjust its width, icon size, columns, spacing, offsets and opacity separately.
 
@@ -18,7 +36,7 @@ Shipped defaults use 12-pixel Buffs icons and white heading, timer and tooltip t
 
 Grouping uses effect-ID metadata shared with Party. It does not infer whether an effect is beneficial from its cancelability. Weakness is a debuff; food and Dread Spikes stay with buffs. Neutral and unrecognized effects remain visible with buffs.
 
-## Party rows
+### Party rows
 
 Party/alliance **Text** settings also offer separate **Sync**, **HP values**, **MP values** and **TP values** profiles. Each controls its own font, size, colors, effects and offsets. Bar labels are the HP/MP/TP captions; values are the displayed numbers. TP styling applies to bars and number-only layouts.
 
@@ -51,7 +69,7 @@ The status page shows only controls for the selected mode: one combined set in N
 
 For the combined modes, **Status timers** optionally overlays real local countdowns inside the icons. Other party members have no native durations to display.
 
-## Target and Enemy List
+### Target and Enemy List
 
 Their **Status Effects** controls set visibility, icon size, spacing, wrapping, limit/overflow, alignment, offsets, opacity and countdown presentation. **Unknown timer markers** can show `?` for a combat-observed effect with no usable database duration. Hiding a timer or marker only changes its presentation.
 
@@ -63,7 +81,7 @@ Target prefers a known native local/party snapshot, including an empty list, ove
 
 Target mob-information groups have a stable anchor before the status grid. Gaining, losing or wrapping debuffs does not move behavior/link/detection icons. **Target → Cast Bar** draws the main target's cast as a separate bar immediately below HP, with its text centered on the bar. Width and paired X/Y offsets control that bar alone. **Cast position → Independent** enables its own draggable element and shared controller Movement; returning to Below Target retains the independent position for later. Cast starts, interruptions and completion do not change the positions of status icons, mob information or attached target views.
 
-## Reading effect details
+### Reading effect details
 
 Hover an icon for its capitalized native name in bold, slightly brighter text, followed by its description. Estimated timers add the smaller note **Estimate: Effects may end early**. Effect IDs, remaining/unavailable-duration lines and combat-observation details are omitted. Tooltips fit their text up to 300 pixels wide, wrapping longer content. They render after HUD contents, stay within the viewport and yield to active configuration/input surfaces. Pointer hover and controller inspection use the same presentation.
 
@@ -78,7 +96,7 @@ Controller routes use the configured semantic bindings:
 
 Hovering and browsing never cancel an effect. Non-cancellable effects and remote party/enemy/target/pet inspection remain read-only. The normal game retains input outside deliberate XIUI+ focus. Cancellation uses the installed status resource's `CanCancel` flag from the [Ashita SDK](https://github.com/AshitaXI/Ashita-v4beta/blob/main/plugins/sdk/Ashita.h) and the native request used by Ashita's [debuff addon](https://github.com/AshitaXI/Ashita-v4beta/blob/main/addons/debuff/debuff.lua).
 
-## What the client provides
+### What the client provides
 
 During zoning or an incomplete login, the shared party source clears its transient records. Local and remote status snapshots must be initialized before use: zero-filled slots are unavailable, because effect ID 0 is KO and must not become 32 repeated icons. A real KO followed by empty-slot markers remains valid, as does an initialized empty list. Local invalid slot values also reject the snapshot. A validated `GetBuffs()` fallback can supply untimed effects while the paired status-icon/timer list is unavailable. Party, Target and Buffs/Debuffs all consume this shared result; there is no arbitrary post-zone delay.
 
@@ -92,4 +110,8 @@ Focused check: `xiui_config_input_smoke --status-snapshots-only`.
 
 **Paralysis and Blindness:** their installed icon resources do not hide timers. Local-player countdowns use native expiries. Enemy timers use XIUI+ estimates after confirmed application; an observed removal clears the estimate immediately. Keep recast timing separate from effect expiry.
 
-See [Status Effects](../modules/status.md), [Mob information data](../modules/mobinfo.md) and the [focused checks](../../tests/README.md) for current source ownership and validation. Automated checks do not cover in-game visuals, gameplay or physical controllers.
+See [Status Effects](status.md), [Mob information data](mobinfo.md) and the [focused checks](../../tests/README.md) for current source ownership and validation. Automated checks do not cover in-game visuals, gameplay or physical controllers.
+
+[Shared foundations](../foundations.md) · [Check commands](../../tests/README.md)
+
+[Shared HUD scaling](hud-scaling.md) keeps element coordinates separate from screen input/overlay anchors. Edit grips use the shared scale gesture; preserve independent scale values when changing layouts or inheritance.

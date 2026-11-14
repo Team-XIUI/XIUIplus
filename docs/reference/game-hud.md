@@ -1,4 +1,22 @@
-# Native game HUD visibility
+# Native UI
+
+The main **Native UI** category owns **HUD Windows** and **Menus and Dialogs**. HUD Windows has Visibility, Window Placement and Native Macro Bar pages, including overhead-name visibility and native macro replacement (off by default). Window Placement's Reset All Native Windows and `/xiuiplus nativeui reset` share the same action: clear placement overrides for the complete HUD/menu catalog without changing visibility. Preferences are saved independently for each window. **Keep menus above chat** (on by default) lifts menus the game stacks above its log above XIUI+ chat; see [native menus](commands.md).
+
+**Start in:** [game_hud_module.cpp](../../src/runtime/modules/game_hud/game_hud_module.cpp), [native_window_module.hpp](../../src/runtime/modules/game_hud/native_window_module.hpp), [hud_runtime_native.cpp](../../src/runtime/hud/hud_runtime_native.cpp), [native_hud_controller.cpp](../../src/host/native_hud_controller.cpp), [plugin.cpp](../../src/host/plugin.cpp).
+
+Edit Mode's compact right-edge two-icon selector selects XIUI Edit Mode or Native UI Edit Mode. Native editing reveals the client-rendered HUD, adds labels/outlines to native draw submissions, and isolates XIUI module dragging. Pointer, keyboard/controller Utilities and the movement picker share actions. Position controls require supported native primitive geometry; compass/clock visibility remains available without inventing position writes. Editor mode is transient. Placements save under `native.<element>` independently of HUD scale. Menu categories are navigation only; each actual menu/result window has its own placement and visibility.
+
+**Keep intact:** Use supported native hooks and restore owned state on unload. Native chat logs must remain available for NPC dialogue during events, without changing saved visibility choices. Hidden artwork does not mean its input is free. Keep macro-palette suppression separate from ordinary HUD masks.
+
+Native placement prepares the current owner/menu set before the first native draw each frame. Newly submitted primitives, reopened owners, coordinate resets and logical page changes refresh through the same path before drawing. Refreshing geometry does not advance frame visibility or inactive-editor replay. Resolve explicit HUD owners before resource-name fallbacks so Alliance windows keep their own placement. Geometry must be available before applying a custom position; native resets update the saved restoration baseline before computing shared window origins.
+
+Native owner slots supplement the active-menu list for geometry. During native editing, existing inactive primitives are submitted through the client's native renderer without opening input menus. The minus-key Main Menu also supports an isolated native DAT instance when closed, using the client constructor, resource binding, draw callback and destructor. It never joins the game input manager or replaces the real owner's primitive. Observe actual draw submissions before exposing editor hit targets. Other context windows require their client-owned data and geometry. Status Icons bounds use the populated DAT icon components, including their native size and spacing, instead of the thin anchor frame. Saved visibility resumes on exit.
+
+**Focused checks:** `native-ui` and `xiui_native_hud_target_smoke --menus-only`. The menu check exercises first-draw placement/visibility for the complete menu catalog and supported HUD owners, mid-pass creation, page reuse, native resets, attached content and restoration.
+
+Fishing stamina shares the party draw call. Keep party suppression active and expose live stamina through the separate [Fishing module](fishing.md).
+
+## Native game HUD visibility
 
 For a temporary clean view, use **General → Visibility → Hide all UI** or `/xiuiplus hide`. The configuration action has a red label/button and opens a Cancel-first warning before hiding. It explains that chat and configuration also disappear and gives recovery instructions: press `/`, type `xiui show`, then press Enter. Typing is invisible while hidden.
 
@@ -8,11 +26,11 @@ Open `/xiuiplus gamehud`, or select **Native UI → HUD Windows → Visibility**
 
 Each element has a visibility toggle: on leaves it available to the game, off hides it. Missing values and this section's reset use the shipped XIUI+ preset: native player/party/alliance frames, target, cast bar, status icons, compass, clock/weather and chat start hidden; connection, title and help remain available. Explicit saved choices take priority. **Apply visibility choices** pauses or resumes the selected hides without clearing them. Module enable state does not override these toggles. Overhead names are controlled here through the existing game name-display setting. Native palette replacement and opening delay are grouped under **Native Macro Bar**.
 
-## Editing native positions
+### Editing native positions
 
 Turn Edit Mode on, then select the top icon for **XIUI Edit Mode** or the bottom icon for **Native UI Edit Mode** in the compact right-edge selector. Both icons stay visible, with a highlight that slides to the selected mode. Hover help names each icon. It reveals the actual native HUD and labels windows observed in the native draw path. Windows hidden with the editor keep their native-position outlines and Show buttons. Closed menus stay in the settings list. Drag a supported outline, or use Configuration's controller movement picker. Controller Utilities can switch editors and toggle the selected native window. **XIUI Edit Mode** returns to XIUI HUD editing; switching modes does not move either layout.
 
-**HUD Windows → Window Placement** offers a window selector, independent screen-pixel position and Reset position. Native compass/clock visibility is supported; position controls stay unavailable where no supported native rectangle exists. **Menus and Dialogs** includes the minus-key Main Menu and its submenu families, alongside spells/abilities, equipment/inspection, merchants, auctions and other dialogs. Choose the exact **Native window** within a category. The Status selector and its results, equipment, storage, gil and item details each have independent controls. Character Status carries its EXP bar and text, and equipment carries its native numeric labels; see [native menu ownership](../modules/commands.md).
+**HUD Windows → Window Placement** offers a window selector, independent screen-pixel position and Reset position. Native compass/clock visibility is supported; position controls stay unavailable where no supported native rectangle exists. **Menus and Dialogs** includes the minus-key Main Menu and its submenu families, alongside spells/abilities, equipment/inspection, merchants, auctions and other dialogs. Choose the exact **Native window** within a category. The Status selector and its results, equipment, storage, gil and item details each have independent controls. Character Status carries its EXP bar and text, and equipment carries its native numeric labels; see [native menu ownership](commands.md).
 
 Custom placement saves in `native.<element>` preferences, independently of HUD/configuration scale. Reset position clears only placement. **HUD Windows → Window Placement → Reset All Native Windows** restores default positions for every native HUD window, menu and dialog, including closed windows, while keeping visibility choices. Moving one window does not move other windows in its category. The editor selection itself is transient. Moving/hiding artwork leaves native input and game actions intact.
 
@@ -42,7 +60,7 @@ Development commands:
 
 Element keys are `player`, `party`, `alliance1`, `alliance2`, `target`, `castbar`, `status`, `compass`, `clock`, `connection`, `title`, `help`, `chat1`, `chat2`, and `chatlog`.
 
-## Implementation
+### Implementation
 
 The stable host owns native suppression. The hot-swappable runtime supplies only a requested visibility mask, so runtime swaps retain the native draw guard. A faulted runtime supplies an empty mask, restoring native rendering.
 
@@ -54,7 +72,7 @@ Main chat suppression includes the separately resolved `inline` menu owner, usin
 
 The availability and requested-visibility masks are part of host/runtime ABI 5. Updating from an earlier ABI requires replacing both DLLs with the host unloaded once.
 
-## Research and dependency notices
+### Research and dependency notices
 
 Native menu layouts and signatures follow these public references:
 
@@ -66,3 +84,5 @@ Native menu layouts and signatures follow these public references:
 Those Lua addons are not installed or loaded as dependencies. The host's native implementation uses [MinHook](https://github.com/TsudaKageyu/minhook); its source notices and [license](../../third_party/minhook/LICENSE.txt) are retained in `third_party/minhook`.
 
 Focused check: `xiui_native_hud_target_smoke`.
+
+[Shared foundations](../foundations.md) · [Check commands](../../tests/README.md)

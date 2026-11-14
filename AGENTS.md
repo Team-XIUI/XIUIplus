@@ -13,7 +13,7 @@ If `docs/development.md` exists, read it too. It is a local, untracked file with
 
 ## Where to start
 
-Start with the [developer docs](docs/README.md) and the relevant [module note](docs/modules/README.md).
+Start with the [developer docs](docs/README.md) and the relevant [feature guide](docs/reference/README.md).
 
 - HUD changes follow the [foundations](docs/foundations.md), especially **HUD text**. Reuse the theme roles, module text profiles, rendering, controls and persistence. Compact sizing must keep normal text effects. Apply game-state colors with `TintTextProfile` so gradients and effects survive.
 - Interactive changes follow [controller support](docs/reference/controller-support.md) and [input ownership](docs/reference/input.md). Its [remaining acceptance](docs/reference/input.md#remaining-acceptance) section lists what automated checks do not cover.

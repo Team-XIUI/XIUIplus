@@ -1,6 +1,6 @@
 # Foundations
 
-Rules shared by every HUD module. Read the relevant [module note](modules/README.md) for a feature's own files; building and source layout are in the [developer docs](README.md).
+Rules shared by every HUD module. Read the relevant [feature guide](reference/README.md) for a feature's own files; building and source layout are in the [developer docs](README.md).
 
 ## HUD text
 

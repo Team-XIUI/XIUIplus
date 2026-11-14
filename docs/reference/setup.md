@@ -16,6 +16,6 @@ The Chat page offers **Follow game windows** and **One combined window** when us
 
 If native settings are unavailable, Follow waits for a validated count instead of guessing two windows. Combined prevents deferred native initialization from re-enabling the second log. Later chat edits and existing saved layouts remain intact until a setup choice is selected or accepted with Next. Change the choice later through Chat → Messages and General, or revisit `/xiuiplus setup`.
 
-The native window count uses validated config record 180, documented by the [official Ashita config addon](https://github.com/AshitaXI/Ashita-v4beta/blob/main/addons/config/README.md). Reactive sizing and independent-window behavior are covered in [Chat windows](chat-windows.md).
+The native window count uses validated config record 180, documented by the [official Ashita config addon](https://github.com/AshitaXI/Ashita-v4beta/blob/main/addons/config/README.md). Reactive sizing and independent-window behavior are covered in [Chat windows](chat.md#chat-window-behavior).
 
 Source: `hud/hud_runtime_setup.cpp`, `config/setup_wizard.hpp`, `ui/native_window_config.cpp` and `modules/chat/chat_module.cpp`. Focused check: `./scripts/check.ps1 -Name setup-wizard`.

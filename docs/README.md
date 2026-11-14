@@ -1,10 +1,10 @@
 # Developer documentation
 
-XIUI+ has three kinds of docs:
+XIUI+ has three kinds of developer docs:
 
 - **This page**: how to build, and where things live.
 - **[Foundations](foundations.md)**: the shared rules every HUD module follows (text, containers, bars, settings, input, persistence).
-- **[Module notes](modules/README.md)** and **[reference guides](reference/README.md)**: one short note per module, plus detailed behavior for the larger systems.
+- **[Reference](reference/README.md)**: one guide per feature, plus guides for the systems they share (input, configuration, settings).
 
 Players should read the [user guide](user-guide.md) instead.
 
@@ -40,7 +40,7 @@ Paths without a prefix are relative to `src/runtime/`.
 
 | Area | Start in |
 |---|---|
-| A HUD feature | its [module note](modules/README.md), then `modules/<feature>/` |
+| A HUD feature | its [feature guide](reference/README.md), then `modules/<feature>/` |
 | Shared drawing and text | `design_system.*`, `ui/`, `modules/module.*` |
 | Settings window | `config/config_session.hpp`, `hud/hud_runtime_config*.cpp`, `config/config_controls.*`, `config/option_layout.hpp` |
 | Input | `src/host/controller_input.*`, `src/shared/controller_input.hpp`, `input/`, `hud/hud_runtime_controller*.cpp`; native mouse and key dispatch starts in `src/host/plugin.cpp` |
@@ -55,4 +55,4 @@ Other shared guides: [input ownership](reference/input.md), [controller support]
 
 ## Keeping docs current
 
-Update the owning module note or reference guide when behavior or source ownership changes. Put rules that span modules in [foundations](foundations.md). Edit generated documentation through its generator.
+Update the owning guide when behavior or source ownership changes. Put rules that span modules in [foundations](foundations.md). Edit generated documentation through its generator.

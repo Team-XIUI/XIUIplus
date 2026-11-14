@@ -1,8 +1,18 @@
-# Heal bar prediction
+# Heal prediction service
+
+Supplies optional healing and overheal estimates to Player, Party and the world target bar. It has no independent HUD window.
+
+**Start in:** [heal_prediction.cpp](../../src/runtime/modules/healing/heal_prediction.cpp), [heal_prediction.hpp](../../src/runtime/modules/healing/heal_prediction.hpp).
+
+**Keep intact:** Estimates use known cast, target and potency data; they are not server-confirmed outcomes. Clear invalid/stale targets and keep the feature’s enable states and colors independent of ordinary HP rendering.
+
+**Focused check:** `./scripts/check.ps1 -Name heal-prediction`.
+
+## Heal bar prediction
 
 Heal prediction is available on Party and Alliance HP bars, Player Bar HP, and World Target Bar, and is enabled by default on each surface. A green segment shows the approximate HP gained from your selected or currently casting Cure I–VI or Curaga I–V, capped at full HP. A pink segment with dark diagonal stripes overlays existing HP for the predicted overheal. Both are enabled by default; HP text continues to show actual HP.
 
-## Settings
+### Settings
 
 - **Party / Alliance → Resources:** Heal prediction and Healing potency bonus (%).
 - **Player Bar → General:** the same controls for your own HP bar.
@@ -12,7 +22,7 @@ Heal prediction is available on Party and Alliance HP bars, Player Bar HP, and W
 
 Healing potency bonus is one shared setting, displayed in each relevant settings page. Enter your combined Cure Potency and Cure Potency II gear bonus; the client does not expose these modifiers directly. The default is zero. Changing the shared bonus updates every preview. Visibility and color are separate per surface.
 
-## Behavior
+### Behavior
 
 Native spell-menu selection previews the current party recipient, including native subtarget selection. Once casting starts, the action packet's recipient is locked: moving the hard target does not move the preview. Interrupted, finished, unavailable, dead or out-of-zone targets clear it. A selected spell with insufficient MP or an active known recast does not produce a preview.
 
@@ -22,16 +32,18 @@ During healing, World Target Bar follows the intended recipient even while your 
 
 The overheal segment extends backward from current HP into the already-filled portion of the bar, leaving the useful green segment visible. Its length is excess healing divided by maximum HP, bounded by the available bar. For example, a 600-HP heal with only 100 HP missing shows 100 HP of useful green healing and 500 HP of pink overheal. At full HP only the pink forecast appears. The default is fully opaque, saturated pink for contrast over the HP fill. Both directions use the same meter-range layout, gradients and alpha; MP cost preview clipping is unchanged.
 
-## Estimate and limits
+### Estimate and limits
 
 The estimate follows the Phoenix server's modern Cure formula and its Curaga formula, using live MND, VIT and Healing Magic skill. Actual native Divine Seal and Rapture effects modify it. Formula references are `Phoenix/scripts/globals/magic.lua`, `Phoenix/scripts/actions/spells/white/cure*.lua`, and `curaga*.lua`; Curaga radii come from `Phoenix/sql/spell_list.sql`.
 
 Remote maximum HP is inferred from the party's native current HP and HP percentage when an exact maximum is unavailable. Unknown maximum HP suppresses the segment. Weather/day bonuses, received-healing bonuses, enhanced Rapture equipment, server-specific adjustments and other hidden modifiers can change actual healing. Blue Magic heals, Cura, Waltzes, Regen, items and predictions for other casters are not covered. No fabricated status durations or combat results are used.
 
-## Implementation
+### Implementation
 
 `modules/healing/heal_prediction` owns the shared estimate, target resolution and optional potency adjustment. Meter ranges support segments beyond current fill; MP cost ranges are clipped to current fill. Overheal uses the shared range's striped presentation: a direct gradient bypasses the native gauge texture's color/alpha multiplication, with diagonal stripes batched in one draw and clipped inside the segment. Rounded ends retain the base gradient. All three surfaces reuse this source and their normal meter geometry, text profiles and native settings controls, including controller navigation.
 
 The host/runtime snapshot includes validated party world anchors so native subtargets remain projectable through the cast. No additional HUD module is registered. Settings use `healing_prediction.bonus` plus `heal_prediction`, `heal_prediction_color`, `heal_prediction_overheal` and `heal_prediction_overheal_color` in each existing module section. Reset and profile loading use the same persistence path as other preferences.
 
 Automated checks do not cover in-game visuals or gameplay.
+
+[Shared foundations](../foundations.md) · [Check commands](../../tests/README.md)

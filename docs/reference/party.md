@@ -32,4 +32,36 @@ Full party preview marks its first row as the sample leader, including when that
 
 Classic uses full-width HP above TP on the left and MP on the right, without a left TP column. Its name/icon offsets start the icon at the content edge. A versioned migration corrects only the old Classic spacing signature; custom resource layouts and moved panels retain their preferences. The older MP below HP, TP left layout remains available independently.
 
-[Detailed guide](../reference/party-jobs.md) · [Shared foundations](../foundations.md) · [Check commands](../../tests/README.md)
+## Party job text
+
+Open **Party → Text** and select **Jobs** (the same path exists for either Alliance list). All job text controls live here: Show job text, main/subjob/Master Level switches, stacking, anchor, name placement, font, size, alignment, X/Y offsets, colors and effects.
+
+- **Stack job and subjob:** puts the main job above the subjob. For example, `WHM99/RDM49 ML20` becomes `WHM99 ML20` above `RDM49`. The main/subjob level and Master Level switches still apply. Hiding Subjob removes the second line.
+- **Anchor:** choose **Name** to retain After name / Below name placement, or **HP bar start** to follow the actual HP fill origin, including bar position and X/Y offsets. Name placement is disabled while anchored to HP.
+
+The font, size, color, effects, Alignment and X/Y offsets below apply to both lines and either anchor. Name movement does not move HP-anchored text. Stacked text reserves its visible height, and remote members retain their separate Zone text layout.
+
+**Party → Job Icons** contains icon visibility, size, anchoring and X/Y offsets only. Text controls are not duplicated there. Icons do not reserve horizontal entry space, shrink the bar canvas or widen the fitted window; their anchors and offsets control drawing independently. The shared text Alignment control describes Left/Center/Right within the chosen anchor; Name placement chooses After name / Below name.
+
+Configurations that do not set these options use inline, name-anchored text. Party/Alliance settings save `stack_jobs` and `job_anchor` independently, including profiles, resets, preference copies and presets. The controls use the shared mouse, keyboard and controller configuration paths.
+
+**Party → Layout → Resource layout → Classic (HP above MP and TP)** places HP across the top, with TP below left and MP below right. Classic presets use this layout and position the job icon at the normal content edge, with no empty TP gutter. Settings saved with the earlier Classic spacing are corrected once via `classic_layout_version`; custom layouts retain their values. The separate **MP below HP, TP left** choice keeps its left TP column.
+
+Focused check: `xiui_config_input_smoke --party-entry-only`.
+
+## Party presets
+
+Open **Party → General** and scroll below the regular settings to choose one of two clickable boxes. They appear side by side when space permits and stack in a narrow configuration window:
+
+- **Classic:** an FFXI-style party setup, with HP above MP, small TP text, SYNC text off, and the Classic text, job-icon and status layout. It is stored in `config/party-classic.ini`.
+- **XIV:** horizontal HP/MP/TP bars, custom name and HP-anchored job text, job-icon offsets, status rows and all other Party presentation preferences. It is embedded from `config/party-xiv.ini`.
+
+Each box describes its layout. Clicking anywhere in a box opens a confirmation dialog with **Cancel** selected. Explicit **Apply** replaces the custom appearance settings of Party and both Alliance lists. Every list retains its own position. Other modules and the shared healing potency adjustment keep their settings.
+
+Saved navigation to the earlier separate Presets pages opens Party → General; saved Window navigation opens Window. Opening this page does not change existing configurations.
+
+Mouse, keyboard and controller use the same action and confirmation paths. The cards use the normal native config theme, text settings, focus and scrolling. Results save through ordinary settings and profiles; a preset is applied only through explicit **Apply**.
+
+Updating a preset's file changes the preset only; it is not applied to existing Party/Alliance configurations on reload. Focused check: `xiui_config_input_smoke --party-presets-only config/party-classic.ini config/party-xiv.ini`.
+
+[Shared foundations](../foundations.md) · [Check commands](../../tests/README.md)

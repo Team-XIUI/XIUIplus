@@ -27,7 +27,7 @@ Use the [generated settings inventory](settings-inventory.md) for current pages 
 
 **Pet → each pet type → Portrait** groups image visibility, background visibility, base size/scale, Inline/Overlay positioning, paired X/Y offsets, opacity and clipping. Avatar / spirit adds an image selector with independent settings per avatar or spirit. Overlay moves only the artwork; Appearance categories retain the existing artwork and window controls.
 
-**Party → General** includes Classic and XIV preset boxes below its regular controls, side by side when space permits and stacked in a narrow configuration window. Their descriptions stay visible, the entire card is clickable, and the shared confirmation applies the style to all three lists while retaining each position. See [Party presets](party-presets.md).
+**Party → General** includes Classic and XIV preset boxes below its regular controls, side by side when space permits and stacked in a narrow configuration window. Their descriptions stay visible, the entire card is clickable, and the shared confirmation applies the style to all three lists while retaining each position. See [Party presets](party.md#party-presets).
 
 **Party/alliance → Appearance → Size & Position** contains the resource arrangement and selected bar's width, height, position and offsets. **Appearance → Window** contains the overall list width, entry spacing, reserved rows, fitting, padding and opacity. Window width is labeled separately from bar width. Heading visibility lives in General; Text edits its styling.
 
