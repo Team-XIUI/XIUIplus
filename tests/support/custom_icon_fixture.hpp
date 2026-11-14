@@ -15,7 +15,7 @@ namespace xiui::tests
 
     inline auto IconFormatImage(const char* name) -> std::vector<uint8_t>
     {
-        std::ifstream file{std::filesystem::path{__FILE__}.parent_path() / "fixtures/custom-icons" / name, std::ios::binary};
+        std::ifstream file{std::filesystem::path{__FILE__}.parent_path().parent_path() / "fixtures/custom-icons" / name, std::ios::binary};
         if (!file) throw std::runtime_error{"Could not open custom icon format fixture"};
         return {std::istreambuf_iterator<char>{file}, {}};
     }

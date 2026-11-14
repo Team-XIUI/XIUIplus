@@ -31,7 +31,7 @@ The wrapper builds only the selected target, then runs its catalogued arguments.
 - Complete captured setups: `hud-presets` (all preferences, Party-only Classic differences, independent reset baseline).
 - Installed directories and migration: `storage-paths` (byte preservation, inventories, source archives, conflicts, shared resources and interrupted-load retry).
 - Action imports: `actions-import` reads both XIUI release-writer fixtures plus tHotBar/tCrossBar examples, preserving shared macros, targets, palette context and existing HUD/controller preferences.
-- Localization: `localization` (English/Japanese lookup and fallback, reported settings/dialog labels, consistent numbered Hotbar captions, unchanged HP/MP/TP abbreviations, UTF-8 paragraph wrapping, local-only persistence and header geometry). CMake also validates source message coverage, catalogs and format arguments. `python tests/localization_sources_test.py` checks the source scanner's metadata, UTF-8 literals and user-content boundary.
+- Localization: `localization` (English/Japanese lookup and fallback, reported settings/dialog labels, consistent numbered Hotbar captions, unchanged HP/MP/TP abbreviations, UTF-8 paragraph wrapping, local-only persistence and header geometry). CMake also validates source message coverage, catalogs and format arguments. `python tests/settings/localization_sources_test.py` checks the source scanner's metadata, UTF-8 literals and user-content boundary.
 
 ### Appearance
 
@@ -56,7 +56,7 @@ The wrapper builds only the selected target, then runs its catalogued arguments.
 - World ring cameras: `target-ring-camera` exercises the host on an isolated Direct3D device with fixed-function and terrain-shader cameras, scene-end/copy boundaries, early-label rejection, frame lifetime and opt-in shader report saving/grouping/automatic completion.
 - Other feature boundaries: `all-ui-visibility`, `target-rings`, `notification-feedback`, `heal-prediction`, `experience-model`. See `-List` and the dispatcher for the rest.
 
-The dispatcher is [config_input_smoke.cpp](config_input_smoke.cpp). Fixture declarations live in [config_input_fixture.hpp](config_input_fixture.hpp), helpers in [config_check_support.cpp](config_check_support.cpp), and feature methods in `config_control_checks.cpp`, `config_navigation_checks.cpp`, `config_module_checks.cpp`, `config_profile_checks.cpp`, `config_render_checks.cpp` and `config_text_checks.cpp`. Existing specialized `*_checks.cpp` files remain separate. Keep new implementations with their feature rather than expanding the dispatcher.
+The dispatcher is [config_input_smoke.cpp](config/config_input_smoke.cpp). Fixture declarations live in [config_input_fixture.hpp](support/config_input_fixture.hpp), helpers in [config_check_support.cpp](config/config_check_support.cpp), and feature methods in `config_control_checks.cpp`, `config_navigation_checks.cpp`, `config_module_checks.cpp`, `config_profile_checks.cpp`, `config_render_checks.cpp` and `config_text_checks.cpp`. Existing specialized `*_checks.cpp` files remain separate. Keep new implementations with their feature rather than expanding the dispatcher. Sources are grouped by area: `config/`, `input/`, `host/`, `settings/`, `ui/` and `modules/`, with shared fixture headers in `support/` (included as `support/<name>.hpp`).
 
 ## Fixtures and dedicated targets
 
@@ -77,7 +77,7 @@ The capture utility has an isolated encoding/filter/preservation check:
 ```powershell
 . ./scripts/common.ps1
 Invoke-XiuiBuild -Targets xiui_capture_defaults
-./tests/capture_defaults_smoke.ps1 -Executable "$PWD/bin/tools/xiui_capture_defaults.exe"
+./tests/settings/capture_defaults_smoke.ps1 -Executable "$PWD/bin/tools/xiui_capture_defaults.exe"
 ```
 
 Locked HUD pointer capture and native-menu coexistence have focused runtime checks. They feed the mouse block set by XIUI+ back into its handlers and cover popup/search ownership, dismissal, owned releases and preservation of a preexisting input block:

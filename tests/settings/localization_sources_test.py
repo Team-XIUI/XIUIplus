@@ -2,7 +2,7 @@ import importlib.util
 from pathlib import Path
 import unittest
 
-SOURCE = Path(__file__).resolve().parents[1] / "scripts/localization_sources.py"
+SOURCE = Path(__file__).resolve().parents[2] / "scripts/localization_sources.py"
 SPEC = importlib.util.spec_from_file_location("localization_sources", SOURCE)
 MODULE = importlib.util.module_from_spec(SPEC)
 SPEC.loader.exec_module(MODULE)

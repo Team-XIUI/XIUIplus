@@ -1,4 +1,4 @@
-#include "custom_icon_fixture.hpp"
+#include "support/custom_icon_fixture.hpp"
 #include "resources/wic_image.hpp"
 
 #include <algorithm>

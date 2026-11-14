@@ -8,6 +8,6 @@ Visible enemies share one native container around the measured list bounds. It g
 
 **Keep intact:** Keep identity tied to server ID plus entity index, and expire stale evidence. Reuse shared entity colors and text effects. Browsing must not change the game target until explicit activation.
 
-**Focused check:** `xiui_module_parity_smoke`; enemy layout fixtures are in `tests/enemy_layout_checks.cpp`.
+**Focused check:** `xiui_module_parity_smoke`; enemy layout fixtures are in `tests/modules/enemy_layout_checks.cpp`.
 
 [Shared foundations](../foundations.md) · [Check commands](../../tests/README.md)

@@ -26,5 +26,5 @@ endforeach()
 find_program(XIUI_POWERSHELL NAMES pwsh powershell)
 if(XIUI_POWERSHELL)
     add_test(NAME xiui_capture_defaults_smoke COMMAND "${XIUI_POWERSHELL}" -NoProfile -File
-        "${CMAKE_SOURCE_DIR}/tests/capture_defaults_smoke.ps1" -Executable "$<TARGET_FILE:xiui_capture_defaults>")
+        "${CMAKE_SOURCE_DIR}/tests/settings/capture_defaults_smoke.ps1" -Executable "$<TARGET_FILE:xiui_capture_defaults>")
 endif()

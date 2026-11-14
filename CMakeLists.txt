@@ -72,6 +72,7 @@ function(configure_xiui_target target)
         "${CMAKE_SOURCE_DIR}/src/host"
         "${CMAKE_SOURCE_DIR}/src/runtime"
         "${CMAKE_SOURCE_DIR}/src/shared"
+        "${CMAKE_SOURCE_DIR}/tests"
         "${CMAKE_BINARY_DIR}/generated"
         "${CMAKE_SOURCE_DIR}/third_party/libwebp"
         "${CMAKE_BINARY_DIR}/third_party/libwebp"

@@ -1,4 +1,4 @@
-#include "config_input_fixture.hpp"
+#include "support/config_input_fixture.hpp"
 #include "config/basic_settings_layout.hpp"
 #include "settings/text_style_settings.hpp"
 #include "resources/embedded_resource.hpp"

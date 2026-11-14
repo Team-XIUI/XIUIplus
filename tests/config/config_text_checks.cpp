@@ -1,4 +1,4 @@
-#include "config_input_fixture.hpp"
+#include "support/config_input_fixture.hpp"
 #include "modules/chat/chat_theme.hpp"
 
 namespace xiui

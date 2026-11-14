@@ -1,4 +1,4 @@
-#include "config_input_fixture.hpp"
+#include "support/config_input_fixture.hpp"
 
 namespace xiui::config_checks
 {

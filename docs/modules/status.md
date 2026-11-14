@@ -12,7 +12,7 @@ Numpad + (every keyboard layout) or F (Compact layouts with XIUI+ chat) cycles c
 
 Countdown formatting is shared: whole hours (`5h`) from one hour, `MM:SS` under an hour and seconds alone at 60 and below, including estimated bounds. Buffs/Debuffs use font-aware strip measurement for drawing, height/wrapping, hover and controller inspection. Keep timer profiles and their effects intact for long durations; never substitute a smaller hour-specific style.
 
-**Focused check:** `./scripts/check.ps1 -Name status-snapshots`; display fixtures are in `tests/status_display_checks.cpp`.
+**Focused check:** `./scripts/check.ps1 -Name status-snapshots`; display fixtures are in `tests/modules/status_display_checks.cpp`.
 
 Cancellation: `xiui_chat_smoke --status-cancel-only` checks native requests with a fake packet manager and never removes live effects.
 

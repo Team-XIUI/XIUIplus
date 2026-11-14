@@ -2,7 +2,7 @@
 #include "hud_runtime.hpp"
 #include "modules/pet/pet_lifetimes.hpp"
 #include "resources/custom_action_icons.hpp"
-#include "custom_icon_fixture.hpp"
+#include "support/custom_icon_fixture.hpp"
 #include "input/keyboard_policy.hpp"
 
 #include <algorithm>

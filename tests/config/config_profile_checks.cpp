@@ -1,4 +1,4 @@
-#include "config_input_fixture.hpp"
+#include "support/config_input_fixture.hpp"
 #include "resources/embedded_resource.hpp"
 #include "settings/profile_file.hpp"
 

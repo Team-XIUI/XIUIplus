@@ -69,7 +69,7 @@ $StatefulRuntime = Join-Path $Root 'bin\tests\xiui-stateful-runtime.dll'
 $ActivationFailureRuntime = Join-Path $Root 'bin\tests\xiui-activation-failure-runtime.dll'
 $ExitFailureRuntime = Join-Path $Root 'bin\tests\xiui-exit-failure-runtime.dll'
 $RenderFailureRuntime = Join-Path $Root 'bin\tests\xiui-render-failure-runtime.dll'
-$PublishSmoke = Join-Path $Root 'tests\publish_smoke.ps1'
+$PublishSmoke = Join-Path $Root 'tests\host\publish_smoke.ps1'
 
 if (-not (Test-Path $BuiltRuntime)) {
     throw "Expected runtime output was not found: $BuiltRuntime"

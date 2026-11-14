@@ -6,6 +6,6 @@ Shows a temporary notification for newly learned Blue Magic. This is a passive d
 
 **Keep intact:** Retain duplicate/replay suppression and clear transient alerts on session changes. Edit previews must not fabricate learned spells or gameplay events.
 
-**Focused check:** `./scripts/check.ps1 -Name new-features` (Blue Magic cases are in `tests/blue_magic_checks.cpp`).
+**Focused check:** `./scripts/check.ps1 -Name new-features` (Blue Magic cases are in `tests/modules/blue_magic_checks.cpp`).
 
 [Shared foundations](../foundations.md) · [Check commands](../../tests/README.md)
