@@ -1,6 +1,6 @@
 # XIV 1.0 theme
 
-`source/` contains small artwork crops from the XIV 1.0 screenshots supplied for this theme. Menu and gauge artwork belongs to Square Enix. These crops are the source inputs; regenerate the atlas with `python scripts/generate-xiv1-theme.py` (Pillow required).
+`source/` contains small artwork crops from the XIV 1.0 screenshots supplied for this theme. Menu and gauge artwork belongs to Square Enix. These crops are the source inputs; regenerate the atlas with `python scripts/assets/build-xiv1-theme.py` (Pillow required).
 
 The 256×256 `theme.bgra` atlas is little-endian width/height followed by BGRA pixels. It is embedded as resource 850. `theme.png` is the matching editable preview.
 

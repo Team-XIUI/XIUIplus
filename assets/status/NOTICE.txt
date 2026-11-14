@@ -17,4 +17,4 @@ gear/merit/job-point duration models and server overlays are not imported.
 Database values remain estimates and clear on observed removal or estimated expiry.
 
 Regenerate:
-python scripts/build-status-rules.py assets/status/debuff_retail.lua src/runtime/resources/xiui_status_durations.hpp
+python scripts/assets/build-status-rules.py assets/status/debuff_retail.lua src/runtime/resources/xiui_status_durations.hpp

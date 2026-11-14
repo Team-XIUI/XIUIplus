@@ -17,7 +17,7 @@ match native zone and floor IDs. Wiki page numbers do not identify native floors
 Both sets are resized to at most 512 x 512 and encoded as JPEG (quality 90,
 full chroma resolution) for this distribution. These modified Enhanced images
 remain available under CC BY-SA 4.0, with no additional restrictions.
-scripts/build-minimap-maps.py regenerates the bundled image archive; its index
+scripts/assets/build-minimap-maps.py regenerates the bundled image archive; its index
 contains each zone, native floor, artwork set, image offset and byte length.
 The archive's image records can be extracted without decoding or modification.
 

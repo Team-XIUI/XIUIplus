@@ -1,6 +1,6 @@
 Action and controller artwork is repacked from the original XIUI addon assets/hotbar directory.
 Original XIUI contributors: https://github.com/tirem/XIUI
-Original PNG files are retained in sources.zip; scripts/build-action-icons.py reproduces the atlas from them.
+Original PNG files are retained in sources.zip; scripts/assets/build-action-icons.py reproduces the atlas from them.
 XIUI source and contributions are distributed under GPL-3.0; the license is embedded with the original XIUI assets in this plugin.
 Final Fantasy XI game artwork belongs to Square Enix. Controller marks belong to their respective owners.
 The atlas preserves the existing XIUI artwork and attribution; no additional rights to game or controller artwork are asserted.

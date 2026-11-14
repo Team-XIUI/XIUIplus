@@ -13,21 +13,8 @@ GEMINI.md
 *.canvas.tsx
 /plans/
 
-# Agent instructions and asset generators stay local; build inputs, dev workflow and doc scripts are tracked
+# Agent instructions stay local
 /AGENTS.md
-/scripts/*
-!/scripts/build-locales.py
-!/scripts/localization_sources.py
-!/scripts/pack-resources.py
-!/scripts/common.ps1
-!/scripts/build-all.ps1
-!/scripts/dev.ps1
-!/scripts/check.ps1
-!/scripts/package.ps1
-!/scripts/release.ps1
-!/scripts/capture-defaults.ps1
-!/scripts/update-docs.ps1
-!/scripts/check-doc-links.py
 
 # Editor state
 /.vs/

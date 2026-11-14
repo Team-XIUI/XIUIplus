@@ -5,7 +5,7 @@
 
 namespace xiui::resources
 {
-    // Generated from assets/status/debuff_retail.lua by scripts/build-status-rules.py.
+    // Generated from assets/status/debuff_retail.lua by scripts/assets/build-status-rules.py.
     // XIUI database SHA-256: 73f2407326542ec85ce973d4d45a7d0721d9ec32996065e1bfe0d2000fea16cd
     struct status_duration_rule { uint16_t action, status, seconds; };
     enum class spell_damage_kind : uint8_t { none, guaranteed, possible };

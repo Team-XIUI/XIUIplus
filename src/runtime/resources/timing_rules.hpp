@@ -5,7 +5,7 @@
 
 namespace xiui::resources
 {
-    // Numeric facts from Phoenix SQL; regenerate with scripts/build-timing-rules.py.
+    // Numeric facts from Phoenix SQL; regenerate with scripts/assets/build-timing-rules.py.
     struct timing_item_mod { uint16_t item, mod; int32_t value; };
     struct timing_trait { uint16_t trait, job, level, mod; int32_t value; };
     inline constexpr std::array<timing_item_mod, 3119> timing_items{{

@@ -9,8 +9,8 @@ The **Phoenix (75 cap)** profile follows the ToAU configuration retained as `sou
 Regenerate the checked-in headers:
 
 ```powershell
-python -B scripts/build-skillchain-data.py
-python -B scripts/build-phoenix-data.py
+python -B scripts/assets/build-skillchain-data.py
+python -B scripts/assets/build-phoenix-data.py
 ```
 
 To refresh spawn relationships from the pinned checkout, install PyYAML and pass `--source path/to/Phoenix` to the second command. Update the pinned commit and inputs deliberately before regenerating for another server revision. The finalized mob-stat snapshot is documented separately in [assets/mobs](../mobs/README.md).
