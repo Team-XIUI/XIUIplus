@@ -13,7 +13,7 @@ GEMINI.md
 *.canvas.tsx
 /plans/
 
-# Local documentation and developer scripts; only build inputs are tracked
+# Local documentation and asset/doc tooling; build inputs and the dev workflow scripts stay tracked
 /AGENTS.md
 /docs/
 /tests/README.md
@@ -22,6 +22,13 @@ GEMINI.md
 !/scripts/build-locales.py
 !/scripts/localization_sources.py
 !/scripts/pack-resources.py
+!/scripts/common.ps1
+!/scripts/build-all.ps1
+!/scripts/dev.ps1
+!/scripts/check.ps1
+!/scripts/package.ps1
+!/scripts/release.ps1
+!/scripts/capture-defaults.ps1
 
 # Editor state
 /.vs/
