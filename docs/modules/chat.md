@@ -1,0 +1,65 @@
+# Chat
+
+Full keyboard mode opens XIUI+ composition directly on the first text key; Compact 1/2 retain native gameplay shortcuts. `/xiuiplus chat input` reports each native layout distinctly. Keep numpad movement, command modifiers, native editors and targeting outside implicit composition. Focused check: `xiui_chat_smoke --full-keyboard-only`.
+
+The Chat setup page offers Follow game windows and One combined window through `SetWindowLayout`. Follow selects each native log's matching source and adopts its one/two-window count after a validated read succeeds. Combined selects All in the primary log and disables the second. The saved `chat.native_windows_initialized` marker keeps a selected combined layout and later customizations intact; older settings without the marker remain authoritative.
+
+Foreground loss suspends input without clearing chat composition, caret, channel, recipient or the selected chat/status window. Each fresh opening of expanded history selects the first tab and resets its history-tab scroll positions to newest. F/Cycle Window selects chat over the combat command menu, then Enter/Confirm expands the log; Enter owns its release. Equipment/Storage and inventory Sort retain native cycling. `window-input` and `controller-input` cover these ownership boundaries.
+
+Expanded history fills the current game viewport independently of the compact window's position. Capture the history viewport before applying the chat rendering transform, so the screen-to-module conversion happens once. Layout measures text under the same transform as rendering; channel-tab hit testing and controller focus share those bounds. Moving compact chat preserves the expanded log's screen position and the compact window's saved layout. Focused check: `xiui_chat_smoke --history-only`.
+
+Two independently placed chat windows share captured messages, composition, reply history, alerts and color preferences. History browsing and typing have distinct ownership.
+
+Chat decodes and sends FFXI's Western character extensions, including accented Latin-1 letters and Œ/œ, Š/š, Ž/ž and Ÿ. They retain their accents alongside Japanese and auto-translate tokens and consume two native bytes in the input budget. Existing Shift-JIS mappings remain preferred; unsupported characters still leave the draft unsent. The extension mapping follows [POLUtils' FFXI conversion table](https://github.com/Windower/POLUtils/blob/master/PlayOnline.FFXI/ConversionTables/85xx.dat). Focused check: `xiui_chat_smoke --encoding-only`.
+
+The primary log's typing row reserves a narrow fixed left column for a channel tag of at most three characters (SAY, PTY, LS1, LS2, UNI, TEL, etc.). The entire row and pill animate in together and remain visible throughout composition, including an empty draft. Closing composition collapses the row completely, returning its space to the log. Clicking opens a mouse channel picker; matching release commits a choice, outside click or Escape cancels. Channel changes preserve the draft and caret, replace recognized chat prefixes and never rewrite utility commands. Tell/Reply use a known recipient or leave the draft intact. [chat_channel_picker.cpp](../../src/runtime/modules/chat/chat_channel_picker.cpp) owns this picker; existing controller composition retains its channel actions.
+
+Ctrl/Alt + S, P, L, ; and T change the composing channel by scan code (AZERTY M is Linkshell 2) through `ChooseSendChannel`; `TakeChannelSave` lets the runtime persist it. Focused check: `--native-channel-only`.
+
+Tab completion draws its panel with the window's own Background, Frame and Opacity; `DrawLog` clips rows under the list instead of painting an opaque box. The kind badge column is measured.
+
+A native chat editor that stays open without handoff for 250 ms (Enter released) sets `native_chat_input_visible`, which draws only the native typing line while Chat Window 1 stays hidden. `/xiuiplus chat input` reports the last such editor's status and native state.
+
+Opening composition or changing channels does not shift the draft or caret. Game mode reads the native send prefix; XIUI+ overrides and typed chat commands show their effective destination. Without a selected or readable native channel, the pill defaults to SAY. Clearing the draft preserves any chosen channel. The pill shares channel colors and chrome text effects; message sending and the right-side character counter retain their existing paths. Focused check: `xiui_chat_smoke --native-channel-only`.
+
+Row, text and pill transitions share a 240 ms ease-in/out. `/r`, `/reply` and reply-shortcut drafts show REP in the tell color; direct tells retain TEL. Incoming tells do not relabel a reply already being composed.
+
+Native Filters keeps separate view selections for Window 1 and Window 2, defaulting to each page's corresponding native Log window. Routing toggles update and read back only the selected native destination, independently of Match Window 1 appearance settings. Existing scrollback retains its original admission; native filter changes govern new messages.
+
+The character counter shares the typing row, with reserved space on the right. Draft rendering, selection, caret measurement and pointer placement use the chat body's font and weight. The default XIUI+ face follows the appearance theme; explicitly selected faces retain their family and italic style in logs, typing, tabs and bubbles without losing themed text effects. Normal and expanded logs use a short top-edge alpha fade across glyphs, effects and auto-translate artwork; the container and typing area stay outside that fade.
+
+Shipped defaults follow native Window 1 in the primary log and native Window 2 in the secondary log. For a single combined log, select Messages → All in Window 1 and turn off Second window. Its expanded history starts with an All tab that retains output from both native logs; channel tabs remain available. Changing the source invalidates the history cache without touching the draft.
+
+Empty filtered and expanded logs stay blank. Startup guidance only appears in a compact log before any messages have been captured.
+
+The XIV 1.0 appearance uses the shared themed background and frame for compact and expanded logs, with outlined serif text, slightly wider tracking and slanted slate tabs. Appearance exposes independent Background and Frame toggles plus container opacity; Layout retains padding. These settings save per window and follow Match Window 1 when enabled. Its default palette uses gold for battle/system output, ivory for speech, pink for both tell directions, purple for emotes, lavender for notices, and peach for echo. Explicit channel and inline colors remain authoritative. `chat_theme.hpp` shares drawing, wrapping and caret metrics; theme changes invalidate wrapped rows without rewriting saved appearance or the native palette.
+
+Each captured message stores its local clock time once, separately from the monotonic time used for animation and expiry. Row rebuilds, later native routing, both chat windows and expanded history format that saved value; they never reconstruct it from the current clock. Capture subtracts elapsed milliseconds before rounding to seconds, including across midnight. Focused check: `xiui_chat_smoke --timestamps-only`.
+
+Log prose uses medium weight in XIV 1.0 and regular weight in XI, with bold speaker names, native inline highlights and fields from recognized English combat/loot/fishing messages. Regular XIV 1.0 prose fills receive a 25% lift toward white for readability, preserving channel hues, gradients, opacity and text effects; bold spans and timestamps keep their own color handling. Emotes emphasize their actor, with recognized targeted formats also emphasizing the recipient. Named fields get up to an eight-percent brightness lift after channel/inline color resolution, preserving hue, alpha and text effects. `chat/chat_emphasis.cpp` annotates captured messages once without rewriting text or source colors; both windows and expanded history share those spans. The shared glyph renderer caches weights separately, and wrapping measures the selected weight. Unknown messages retain the body weight. Focused check: `xiui_chat_smoke --emphasis-only`.
+
+Compact F/Cycle Window navigation has one chat stop before Buffs/Debuffs. Expanded history has Window 1 and Window 2 tabs followed by all channels through Shout and Emotes. Window 2 is hidden when disabled, when the game uses one native window, or when no native message types route to it; unreadable native routing preserves an enabled window. Configured quiet logs remain available. Layout, mouse hit testing and keyboard/controller cycling share tab availability; removing the selected tab returns to Window 1. Native focus polling retains the expanded log and selected tab. Focused checks: `--history-only`, `--full-keyboard-only` and `window-input`.
+
+The normal Window 2 frame and its input/edit controls follow the same native window-count and routing availability. Native Multi-Window Off hides them without rewriting XIUI+'s saved enable choice, size, filters or position; re-enabling native multi-window restores the configured window.
+
+`KeyboardInputState` publishes selective navigation through the host/runtime API; `shared/keyboard_input.hpp` and `host/keyboard_suppression.hpp` reserve those physical keys before native DirectInput reads, including reads before WM delivery. The native `chatctrl` channel selector owns its navigation and confirmation, releasing XIUI+ log focus while preserving the draft and scroll. A native `fulllog` owner releases XIUI+ focus and temporarily restores its own visibility without editing saved preferences. Focused checks: `xiui_keyboard_suppression_smoke` and `window-input`.
+
+**Bubbles** is the third Chat category. [chat_bubbles_module.cpp](../../src/runtime/modules/chat/chat_bubbles_module.cpp) owns overhead rendering, nearby speaker identity and lifetime; [chat_bubbles.cpp](../../src/runtime/chat/chat_bubbles.cpp) parses supported chat channels. Bubbles use live captured messages, shared channel colors, text profiles and native containers; they take no input focus and never display NPC menu options.
+
+Bubbles have no edit-mode placeholder, frame, corner handle or movement-picker entry. Configure their appearance and scale through Chat → Bubbles; live overhead messages retain normal rendering and scaling.
+
+Bubble anchors use the same validated native model render position as target rings, then apply the existing head-height offset. Movement coordinates can lead the visible mesh; unavailable or replaced actors draw no bubble instead of using a predicted anchor.
+
+**Start in:** [chat_module.cpp](../../src/runtime/modules/chat/chat_module.cpp), [chat_history.cpp](../../src/runtime/modules/chat/chat_history.cpp), [native_chat_input.cpp](../../src/runtime/chat/native_chat_input.cpp), [hud_runtime.cpp](../../src/runtime/hud/hud_runtime.cpp).
+
+**Keep intact:** Preserve native routing, drafts, caret and recipient during handoff. Native menu polling must preserve browsing focus in both windows. Retain NPC continuation markers without capturing native advance input. Alt+R/Ctrl+R open replies; sending Enter owns its release. Do not send twice, replay alerts, overwrite native editors, or let compact animation change saved bounds.
+
+**Focused check:** `xiui_chat_smoke --bubbles-only`, `--menu-input-only` or `--dialogue-prompt-only`; choose the argument for the changed boundary.
+
+[Detailed guide](../reference/chat-input.md) · [Shared foundations](../foundations.md) · [Check commands](../../tests/README.md)
+
+Manual height changes override the reactive maximum line count while retaining collapse timing. Space and slash share sent history; empty native chat handoff preserves the unsent draft. Focused regression: `xiui_chat_smoke --sent-history-only`.
+
+Window 2 can match Window 1's size, appearance and timing through General. Filters, tabs, visibility and position stay independent; inherited controls and resizing are disabled. Preserve Window 2's own settings on save so unlinking restores them. Focused regression: `xiui_chat_smoke --match-window-only`.
+
+[Shared HUD scaling](../reference/hud-scaling.md) keeps element coordinates separate from screen input/overlay anchors. Chat reuses its top-right resize handle in edit mode; width and height change the viewport and reflow lines without changing the font. The toolbar/controller Resize action uses the same cancelable gesture. There is no second corner handle. Whole-chat scale remains uniform. Legacy unequal X/Y scales convert to viewport dimensions on load so text returns to normal proportions; preserve independent scale values when changing layouts or inheritance.
