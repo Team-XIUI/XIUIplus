@@ -200,6 +200,14 @@ namespace xiui
         context.dialogue_active = context.dialogue_active || context.event_active;
     }
 
+    // Ending a dialogue, menu or trade reports the cutscene status for a moment; only a sustained one is a cutscene.
+    auto module_visibility_source::SustainedCutscene(const bool status, const uint64_t now) const -> bool
+    {
+        if (!status) { this->cutscene_since_ = 0; return false; }
+        if (this->cutscene_since_ == 0) this->cutscene_since_ = std::max<uint64_t>(1, now);
+        return now - this->cutscene_since_ >= 1500;
+    }
+
     auto module_visibility_source::Read(IAshitaCore* core, const bool nativeMenuOpen) const -> module_visibility_context
     {
         module_visibility_context context{};
@@ -209,13 +217,14 @@ namespace xiui
         const auto party = memory != nullptr ? xiui::ashita::View(memory->GetParty()) : nullptr;
         const auto entity = memory != nullptr ? xiui::ashita::View(memory->GetEntity()) : nullptr;
         context.menu_open = context.menu_open || (target != nullptr && target->GetIsMenuOpen() != 0);
+        bool cutscene{};
         if (party != nullptr && entity != nullptr)
         {
             const auto index = party->GetMemberTargetIndex(0);
             if (index != 0 && index < entity->GetEntityMapSize())
             {
-                context.event_active = entity->GetStatus(index) == 4;
-                context.dialogue_active = context.event_active || entity->GetStatusServer(index) == 4;
+                cutscene = entity->GetStatus(index) == 4;
+                context.dialogue_active = cutscene || entity->GetStatusServer(index) == 4;
             }
             const auto playerId = party->GetMemberServerId(0);
             if (playerId != 0)
@@ -226,6 +235,7 @@ namespace xiui
                         break;
                     }
         }
+        context.event_active = this->SustainedCutscene(cutscene, ::GetTickCount64());
         this->ReadEvent(context);
         uint8_t value{};
         context.interface_available = this->interface_object_ != 0 && ::Read(this->interface_object_ + 0xB4, value) && value <= 1;

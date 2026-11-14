@@ -1642,6 +1642,9 @@ namespace xiui
             if (!check(eventContext.event_active && eventContext.dialogue_active,
                 "inactive, mismatched or unavailable native event data cannot cancel the player's active cutscene")) return false;
         }
+        if (!check(!visibilitySource.SustainedCutscene(true, 1000) && !visibilitySource.SustainedCutscene(true, 2400) && !visibilitySource.SustainedCutscene(false, 2450) &&
+            !visibilitySource.SustainedCutscene(true, 2500) && visibilitySource.SustainedCutscene(true, 4000) && !visibilitySource.SustainedCutscene(false, 4100),
+            "the cutscene status left by a finished dialogue, menu or trade cannot hide the HUD; a sustained one can")) return false;
         eventEnabled = 1; eventOwner = 0; eventEntity = playerEntity;
         visibilitySource.event_owner_slot_ = reinterpret_cast<uintptr_t>(&eventOwner);
         if (!check(!visibilitySource.Read(nullptr, false).event_active,

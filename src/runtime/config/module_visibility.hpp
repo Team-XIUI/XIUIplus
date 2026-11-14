@@ -70,6 +70,8 @@ namespace xiui
 
     private:
         auto ReadEvent(module_visibility_context& context) const -> void;
+        auto SustainedCutscene(bool status, uint64_t now) const -> bool;
+        mutable uint64_t cutscene_since_{};
         uintptr_t menu_slot_{};
         uintptr_t event_slot_{};
         uintptr_t event_owner_slot_{};
