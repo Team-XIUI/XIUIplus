@@ -46,5 +46,5 @@ $LegacyDll = Join-Path $OutputDirectory 'xiuinative.dll'
 if (Test-Path -LiteralPath $LegacyDll -PathType Leaf) { Remove-Item -LiteralPath $LegacyDll }
 $Checksum = (Get-FileHash -LiteralPath $Destination -Algorithm SHA256).Hash.ToLowerInvariant()
 [IO.File]::WriteAllText((Join-Path $OutputDirectory 'SHA256SUMS.txt'), "$Checksum  XIUIplus.dll`r`n", [Text.UTF8Encoding]::new($false))
-Write-Output "Release $((Get-Content -LiteralPath (Join-Path $Root 'VERSION') -Raw).Trim()): $Destination"
+Write-Output "Release $((Get-Content -LiteralPath (Join-Path $Root 'config/VERSION') -Raw).Trim()): $Destination"
 Write-Output "SHA256: $Checksum"

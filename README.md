@@ -23,7 +23,7 @@ Your settings, profiles and positions are kept.
 ## Learn more
 
 - [User guide](docs/user-guide.md): features and commands.
-- [Changelog](CHANGELOG.md): what changed in each release.
+- [Releases](https://github.com/Team-XIUI/xiuiplus-releases/releases): what changed in each version.
 
 ## Development
 
@@ -39,4 +39,4 @@ Start with the [developer docs](docs/README.md); [focused checks](tests/README.m
 
 ## License
 
-XIUI+ is licensed under the [GNU GPL v3.0 or later](LICENSE). Bundled third-party components are listed in [NOTICES.md](NOTICES.md).
+XIUI+ is licensed under the [GNU GPL v3.0 or later](LICENSE). Bundled third-party components are listed in the [third-party notices](docs/third-party-notices.md).

@@ -4,13 +4,13 @@ param(
     [switch]$WhatIf
 )
 
-# Publishes the version named in VERSION. The tag, title and channel all derive from that one line.
+# Publishes the version named in config/VERSION. The tag, title and channel all derive from that one line.
 $ErrorActionPreference = 'Stop'
 Set-StrictMode -Version Latest
 $Root = Split-Path -Parent $PSScriptRoot
 $PublicRepo = 'Team-XIUI/xiuiplus-releases'
-$Version = (Get-Content -LiteralPath (Join-Path $Root 'VERSION') -Raw).Trim()
-if ($Version -notmatch '^\d+\.\d+\.\d+(-[a-z]+)?$') { throw "VERSION must look like 0.2.1 or 0.2.1-alpha, not '$Version'." }
+$Version = (Get-Content -LiteralPath (Join-Path $Root 'config/VERSION') -Raw).Trim()
+if ($Version -notmatch '^\d+\.\d+\.\d+(-[a-z]+)?$') { throw "config/VERSION must look like 0.2.1 or 0.2.1-alpha, not '$Version'." }
 $Tag = "v$Version"
 $Title = "XIUI+ $Version"
 $Notes = (Resolve-Path -LiteralPath $NotesFile).Path
@@ -21,9 +21,9 @@ try {
     if ((git rev-parse --abbrev-ref HEAD) -ne 'main') { throw 'Release from main.' }
     git fetch --quiet origin main
     if ((git rev-parse HEAD) -ne (git rev-parse origin/main)) { throw 'Push main before releasing.' }
-    if (git tag --list $Tag) { throw "Source tag $Tag already exists. Change VERSION for a new release." }
+    if (git tag --list $Tag) { throw "Source tag $Tag already exists. Change config/VERSION for a new release." }
     gh release view $Tag --repo $PublicRepo *> $null
-    if ($LASTEXITCODE -eq 0) { throw "Public release $Tag already exists. Change VERSION for a new release." }
+    if ($LASTEXITCODE -eq 0) { throw "Public release $Tag already exists. Change config/VERSION for a new release." }
 
     if (-not $SkipBuild) { & (Join-Path $PSScriptRoot 'package.ps1') }
     $Dll = Join-Path $Root 'dist/XIUIplus.dll'

@@ -178,4 +178,4 @@ Data from older versions moves into this folder automatically the first time XIU
 
 The attribution icon beside the settings close button opens **Global → Attribution**, which lists the projects XIUI+ builds on and the original XIUI contributors.
 
-XIUI+ is based on the original [XIUI](https://github.com/tirem/XIUI). Timing and EXP features follow Kipling's [Cadence](https://github.com/KiplingFFXI/cadence) and [Momentum](https://github.com/KiplingFFXI/momentum). Bundled artwork, sounds and data are credited in [NOTICES.md](../NOTICES.md).
+XIUI+ is based on the original [XIUI](https://github.com/tirem/XIUI). Timing and EXP features follow Kipling's [Cadence](https://github.com/KiplingFFXI/cadence) and [Momentum](https://github.com/KiplingFFXI/momentum). Bundled artwork, sounds and data are credited in [third-party notices](third-party-notices.md).

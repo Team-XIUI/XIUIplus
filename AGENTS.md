@@ -21,4 +21,4 @@ Start with the [developer docs](docs/README.md) and the relevant [feature guide]
 
 ## Releases
 
-`VERSION` holds the release name (`MAJOR.MINOR.PATCH` plus an optional channel, e.g. `0.2.1-alpha`). Tags, titles and displayed numbers derive from it, so never write them by hand. Change the version only when asked. Releases need short, player-facing patch notes for every feature and fix since the last published release.
+`config/VERSION` holds the release name (`MAJOR.MINOR.PATCH` plus an optional channel, e.g. `0.2.1-alpha`). Tags, titles and displayed numbers derive from it, so never write them by hand. Change the version only when asked. Releases need short, player-facing patch notes for every feature and fix since the last published release.

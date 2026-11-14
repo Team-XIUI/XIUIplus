@@ -32,7 +32,7 @@ See [focused checks](../tests/README.md) for choosing a check. `./scripts/update
 
 ## Versions
 
-`VERSION` holds the release name on one line: `MAJOR.MINOR.PATCH` with an optional channel, such as `0.2.1-alpha`. Everything shown to players derives from it, and CMake rejects any other shape. Fixes raise PATCH; feature releases raise MINOR and reset PATCH.
+`config/VERSION` holds the release name on one line: `MAJOR.MINOR.PATCH` with an optional channel, such as `0.2.1-alpha`. Everything shown to players derives from it, and CMake rejects any other shape. Fixes raise PATCH; feature releases raise MINOR and reset PATCH.
 
 ## Where things live
 
