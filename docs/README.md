@@ -17,9 +17,9 @@ Start with the [module index](modules/README.md) and read only the note for the 
 
 - HUD feature: [module notes](modules/README.md) → `src/runtime/modules/<feature>/`.
 - Shared drawing/text: `src/runtime/design_system.*`, `ui/` and `modules/module.*`.
-- Configuration: `config/config_session.hpp`, `hud_runtime_config*.cpp`, `config/config_controls.*` and `config/option_layout.hpp`.
-- Input: `src/host/controller_input.*`, `src/shared/controller_input.hpp`, `src/runtime/input/` and `hud_runtime_controller*.cpp`; native mouse/key dispatch starts in `src/host/plugin.cpp`.
-- Settings/profiles: `settings/settings_store.*`, `settings/settings_profiles.*` and `hud_runtime_profiles.cpp`. [Action imports](reference/actionbars.md#importing) use `modules/actionbars/action_import.*` and the restricted `settings/lua_data.*` reader.
+- Configuration: `config/config_session.hpp`, `hud/hud_runtime_config*.cpp`, `config/config_controls.*` and `config/option_layout.hpp`.
+- Input: `src/host/controller_input.*`, `src/shared/controller_input.hpp`, `src/runtime/input/` and `hud/hud_runtime_controller*.cpp`; native mouse/key dispatch starts in `src/host/plugin.cpp`.
+- Settings/profiles: `settings/settings_store.*`, `settings/settings_profiles.*` and `hud/hud_runtime_profiles.cpp`. [Action imports](reference/actionbars.md#importing) use `modules/actionbars/action_import.*` and the restricted `settings/lua_data.*` reader.
 - Native hooks/lifetime: `src/host/plugin.*`, `src/host/runtime_host.*`, `src/shared/runtime_api.hpp` and `src/runtime/runtime_exports.cpp`. Read the ABI value from source.
 - Build/resources: root `CMakeLists.txt`, `cmake/` and [assets/](../assets/).
 

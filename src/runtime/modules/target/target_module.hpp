@@ -3,7 +3,7 @@
 #include "combat/combat_settings.hpp"
 
 #include "../module.hpp"
-#include "entities/entity_name_colors.hpp"
+#include "world/entity_name_colors.hpp"
 #include "combat/combat_source.hpp"
 #include "modules/party/party_source.hpp"
 #include "ui/combat_timing_display.hpp"

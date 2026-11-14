@@ -9,14 +9,14 @@ set_property(DIRECTORY APPEND PROPERTY CMAKE_CONFIGURE_DEPENDS ${XIUI_LOCALIZATI
 set(XIUI_HUD_SOURCES
     src/runtime/resources/wic_image.cpp
     src/runtime/resources/custom_icon_library.cpp
-    src/runtime/hud_runtime_setup.cpp
-    src/runtime/hud_runtime_config.cpp
-    src/runtime/hud_runtime_native.cpp
+    src/runtime/hud/hud_runtime_setup.cpp
+    src/runtime/hud/hud_runtime_config.cpp
+    src/runtime/hud/hud_runtime_native.cpp
     src/runtime/modules/game_hud/native_window_module.cpp
-    src/runtime/hud_runtime_config_input.cpp
-    src/runtime/hud_runtime_config_render.cpp
+    src/runtime/hud/hud_runtime_config_input.cpp
+    src/runtime/hud/hud_runtime_config_render.cpp
     src/runtime/ui/button_renderer.cpp
-    src/runtime/hud_runtime_treasure.cpp
+    src/runtime/hud/hud_runtime_treasure.cpp
     src/runtime/combat/ability_recast.cpp
     src/runtime/combat/ability_recast.hpp
     src/runtime/modules/treasure/treasure_source.cpp
@@ -38,8 +38,8 @@ set(XIUI_HUD_SOURCES
     src/runtime/modules/healing/heal_prediction.cpp
     src/runtime/config/module_visibility.cpp
     src/runtime/config/module_visibility.hpp
-    src/runtime/hud_runtime_visibility.cpp
-    src/runtime/hud_runtime_status.cpp
+    src/runtime/hud/hud_runtime_visibility.cpp
+    src/runtime/hud/hud_runtime_status.cpp
     src/runtime/modules/status/status_effects_module.cpp
     src/runtime/modules/status/status_effects_module.hpp
     src/shared/native_chat_palette.cpp
@@ -80,7 +80,7 @@ set(XIUI_HUD_SOURCES
     src/runtime/ui/glyph_atlas.cpp
     src/runtime/ui/text_rasterizer.cpp
     src/runtime/ui/font_catalog.cpp
-    src/runtime/entities/entity_name_colors.hpp
+    src/runtime/world/entity_name_colors.hpp
     src/runtime/combat/action_packet.hpp
     src/runtime/combat/timing_model.cpp
     src/runtime/combat/combat_timing_source.cpp
@@ -113,25 +113,25 @@ set(XIUI_HUD_SOURCES
     src/runtime/config/config_layout.hpp
     src/runtime/design_system.cpp
     src/runtime/design_system.hpp
-    src/runtime/hud_runtime.cpp
-    src/runtime/hud_runtime_satchel.cpp
-    src/runtime/hud_runtime_actionbars.cpp
-    src/runtime/hud_runtime_controller.cpp
-    src/runtime/hud_runtime_controller_config.cpp
-    src/runtime/hud_runtime_controller_movement.cpp
+    src/runtime/hud/hud_runtime.cpp
+    src/runtime/hud/hud_runtime_satchel.cpp
+    src/runtime/hud/hud_runtime_actionbars.cpp
+    src/runtime/hud/hud_runtime_controller.cpp
+    src/runtime/hud/hud_runtime_controller_config.cpp
+    src/runtime/hud/hud_runtime_controller_movement.cpp
     src/runtime/input/config_controller_focus.hpp
     src/runtime/input/controller_movement_layout.hpp
-    src/runtime/hud_runtime_layout.cpp
-    src/runtime/hud_runtime_module_menu.cpp
-    src/runtime/hud_runtime_scale.cpp
-    src/runtime/hud_runtime_basic.cpp
-    src/runtime/hud_runtime_elements.cpp
-    src/runtime/hud_runtime_search.cpp
-    src/runtime/hud_runtime_profiles.cpp
-    src/runtime/hud_runtime_choices.cpp
+    src/runtime/hud/hud_runtime_layout.cpp
+    src/runtime/hud/hud_runtime_module_menu.cpp
+    src/runtime/hud/hud_runtime_scale.cpp
+    src/runtime/hud/hud_runtime_basic.cpp
+    src/runtime/hud/hud_runtime_elements.cpp
+    src/runtime/hud/hud_runtime_search.cpp
+    src/runtime/hud/hud_runtime_profiles.cpp
+    src/runtime/hud/hud_runtime_choices.cpp
     src/runtime/config/choice_dropdown.hpp
     src/runtime/config/movement_toolbar.hpp
-    src/runtime/hud_runtime.hpp
+    src/runtime/hud/hud_runtime.hpp
     src/runtime/input/cursor_renderer.cpp
     src/runtime/input/cursor_renderer.hpp
     src/runtime/modules/module.cpp

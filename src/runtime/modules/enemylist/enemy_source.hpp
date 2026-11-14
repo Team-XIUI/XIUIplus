@@ -4,7 +4,7 @@
 
 #include "Ashita.h"
 #include "combat/action_packet.hpp"
-#include "entities/entity_name_colors.hpp"
+#include "world/entity_name_colors.hpp"
 
 #include <string>
 #include <unordered_set>

@@ -1,5 +1,5 @@
 #include "notifications/notification_center.hpp"
-#include "entities/entity_name_colors.hpp"
+#include "world/entity_name_colors.hpp"
 #include "resources/item_icon.hpp"
 #include "resources/menu_window.hpp"
 #include "resources/skill_names.hpp"

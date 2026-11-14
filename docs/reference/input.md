@@ -6,8 +6,8 @@ This is the current input contract. Feature-specific actions belong in the [modu
 
 - Host callbacks and native suppression: [plugin.cpp](../../src/host/plugin.cpp), [keyboard_suppression.hpp](../../src/host/keyboard_suppression.hpp) and [controller_input.cpp](../../src/host/controller_input.cpp).
 - Normalized actions and cached routing: [controller_input.hpp](../../src/shared/controller_input.hpp), [controller_mailbox.hpp](../../src/host/controller_mailbox.hpp) and [runtime_host.cpp](../../src/host/runtime_host.cpp).
-- Runtime focus/activation: `src/runtime/hud_runtime_controller*.cpp`, [hud_runtime.cpp](../../src/runtime/hud_runtime.cpp) and `src/runtime/input/`.
-- Configuration: [config_session.hpp](../../src/runtime/config/config_session.hpp), shared control geometry and `hud_runtime_config*.cpp`.
+- Runtime focus/activation: `src/runtime/hud/hud_runtime_controller*.cpp`, [hud_runtime.cpp](../../src/runtime/hud/hud_runtime.cpp) and `src/runtime/input/`.
+- Configuration: [config_session.hpp](../../src/runtime/config/config_session.hpp), shared control geometry and `hud/hud_runtime_config*.cpp`.
 
 Read the ABI from [runtime_api.hpp](../../src/shared/runtime_api.hpp). Follow [controller support](controller-support.md) when changing an interaction.
 

@@ -2,7 +2,7 @@
 #include "modules/satchel/satchel_source.hpp"
 #include "modules/satchel/satchel_cache.hpp"
 #include "modules/satchel/satchel_actions.hpp"
-#include "hud_runtime.hpp"
+#include "hud/hud_runtime.hpp"
 
 #include <algorithm>
 #include <cmath>

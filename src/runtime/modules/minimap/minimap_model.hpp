@@ -1,7 +1,7 @@
 #pragma once
 
 #include "design_system.hpp"
-#include "entities/entity_name_colors.hpp"
+#include "world/entity_name_colors.hpp"
 
 #include <cmath>
 #include <cstdint>

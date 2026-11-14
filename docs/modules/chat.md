@@ -50,7 +50,7 @@ Bubbles have no edit-mode placeholder, frame, corner handle or movement-picker e
 
 Bubble anchors use the same validated native model render position as target rings, then apply the existing head-height offset. Movement coordinates can lead the visible mesh; unavailable or replaced actors draw no bubble instead of using a predicted anchor.
 
-**Start in:** [chat_module.cpp](../../src/runtime/modules/chat/chat_module.cpp), [chat_history.cpp](../../src/runtime/modules/chat/chat_history.cpp), [native_chat_input.cpp](../../src/runtime/chat/native_chat_input.cpp), [hud_runtime.cpp](../../src/runtime/hud_runtime.cpp).
+**Start in:** [chat_module.cpp](../../src/runtime/modules/chat/chat_module.cpp), [chat_history.cpp](../../src/runtime/modules/chat/chat_history.cpp), [native_chat_input.cpp](../../src/runtime/chat/native_chat_input.cpp), [hud_runtime.cpp](../../src/runtime/hud/hud_runtime.cpp).
 
 **Keep intact:** Preserve native routing, drafts, caret and recipient during handoff. Native menu polling must preserve browsing focus in both windows. Retain NPC continuation markers without capturing native advance input. Alt+R/Ctrl+R open replies; sending Enter owns its release. Do not send twice, replay alerts, overwrite native editors, or let compact animation change saved bounds.
 

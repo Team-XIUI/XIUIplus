@@ -6,7 +6,7 @@
 #include "resources/auto_translate.hpp"
 #include "modules/chat/chat_module.hpp"
 #include "modules/chat/chat_theme.hpp"
-#include "hud_runtime.hpp"
+#include "hud/hud_runtime.hpp"
 #include "ui/clipped_quad.hpp"
 #include "chat_stack_checks.hpp"
 

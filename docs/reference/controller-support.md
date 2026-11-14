@@ -56,4 +56,4 @@ For authorized live probes, separate deterministic action tests, supported devic
 - [Windows in-game software keyboard](https://forum.square-enix.com/ffxi/threads/49425)
 - [Official addon event/state contracts](https://github.com/AshitaXI/example/blob/main/example.lua)
 
-Start local investigation at `src/host/plugin.cpp`, `src/shared/runtime_api.hpp`, `src/runtime/hud_runtime.cpp`, `src/runtime/modules/chat/chat_history.cpp`, `src/runtime/chat/native_chat_input.cpp` and `src/runtime/modules/party/party_source.cpp`.
+Start local investigation at `src/host/plugin.cpp`, `src/shared/runtime_api.hpp`, `src/runtime/hud/hud_runtime.cpp`, `src/runtime/modules/chat/chat_history.cpp`, `src/runtime/chat/native_chat_input.cpp` and `src/runtime/modules/party/party_source.cpp`.

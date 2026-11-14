@@ -56,7 +56,7 @@ XIV 1.0 meter values use the shared lining-number face, avoiding Georgia's old-s
 
 ## Configuration presentation
 
-`config/config_session.hpp` owns selection, focus, scrolling, search and editors. `hud_runtime_config.cpp`, `hud_runtime_config_input.cpp` and `hud_runtime_config_render.cpp` coordinate pages, pointer actions and drawing. Controller adapters call the same operations and geometry.
+`config/config_session.hpp` owns selection, focus, scrolling, search and editors. `hud/hud_runtime_config.cpp`, `hud/hud_runtime_config_input.cpp` and `hud/hud_runtime_config_render.cpp` coordinate pages, pointer actions and drawing. Controller adapters call the same operations and geometry.
 
 - Use `module_option::VisibleWhen` for dependent controls; hidden values persist but leave layout, search and focus. `available` represents capability/action availability.
 - Preserve named option IDs and INI keys. Presentation order uses `module_option::Ordered` and `config/option_layout.hpp`.

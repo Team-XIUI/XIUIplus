@@ -1,4 +1,4 @@
-#include "hud_runtime.hpp"
+#include "hud/hud_runtime.hpp"
 #include "settings/profile_share.hpp"
 #include "config/clipboard.hpp"
 #include "chat/chat_encoding.hpp"

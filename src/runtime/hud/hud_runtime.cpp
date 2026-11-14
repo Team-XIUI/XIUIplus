@@ -1,4 +1,4 @@
-#include "hud_runtime.hpp"
+#include "hud/hud_runtime.hpp"
 #include "ashita_compat.hpp"
 #include "chat/chat_encoding.hpp"
 #include "combat/server_rules.hpp"

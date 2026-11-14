@@ -3,7 +3,7 @@
 #include "world_projection.hpp"
 #include "xiui_version.hpp"
 #include "localization/localization.hpp"
-#include "entities/entity_name_colors.hpp"
+#include "world/entity_name_colors.hpp"
 
 #include <cmath>
 

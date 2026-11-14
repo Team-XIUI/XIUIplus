@@ -9,7 +9,7 @@
 #include <cstdio>
 #include <numbers>
 #include "target_ring_draw_scope.hpp"
-#include "entities/entity_name_colors.hpp"
+#include "world/entity_name_colors.hpp"
 
 namespace xiui
 {

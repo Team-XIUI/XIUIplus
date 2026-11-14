@@ -1,7 +1,7 @@
 #pragma once
 
 #include "modules/module.hpp"
-#include "entities/entity_name_colors.hpp"
+#include "world/entity_name_colors.hpp"
 #include <limits>
 
 namespace xiui

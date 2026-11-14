@@ -1,5 +1,5 @@
 #include "modules/actionbars/actionbars_module.hpp"
-#include "hud_runtime.hpp"
+#include "hud/hud_runtime.hpp"
 #include "modules/pet/pet_lifetimes.hpp"
 #include "resources/custom_action_icons.hpp"
 #include "support/custom_icon_fixture.hpp"

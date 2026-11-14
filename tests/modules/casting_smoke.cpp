@@ -1,4 +1,4 @@
-#include "hud_runtime.hpp"
+#include "hud/hud_runtime.hpp"
 #include "combat/ability_recast.hpp"
 #include "ui/recast_icons.hpp"
 

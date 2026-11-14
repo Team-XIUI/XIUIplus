@@ -2,7 +2,7 @@
 
 Hotbars, controller crossbar, reusable macros, palettes and their management windows share one action store and executor.
 
-**Start in:** [actionbars_module.hpp](../../src/runtime/modules/actionbars/actionbars_module.hpp), [actionbars_editor.cpp](../../src/runtime/modules/actionbars/actionbars_editor.cpp), [actionbars_display.cpp](../../src/runtime/modules/actionbars/actionbars_display.cpp), [hud_runtime_actionbars.cpp](../../src/runtime/hud_runtime_actionbars.cpp).
+**Start in:** [actionbars_module.hpp](../../src/runtime/modules/actionbars/actionbars_module.hpp), [actionbars_editor.cpp](../../src/runtime/modules/actionbars/actionbars_editor.cpp), [actionbars_display.cpp](../../src/runtime/modules/actionbars/actionbars_display.cpp), [hud_runtime_actionbars.cpp](../../src/runtime/hud/hud_runtime_actionbars.cpp).
 
 Create/Edit Macro follows the Lua editor's order: action type, upper-right artwork preview, command block, optional recast source, slot label and Save/Cancel. Native library, availability and binding controls live under More options. Eight command rows appear when space permits; every page, added row and keyboard transition uses the same visible-row count. Multiline paste is bounded and atomic. Editor inputs use the shared text control with a dark fill, bright foreground and 14-pixel minimum.
 

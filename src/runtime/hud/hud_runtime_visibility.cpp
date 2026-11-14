@@ -1,6 +1,6 @@
 #include "config/module_visibility.hpp"
 #include "ashita_compat.hpp"
-#include "hud_runtime.hpp"
+#include "hud/hud_runtime.hpp"
 #include "Memory.h"
 #include "native_pattern.hpp"
 #include "native_menu_focus.hpp"

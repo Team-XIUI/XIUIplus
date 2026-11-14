@@ -64,7 +64,7 @@ Keyboard users can open the same menu for the selected module with the Menu key 
 
 ## Shared implementation
 
-[hud_transform.hpp](../../src/runtime/ui/hud_transform.hpp) defines forward/inverse coordinate mapping. [hud_runtime_scale.cpp](../../src/runtime/hud_runtime_scale.cpp) resolves element transforms, viewport reachability, and scale gestures. Shared module controls append their option IDs after each module's existing options.
+[hud_transform.hpp](../../src/runtime/ui/hud_transform.hpp) defines forward/inverse coordinate mapping. [hud_runtime_scale.cpp](../../src/runtime/hud/hud_runtime_scale.cpp) resolves element transforms, viewport reachability, and scale gestures. Shared module controls append their option IDs after each module's existing options.
 
 Saved dimensions and positions stay in authored coordinates. Screen bounds derive from global/local scale and a temporary reachability offset. Corner drags update placement to retain their opposite anchor; numeric and global scale changes retain their existing placement. Pending gestures never enter unrelated autosaves, and Cancel restores the original scale and position without cumulative rounding.
 

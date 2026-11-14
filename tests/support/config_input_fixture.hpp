@@ -1,7 +1,7 @@
 #pragma once
 
 #include "ui/text_fit.hpp"
-#include "hud_runtime.hpp"
+#include "hud/hud_runtime.hpp"
 #include "config/contributor_list.hpp"
 #include "modules/bar_config.hpp"
 #include "BinaryData.h"

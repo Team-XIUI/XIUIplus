@@ -1,7 +1,7 @@
 #pragma once
 
 #include "combat/combat_source.hpp"
-#include "entities/entity_name_colors.hpp"
+#include "world/entity_name_colors.hpp"
 #include <string_view>
 #include <algorithm>
 

@@ -1,7 +1,7 @@
 #include "world_source.hpp"
 #include "ashita_compat.hpp"
 #include "compass_radar.hpp"
-#include "entities/entity_name_colors.hpp"
+#include "world/entity_name_colors.hpp"
 #include "Memory.h"
 #include "native_pattern.hpp"
 

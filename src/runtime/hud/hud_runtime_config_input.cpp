@@ -1,4 +1,4 @@
-#include "hud_runtime.hpp"
+#include "hud/hud_runtime.hpp"
 #include "config/contributor_list.hpp"
 #include "config/option_layout.hpp"
 #include "config/basic_settings_layout.hpp"

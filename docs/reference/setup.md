@@ -18,4 +18,4 @@ If native settings are unavailable, Follow waits for a validated count instead o
 
 The native window count uses validated config record 180, documented by the [official Ashita config addon](https://github.com/AshitaXI/Ashita-v4beta/blob/main/addons/config/README.md). Reactive sizing and independent-window behavior are covered in [Chat windows](chat-windows.md).
 
-Source: `hud_runtime_setup.cpp`, `config/setup_wizard.hpp`, `ui/native_window_config.cpp` and `modules/chat/chat_module.cpp`. Focused check: `./scripts/check.ps1 -Name setup-wizard`.
+Source: `hud/hud_runtime_setup.cpp`, `config/setup_wizard.hpp`, `ui/native_window_config.cpp` and `modules/chat/chat_module.cpp`. Focused check: `./scripts/check.ps1 -Name setup-wizard`.

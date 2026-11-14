@@ -3,7 +3,7 @@
 
 #include "Memory.h"
 #include "native_pattern.hpp"
-#include "entities/entity_name_colors.hpp"
+#include "world/entity_name_colors.hpp"
 
 #include <algorithm>
 #include <cstring>
