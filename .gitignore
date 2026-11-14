@@ -1,6 +1,20 @@
-# Local agent and editor state
+# Local agent state, instructions and plans (AGENTS.md stays tracked)
 /.agents/
 /.pi/
+.claude/
+.codex/
+.cursor/
+.windsurf/
+.aider*
+CLAUDE.md
+CLAUDE.local.md
+GEMINI.md
+.github/copilot-instructions.md
+*.canvas.tsx
+/plans/
+/docs/plans/
+
+# Editor state
 /.vs/
 CMakeUserPresets.json
 *.user
