@@ -20,10 +20,6 @@ A setup guide opens the first time the plugin loads. Run `/xiuiplus` to open set
 
 Your settings, profiles and positions are kept.
 
-### Coming from XIUI Native
-
-Unload `xiuinative`, replace its DLL with `XIUIplus.dll`, and change any `/load xiuinative` startup line to `/load XIUIplus`. Your existing data moves to `config/XIUIplus/` the next time the plugin loads.
-
 ## Learn more
 
 - [User guide](docs/user-guide.md): features and commands.
