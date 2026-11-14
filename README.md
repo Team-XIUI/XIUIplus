@@ -1,44 +1,42 @@
 # XIUI+
 
-XIUI+ is an in-client Final Fantasy XI HUD for Ashita v4, rendered with Direct3D8.
+XIUI+ is an in-game HUD for Final Fantasy XI, built as a plugin for Ashita v4.
 
-Download `XIUIplus.dll` from the [public releases repository](https://github.com/Team-XIUI/xiuiplus-releases/releases). Copy it into Ashita's `plugins` folder and run `/load XIUIplus`. Existing settings are preserved. Local packaging produces [dist/XIUIplus.dll](dist/XIUIplus.dll). See [the changelog](CHANGELOG.md) and [the user guide](docs/user-guide.md) for features and commands.
+## Install
 
-When upgrading from XIUI Native, unload `xiuinative`, replace its DLL with `XIUIplus.dll`, and update any startup `/load xiuinative` line to `/load XIUIplus`. The next plugin load moves existing data into `config/XIUIplus/`, preserving settings, profiles, inventories and sounds. Existing destination files take priority; conflicts are archived under `legacy/`. `/xiuiplus` is the main command; `/xiuip`, `/xiui+`, `/xiui` and earlier aliases still work. New profile exports use `.xiuiplus`; existing `.xiui` files and XIUI1/XIUI2 share keys remain importable.
+1. Download `XIUIplus.dll` from the [Releases page](https://github.com/Team-XIUI/xiuiplus-releases/releases).
+2. Copy it into the `plugins` folder of your Ashita install.
+3. In game, run `/load XIUIplus`.
 
-## Working on XIUI+
+To load it automatically, add `/load XIUIplus` to your Ashita startup script.
 
-Start with [AGENTS.md](AGENTS.md), then [the task-to-file guide](docs/README.md). Read only the foundations and feature references relevant to the task.
+A setup guide opens the first time the plugin loads. Run `/xiuiplus` to open settings at any time.
 
-- [Development](docs/development.md): toolchain, standalone install, AgentLink and isolated hot reload.
-- [Shared foundations](docs/foundations.md): rendering, text, controls, containers and persistence contracts.
-- [Module notes](docs/modules/README.md): short agent overviews, source owners and focused checks.
-- [Input ownership](docs/reference/input.md): mouse, keyboard, controller and remaining hardware limits.
-- [Focused checks](tests/README.md): build targets, arguments and required fixtures.
-- [Resource build inputs](cmake/resources.cmake): embedded assets and resource packing.
-- [Detailed references](docs/reference/README.md): current behavior and implementation contracts.
+## Update
 
-Shared development guidance lives in `AGENTS.md` and `docs/`. Local agent state (`.agents/`, `.pi/`) and generated outputs (`bin/`, `out/`, `dist/`) are ignored by Git.
+1. In game, run `/unload XIUIplus`.
+2. Replace `plugins/XIUIplus.dll` with the new download.
+3. Run `/load XIUIplus`.
 
-## Build and install
+Your settings, profiles and positions are kept.
 
-Windows, Visual Studio C++ with x86 tools, CMake/Ninja, Python and the Ashita v4 SDK are required. While XIUI+ is unloaded:
+### Coming from XIUI Native
+
+Unload `xiuinative`, replace its DLL with `XIUIplus.dll`, and change any `/load xiuinative` startup line to `/load XIUIplus`. Your existing data moves to `config/XIUIplus/` the next time the plugin loads.
+
+## Learn more
+
+- [User guide](docs/user-guide.md): features and commands.
+- [Changelog](CHANGELOG.md): what changed in each release.
+
+## Development
+
+You need Windows, Visual Studio with the x86 C++ tools, CMake, Ninja, Python and the Ashita v4 SDK (set `ASHITA4_SDK_PATH`).
 
 ```powershell
 ./scripts/build-all.ps1
 ```
 
-Normal builds install one DLL in the selected Phoenix setup. `ASHITA4_SDK_PATH` selects headers and libraries; it does not choose the running game. [Development](docs/development.md) explains explicit install paths and the separate two-DLL development mode.
+This builds `dist/XIUIplus.dll` and installs it into the development game folder. Unload XIUI+ in game first.
 
-## Structure
-
-- `src/host/`: Ashita callbacks, snapshots, native integration and runtime loading.
-- `src/shared/`: host/runtime ABI and shared input contracts.
-- `src/runtime/modules/`: HUD feature models, sources, configuration and rendering.
-- `src/runtime/config/`, `input/`, `ui/`: shared configuration, input and rendering foundations.
-- `src/runtime/settings/`: persistence, profiles and portable preference boundaries.
-- `cmake/`: source groups, resource generation, runtime targets and focused checks.
-- `docs/`: maintained feature guides and shared implementation contracts.
-- `third_party/`: [vendored build dependencies](third_party/README.md) for native hooks, map decoding and resource decompression.
-
-Party artwork is bundled from [XIVParty](assets/jobs/README.md); other artwork/data provenance stays beside its files under [assets/](assets/). Window themes and native item artwork are read from the installed client.
+Start with the [developer docs](docs/README.md); [development](docs/development.md) covers builds and installs, and [focused checks](tests/README.md) covers testing.
