@@ -73,6 +73,8 @@ auto RunPhantomRollChecks(void) -> bool
     okay &= check(phoenixGallant != nullptr && xiui::PhantomRollHasJobBonus(*phoenixGallant, withPld) &&
         xiui::PhantomRollBasePotency(*phoenixGallant, 3, 75, true) == 25 && corsair != nullptr && !xiui::PhantomRollHasJobBonus(*corsair, withDrk),
         "Phoenix era job bonuses, and Corsair's Roll has none");
+    okay &= check(xiui::PhantomRollBasePotency(*retail, 4, 75, false, 37) == 13 && xiui::PhantomRollBasePotency(*retail, 4, 75, false, 75) == 25 &&
+        xiui::PhantomRollPotencyText(retail, 4, 75, false, true, 37) == "+18% ATK (job bonus +5%)", "a subjob Corsair's roll scales by its level over the recipient's");
     const auto* companion = xiui::PhantomRollByAbility(304, xiui::server_rules::retail);
     okay &= check(companion != nullptr && !xiui::PhantomRollBasePotency(*companion, 2, 99), "unsupported potency stays unknown");
     okay &= check(xiui::PhantomBustChance(5) == 0 && std::abs(xiui::PhantomBustChance(8) - 0.5f) < 0.001f && xiui::PhantomBustChance(11) == 1, "ordinary die risk boundaries");

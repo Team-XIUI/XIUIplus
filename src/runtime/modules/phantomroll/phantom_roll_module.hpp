@@ -56,7 +56,7 @@ namespace xiui
         std::array<meter_animation_state, 3> animation_{};
         D3DCOLOR lucky_{0xFFFFCF7D}, unlucky_{0xFF91C7EF}, bust_{0xFFFF8D88}, top_{0xFF4C9B95}, bottom_{0xFF9CDAC5};
         uint32_t player_id_{}, zone_{};
-        uint8_t job_{}, subjob_{}, level_{};
+        uint8_t job_{}, subjob_{}, level_{}, roller_level_{};
         uint64_t now_{};
         auto CombatSettings(void) -> combat_settings& { return this->combat_settings_ != nullptr ? *this->combat_settings_ : this->local_combat_settings_; }
         auto CombatSettings(void) const -> const combat_settings& { return this->combat_settings_ != nullptr ? *this->combat_settings_ : this->local_combat_settings_; }

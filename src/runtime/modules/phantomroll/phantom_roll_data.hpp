@@ -28,8 +28,9 @@ namespace xiui
     auto PhantomRollByAbility(uint32_t ability, server_rules rules) -> const phantom_roll_data*;
     auto PhantomRollByStatus(uint16_t status, server_rules rules) -> const phantom_roll_data*;
     auto PhantomRollHasJobBonus(const phantom_roll_data& roll, std::span<const uint8_t> partyJobs) -> bool;
-    auto PhantomRollBasePotency(const phantom_roll_data& roll, uint8_t total, uint8_t level, bool jobBonus = false) -> std::optional<float>;
-    auto PhantomRollPotencyText(const phantom_roll_data* roll, uint8_t total, uint8_t level, bool busted, bool jobBonus = false) -> std::string;
+    // rollerLevel is the roller's Corsair level; below the recipient's level it scales the value down (0 leaves it unscaled).
+    auto PhantomRollBasePotency(const phantom_roll_data& roll, uint8_t total, uint8_t level, bool jobBonus = false, uint8_t rollerLevel = 0) -> std::optional<float>;
+    auto PhantomRollPotencyText(const phantom_roll_data* roll, uint8_t total, uint8_t level, bool busted, bool jobBonus = false, uint8_t rollerLevel = 0) -> std::string;
     inline auto PhantomBustChance(const uint8_t total) -> float
     { return total >= 1 && total <= 11 ? (total > 5 ? total - 5 : 0) / 6.0f : 0; }
 }

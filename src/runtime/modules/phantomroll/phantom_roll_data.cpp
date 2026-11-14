@@ -110,19 +110,20 @@ namespace xiui
     auto PhantomRollHasJobBonus(const phantom_roll_data& roll, const std::span<const uint8_t> partyJobs) -> bool
     { return roll.bonus_job != 0 && roll.bonus != 0 && std::find(partyJobs.begin(), partyJobs.end(), roll.bonus_job) != partyJobs.end(); }
 
-    auto PhantomRollBasePotency(const phantom_roll_data& roll, const uint8_t total, const uint8_t level, const bool jobBonus) -> std::optional<float>
+    auto PhantomRollBasePotency(const phantom_roll_data& roll, const uint8_t total, const uint8_t level, const bool jobBonus, const uint8_t rollerLevel) -> std::optional<float>
     {
         if (roll.unknown || total < 1 || total > 11 || roll.scale <= 0 || (roll.per_level && level == 0)) return std::nullopt;
         float value = roll.powers[total - 1] + (jobBonus ? roll.bonus : 0);
+        if (rollerLevel != 0 && rollerLevel < level) value = std::ceil(value * rollerLevel / level);
         if (roll.per_level) value = std::floor(value * level / 75.0f);
         return value / roll.scale;
     }
 
-    auto PhantomRollPotencyText(const phantom_roll_data* roll, const uint8_t total, const uint8_t level, const bool busted, const bool jobBonus) -> std::string
+    auto PhantomRollPotencyText(const phantom_roll_data* roll, const uint8_t total, const uint8_t level, const bool busted, const bool jobBonus, const uint8_t rollerLevel) -> std::string
     {
         if (busted) return i18n::Text("Bust penalty: unknown");
         const bool bonus = jobBonus && roll != nullptr && roll->bonus_job != 0 && roll->bonus != 0;
-        const auto value = roll != nullptr ? PhantomRollBasePotency(*roll, total, level, bonus) : std::nullopt;
+        const auto value = roll != nullptr ? PhantomRollBasePotency(*roll, total, level, bonus, rollerLevel) : std::nullopt;
         if (!value) return i18n::Text("Potency: unknown");
         const auto number = [&](const float amount) {
             char text[32]{};
@@ -130,6 +131,7 @@ namespace xiui
             return std::string{text};
         };
         if (!bonus) return i18n::Format("Base %s %s", number(*value).c_str(), roll->stat);
-        return i18n::Format("%s %s (job bonus %s)", number(*value).c_str(), roll->stat, number(static_cast<float>(roll->bonus) / roll->scale).c_str());
+        const auto plain = PhantomRollBasePotency(*roll, total, level, false, rollerLevel);
+        return i18n::Format("%s %s (job bonus %s)", number(*value).c_str(), roll->stat, number(*value - plain.value_or(*value)).c_str());
     }
 }

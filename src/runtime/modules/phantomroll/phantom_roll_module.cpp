@@ -58,6 +58,8 @@ namespace xiui
             this->job_ = static_cast<uint8_t>(job); this->subjob_ = static_cast<uint8_t>(subjob);
         }
         this->level_ = id != 0 ? local->main_level : 0;
+        // A subjob Corsair rolls at its subjob level.
+        this->roller_level_ = id != 0 && job != 17 && subjob == 17 ? local->sub_level : 0;
         if (!configOpen) this->preview_ = false;
         if (id == 0 || !local->buffs_known) return;
         std::array<phantom_roll_status, 32> statuses{};
@@ -169,13 +171,15 @@ namespace xiui
     auto phantom_roll_module::OnContentOptionChanged(const size_t index) -> void
     { if (index == preview) this->preview_ = !this->preview_; }
 
-    // Rolls reach only the roller's party, so its main jobs decide the job bonus.
+    // Rolls reach only the roller's party, so its main jobs decide the job bonus. A solo roller has no party and no bonus.
     auto phantom_roll_module::PartyJobs(void) const -> std::array<uint8_t, 6>
     {
         std::array<uint8_t, 6> jobs{};
-        if (this->source_ != nullptr && this->source_->Available())
-            for (size_t slot = 0; slot < jobs.size(); ++slot)
-                if (const auto& member = this->source_->Members()[slot]; member.active) jobs[slot] = member.main_job;
+        if (this->source_ == nullptr || !this->source_->Available()) return jobs;
+        const auto& members = this->source_->Members();
+        if (std::none_of(members.begin() + 1, members.begin() + jobs.size(), [](const auto& member) { return member.active; })) return jobs;
+        for (size_t slot = 0; slot < jobs.size(); ++slot)
+            if (members[slot].active) jobs[slot] = members[slot].main_job;
         return jobs;
     }
 
@@ -189,7 +193,7 @@ namespace xiui
             const auto* roll = PhantomRollByAbility(seat.ability, this->Rules());
             const bool bonus = roll != nullptr && PhantomRollHasJobBonus(*roll, jobs);
             lines.push_back((roll != nullptr ? std::string{roll->name} + " Roll" : std::string{"Unknown roll"}) + " total " + std::to_string(seat.total) +
-                "; " + PhantomRollPotencyText(roll, seat.total, this->level_, seat.busted, bonus));
+                "; " + PhantomRollPotencyText(roll, seat.total, this->level_, seat.busted, bonus, this->roller_level_));
         }
         return lines;
     }
@@ -251,7 +255,7 @@ namespace xiui
             if (this->potency_)
             {
                 const bool jobBonus = roll != nullptr && PhantomRollHasJobBonus(*roll, partyJobs);
-                drawLine(PhantomRollPotencyText(roll, seat.total, this->level_, seat.busted, jobBonus), {x, y, columnWidth, rowHeight(2)}, 2);
+                drawLine(PhantomRollPotencyText(roll, seat.total, this->level_, seat.busted, jobBonus, sample ? uint8_t{} : this->roller_level_), {x, y, columnWidth, rowHeight(2)}, 2);
                 y += rowHeight(2) + 4 * this->scale_;
             }
             const auto ratio = seat.expires > this->now_ && seat.duration > 0 ? std::clamp(static_cast<float>(seat.expires - this->now_) / seat.duration, 0.0f, 1.0f) : 0;
