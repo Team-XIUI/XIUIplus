@@ -57,7 +57,7 @@ $PortablePath = {
 }
 $Metadata = [ordered]@{
     captured_at = (Get-Date).ToString('o')
-    source = if ($FromSaved) { 'saved snapshot' } else { 'AgentLink confirmed live save' }
+    source = if ($FromSaved) { 'saved snapshot' } else { 'confirmed live save' }
     settings_path = & $PortablePath $SettingsPath
     theme_path = & $PortablePath $ThemePath
     sections = @($Rows | Where-Object { $_ -match '^\[' }).Count

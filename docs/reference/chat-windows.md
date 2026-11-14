@@ -22,8 +22,8 @@ The compact frame is shared by rendering, pointer hit testing and controller foc
 
 Expanded/fullscreen history aligns messages to the bottom, with the newest visible message along the lower edge. It remains visible through Alt+Tab and foreground loss, including Windows' snipping overlay. The selected tab, scroll position and unsent draft are retained; mouse capture, composition and controller ownership are released while the game is inactive. Return to the game to continue browsing; Escape returns to compact chat focus, and Enter closes history.
 
-Soft wrapping does not move trailing spaces onto an empty continuation row. Explicit blank lines and indentation remain available. The focused `xiui_chat_smoke --history-only` check covers history retention, input release and whitespace wrapping.
+Soft wrapping does not move trailing spaces onto an empty continuation row. Explicit blank lines and indentation remain available. Focused check: `xiui_chat_smoke --history-only`.
 
 Native settings are read from the client's validated configuration records: Window 1 reactive/minimum/maximum/delay IDs 14/16/15/17, and Window 2 IDs 182/184/183/198. The [official Ashita config addon](https://github.com/AshitaXI/Ashita-v4beta/blob/main/addons/config/README.md) documents these fields. Unavailable native settings retain a fixed window rather than guessing client values.
 
-Read-only inspection of the existing client dump corroborated reactive value 0 = On in both native window callbacks, and Window 2's delay inheritance. The native values are authoritative; the whole-message fade presentation is XIUI+'s implementation.
+In both native windows, reactive value 0 means On, and Window 2 inherits Window 1's delay. The native values are authoritative; the whole-message fade presentation is XIUI+'s implementation.

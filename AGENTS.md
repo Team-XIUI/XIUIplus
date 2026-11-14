@@ -1,21 +1,24 @@
 # XIUI+ plugin
 
+Guidance for AI coding agents working in this repository.
+
 - Use **XIUI+** in display text and **XIUIplus** in filenames and data directories. `/xiuiplus` is the documented command; old aliases and import formats remain compatible. Preserve original XIUI credits.
-- Never add Codex co-author signatures to commits. Use `main` as the default branch name.
+- Use `main` as the default branch name. Do not add AI co-author signatures to commits.
 - Keep comments clear and concise.
-- Localize all new or changed XIUI+ player-facing text in both `locales/en.json` and `locales/ja.json` in the same change, including labels, choices, tooltips, dialogs, errors and controller help. Follow [localization](locales/README.md) and its shared presentation paths; English fallback does not satisfy translation coverage. Preserve client-provided and user-entered text verbatim. Run `python scripts/build-locales.py` when changing localized text.
-- Keep routine validation focused. Do not run full suites, repeated builds, broad asset validation, or visual/gameplay checks unless requested or needed for a specific failure. The user checks visual and gameplay behavior. Stop checking when the user says a change works.
-- Install new builds as one standalone `plugins/XIUIplus.dll` in the active Phoenix setup, and use AgentLink to load/reload and confirm it is active. Preserve current settings and positions. The two-DLL host/runtime setup requires an explicitly selected isolated development install. Only leave builds uninstalled when the user explicitly requests it.
-- The current development install is `C:/Games/PhoenixXI-dev/PhoenixXI`; AgentLink commands use `../phoenixlighting/scripts/game.ps1`. Confirm the active install through AgentLink rather than assuming the SDK directory is the running game.
-- The client can run as `phoenix-loader` (window title is the character name). An AgentLink timeout or no `pol` process does not establish that the game is closed; retry and inspect the actual game window and AgentLink log.
-- Browser automation uses `agent-browser`; load `agent-browser skills get core --full` before first use. Use another browser tool only when explicitly requested or the CLI is unavailable.
-- Do not use follow-up input/question tools. Continue with available context; state any necessary manual command directly.
-- Never use `.canvas.tsx` files for plans; use Markdown or HTML.
+- Localize all new or changed player-facing text in both `locales/en.json` and `locales/ja.json` in the same change, including labels, choices, tooltips, dialogs, errors and controller help. Follow [localization](locales/README.md); English fallback does not count as a translation. Preserve client-provided and user-entered text verbatim. Run `python scripts/build-locales.py` when changing localized text.
+- Keep validation focused. Run the [focused check](tests/README.md) for the boundary you changed rather than full suites, repeated builds or broad asset validation. Automated checks do not establish visual or gameplay behavior.
+- Installing a build must preserve the player's settings and positions. Ship one standalone `XIUIplus.dll`; the two-DLL host/runtime pair is for development hot reload only.
 
-For HUD changes, follow [the shared foundations](docs/foundations.md), especially **HUD text**. Reuse the theme roles, module text profiles, rendering, controls, and persistence. Compact sizing must retain normal text effects. Apply game-state colors with `TintTextProfile` so gradients and effects survive. Plain configuration text is a separate presentation.
+If `docs/development.md` exists, read it too. It is a local, untracked file with the maintainer's install, live-verification and release steps.
 
-Start with [developer navigation](docs/README.md) and the relevant [short module note](docs/modules/README.md). [Development](docs/development.md) covers builds/install/default capture; [focused checks](tests/README.md) keeps validation proportional. Generated documentation uses `scripts/update-docs.ps1`; embedded asset inputs are defined in [cmake/resources.cmake](cmake/resources.cmake).
+## Where to start
 
-For interactive feature changes, follow [controller support](docs/reference/controller-support.md) and [input ownership](docs/reference/input.md). Its [remaining acceptance](docs/reference/input.md#remaining-acceptance) distinguishes implemented behavior from hardware/native-keyboard limits. Keep current behavior in the maintained guides; completed plans and audits remain available in Git history. Local agent skills under `.agents/` are optional and ignored by Git.
+Start with the [developer docs](docs/README.md) and the relevant [module note](docs/modules/README.md).
 
-For releases, set `VERSION` to the release name (`MAJOR.MINOR.PATCH` plus optional channel, e.g. `0.2.1-alpha`) and run `scripts/release.ps1`; tags, titles and displayed numbers derive from that line, so never write them by hand. Ship one `dist/XIUIplus.dll`; the host/runtime DLL pair is for development hot reload. Publish DLL releases to the public `Team-XIUI/xiuiplus-releases` repository, always naming it explicitly in GitHub release commands. Preserve older releases, their assets and tags; publishing a new release must not delete or replace release history. Include simple player-facing patch notes for every new feature and fix since the last published public release. README downloads should link to the Releases page rather than a specific version or asset. Keep source commits, tags and the development checkout's `origin` in private `Shuu-37/XIUIplus`; never push private Git history into the public downloads repository. See [release publishing](docs/development.md#github-releases).
+- HUD changes follow the [foundations](docs/foundations.md), especially **HUD text**. Reuse the theme roles, module text profiles, rendering, controls and persistence. Compact sizing must keep normal text effects. Apply game-state colors with `TintTextProfile` so gradients and effects survive.
+- Interactive changes follow [controller support](docs/reference/controller-support.md) and [input ownership](docs/reference/input.md). Its [remaining acceptance](docs/reference/input.md#remaining-acceptance) section lists what automated checks do not cover.
+- Generated documentation uses `scripts/update-docs.ps1`. Embedded asset inputs are defined in [cmake/resources.cmake](cmake/resources.cmake).
+
+## Releases
+
+`VERSION` holds the release name (`MAJOR.MINOR.PATCH` plus an optional channel, e.g. `0.2.1-alpha`). Tags, titles and displayed numbers derive from it, so never write them by hand. Change the version only when asked. Releases need short, player-facing patch notes for every feature and fix since the last published release.

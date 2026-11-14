@@ -151,7 +151,7 @@ namespace xiui
                 const std::vector<uint8_t> bytes{std::istreambuf_iterator<char>{file}, {}};
                 const auto icon = resources::DecodeItemIcon(bytes);
                 Check(icon && icon->width == 32 && icon->height == 32 && std::any_of(icon->pixels.begin(), icon->pixels.end(), [](auto pixel) { return pixel != 0; }),
-                    "AgentLink's native gil DAT bitmap decodes through the shared item icon path");
+                    "the native gil DAT bitmap decodes through the shared item icon path");
             }
         }
 

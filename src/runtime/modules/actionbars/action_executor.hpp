@@ -35,7 +35,7 @@ namespace xiui
         auto Status(void) const -> const std::string& { return this->status_; }
         auto Diagnostics(uint64_t now) const -> std::string;
         auto Background(void) const -> bool { return this->background_ && !this->pending_.empty(); }
-        // Dispatch times of the latest command macro run, for AgentLink checks.
+        // Dispatch times of the latest command macro run, for automated checks.
         auto Timeline(void) const -> std::vector<std::string>;
         auto Clear(void) -> void;
         auto SetNativeRunner(std::function<bool(const native_macro_ref&)> run) -> void { this->native_runner_ = std::move(run); }

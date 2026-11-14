@@ -20,10 +20,10 @@ Chat input stops accepting new text at the client's native send limit. Typing, c
 
 **Chat → General → Character counter** is on by default. It shows the current length and maximum just above the input on the right, and turns red at the limit. Turning it off hides the counter while keeping the limit enforced.
 
-The counter follows the game's encoded length budget. Japanese characters and auto-translate tokens can consume multiple units. Hidden channel-prefix overhead is deducted from the displayed maximum; explicitly typed commands count as part of the input. The native limit is read from the client, with the existing 255-unit fallback when unavailable.
+The counter follows the game's encoded length budget. Japanese characters and auto-translate tokens can consume multiple units. Hidden channel-prefix overhead is deducted from the displayed maximum; explicitly typed commands count as part of the input. The native limit is read from the client, with a 255-unit fallback when unavailable.
 
 The counter reuses the chat chrome text profile, including its font and effects. Its row is reserved while the input is visible; history, completion lists, controller actions and error hints leave it room. It adds no input focus target. The toggle uses shared mouse, keyboard and controller settings controls, and persists with ordinary chat preferences and profiles.
 
 Existing drafts restored across a reload remain editable, including an old draft above the current limit. New insertions cannot grow beyond the limit; the final Send check remains in place and rejects over-limit or unrepresentable text without sending it.
 
-Focused checks: `xiui_chat_smoke --input-limit-only`, `--auto-translate-commands-only`, and the shared settings/defaults checks. These cover exact native budgets, paste, selection replacement, Unicode/token boundaries, completion, counter placement, visibility persistence and reset.
+Focused checks: `xiui_chat_smoke --input-limit-only` and `--auto-translate-commands-only`.

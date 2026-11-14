@@ -40,7 +40,7 @@ XIV 1.0 background opacity defaults to 40% and is adjustable under Appearance â†
 
 **Focused check:** `./scripts/check.ps1 -Name global-text`, `input-mode` or `all-ui-visibility`, according to the change.
 
-Installed data paths and legacy migration live in `settings/storage_paths.*`; see [installed data](../development.md#installed-data). Settings and theme are `config/XIUIplus/settings.ini` and `theme.ini`; profiles, inventories, sounds and diagnostics share that root. Focused check: `storage-paths`.
+Installed data paths and legacy migration live in `settings/storage_paths.*`. Settings and theme are `config/XIUIplus/settings.ini` and `theme.ini`; profiles, inventories, sounds and diagnostics share that root. Focused check: `storage-paths`.
 
 Native profile-file imports use `hud/hud_runtime_profiles.cpp` and the background `settings/profile_transfer.*` worker. Legacy XIUI Lua imports are limited to [actions and palettes](../reference/actionbars.md#importing) through Action Bars; no full Lua settings converter, profile discovery, character links or controller-settings import remains. Previously imported profiles remain readable.
 

@@ -2,11 +2,11 @@
 
 Shared requirements for XIUI+ keyboard, mouse and controller interactions.
 
-Read [project guidance](../../AGENTS.md), [shared foundations](../foundations.md) and [input ownership](input.md) first for implemented commands, semantic actions and native-keyboard/hardware limits. Resolve the ABI from `src/shared/runtime_api.hpp`. Reuse current normalized input, config session and focus foundations.
+Read the [foundations](../foundations.md) and [input ownership](input.md) first for implemented commands, semantic actions and native-keyboard/hardware limits. Resolve the ABI from `src/shared/runtime_api.hpp`. Reuse current normalized input, config session and focus foundations.
 
-`docs/reference/input.md#remaining-acceptance` records remaining acceptance. Historical proposals are not available APIs or standing authorization for live experiments. A request for research or planning authorizes documentation, not application implementation.
+[Remaining acceptance](input.md#remaining-acceptance) lists what automated checks do not cover yet.
 
-For live diagnostics, AgentLink can forward existing Ashita diagnostic commands, but an accepted `QueueButtonData` call does not prove a connected or emulated controller, delivered input or successful navigation. Confirm runtime readiness, device/backend availability and observed callbacks/state transitions first. Honor the task's authorization for experiments and preserve current user work.
+For live diagnostics, an accepted `QueueButtonData` call does not prove a connected or emulated controller, delivered input or successful navigation. Confirm runtime readiness, device/backend availability and observed callbacks/state transitions first.
 
 ## Native behavior and input contract
 
@@ -43,9 +43,9 @@ For live diagnostics, AgentLink can forward existing Ashita diagnostic commands,
 
 Keep hardware identity/calibration/local bindings out of portable profiles; inspect/update the actual export and overlay rules when introducing them. Focus and held controls are transient. Preserve settings and drain writers before a coordinated host/runtime ABI update. Do not modify the immutable XIUI2 preset.
 
-Use a focused check for ownership, exactly-once activation, stale focus or persistence when the change warrants it. Describe controller support honestly if an input foundation or native capability is still missing. The maintainer checks visual/gameplay behavior; no broad suites or hardware manipulation without task-specific need.
+Use a focused check for ownership, exactly-once activation, stale focus or persistence when the change warrants it. Document any input foundation or native capability that is still missing. Automated checks do not establish visual, gameplay, physical-controller or native-keyboard behavior.
 
-For authorized live probes, separate deterministic action tests, supported device-injection tests and actual native gameplay checks. Use an observed press/release and a native transition to establish input delivery. Track and remove temporary diagnostic handlers; include neutral releases. If the user types, moves or loads UI during a probe, mark affected before/after comparisons inconclusive and never restore an older draft over their current one. A solo session cannot validate alliance selection.
+For live probes, separate deterministic action tests, supported device-injection tests and actual native gameplay checks. Use an observed press/release and a native transition to establish input delivery. Track and remove temporary diagnostic handlers; include neutral releases. If the player types, moves or loads UI during a probe, treat affected before/after comparisons as inconclusive and never restore an older draft over the current one. A solo session cannot validate alliance selection.
 
 ## Primary references
 

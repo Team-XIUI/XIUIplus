@@ -6,27 +6,27 @@ Basic contains **Classic**, **XIV**, **XIVClassic**, **Theme**, **Global Scale**
 
 The Basic page groups preset samples above compact theme and scale controls, with the profile dropdown and Advanced button in its footer. The scale label, slider, percentage field and Reset button share one line; explanatory text uses hover help. Search is rendered and hit-tested only in Advanced. Classic's sample uses the compact party entry with HP/MP and a TP number; XIV shows HP, MP and TP bars side by side. XIVClassic shows Classic's layout with XIV1.0 Theme. Each sample uses its own preset theme through the normal party renderer, independently of the live theme. Mouse, keyboard and controller use the same buttons, theme control and percentage editor. Hover help clears on every settings frame and stays behind modal overlays.
 
-The former General sidebar category is now **Global**. Existing commands and saved category/topic identities remain compatible.
+Commands and saved category/topic identities that use General, the earlier name of the **Global** sidebar category, remain compatible.
 
 ## Full HUD presets
 
 Classic, XIV and XIVClassic use the normal confirmation dialog, with Cancel selected. Applying one restores its complete authored HUD preferences and layout, including enabled modules, positions, global/local scales, theme, text, bars, chat filters and action assignments. The active profile, saved profile collection, local input-device configuration and Basic/Advanced navigation state remain local.
 
-- **XIV:** The maintainer's complete XIV setup captured on October 20, 2026 in [hud-xiv.ini](../../config/hud-xiv.ini).
-- **Classic:** The same complete setup with only the Party list changed to the XI/Classic Party preset, captured in [hud-classic.ini](../../config/hud-classic.ini). Both Alliance lists and every other module match XIV.
-- **XIVClassic:** The maintainer's complete XIV1.0 setup captured on November 1, 2026 in [hud-xivclassic.ini](../../config/hud-xivclassic.ini), including the current target/ToT layout, compact Party with XIV job icons, chat styling, shared Enemy List container and rounded Equipment grid. It selects XIV1.0 Theme and the single All chat window. This is an independent capture rather than a derivative of Classic.
+- **XIV:** a complete XIV-style setup, stored in [hud-xiv.ini](../../config/hud-xiv.ini).
+- **Classic:** the same complete setup with only the Party list changed to the XI/Classic Party preset, stored in [hud-classic.ini](../../config/hud-classic.ini). Both Alliance lists and every other module match XIV.
+- **XIVClassic:** a complete XIV1.0-style setup, stored in [hud-xivclassic.ini](../../config/hud-xivclassic.ini), including its target/ToT layout, compact Party with XIV job icons, chat styling, shared Enemy List container and rounded Equipment grid. It selects XIV1.0 Theme and the single All chat window. It is an independent setup rather than a derivative of Classic.
 
 Classic and XIV explicitly select XI Theme; XIVClassic selects XIV1.0 Theme. All retain the captured text effects and the game's current native Window Type. The preset buttons do not report a persistent selected state after custom edits. Captured layout viewport metadata lets the normal layout loader fit the saved positions to another game viewport.
 
-Named presets explicitly retain their authored chat-window count and the migrated 4× minimap starting zoom. Their provenance records these compatibility amendments; fresh/reset defaults retain their own native chat-window adoption behavior.
+Named presets retain their authored chat-window count and a 4× minimap starting zoom; fresh/reset defaults retain their own native chat-window adoption behavior.
 
-New installs and **Reset to defaults** use the latest capture in [XIUIplus-defaults.ini](../../config/XIUIplus-defaults.ini). This baseline is independent of the named presets, so recapturing a customized setup does not change their Party layouts.
+New installs and **Reset to defaults** use [XIUIplus-defaults.ini](../../config/XIUIplus-defaults.ini). This baseline is independent of the named presets, so updating it does not change their Party layouts.
 
 Presets load their saved values through the shared settings/profile boundary; they do not synthesize fonts, meter styles or a partial appearance overlay. Basic's samples read the Party settings from these same full captures. The immutable XIUI2 sharing baseline remains separate.
 
 `/xiuiplus preset classic`, `/xiuiplus preset xiv` and `/xiuiplus preset xivclassic` apply the same complete presets directly. `/xiuiplus party preset classic|xiv` changes only Party through its normal preset loader, preserving other modules; the Advanced Party preset cards retain their existing Party/Alliance behavior.
 
-Focused checks: `hud-presets` compares every persisted HUD preference against the complete presets and verifies theme ownership, the narrow XIVClassic derivation and the independent reset baseline; `defaults` covers embedded defaults, fresh installs and reset persistence. Capture or authorship provenance is recorded beside each INI in its `.capture.json` file. Regenerate live captures through [the maintained workflow](../development.md#capture-current-defaults).
+Focused checks: `hud-presets` and `defaults`. Capture or authorship provenance is recorded beside each INI in its `.capture.json` file. Regenerate captures with `scripts/capture-defaults.ps1`.
 
 ## Global and element scale
 
@@ -34,7 +34,7 @@ Focused checks: `hud-presets` compares every persisted HUD preference against th
 
 Each independently placed HUD element defaults to a single **Scale (%)** control with **Lock proportions** enabled near its layout/window controls. Local ranges are 25–300%. Global Scale is always uniform and multiplies both axes. For example, 150% global and 120% local produce 180% effective scale.
 
-Width/height controls change the authored layout; scale leaves those values intact. Unlocking proportions explicitly exposes **Scale X (%)** and **Scale Y (%)** for stretching the whole element, including text, icons, padding and interaction regions. Locking again preserves the current ratio. Reset scale restores both axes to 100% and locks proportions. The first scale format migrates once to locked proportions while preserving its X/Y values; later explicit unlocks persist. Phantom Roll's existing Content scale remains an internal layout preference beneath the new whole-element scale.
+Width/height controls change the authored layout; scale leaves those values intact. Unlocking proportions explicitly exposes **Scale X (%)** and **Scale Y (%)** for stretching the whole element, including text, icons, padding and interaction regions. Locking again preserves the current ratio. Reset scale restores both axes to 100% and locks proportions. The first scale format migrates once to locked proportions while preserving its X/Y values; later explicit unlocks persist. Phantom Roll's Content scale is an internal layout preference beneath the whole-element scale.
 
 Disabled elements keep their local scale. Attached child windows follow their owner's scale; detach them to use their retained independent scale. Hotbars, chat windows, Alliance lists, inventory dots, notification groups, and independent world-info parts have distinct scale values.
 
@@ -78,4 +78,4 @@ Shared position metadata and gesture snapshots use `hud_module::LayoutId()`. Thi
 
 Configuration has its own **Menu Scale (%)** under Global → Config Settings. It enlarges the settings window and its dialogs from 100% to 200% independently of Global Scale. See [Configuration](configuration.md) for local persistence and viewport fitting.
 
-Focused check: `./scripts/check.ps1 -Name hud-scaling`. It covers geometry, shared gestures, committed snapshots, representative input regions, mode navigation, explicit preset ownership, and persistence. The maintainer verifies visual/gameplay behavior and physical controller acceptance.
+Focused check: `./scripts/check.ps1 -Name hud-scaling`. Automated checks do not cover in-game visuals, gameplay or physical controllers.

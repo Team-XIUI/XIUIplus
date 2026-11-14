@@ -1,6 +1,6 @@
 # Settings organization
 
-The visible General category is now **Global**. [Basic settings and HUD scale](hud-scaling.md) documents the two settings modes, whole-HUD presets and shared scale controls.
+The general settings category is labeled **Global**. [Basic settings and HUD scale](hud-scaling.md) documents the two settings modes, whole-HUD presets and shared scale controls.
 
 Use the [generated settings inventory](settings-inventory.md) for current pages and controls. The module registry and option metadata own the actual category/view/topic combinations; avoid copying their counts into hand-maintained guidance.
 
@@ -29,7 +29,7 @@ Use the [generated settings inventory](settings-inventory.md) for current pages 
 
 **Party → General** includes Classic and XIV preset boxes below its regular controls, side by side when space permits and stacked in a narrow configuration window. Their descriptions stay visible, the entire card is clickable, and the shared confirmation applies the style to all three lists while retaining each position. See [Party presets](party-presets.md).
 
-**Party/alliance → Appearance → Size & Position** now contains the resource arrangement and selected bar's width, height, position and offsets. **Appearance → Window** contains the overall list width, entry spacing, reserved rows, fitting, padding and opacity. Window width is labeled separately from bar width. Heading visibility lives in General; Text edits its styling.
+**Party/alliance → Appearance → Size & Position** contains the resource arrangement and selected bar's width, height, position and offsets. **Appearance → Window** contains the overall list width, entry spacing, reserved rows, fitting, padding and opacity. Window width is labeled separately from bar width. Heading visibility lives in General; Text edits its styling.
 
 **Party/alliance → Appearance → Job Icons** pairs job-icon X/Y offsets below icon size and name-following placement. These offsets and **Text → Cast** offsets move their artwork without changing entry height or bar positions.
 
@@ -37,7 +37,7 @@ Party/alliance **Text** has separate **Jobs** and **Zone** elements. Jobs defaul
 
 **Enemy List → Appearance → Size & Position** contains card width/bar height, columns/rows and column/row spacing. **Target Panel** contains the separate panel's visibility, width, X/Y offsets, padding, opacity and border. **Appearance → Window** contains the enemy card's padding, opacity and borders.
 
-**Target Bar → Mob Info** has Common and ten information-group sub-tabs. Common contains enable, level, row spacing and shared text. Each group has visibility, Together/Own row/Independent placement, width/icon size, spacing, whole-group X/Y offsets and optional independent text styling. Removed the duplicate Mob info entry in Target → Text. Detached groups reuse Movement and centering; attached groups retain the existing default layout. Subtarget and Target of Target keep their own level switches.
+**Target Bar → Mob Info** has Common and ten information-group sub-tabs. Common contains enable, level, row spacing and shared text. Each group has visibility, Together/Own row/Independent placement, width/icon size, spacing, whole-group X/Y offsets and optional independent text styling. Detached groups reuse Movement and centering; attached groups retain the existing default layout. Subtarget and Target of Target keep their own level switches.
 
 **Target → World Target Bar** has General and Text topics plus Appearance categories for size/position, bar style, colors, effects and animation. Width/height and X/Y controls share rows. It follows the native world target rather than exposing a draggable screen position; name and HP-percent profiles remain separate.
 
@@ -57,10 +57,10 @@ Shared text, meter, status, container, inventory, equipment, chat, notification,
 
 `config/option_layout.hpp` arranges the filtered controls for the available one- or two-column layout. Rendering, pointer input, scrollbar sizing and controller focus all use those same slots. Controller directions use displayed rows and columns, skipping unavailable controls and empty cells; stable focus IDs still use the original option IDs. See [Configuration window](configuration.md) for resizing and reflow behavior.
 
-The focused check audits section/selector coverage, retained settings and positions, paired geometry and pointer/controller activation. It writes the inventory when passed a path:
+The focused check writes the generated inventory when passed a path:
 
 ```powershell
 bin/tests/xiui_config_input_smoke.exe --settings-presentation-only docs/reference/settings-inventory.md
 ```
 
-The inventory comes from isolated module instances; native filter labels require the live client. This is a software input/layout check. The maintainer checks visual and gameplay behavior.
+The inventory comes from isolated module instances; native filter labels require the live client. This is a software input/layout check; it does not establish visual or gameplay behavior.

@@ -52,11 +52,11 @@ Party suppression stays active throughout fishing. The native party draw call in
 
 Main chat suppression includes the separately resolved `inline` menu owner, using the same guarded draw path as `logwindo`. Input contents, command processing, and native state are not modified. Both owner slots must resolve before this control is available; showing chat, disabling HUD controls, or unloading restores drawing. Secondary and expanded log toggles do not affect input visibility.
 
-Host/runtime ABI 5 adds the availability and requested-visibility masks. Updating from an earlier ABI requires replacing both DLLs with the host unloaded once.
+The availability and requested-visibility masks are part of host/runtime ABI 5. Updating from an earlier ABI requires replacing both DLLs with the host unloaded once.
 
 ## Research and dependency notices
 
-Native menu layouts and signatures were checked against the running client and these public references:
+Native menu layouts and signatures follow these public references:
 
 - [Ashita hideparty](https://github.com/AshitaXI/Ashita-v4beta/blob/main/addons/hideparty/hideparty.lua): party/alliance owner locations and native primitive layout.
 - [HXIUIBegone](https://github.com/ryuutatsuo23-max/HXIUIBegone): individual native menu records, fishing behavior, and the connection dispatcher.
@@ -65,4 +65,4 @@ Native menu layouts and signatures were checked against the running client and t
 
 Those Lua addons are not installed or loaded as dependencies. The host's native implementation uses [MinHook](https://github.com/TsudaKageyu/minhook); its source notices and [license](../../third_party/minhook/LICENSE.txt) are retained in `third_party/minhook`.
 
-`xiui_native_hud_target_smoke` checks box-only suppression, unchanged arrow/callback fields, restoration, native coordinate updates, replaced owners, and the regular draw guard for other HUD elements. It also checks combined chat log/input hiding, unchanged input state, independent secondary-log settings, owner replacement, and restoration.
+Focused check: `xiui_native_hud_target_smoke`.

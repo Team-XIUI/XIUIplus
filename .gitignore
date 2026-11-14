@@ -13,6 +13,9 @@ GEMINI.md
 *.canvas.tsx
 /plans/
 
+# Maintainer-only install, live verification and release notes
+/docs/development.md
+
 # Editor state
 /.vs/
 CMakeUserPresets.json

@@ -2,7 +2,7 @@
 
 `native-ui` checks the main Native UI category, isolated edit modes, pointer/controller mode actions, independent position/visibility persistence and reset behavior. `xiui_native_hud_target_smoke --menus-only` covers native group movement, merchant/auction separation, suppression identity and restoring native coordinates.
 
-Choose the smallest check for the boundary changed. The default workflow does not require the complete suite or visual/gameplay checks; The maintainer verifies those in game.
+Choose the smallest check for the boundary changed. The default workflow does not require the complete suite or visual/gameplay checks; those are verified in game.
 
 ```powershell
 ./scripts/check.ps1 -List
@@ -96,4 +96,4 @@ Invoke-XiuiBuild -Targets xiui_satchel_ui_smoke,xiui_actionbars_ui_smoke
 
 ## Standalone packaging
 
-`./scripts/package.ps1` runs `xiui_resource_smoke`, `xiui_single_dll_smoke` and the 4.16/4.30 host-fixture compatibility checks against the standalone DLL before publishing `dist/XIUIplus.dll`. These cover resource integrity, Ashita exports, isolated initialization, embedded assets/defaults/theme/notices and saving. They are separate from broad feature checks. Use `-SkipBuild` only after that exact release has passed these checks; see [development](../docs/development.md) for installation and AgentLink confirmation.
+`./scripts/package.ps1` runs `xiui_resource_smoke`, `xiui_single_dll_smoke` and the 4.16/4.30 host-fixture compatibility checks against the standalone DLL before publishing `dist/XIUIplus.dll`. These cover resource integrity, Ashita exports, isolated initialization, embedded assets/defaults/theme/notices and saving. They are separate from broad feature checks. Use `-SkipBuild` only after that exact release has passed these checks.

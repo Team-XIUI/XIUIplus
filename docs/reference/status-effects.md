@@ -20,7 +20,7 @@ Grouping uses effect-ID metadata shared with Party. It does not infer whether an
 
 ## Party rows
 
-Party/alliance **Text** settings also offer separate **Sync**, **HP values**, **MP values** and **TP values** profiles. Each controls its own font, size, colors, effects and offsets. Sync replaces the former Details label; existing saved styling is retained. MP and TP initially inherit the former Values styling, then save independently. Bar labels are the HP/MP/TP captions; values are the displayed numbers. TP styling applies to bars and number-only layouts.
+Party/alliance **Text** settings also offer separate **Sync**, **HP values**, **MP values** and **TP values** profiles. Each controls its own font, size, colors, effects and offsets. Bar labels are the HP/MP/TP captions; values are the displayed numbers. TP styling applies to bars and number-only layouts.
 
 **Jobs → Job placement → After name** is the default when job text is enabled. Jobs follow the displayed name, including its alignment and offsets. **Text → Jobs** styles job text; **Text → Zone** separately styles out-of-zone names. Changing Jobs placement, offsets or size leaves zone labels and their entry height unchanged.
 
@@ -28,28 +28,28 @@ Number-only TP shows the complete value and reserves enough width for four digit
 
 **Text → Cast → Y offset** moves the cast label independently of the track; negative values move it upward. It does not change entry height or resource positions. **Jobs → Job icon X offset / Y offset** similarly moves either fixed or name-following icons without changing entry height, separately for Party and each alliance.
 
-Effects belong to each party member. In the old full-party preview, the four extra buffs beside the second sample member were that member's examples, rather than another row of your character's buffs. Those implicit sample effects have been removed.
+Effects belong to each party member. Sample effects appear only when status preview is turned on.
 
 **Party → Status Effects → Preview status effects** explicitly shows sample buffs and debuffs while editing. It uses the selected ordering, placement, row visibility, limits and text styles. Sample countdowns follow the normal **Status timers** switches, so turning timers off hides them in the preview too. The Party heading identifies status preview content.
 
-**Full party preview** still controls whether six party entries appear. With it off, status preview uses the visible members, or one sample entry when the party is empty. Preview effects replace display copies only; leaving edit mode restores the actual native effects and timers.
+**Full party preview** controls whether six party entries appear. With it off, status preview uses the visible members, or one sample entry when the party is empty. Preview effects replace display copies only; leaving edit mode restores the actual native effects and timers.
 
-Party → **Status Effects** keeps the existing left/right/inside placement and status-container controls. **Status order** offers:
+Party → **Status Effects** provides left/right/inside placement and status-container controls. **Status order** offers:
 
-- **Native order:** preserve the client's order and the existing layout. This remains the default.
+- **Native order:** preserve the client's order in one combined layout.
 - **Show debuffs first:** put harmful effects first, retaining native order within each group.
 - **Show buffs first:** put buffs and neutral/unrecognized effects first, retaining native order within each group.
 - **Split buffs and debuffs:** display two separate rows. Use **Selected status row** to edit Buff row or Debuff row independently.
 
 Split rows have separate icon sizes, columns, horizontal icon spacing, vertical row spacing, limits, alignment, offsets, opacity, countdown options and tooltips, plus **Split row gap** between the buff and debuff groups. Party → Text exposes separate **Buff timers and details** and **Debuff timers and details** profiles. The measured row height includes both groups so the next party member starts below them.
 
-Party defaults use split buff/debuff rows beside each entry, with 12-pixel icons, status containers off and countdowns off. The former 10-pixel default increases once to 12; custom sizes and later changes stay intact. Split-row size controls accept 10–48 pixels; other status strips retain their 12-pixel minimum.
+Party defaults use split buff/debuff rows beside each entry, with 12-pixel icons, status containers off and countdowns off. Split-row size controls accept 10–48 pixels; other status strips retain their 12-pixel minimum.
 
 For **only debuffs**, choose **Split buffs and debuffs**, select **Buff row**, and turn off **Show selected row**. Keep Debuff row enabled. Hide Debuff row instead for only buffs. The hidden row leaves no empty gap, and preview follows the same visibility choices.
 
 The status page shows only controls for the selected mode: one combined set in Native/Buffs first/Debuffs first, or the selected row's set in Split. Size, limit, columns, timers and tooltips appear once. Container opacity/padding are shared and labeled separately from icon/countdown opacity. Combined status rows also have independent vertical spacing, and their timer text offsets work.
 
-For the combined modes, **Status timers** optionally overlays real local countdowns inside the icons. Other party members have no native durations to display. Existing Party status placement, containers and saved geometry remain available.
+For the combined modes, **Status timers** optionally overlays real local countdowns inside the icons. Other party members have no native durations to display.
 
 ## Target and Enemy List
 
@@ -61,7 +61,7 @@ Fixed spell, weapon-skill, ability, pet and additional-effect durations are embe
 
 Target prefers a known native local/party snapshot, including an empty list, over combat history. Mob icons come from confirmed gain/removal observations; a damaging spell or weapon skill alone does not add an assumed effect.
 
-Target mob-information groups have a stable anchor before the status grid. Gaining, losing or wrapping debuffs does not move behavior/link/detection icons. **Target → Cast Bar** draws the main target's cast as a separate bar immediately below HP, with its text centered on the bar. Width and paired X/Y offsets control that bar alone. **Cast position → Independent** enables its own draggable element and shared controller Movement; returning to Below Target retains the independent position for later. Cast starts, interruptions and completion do not change the positions of status icons, mob information or attached target views. Existing cast style, colors and text preferences remain available.
+Target mob-information groups have a stable anchor before the status grid. Gaining, losing or wrapping debuffs does not move behavior/link/detection icons. **Target → Cast Bar** draws the main target's cast as a separate bar immediately below HP, with its text centered on the bar. Width and paired X/Y offsets control that bar alone. **Cast position → Independent** enables its own draggable element and shared controller Movement; returning to Below Target retains the independent position for later. Cast starts, interruptions and completion do not change the positions of status icons, mob information or attached target views.
 
 ## Reading effect details
 
@@ -82,7 +82,7 @@ Hovering and browsing never cancel an effect. Non-cancellable effects and remote
 
 During zoning or an incomplete login, the shared party source clears its transient records. Local and remote status snapshots must be initialized before use: zero-filled slots are unavailable, because effect ID 0 is KO and must not become 32 repeated icons. A real KO followed by empty-slot markers remains valid, as does an initialized empty list. Local invalid slot values also reject the snapshot. A validated `GetBuffs()` fallback can supply untimed effects while the paired status-icon/timer list is unavailable. Party, Target and Buffs/Debuffs all consume this shared result; there is no arbitrary post-zone delay.
 
-Focused verification: `xiui_config_input_smoke --status-snapshots-only` passes for zero-filled buffers, real KO, initialized empty lists, invalid slots, extended IDs and decode bounds. The broader legacy `--party-only` check reaches an unrelated old module-owned visibility assertion (`event hiding applies to each list`); current event visibility lives in the shared runtime policy. The zoning update's runtime built at 12:50:45 and AgentLink confirmed its installation at 12:51:49 on October 16. Live zoning appearance remains for the maintainer to check.
+Focused check: `xiui_config_input_smoke --status-snapshots-only`.
 
 **Your character:** `IPlayer::GetStatusIcons()` and `GetStatusTimers()` provide paired IDs and real expiration timestamps. XIUI+ converts their 60Hz timestamps with the validated client clock already used by EXP. Missing, hidden, expired or unavailable timestamps produce no invented countdown. Repeated effects retain their own paired deadlines.
 
@@ -92,4 +92,4 @@ Focused verification: `xiui_config_input_smoke --status-snapshots-only` passes f
 
 **Paralysis and Blindness:** their installed icon resources do not hide timers. Local-player countdowns use native expiries. Enemy timers use XIUI+ estimates after confirmed application; an observed removal clears the estimate immediately. Keep recast timing separate from effect expiry.
 
-See [Status Effects](../modules/status.md), [Mob information data](../modules/mobinfo.md) and the [focused checks](../../tests/README.md) for current source ownership and validation. Native visual/gameplay and physical-controller behavior remain for the maintainer to check.
+See [Status Effects](../modules/status.md), [Mob information data](../modules/mobinfo.md) and the [focused checks](../../tests/README.md) for current source ownership and validation. Automated checks do not cover in-game visuals, gameplay or physical controllers.

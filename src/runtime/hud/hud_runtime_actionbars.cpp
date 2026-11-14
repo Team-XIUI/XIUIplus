@@ -86,7 +86,7 @@ namespace xiui
         const auto player = memory != nullptr ? xiui::ashita::View(memory->GetPlayer()) : nullptr;
         const auto* chat = this->core_ != nullptr ? this->core_->GetChatManager() : nullptr;
         const bool nativeEvent = this->visibility_context_.event_active || this->party_source_.InCutscene();
-        // Macro test runs continue in the background so AgentLink never needs to focus the game.
+        // Macro test runs continue in the background so automated tests never need to focus the game.
         const bool focused = this->GameWindowFocused() || (continuingMacro && (this->macro_test_starting_ || this->action_executor_.Background()));
         return this->visible_ && !this->editing_ && focused && player != nullptr &&
             player->GetLoginStatus() == static_cast<uint8_t>(Ashita::FFXI::Enums::LoginStatus::LoggedIn) && !player->GetIsZoning() &&
@@ -228,7 +228,7 @@ namespace xiui
                 this->core_->GetChatManager()->Write(1, false, i18n::Text(this->action_executor_.Status().c_str()));
             return true;
         }
-        // Unsaved scratch macro for AgentLink: same executor and guards as a hotbar macro, minus game focus.
+        // Unsaved scratch macro for automated tests: same executor and guards as a hotbar macro, minus game focus.
         if (name == "actionbars" && (argument == "macrotest" || argument.starts_with("macrotest ")))
         {
             auto step = argument.substr(9);
@@ -282,7 +282,7 @@ namespace xiui
             else chat->Write(1, false, "[XIUI+] Usage: /xiuiplus actionbars macrotest set <line> | <line>... ; add <line> ; show ; clear ; run ; report");
             return true;
         }
-        // Live Ashita keybind checks: AgentLink sends real keys between these steps, and an Ashita bind runs "mark".
+        // Live Ashita keybind checks: the test sends real keys between these steps, and an Ashita bind runs "mark".
         if (name == "actionbars" && (argument == "test" || argument.starts_with("test ")))
         {
             auto step = argument.substr(4);

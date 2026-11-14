@@ -4,7 +4,7 @@ set(ASHITA_PROJECT_NAME "XIUIplus")
 file(STRINGS "${CMAKE_SOURCE_DIR}/VERSION" XIUI_VERSION LIMIT_COUNT 1)
 set_property(DIRECTORY APPEND PROPERTY CMAKE_CONFIGURE_DEPENDS "${CMAKE_SOURCE_DIR}/VERSION")
 # VERSION is the release name: MAJOR.MINOR.PATCH and an optional channel, e.g. 0.2.1-alpha.
-# Tags, titles and every number shown to players derive from it; see docs/development.md.
+# Tags, titles and every number shown to players derive from it; see docs/README.md.
 if (NOT XIUI_VERSION MATCHES "^(0|[1-9][0-9]*)\\.(0|[1-9][0-9]*)\\.(0|[1-9][0-9]*)(-[a-z]+)?$")
     message(FATAL_ERROR "VERSION must look like 0.2.1 or 0.2.1-alpha (three numbers), not '${XIUI_VERSION}'.")
 endif()

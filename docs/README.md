@@ -1,32 +1,58 @@
 # Developer documentation
 
-Start with the [module index](modules/README.md) and read only the note for the area you are changing. Each note gives the source owners, important constraints and a focused check.
+XIUI+ has three kinds of docs:
 
-## Shared guidance
+- **This page**: how to build, and where things live.
+- **[Foundations](foundations.md)**: the shared rules every HUD module follows (text, containers, bars, settings, input, persistence).
+- **[Module notes](modules/README.md)** and **[reference guides](reference/README.md)**: one short note per module, plus detailed behavior for the larger systems.
 
-- [Foundations](foundations.md): HUD text, containers, bars, configuration, input and persistence contracts.
-- [Development](development.md): build/install, AgentLink, defaults capture and documentation generation.
-- [Input ownership](reference/input.md): current mouse, keyboard and controller rules; remaining hardware/software-keyboard acceptance.
-- [Ashita compatibility](reference/ashita-compatibility.md): supported 4.16/4.30 interfaces, SDK access and mouse normalization.
-- [Controller support](reference/controller-support.md): interaction design, native ownership and focused validation requirements.
-- [Configuration](reference/configuration.md) and [settings](reference/settings.md): shared controls, navigation and preference organization.
-- [Focused checks](../tests/README.md): validation routes.
-- [Player guide](user-guide.md): commands and player-facing usage.
+Players should read the [user guide](user-guide.md) instead.
 
-## Source routes
+## Build
 
-- HUD feature: [module notes](modules/README.md) → `src/runtime/modules/<feature>/`.
-- Shared drawing/text: `src/runtime/design_system.*`, `ui/` and `modules/module.*`.
-- Configuration: `config/config_session.hpp`, `hud/hud_runtime_config*.cpp`, `config/config_controls.*` and `config/option_layout.hpp`.
-- Input: `src/host/controller_input.*`, `src/shared/controller_input.hpp`, `src/runtime/input/` and `hud/hud_runtime_controller*.cpp`; native mouse/key dispatch starts in `src/host/plugin.cpp`.
-- Settings/profiles: `settings/settings_store.*`, `settings/settings_profiles.*` and `hud/hud_runtime_profiles.cpp`. [Action imports](reference/actionbars.md#importing) use `modules/actionbars/action_import.*` and the restricted `settings/lua_data.*` reader.
-- Native hooks/lifetime: `src/host/plugin.*`, `src/host/runtime_host.*`, `src/shared/runtime_api.hpp` and `src/runtime/runtime_exports.cpp`. Read the ABI value from source.
-- Build/resources: root `CMakeLists.txt`, `cmake/` and [assets/](../assets/).
+You need Windows, Visual Studio with the x86 C++ tools, CMake, Ninja, Python and the Ashita v4 SDK. Set `ASHITA4_SDK_PATH` to the SDK folder. Run commands from the repository root.
 
-Unqualified source paths above are relative to `src/runtime/`. Search the relevant owner before expanding to all source.
+```powershell
+./scripts/package.ps1                 # build and check dist/XIUIplus.dll
+./scripts/build-all.ps1               # package, then install into a game folder
+./scripts/check.ps1 -List             # list focused checks
+./scripts/check.ps1 -Name minimap     # build and run one check
+```
 
-## Where detail belongs
+`build-all.ps1` installs into the folder given by `-InstallPath` or `XIUI_INSTALL_PATH`. Unload XIUI+ in game before replacing the DLL; your settings and positions are kept.
 
-[Module notes](modules/README.md) are short development entry points. [Reference](reference/README.md) holds detailed current usage and system contracts. Completed plans and old investigation records remain available in Git history.
+To build a single target:
 
-Update the owning note when behavior or source ownership changes. Keep cross-module rules in the shared guides, and edit generated documentation through its generator.
+```powershell
+. ./scripts/common.ps1
+Invoke-XiuiBuild -Targets xiui_config_input_smoke
+```
+
+See [focused checks](../tests/README.md) for choosing a check. `./scripts/update-docs.ps1` regenerates the [settings inventory](reference/settings-inventory.md) and checks doc links.
+
+## Versions
+
+`VERSION` holds the release name on one line: `MAJOR.MINOR.PATCH` with an optional channel, such as `0.2.1-alpha`. Everything shown to players derives from it, and CMake rejects any other shape. Fixes raise PATCH; feature releases raise MINOR and reset PATCH.
+
+## Where things live
+
+Paths without a prefix are relative to `src/runtime/`.
+
+| Area | Start in |
+|---|---|
+| A HUD feature | its [module note](modules/README.md), then `modules/<feature>/` |
+| Shared drawing and text | `design_system.*`, `ui/`, `modules/module.*` |
+| Settings window | `config/config_session.hpp`, `hud/hud_runtime_config*.cpp`, `config/config_controls.*`, `config/option_layout.hpp` |
+| Input | `src/host/controller_input.*`, `src/shared/controller_input.hpp`, `input/`, `hud/hud_runtime_controller*.cpp`; native mouse and key dispatch starts in `src/host/plugin.cpp` |
+| Settings and profiles | `settings/settings_store.*`, `settings/settings_profiles.*`, `hud/hud_runtime_profiles.cpp` |
+| Installed data (`config/XIUIplus/`) | `settings/storage_paths.*` |
+| Action imports | `modules/actionbars/action_import.*`, `settings/lua_data.*`; see [importing](reference/actionbars.md#importing) |
+| Native hooks and plugin lifetime | `src/host/plugin.*`, `src/host/runtime_host.*`, `src/shared/runtime_api.hpp`, `runtime_exports.cpp` |
+| Build and embedded resources | root `CMakeLists.txt`, `cmake/`, [assets/](../assets/), `scripts/assets/` |
+| Localization | [locales/](../locales/README.md) |
+
+Other shared guides: [input ownership](reference/input.md), [controller support](reference/controller-support.md), [configuration](reference/configuration.md), [settings organization](reference/settings.md) and [Ashita compatibility](reference/ashita-compatibility.md).
+
+## Keeping docs current
+
+Update the owning module note or reference guide when behavior or source ownership changes. Put rules that span modules in [foundations](foundations.md). Edit generated documentation through its generator.

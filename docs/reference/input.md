@@ -75,11 +75,9 @@ Native chat input (`0x11`) and other text editors (`0x21`) are different owners.
 
 ## Remaining acceptance
 
-Physical devices, remappers, hotplug and multiplayer cases need observed gameplay/hardware acceptance. AgentLink can forward existing commands, but accepted `QueueButtonData` or synthetic semantic actions do not prove delivery through actual callbacks.
+Automated checks do not cover physical devices, remappers, hotplug or multiplayer cases; these need to be observed in game on real hardware. An accepted `QueueButtonData` call or a synthetic semantic action does not prove delivery through actual callbacks.
 
 Controller-only composition still needs verified native software-keyboard, IME and auto-translate ownership/transfer. Preserve drafts on Cancel and establish exactly-once send before extending it. Keep the game's software keyboard separate from PlayOnline login input.
-
-Research and synthetic checks do not establish native input delivery or authorize live experiments outside the current task.
 
 For a changed boundary, choose `controller-input`, `controller-config`, `cursor-ownership`, or the module's focused ownership argument from [the check guide](../../tests/README.md).
 

@@ -35,7 +35,7 @@ You need Windows, Visual Studio with the x86 C++ tools, CMake, Ninja, Python and
 
 This builds `dist/XIUIplus.dll` and installs it into the development game folder. Unload XIUI+ in game first.
 
-Start with the [developer docs](docs/README.md); [development](docs/development.md) covers builds and installs, and [focused checks](tests/README.md) covers testing.
+Start with the [developer docs](docs/README.md); [focused checks](tests/README.md) covers testing.
 
 ## License
 
