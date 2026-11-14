@@ -7,7 +7,7 @@ ROOT = Path(__file__).resolve().parents[1]
 
 
 def main():
-    files = [ROOT / "README.md", ROOT / "AGENTS.md", ROOT / "third_party/README.md"]
+    files = [ROOT / "README.md", ROOT / "NOTICES.md", ROOT / "AGENTS.md", ROOT / "third_party/README.md"]
     for directory in ("docs", "assets", "tests"):
         files.extend((ROOT / directory).rglob("*.md"))
     errors = []
