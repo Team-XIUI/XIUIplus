@@ -7,7 +7,7 @@ HeadsUp and Phoenix distribute this data under GPL-3.0-or-later; the accompanyin
 Regenerate from those TSVs:
 
 ```powershell
-python scripts/build_mob_data.py path/to/phoenix_mobs.tsv path/to/phoenix_mob_info.tsv assets/mobs/phoenix_mobs.bin
+python scripts/assets/build-mob-data.py path/to/phoenix_mobs.tsv path/to/phoenix_mob_info.tsv assets/mobs/phoenix_mobs.bin
 ```
 
 Binary layout: `XIM2`, record count, record stride and name-table byte count (little-endian 32-bit fields); sorted 84-byte records; deduplicated UTF-8 zero-terminated names. Damage adjustments and the physical, magic, ranged and breath damage-taken changes use `1 + value / 10000`; elemental absorbs are bits, and elemental/status resistance ranks and explicit immunities remain separate. Records also carry main/sub job, Regen/Refresh/Regain/Shadows/Counter traits and the additional effect, packed by the builder's fixed effect list. Family, exact live levels and respawn deadlines are unavailable and are not invented.
