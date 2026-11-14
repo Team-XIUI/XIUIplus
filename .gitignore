@@ -1,4 +1,4 @@
-# Local agent state, instructions and plans (AGENTS.md stays tracked)
+# Local agent state, instructions and plans
 /.agents/
 /.pi/
 .claude/
@@ -12,7 +12,16 @@ GEMINI.md
 .github/copilot-instructions.md
 *.canvas.tsx
 /plans/
-/docs/plans/
+
+# Local documentation and developer scripts; only build inputs are tracked
+/AGENTS.md
+/docs/
+/tests/README.md
+/locales/README.md
+/scripts/*
+!/scripts/build-locales.py
+!/scripts/localization_sources.py
+!/scripts/pack-resources.py
 
 # Editor state
 /.vs/
