@@ -1,6 +1,6 @@
 # Chains
 
-Independent skillchain timing and follow-up display, adapted from [NerfOnline/Chains](https://github.com/NerfOnline/Chains) for [issue #15](https://github.com/Shuu-37/XIUIplus/issues/15).
+Independent skillchain timing and follow-up display, adapted from [NerfOnline/Chains](https://github.com/NerfOnline/Chains) for [issue #15](https://github.com/Team-XIUI/XIUIplus/issues/15).
 
 **Start in:** [chains_module.cpp](../../src/runtime/modules/chains/chains_module.cpp), [chains_source.cpp](../../src/runtime/modules/chains/chains_source.cpp), [skillchain_source.cpp](../../src/runtime/combat/skillchain_source.cpp).
 

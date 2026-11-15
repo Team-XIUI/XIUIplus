@@ -71,7 +71,7 @@ namespace xiui
 
     auto plugin::GetLink(void) const -> const char*
     {
-        return "https://github.com/Shuu-37/XIUIplus";
+        return "https://github.com/Team-XIUI/XIUIplus";
     }
 
     auto plugin::GetVersion(void) const -> double

@@ -1,7 +1,7 @@
 param(
     [Parameter(Mandatory)][string]$NotesFile,
     # GitHub repository that hosts the downloads.
-    [string]$PublicRepo = 'Shuu-37/XIUIplus',
+    [string]$PublicRepo = 'Team-XIUI/XIUIplus',
     [switch]$SkipBuild,
     [switch]$WhatIf
 )

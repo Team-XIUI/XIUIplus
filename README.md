@@ -6,7 +6,7 @@ XIUI+ is an in-game HUD for Final Fantasy XI, built as a plugin for Ashita v4.
 
 ## Install
 
-1. Download `XIUIplus.dll` from the [Releases page](https://github.com/Shuu-37/XIUIplus/releases).
+1. Download `XIUIplus.dll` from the [Releases page](https://github.com/Team-XIUI/XIUIplus/releases).
 2. Copy it into the `plugins` folder of your Ashita install.
 3. In game, run `/load XIUIplus`.
 
@@ -25,7 +25,7 @@ Your settings, profiles and positions are kept.
 ## Learn more
 
 - [User guide](docs/user-guide.md): features and commands.
-- [Releases](https://github.com/Shuu-37/XIUIplus/releases): what changed in each version.
+- [Releases](https://github.com/Team-XIUI/XIUIplus/releases): what changed in each version.
 
 ## Development
 
