@@ -8,7 +8,8 @@
 
 namespace xiui::ui
 {
-    struct raster_font_metrics { float height{18}, ascent{15}, digit_advance{8}; bool available{}; };
+    // available: the requested family is installed. usable: a face was created, possibly a substitute.
+    struct raster_font_metrics { float height{18}, ascent{15}, digit_advance{8}; bool available{}, usable{}; };
     auto NativeFontMetrics(int font, int pixels, font_variant variant = {}) -> raster_font_metrics;
     struct raster_glyph
     {

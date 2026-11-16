@@ -108,18 +108,33 @@ namespace xiui::ui
             fallback ? FW_BOLD : entry->weight;
         const bool italic = variant.italic || (!fallback && entry->italic);
         // Installed fonts may have non-Western names or glyphs; built-ins keep their established mapping.
-        auto handle = ::CreateFontW(-size * samples, 0, 0, 0, faceWeight, italic ? TRUE : FALSE, FALSE, FALSE,
-            fallback || !entry->builtin ? DEFAULT_CHARSET : ANSI_CHARSET, OUT_TT_PRECIS, CLIP_DEFAULT_PRECIS,
-            NONANTIALIASED_QUALITY, DEFAULT_PITCH, name);
+        const auto create = [&](const wchar_t* face) {
+            return ::CreateFontW(-size * samples, 0, 0, 0, faceWeight, italic ? TRUE : FALSE, FALSE, FALSE,
+                fallback || !entry->builtin ? DEFAULT_CHARSET : ANSI_CHARSET, OUT_TT_PRECIS, CLIP_DEFAULT_PRECIS,
+                NONANTIALIASED_QUALITY, DEFAULT_PITCH, face);
+        };
+        auto handle = create(name);
         if (handle == nullptr) return nullptr;
         const auto previous = ::SelectObject(this->dc_, handle);
         wchar_t selected[LF_FACESIZE]{}; ::GetTextFaceW(this->dc_, LF_FACESIZE, selected);
+        // Wine lacks the Windows faces unless the player copies them in. Prefer a face it ships over GDI's
+        // arbitrary pick; the HUD still draws with whatever GDI chose when neither is present.
+        if (!fallback && entry->builtin && family != grammara_font && ::_wcsicmp(selected, name) != 0)
+            for (const auto* substitute : {L"Tahoma", L"Arial"})
+            {
+                const auto candidate = create(substitute);
+                if (candidate == nullptr) continue;
+                ::SelectObject(this->dc_, candidate);
+                wchar_t chosen[LF_FACESIZE]{}; ::GetTextFaceW(this->dc_, LF_FACESIZE, chosen);
+                if (::_wcsicmp(chosen, substitute) == 0) { ::DeleteObject(handle); handle = candidate; break; }
+                ::SelectObject(this->dc_, handle); ::DeleteObject(candidate);
+            }
         TEXTMETRICW metrics{}; ::GetTextMetricsW(this->dc_, &metrics);
         // Static families may map Medium back to Regular; strengthen their supersampled coverage.
         const int embolden = weight == font_weight::medium && metrics.tmWeight < FW_MEDIUM ?
             std::max(1, static_cast<int>(std::lround(size / 15.0f))) : 0;
         raster_font_metrics result{metrics.tmHeight / static_cast<float>(samples), metrics.tmAscent / static_cast<float>(samples), 0,
-            ::_wcsicmp(selected, name) == 0};
+            ::_wcsicmp(selected, name) == 0, true};
         for (wchar_t digit = L'0'; digit <= L'9'; ++digit)
         {
             SIZE extent{}; ::GetTextExtentPoint32W(this->dc_, &digit, 1, &extent);

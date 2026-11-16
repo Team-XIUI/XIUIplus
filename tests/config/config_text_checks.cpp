@@ -398,7 +398,7 @@ namespace xiui
         ui::text_rasterizer rasterizer;
         if (!check(missing.font >= ui::builtin_font_count && ui::FontFamily(missing.font) == "XIUI Missing Test Font" &&
             ui::FontFamilyIndex("xiui missing test font") == missing.font && store.ReadString("fonts.shared", "font_family") == "XIUI Missing Test Font" &&
-            !rasterizer.Metrics(missing.font, 15).available && rasterizer.Rasterize(missing.font, 15, 'W').has_value() &&
+            !rasterizer.Metrics(missing.font, 15).available && rasterizer.Metrics(missing.font, 15).usable && rasterizer.Rasterize(missing.font, 15, 'W').has_value() &&
             ui::FontFamilyIndex("") == 0 && ui::FontFamilyIndex(std::string(40, 'x')) == 0,
             "a shared profile's missing font keeps its saved name and draws with the XIUI+ face")) return false;
 

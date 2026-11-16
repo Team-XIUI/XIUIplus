@@ -239,6 +239,8 @@ namespace xiui::ui
         auto GetTheme(void) const -> const theme&;
         auto IsReady(void) const -> bool;
         auto FontAvailable(int font) const -> bool { return this->glyphs_.Metrics(font, 15).available; }
+        // True once the base face can draw, including with a substitute where Bahnschrift is not installed.
+        auto TextReady(void) const -> bool { return this->glyphs_.Metrics(0, 15).usable; }
         auto SetGpuShaderEnabled(bool enabled) -> void;
         auto IsGpuShaderActive(void) const -> bool;
 

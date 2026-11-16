@@ -248,7 +248,7 @@ namespace xiui::ui
 
     auto design_system::SetDevice(IDirect3DDevice8* device) -> bool
     {
-        if (this->device_ == device && this->FontAvailable(0))
+        if (this->device_ == device && this->TextReady())
             return true;
 
         this->ReleaseResources();
@@ -260,7 +260,7 @@ namespace xiui::ui
             this->icons_.SetDevice(device);
             this->CreatePixelShader();
         }
-        return this->device_ == nullptr || this->FontAvailable(0);
+        return this->device_ == nullptr || this->TextReady();
     }
 
     auto design_system::SetThemePath(const char* path) -> void
@@ -306,7 +306,7 @@ namespace xiui::ui
         this->PollTheme();
         if (this->frame_active_)
             this->EndFrame();
-        if (!this->FontAvailable(0))
+        if (!this->TextReady())
             return false;
         if (!this->shader_attempted_)
             this->CreatePixelShader();
@@ -343,7 +343,7 @@ namespace xiui::ui
 
     auto design_system::IsReady(void) const -> bool
     {
-        return this->device_ == nullptr || this->FontAvailable(0);
+        return this->device_ == nullptr || this->TextReady();
     }
 
     auto design_system::SetGpuShaderEnabled(const bool enabled) -> void
@@ -1655,7 +1655,7 @@ namespace xiui::ui
     auto design_system::DrawText(const char* text, const rect& bounds, const text_style& source) const -> void
     {
         const auto style = this->ResolveHudText(source);
-        if (!this->frame_active_ || text == nullptr || text[0] == '\0' || !this->FontAvailable(0))
+        if (!this->frame_active_ || text == nullptr || text[0] == '\0' || !this->TextReady())
             return;
 
         const float measured = this->MeasureText(text, style);
