@@ -4,6 +4,7 @@
 #include <cstddef>
 #include <cstdint>
 #include <cstring>
+#include <string>
 #include <string_view>
 #include <vector>
 
@@ -52,5 +53,16 @@ namespace xiui
             cursor = hit + 1;
         }
         return found;
+    }
+
+    // Finds a function another plugin may have detoured: a jump may replace its first `prologue` bytes.
+    inline auto FindUniqueEntry(const uintptr_t base, const size_t size, const std::string_view pattern, const size_t prologue) -> uintptr_t
+    {
+        if (const auto exact = FindUniquePattern(base, size, pattern)) return exact;
+        if (prologue < 5 || pattern.size() <= prologue * 2) return 0;
+        std::string relaxed{pattern};
+        relaxed.replace(0, prologue * 2, prologue * 2, '?');
+        const auto match = FindUniquePattern(base, size, relaxed);
+        return match != 0 && *reinterpret_cast<const uint8_t*>(match) == 0xE9 ? match : 0;
     }
 }

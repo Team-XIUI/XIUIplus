@@ -161,7 +161,8 @@ namespace xiui
         }
 
         // Match the complete native setup and epilogue before installing a draw guard.
-        const auto entry = this->Find("83EC24535556578BE9E8????????668B455633FF663BC77E054866894556");
+        // Other plugins detour the first five bytes; the guard sits past them at entry + 14.
+        const auto entry = FindUniqueEntry(this->module_, this->module_size_, "83EC24535556578BE9E8????????668B455633FF663BC77E054866894556", 5);
         if (entry != 0 && this->InModule(entry, 0x1000))
         {
             constexpr char ending[] = "8A859B00000084C0740F8A44241284C074078BCDE8????????5F5E5D5B83C424C3";

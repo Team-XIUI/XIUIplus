@@ -151,7 +151,9 @@ namespace xiui
         if (list != 0) Read(list + 3, this->manager_);
         const auto config = this->Find("8B0D????????85C974108B4424088B5424045052E8????????C383C8FFC3");
         if (config != 0) Read(config + 2, this->config_slot_);
-        this->reposition_ = this->Find("83EC0C668B44241453558B6C2418568BF15733FF8D5E1466896E528BCB66894654897C2414897C2418E8");
+        // HeadsUp gates this move with a jump over its first two instructions; calls still enter through it.
+        this->reposition_ = FindUniqueEntry(this->module_, this->module_size_,
+            "83EC0C668B44241453558B6C2418568BF15733FF8D5E1466896E528BCB66894654897C2414897C2418E8", 8);
         this->primitive_create_ = this->Find("53568BF1E8????????8D4E14E8????????33DB5666895E3A66895E3C66895E3E66895E40");
         this->primitive_destroy_ = this->Find("51558BE956578D7D148BCFE8????????33F68944240C3BC674");
         this->primitive_bind_ = this->Find("5355568BF18B4C241057894E04E8????????8BD885DB0F84");

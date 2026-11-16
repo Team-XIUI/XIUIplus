@@ -33,6 +33,19 @@ int main(void)
             Check(xiui::FindUniquePattern(base, bytes.size(), pattern) == 0, "invalid and oversized signatures fail closed");
         Check(xiui::FindUniquePattern(0, bytes.size(), "11") == 0 && xiui::FindUniquePattern(base, 0, "11") == 0, "empty ranges fail closed");
 
+        // The game's window move, intact and then with another plugin's jump and padding over its first two instructions.
+        constexpr const char* move = "83EC0C668B44241453558B6C2418568BF1";
+        std::array<uint8_t, 20> entry{0xCC, 0xCC, 0x83, 0xEC, 0x0C, 0x66, 0x8B, 0x44, 0x24, 0x14, 0x53, 0x55, 0x8B, 0x6C, 0x24, 0x18, 0x56, 0x8B, 0xF1, 0xCC};
+        const auto entryBase = reinterpret_cast<uintptr_t>(entry.data());
+        Check(xiui::FindUniqueEntry(entryBase, entry.size(), move, 8) == entryBase + 2, "an intact entry matches exactly");
+        const std::array<uint8_t, 8> gate{0xE9, 0x10, 0x20, 0x30, 0x40, 0x90, 0x90, 0x90};
+        std::memcpy(entry.data() + 2, gate.data(), gate.size());
+        Check(xiui::FindUniquePattern(entryBase, entry.size(), move) == 0 && xiui::FindUniqueEntry(entryBase, entry.size(), move, 8) == entryBase + 2,
+            "an entry detoured by another plugin is still found");
+        entry[2] = 0x90;
+        Check(xiui::FindUniqueEntry(entryBase, entry.size(), move, 8) == 0 && xiui::FindUniqueEntry(entryBase, entry.size(), move, 4) == 0,
+            "a changed prologue that is not a jump fails closed");
+
         SYSTEM_INFO info{}; ::GetSystemInfo(&info);
         auto* pages = static_cast<uint8_t*>(::VirtualAlloc(nullptr, info.dwPageSize * 2, MEM_RESERVE | MEM_COMMIT, PAGE_READWRITE));
         Check(pages != nullptr, "allocate guarded range");
