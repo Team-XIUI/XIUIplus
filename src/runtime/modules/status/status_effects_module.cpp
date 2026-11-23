@@ -386,6 +386,12 @@ namespace xiui
         }
         else tooltip = ui::StatusStripHit(effects.Effects(), this->StripBounds(), style.settings_, this->state_.transform.InverseX(x), this->state_.transform.InverseY(y), &layout);
         if (!tooltip) return;
+        if (layout.timer_height > 0)
+        {
+            // Keep the tooltip clear of this icon's timer.
+            const auto timer = ui::StatusTimerBounds(tooltip->bounds, style.settings_, style.text_[1], layout.cell_width, layout.timer_height);
+            tooltip->bounds.height = std::max(tooltip->bounds.height, timer.y + timer.height - tooltip->bounds.y);
+        }
         tooltip->bounds = this->state_.transform.Map(tooltip->bounds);
         if (resources == nullptr && this->source_ != nullptr) resources = this->source_->Resources();
         ui::DrawStatusTooltip(*tooltip, resources, style.text_[2], context);

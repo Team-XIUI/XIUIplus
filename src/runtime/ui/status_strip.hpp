@@ -318,9 +318,11 @@ namespace xiui::ui
             height += line.height;
         }
         width = std::min(width, std::max(80.0f, textWidth + 26));
-        const auto left = std::clamp(tooltip.bounds.x + tooltip.bounds.width + 8, viewport.x + 8,
-            std::max(viewport.x + 8, viewport.x + viewport.width - width - 8));
-        const auto top = std::clamp(tooltip.bounds.y, viewport.y + 8, std::max(viewport.y + 8, viewport.y + viewport.height - height - 8));
+        // Below the icon so the rest of its row stays readable; above when there is no room.
+        const auto left = std::clamp(tooltip.bounds.x, viewport.x + 8, std::max(viewport.x + 8, viewport.x + viewport.width - width - 8));
+        const float lowest = viewport.y + viewport.height - height - 8;
+        const float below = tooltip.bounds.y + tooltip.bounds.height + 8;
+        const auto top = std::clamp(below <= lowest ? below : tooltip.bounds.y - height - 8, viewport.y + 8, std::max(viewport.y + 8, lowest));
         const auto content = context.DrawTooltip({left, top, width, height});
         float y = content.y;
         for (const auto& line : lines)
