@@ -24,6 +24,7 @@ namespace xiui
         {
             bool hide_when_empty{false};
             bool hide_self{false};
+            bool npc_health{true};
             bool show_distance{true};
             bool show_percent{true};
             bool show_label{true};
@@ -81,6 +82,8 @@ namespace xiui
         auto UpdateDetails(IAshitaCore* core, const combat_source& combat, const party_source& party, uint64_t now) -> void;
         auto Render(const hud_snapshot& snapshot, const module_render_context& context) -> void override;
         auto SetMobInfoDisplayAllowed(bool allowed) -> void { this->mob_info_display_allowed_ = allowed; }
+        // NPCs carry no health resource; the option shows the client's HP percent for them anyway.
+        auto ShowsHealth(uint32_t spawnFlags) const -> bool { return EntityHasHealth(spawnFlags) || (this->settings_.npc_health && (spawnFlags & 0x02) != 0); }
         auto RenderWorldBar(const hud_snapshot& snapshot, const module_render_context& context) -> void;
         auto BeginRenderFrame(void) -> void { this->status_hits_.clear(); }
         auto RenderStatusTooltip(const module_render_context& context, IResourceManager* resources, float x, float y, bool controller = false) const -> void;
@@ -141,6 +144,7 @@ namespace xiui
         static constexpr size_t world_options_start = mob_info_options_start + target_mob_info::option_count;
         static constexpr size_t ring_options_start = world_options_start + world_target_bar::option_count;
         static constexpr size_t hide_self_option = ring_options_start + target_ring_settings::option_count + 6;
+        static constexpr size_t npc_health_option = hide_self_option + 1;
         meter_animation_state hp_animation_{};
         D3DCOLOR name_color_{unclaimed_name_color};
         bool has_health_{true};

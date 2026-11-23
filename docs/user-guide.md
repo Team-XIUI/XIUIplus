@@ -43,7 +43,7 @@ How to use XIUI+ in game. To install it, see the [README](../README.md#install).
 - Treasure Pool with lots, passes, winners and history.
 
 **Extras**
-- Minimap, Compass, and Time / Weather.
+- Minimap, Compass, Time / Weather, and an animated Zone Name when you enter a zone.
 - EXP bar with rates, goals, chains and session history.
 - Recast timers, Chains and Magic Burst displays, Phantom Roll, and a Blue Magic Learned alert.
 - Notifications for items, EXP, skill gains, invitations and trades.
@@ -134,6 +134,7 @@ Each of these opens that module's settings. Many also accept `status` to print w
 | `/xiuiplus skillchain` / `magicburst` / `chains` | Skillchain hints, Magic Burst and Chains |
 | `/xiuiplus rules retail\|horizon\|phoenix` | Choose the combat rule set |
 | `/xiuiplus phantomroll status` | Report tracked rolls and potency |
+| `/xiuiplus zonename` / `zonename preview` | Zone Name settings; replay the zone name animation |
 | `/xiuiplus exp` | EXP; `exp pause\|resume\|reset\|status\|history` and `exp mode auto\|exp\|lp\|cp\|ep` |
 | `/xiuiplus satchel` | Satchel |
 | `/xiuiplus inventory` / `equipment` | Inventory trackers and the equipment grid |

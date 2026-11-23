@@ -1,2 +1,4 @@
 501 RCDATA "@CMAKE_SOURCE_DIR@/assets/fonts/grammara/GrammaraNormal.ttf"
 502 RCDATA "@CMAKE_SOURCE_DIR@/assets/fonts/grammara/info.txt"
+503 RCDATA "@CMAKE_SOURCE_DIR@/assets/fonts/highwind/Highwind.ttf"
+504 RCDATA "@CMAKE_SOURCE_DIR@/assets/fonts/highwind/info.txt"

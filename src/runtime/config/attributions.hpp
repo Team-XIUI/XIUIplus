@@ -14,6 +14,7 @@ namespace xiui::ui
         attribution{"Cursor Pack", "Kenney - cursor artwork (CC0).", "https://kenney.nl/assets/cursor-pack"},
         attribution{"Find", "MalRD, zombie343, sippius - storage-slip catalog (MIT).", "https://github.com/Sippius/Ashita-v4-addons/tree/main/find"},
         attribution{"Grammara", "Grammara font (freeware, non-commercial).", "https://www.fontspace.com/grammara-font-f4454"},
+        attribution{"Highwind", "Twicolabs Fontdation - Zone Name font.", "http://fontdation.com"},
         attribution{"HeadsUp", "Tanyrus - Phoenix mob data snapshot (GPL-3.0-or-later).", "https://github.com/Tanyrus/headsup"},
         attribution{"libwebp", "Google - WebP image decoding (BSD-3-Clause).", "https://chromium.googlesource.com/webm/libwebp"},
         attribution{"MinHook", "Tsuda Kageyu - native function hooking (BSD-2-Clause).", "https://github.com/TsudaKageyu/minhook"},

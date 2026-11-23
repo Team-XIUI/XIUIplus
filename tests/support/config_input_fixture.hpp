@@ -31,6 +31,7 @@ auto RunTargetRingChecks(const char* client_root) -> bool;
 auto RunTargetRingStateChecks(void) -> bool;
 auto RunBlueMagicChecks(void) -> bool;
 auto RunPhantomRollChecks(void) -> bool;
+auto RunZoneNameChecks(void) -> bool;
 auto RunIconThemeChecks(void) -> bool;
 auto RunConfigResponsiveChecks(void) -> bool;
 namespace xiui { auto RunTargetChildChecks(void) -> bool; }

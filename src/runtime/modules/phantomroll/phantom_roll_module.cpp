@@ -65,7 +65,16 @@ namespace xiui
         std::array<phantom_roll_status, 32> statuses{};
         const auto count = std::min(local->buff_count, statuses.size());
         for (size_t i = 0; i < count; ++i) statuses[i] = {local->buffs[i], local->buff_expires[i]};
-        this->tracker_.Reconcile({statuses.data(), count}, now);
+        std::array<phantom_roll_member, 5> party{};
+        const auto& members = this->source_->Members();
+        size_t partyCount{};
+        for (size_t slot = 1; slot <= party.size(); ++slot)
+        {
+            const auto& member = members[slot];
+            if (!member.active) continue;
+            party[partyCount++] = {member.id, member.in_zone && member.buffs_known, {member.buffs.data(), std::min(member.buff_count, member.buffs.size())}};
+        }
+        this->tracker_.Reconcile({statuses.data(), count}, now, {party.data(), partyCount});
     }
 
     auto phantom_roll_module::HandlePacket(IAshitaCore* core, const uint16_t id, const std::span<const uint8_t> data, const uint64_t now, const combat_action_packet* decoded) -> void
@@ -81,7 +90,7 @@ namespace xiui
             player->GetLoginStatus() != static_cast<uint8_t>(Ashita::FFXI::Enums::LoginStatus::LoggedIn) ||
             party->GetMemberServerId(0) != this->player_id_ || party->GetMemberZone(0) != this->zone_ ||
             player->GetMainJob() != this->job_ || player->GetSubJob() != this->subjob_) return;
-        if (const auto& action = (decoded != nullptr ? *decoded : local).Action()) this->tracker_.Observe(*action, this->player_id_, now);
+        if (const auto& action = (decoded != nullptr ? *decoded : local).Action()) this->tracker_.Observe(*action, this->player_id_, now, this->PartyIds());
     }
 
     auto phantom_roll_module::Load(const settings_store& settings) -> void
@@ -93,7 +102,7 @@ namespace xiui
         this->layout_ = std::clamp(settings.ReadInt("phantomroll", "layout", 0), 0, 1);
         this->selected_text_ = std::clamp(settings.ReadInt("phantomroll", "selected_text", 0), 0, 4);
         this->state_.enabled = settings.ReadBool("phantomroll", "enabled", false);
-        for (const auto& [key, value] : {std::pair{"container", &this->container_}, {"potency", &this->potency_}, {"double_up", &this->double_up_}})
+        for (const auto& [key, value] : {std::pair{"container", &this->container_}, {"potency", &this->potency_}, {"double_up", &this->double_up_}, {"party", &this->party_}})
             *value = settings.ReadBool("phantomroll", key, *value);
         const auto number = [&](const char* key, const float fallback, const float minimum, const float maximum) {
             const auto value = settings.ReadFloat("phantomroll", key, fallback);
@@ -115,7 +124,7 @@ namespace xiui
             settings.WriteInt("phantomroll", "rules", ServerRulesIndex(this->Rules()));
         settings.WriteInt("phantomroll", "layout", this->layout_);
         settings.WriteInt("phantomroll", "selected_text", this->selected_text_);
-        for (const auto& [key, value] : {std::pair{"enabled", this->state_.enabled}, {"container", this->container_}, {"potency", this->potency_}, {"double_up", this->double_up_}})
+        for (const auto& [key, value] : {std::pair{"enabled", this->state_.enabled}, {"container", this->container_}, {"potency", this->potency_}, {"double_up", this->double_up_}, {"party", this->party_}})
             settings.WriteBool("phantomroll", key, value);
         settings.WriteFloat("phantomroll", "scale", this->scale_); settings.WriteFloat("phantomroll", "opacity", this->container_style_.opacity);
         settings.WriteFloat("phantomroll", "padding", this->container_style_.padding);
@@ -145,7 +154,7 @@ namespace xiui
         static constexpr const char* textNames[]{"Roll name", "Roll state", "Base potency", "Timer", "Die total"};
         switch (index)
         {
-        case enabled: return module_option::Toggle("Enabled", "Show your two native roll effects; tracking continues while hidden.", &this->state_.enabled).Ordered(-50);
+        case enabled: return module_option::Toggle("Enabled", "Show your two roll effects and your party's other rolls; tracking continues while hidden.", &this->state_.enabled).Ordered(-50);
         case rules: return module_option::Choice("Rules", "Shared with Action Bars / Skillchains. Base potency includes party job bonuses (none on Horizon); equipment and special ability modifiers remain unknown.", this->CombatSettings().RulesChoice(), server_rule_names, 3);
         case preview: return module_option::Action("Preview rolls", "Show separate samples until configuration closes; never changes live rolls.", "Preview");
         case layout: return module_option::Choice("Roll layout", "Arrange the two seats horizontally or vertically.", &this->layout_, layouts, 2);
@@ -156,6 +165,7 @@ namespace xiui
         case padding: return module_option::Slider("Container padding", "Space inside the native frame.", &this->container_style_.padding, 0, 24, 1);
         case potency: return module_option::Toggle("Base potency", "Show the base value, including the job bonus when a party member has the roll's job. Equipment modifiers and bust penalties remain unknown.", &this->potency_);
         case double_up: return module_option::Toggle("Double-Up window", "Native countdown and ordinary six-face die bust chance; special ability modifiers are not included.", &this->double_up_);
+        case party_rolls: return module_option::Toggle("Party rolls", "List rolls your party holds that you do not, such as a second Corsair's or ones you rolled before moving away. Timers keep running while members are out of sight; ~ marks an estimate.", &this->party_);
         case lucky_color: return module_option::Color("Lucky / eleven", "Lucky and eleven state tint, retaining text effects.", &this->lucky_);
         case unlucky_color: return module_option::Color("Unlucky", "Unlucky state tint.", &this->unlucky_);
         case bust_color: return module_option::Color("Bust", "Bust state tint.", &this->bust_);
@@ -183,6 +193,17 @@ namespace xiui
         return jobs;
     }
 
+    // Empty slots stay zero, which matches no actor or target.
+    auto phantom_roll_module::PartyIds(void) const -> std::array<uint32_t, 5>
+    {
+        std::array<uint32_t, 5> ids{};
+        if (this->source_ == nullptr || !this->source_->Available()) return ids;
+        const auto& members = this->source_->Members();
+        for (size_t slot = 0; slot < ids.size(); ++slot)
+            if (members[slot + 1].active) ids[slot] = members[slot + 1].id;
+        return ids;
+    }
+
     auto phantom_roll_module::StatusLines(void) const -> std::vector<std::string>
     {
         std::vector<std::string> lines;
@@ -195,6 +216,14 @@ namespace xiui
             lines.push_back((roll != nullptr ? std::string{roll->name} + " Roll" : std::string{"Unknown roll"}) + " total " + std::to_string(seat.total) +
                 "; " + PhantomRollPotencyText(roll, seat.total, this->level_, seat.busted, bonus, this->roller_level_));
         }
+        for (const auto& entry : this->tracker_.PartyRolls())
+        {
+            if (!this->tracker_.PartyVisible(entry)) continue;
+            const auto* roll = PhantomRollByAbility(entry.ability, this->Rules());
+            lines.push_back("Party " + (roll != nullptr ? std::string{roll->name} + " Roll" : std::string{"Unknown roll"}) + " total " +
+                (entry.total != 0 ? std::to_string(entry.total) : std::string{"unknown"}) + "; remaining " + Remaining(entry.expires, this->now_, entry.estimated) +
+                "; " + std::to_string(entry.holders) + " members");
+        }
         return lines;
     }
 
@@ -202,6 +231,7 @@ namespace xiui
     {
         if (!this->state_.enabled) return false;
         for (const auto& seat : this->tracker_.Seats()) if (seat.Present()) return true;
+        if (this->party_) for (const auto& entry : this->tracker_.PartyRolls()) if (this->tracker_.PartyVisible(entry)) return true;
         return this->preview_;
     }
 
@@ -221,10 +251,24 @@ namespace xiui
         const auto meterHeight = std::max(meter.height, rowHeight(3)) + 4 * this->scale_;
         const auto seatHeight = rowHeight(0) + 4 * this->scale_ + std::max(dieSize, rowHeight(1) * 2) +
             (this->potency_ ? rowHeight(2) + 4 * this->scale_ : 0) + meterHeight + 8 * this->scale_;
+        std::array<phantom_roll_party, 4> partyRolls{};
+        size_t partyCount{};
+        if (this->party_ && sample)
+        {
+            partyRolls[partyCount++] = {98, 310, 5, 3, false, false, false, 1, this->now_ + 201000, 300000, 0};
+            partyRolls[partyCount++] = {109, 321, 9, 3, true, false, false, 1, this->now_ + 97000, 300000, 0};
+        }
+        else if (this->party_)
+            for (const auto& entry : this->tracker_.PartyRolls()) if (this->tracker_.PartyVisible(entry)) partyRolls[partyCount++] = entry;
+        const auto smallDie = 22 * this->scale_;
+        const auto partyRow = std::max({smallDie, rowHeight(0), rowHeight(3)}) + 4 * this->scale_;
+        const size_t partyColumns = this->layout_ == 0 ? 2 : 1;
+        const auto partyHeight = partyCount != 0 ? gap + rowHeight(1) + partyRow * ((partyCount + partyColumns - 1) / partyColumns) : 0.0f;
+        const auto seatsHeight = seatHeight * (this->layout_ == 0 ? 1 : 2) + (this->layout_ == 0 ? 0 : gap);
         const auto until = sample ? this->now_ + 32000 : this->tracker_.DoubleUpUntil();
         const bool showWindow = this->double_up_ && until > this->now_;
         const float inset = this->container_ ? this->container_style_.edge_size + this->container_style_.padding : 0;
-        this->state_.bounds.height = inset * 2 + seatHeight * (this->layout_ == 0 ? 1 : 2) + (this->layout_ == 0 ? 0 : gap) +
+        this->state_.bounds.height = inset * 2 + seatsHeight + partyHeight +
             (showWindow ? rowHeight(1) + meterHeight + gap : 0);
         const auto content = this->container_ ? context.DrawContainer(this->state_.bounds, this->container_style_) : this->state_.bounds;
         const auto columnWidth = this->layout_ == 0 ? (content.width - gap) / 2 : content.width;
@@ -262,9 +306,36 @@ namespace xiui
             context.DrawMeter({x, y + meterHeight / 2, columnWidth, meter.height}, i18n::Text("Remaining"), Remaining(seat.expires, this->now_, !seat.observed).c_str(),
                 ratio, this->top_, this->bottom_, meter, this->animation_[i], true, &text[3], &text[3], ui::meter_text_anchor::center);
         }
+        if (partyCount != 0)
+        {
+            auto y = content.y + seatsHeight + gap;
+            drawLine(i18n::Text("Party rolls"), {content.x, y, content.width, rowHeight(1)}, 1);
+            y += rowHeight(1);
+            auto dieText = text[4], timerText = text[3];
+            dieText.style.scale *= smallDie / dieSize;
+            timerText.style.alignment = ui::text_alignment::right;
+            const auto timerWidth = std::min(columnWidth * 0.4f, 64 * this->scale_);
+            for (size_t i = 0; i < partyCount; ++i)
+            {
+                const auto& entry = partyRolls[i];
+                const auto* roll = PhantomRollByAbility(entry.ability, this->Rules());
+                const auto x = content.x + (i % partyColumns) * (columnWidth + gap), rowY = y + (i / partyColumns) * partyRow;
+                const bool lucky = roll != nullptr && (entry.total == 11 || entry.total == roll->lucky);
+                const bool unlucky = roll != nullptr && entry.total == roll->unlucky;
+                const auto color = lucky ? this->lucky_ : unlucky ? this->unlucky_ : design.GetTheme().colors.text;
+                const ui::rect die{x, rowY + (partyRow - smallDie) / 2, smallDie, smallDie};
+                design.FillRoundedRect(die, 0xD01A1A1A, 3 * this->scale_);
+                design.FillRoundedRect({die.x + 1, die.y + 1, smallDie - 2, smallDie - 2}, (color & 0xFFFFFF) | 0x50000000, 3 * this->scale_);
+                context.DrawText(entry.total == 0 ? "?" : std::to_string(entry.total).c_str(), die, die, TintTextProfile(dieText, color));
+                const auto nameX = x + smallDie + gap / 2;
+                drawLine(roll != nullptr ? std::string{roll->name} + " Roll" : "?", {nameX, rowY, std::max(0.0f, x + columnWidth - timerWidth - nameX), partyRow}, 0);
+                const ui::rect timer{x + columnWidth - timerWidth, rowY, timerWidth, partyRow};
+                context.DrawText(entry.expires != 0 ? Remaining(entry.expires, this->now_, entry.estimated).c_str() : "--:--", timer, timer, timerText);
+            }
+        }
         if (showWindow)
         {
-            const auto y = content.y + seatHeight * (this->layout_ == 0 ? 1 : 2) + (this->layout_ == 0 ? 0 : gap) + gap;
+            const auto y = content.y + seatsHeight + partyHeight + gap;
             const auto* latest = sample ? &samples[1] : this->tracker_.LatestOpen();
             const auto chance = latest != nullptr && latest->total != 0 ? std::to_string(static_cast<int>(std::round(PhantomBustChance(latest->total) * 100))) + "%" : "unknown";
             drawLine("Base bust chance: " + chance + " (ordinary die)", {content.x, y, content.width, rowHeight(1)}, 1);

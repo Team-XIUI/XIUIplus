@@ -165,6 +165,8 @@ set(XIUI_HUD_SOURCES
     src/runtime/modules/pet/pet_module.hpp
     src/runtime/modules/bluemagic/blue_magic_module.cpp
     src/runtime/modules/bluemagic/blue_magic_module.hpp
+    src/runtime/modules/zonename/zone_name_module.cpp
+    src/runtime/modules/zonename/zone_name_module.hpp
     src/runtime/modules/phantomroll/phantom_roll_module.cpp
     src/runtime/modules/phantomroll/phantom_roll_module.hpp
     src/runtime/modules/phantomroll/phantom_roll_tracker.cpp

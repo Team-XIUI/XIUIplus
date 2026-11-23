@@ -359,7 +359,11 @@ namespace xiui
         const auto previous = ::SelectObject(dc, font);
         char actual[LF_FACESIZE]{}; ::GetTextFaceA(dc, LF_FACESIZE, actual);
         ::SelectObject(dc, previous); ::DeleteObject(font); ::DeleteDC(dc);
-        return check(::_stricmp(actual, "Grammara") == 0, "Grammara resolves to its own face rather than a Windows fallback");
+        if (!check(::_stricmp(actual, "Grammara") == 0, "Grammara resolves to its own face rather than a Windows fallback")) return false;
+        ui::embedded_font highwind;
+        const int listed = ui::FontFamilyIndex(ui::highwind_family);
+        return check(highwind.Load(ui::highwind_resource) && listed >= ui::builtin_font_count && listed < ui::FontCount() &&
+            ui::FontFamily(listed) == ui::highwind_family, "Highwind loads from its embedded resource and is listed by family name");
     }
 
     auto config_input_test::FontChoices(void) -> bool

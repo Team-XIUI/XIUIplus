@@ -24,6 +24,7 @@
 #include "modules/pet/pet_source.hpp"
 #include "modules/bluemagic/blue_magic_module.hpp"
 #include "modules/phantomroll/phantom_roll_module.hpp"
+#include "modules/zonename/zone_name_module.hpp"
 #include "combat/combat_settings.hpp"
 #include "modules/magicburst/magic_burst_module.hpp"
 #include "modules/chains/chains_module.hpp"
@@ -254,6 +255,9 @@ namespace xiui
             {this->actionbars_, 6}, {this->actionbars_, 7}, {this->actionbars_, 8}, {this->actionbars_, 9}, {this->actionbars_, 10}}};
         std::array<hud_module*, action_bar_count + 1> actionbar_members_{};
         std::array<bool, 256> actionbar_key_release_{};
+        // Context of the last key press a hotbar binding took, for reports of binds firing while typing.
+        struct actionbar_key_trace { uint32_t key{}, flags{}, layout{}; int keyboard{-1}; uint8_t native_input{}; bool digit{}, chat_focused{}, native_menu{}; uint64_t at{}; };
+        actionbar_key_trace actionbar_key_trace_{};
         uint32_t actionbar_test_marks_{}; // Ashita bind executions recorded by /xiuiplus actionbars test mark
         std::vector<std::string> macro_test_lines_{}; // unsaved /xiuiplus actionbars macrotest lines
         bool macro_test_starting_{};
@@ -274,6 +278,7 @@ namespace xiui
         std::array<notification_group_module, 5> notification_groups_{{{this->notifications_, 1}, {this->notifications_, 2}, {this->notifications_, 3}, {this->notifications_, 4}, {this->notifications_, 5}}};
         blue_magic_module blue_magic_{};
         phantom_roll_module phantom_roll_{};
+        zone_name_module zone_name_{};
         skillchain_source skillchain_source_{};
         magic_burst_module magic_burst_{};
         chains_source chains_source_{};
@@ -295,7 +300,7 @@ namespace xiui
         std::array<world_info_part_module, 4> world_parts_{{{this->world_info_, 0}, {this->world_info_, 1}, {this->world_info_, 2}, {this->world_info_, 3}}};
         command_menu_module commands_{};
         std::array<native_window_module, native_window_count> native_windows_{};
-        std::array<hud_module*, 8> extras_pages_{};
+        std::array<hud_module*, 9> extras_pages_{};
         native_ui_state native_ui_{};
         module_visibility_source visibility_source_{};
         module_visibility_context visibility_context_{};

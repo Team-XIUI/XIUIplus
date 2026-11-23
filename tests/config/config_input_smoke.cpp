@@ -372,8 +372,8 @@ int main(int argc, char** argv)
     if (argc == 2 && std::strcmp(argv[1], "--new-features-only") == 0)
     {
         if (!xiui::RunTargetDisplayChecks() || !xiui::RunReadyCheckSoundChecks() || !RunBlueMagicChecks() ||
-            !RunPhantomRollChecks() || !RunIconThemeChecks() || !xiui::RunMobInfoChecks() || !xiui::RunPetHudChecks()) return 1;
-        std::puts("Target, Ready Check sound, Blue Magic, Phantom Roll, icon themes, Mob Info and Pet HUD checks passed.");
+            !RunPhantomRollChecks() || !RunZoneNameChecks() || !RunIconThemeChecks() || !xiui::RunMobInfoChecks() || !xiui::RunPetHudChecks()) return 1;
+        std::puts("Target, Ready Check sound, Blue Magic, Phantom Roll, Zone Name, icon themes, Mob Info and Pet HUD checks passed.");
         return 0;
     }
     if (argc == 2 && std::strcmp(argv[1], "--icon-themes-only") == 0) return RunIconThemeChecks() ? 0 : 1;

@@ -206,6 +206,8 @@ namespace xiui
         this->phantom_roll_.SetCombatSettings(&this->combat_settings_);
         this->modules_.Add(this->blue_magic_);
         this->modules_.Add(this->phantom_roll_);
+        this->zone_name_.SetSource(&this->party_source_);
+        this->modules_.Add(this->zone_name_);
         this->magic_burst_.SetSource(&this->skillchain_source_);
         this->modules_.Add(this->magic_burst_);
         this->chains_.SetSources(&this->skillchain_source_, &this->chains_source_);
@@ -229,7 +231,7 @@ namespace xiui
         this->modules_.Add(this->world_info_);
         for (auto& part : this->world_parts_) this->modules_.Add(part);
         this->modules_.Add(this->commands_);
-        this->extras_pages_ = {&this->compass_, &this->world_info_, &this->blue_magic_, &this->phantom_roll_, &this->ready_check_, &this->magic_burst_, &this->fishing_, &this->chains_};
+        this->extras_pages_ = {&this->compass_, &this->world_info_, &this->blue_magic_, &this->phantom_roll_, &this->ready_check_, &this->magic_burst_, &this->fishing_, &this->chains_, &this->zone_name_};
         for (size_t index = 0; index < this->native_windows_.size(); ++index)
         {
             this->native_windows_[index].Initialize(index);
@@ -362,6 +364,7 @@ namespace xiui
         this->notifications_ = notification_module{};
         this->blue_magic_.ResetDefaults(this->design_system_.GetTheme());
         this->phantom_roll_.ResetDefaults(this->design_system_.GetTheme());
+        this->zone_name_.ResetDefaults(this->design_system_.GetTheme());
         this->skillchain_source_.Clear();
         this->magic_burst_.ResetDefaults(this->design_system_.GetTheme());
         this->chains_source_.Clear();
@@ -1661,6 +1664,17 @@ namespace xiui
                     state.player.x, state.player.y, state.markers.size(), this->minimap_maps_.Count(), this->minimap_maps_.SourceName());
             return true;
         }
+        else if (::_stricmp(command, "zonename preview") == 0)
+        {
+            this->zone_name_.Replay();
+            return true;
+        }
+        else if (::_stricmp(command, "zonename") == 0)
+        {
+            this->SetVisible(true); this->SetEditing(true);
+            this->SelectConfigModule(&this->zone_name_);
+            return true;
+        }
         else if (::_stricmp(command, "minimap") == 0 || ::_stricmp(command, "player") == 0)
         {
             // Opening Configuration clears the selected-module preview, so select afterwards.
@@ -2423,6 +2437,9 @@ namespace xiui
             if (this->chains_.State().AutomaticPosition(chains.y)) chains.y = std::max(0.0f, viewport.Height * 0.35f);
             if (this->phantom_roll_.State().AutomaticPosition(phantomRoll.x)) phantomRoll.x = std::max(0.0f, (viewport.Width - phantomRoll.width) * 0.5f);
             if (this->phantom_roll_.State().AutomaticPosition(phantomRoll.y)) phantomRoll.y = std::max(0.0f, (viewport.Height - phantomRoll.height) * 0.65f);
+            auto& zoneName = this->zone_name_.State().bounds;
+            if (this->zone_name_.State().AutomaticPosition(zoneName.x)) zoneName.x = std::max(0.0f, (viewport.Width - zoneName.width) * 0.5f);
+            if (this->zone_name_.State().AutomaticPosition(zoneName.y)) zoneName.y = std::max(0.0f, viewport.Height * 0.18f);
             auto& castBar = this->cast_bar_.State().bounds;
             auto& fishing = this->fishing_.State().bounds;
             if (this->fishing_.State().AutomaticPosition(fishing.x)) fishing.x = std::max(0.0f, (viewport.Width - fishing.width) * 0.5f);
@@ -2968,6 +2985,7 @@ namespace xiui
         this->party_source_.Update(this->core_, now);
         this->blue_magic_.Update(now, this->ConfigPreview(this->blue_magic_));
         this->phantom_roll_.Update(now, this->ConfigPreview(this->phantom_roll_));
+        this->zone_name_.Update(now, this->ConfigPreview(this->zone_name_));
         this->game_icons_.SetThemes(this->general_.StatusIconTheme(), this->general_.JobIconTheme());
         this->party_timing_source_.Update(this->party_source_.Members(), this->party_source_.Members()[0].id, &this->timing_source_, now);
         for (auto* group : {&this->party_, &this->alliance_first_, &this->alliance_second_}) group->SetTiming(&this->party_timing_source_);

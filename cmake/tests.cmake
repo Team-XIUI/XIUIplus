@@ -108,6 +108,7 @@ add_executable(xiui_config_input_smoke
     tests/modules/ready_check_sound_checks.cpp
     tests/modules/blue_magic_checks.cpp
     tests/modules/phantom_roll_checks.cpp
+    tests/modules/zone_name_checks.cpp
     tests/modules/mob_info_checks.cpp
     tests/ui/icon_theme_checks.cpp
     tests/modules/pet_hud_checks.cpp

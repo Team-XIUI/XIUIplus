@@ -124,6 +124,7 @@ namespace xiui
         this->state_.enabled = store.ReadBool("target", "enabled", true);
         this->settings_.hide_when_empty = store.ReadBool("target", "hide_when_empty", false);
         this->settings_.hide_self = store.ReadBool("target", "hide_self", false);
+        this->settings_.npc_health = store.ReadBool("target", "npc_health", true);
         this->settings_.show_distance = store.ReadBool("target", "show_distance", true);
         this->settings_.show_percent = store.ReadBool("target", "show_percent", true);
         this->settings_.show_label = store.ReadBool("target", "show_label", true);
@@ -179,6 +180,7 @@ namespace xiui
         store.WriteInt("target", "distance_color_version", 1);
         store.WriteBool("target", "hide_when_empty", this->settings_.hide_when_empty);
         store.WriteBool("target", "hide_self", this->settings_.hide_self);
+        store.WriteBool("target", "npc_health", this->settings_.npc_health);
         store.WriteBool("target", "show_distance", this->settings_.show_distance);
         store.WriteBool("target", "show_percent", this->settings_.show_percent);
         store.WriteBool("target", "show_label", this->settings_.show_label);
@@ -205,7 +207,7 @@ namespace xiui
         store.WriteRect("layout.target", this->state_.bounds);
     }
 
-    auto target_module::ContentOptionCount(void) const -> size_t { return hide_self_option + 1; }
+    auto target_module::ContentOptionCount(void) const -> size_t { return npc_health_option + 1; }
 
     auto target_module::OnContentOptionChanged(const size_t index) -> void
     {
@@ -246,7 +248,7 @@ namespace xiui
     auto target_module::ContentConfigSectionContains(const size_t section, const size_t index) -> bool
     {
         if (section >= this->ConfigSections().size() || index >= this->OptionCount()) return false;
-        if (index == hide_self_option) return this->config_view_ == 0 && section == 0;
+        if (index == hide_self_option || index == npc_health_option) return this->config_view_ == 0 && section == 0;
         if (index >= ring_options_start + target_ring_settings::option_count) return this->config_view_ == 0 && section == 8;
         if (this->config_view_ == 4) return index >= ring_options_start && section == target_ring_settings::Section(index - ring_options_start);
         if (this->config_view_ == 3) return index >= world_options_start && index < ring_options_start && section == world_target_bar::Section(index - world_options_start);
@@ -270,6 +272,8 @@ namespace xiui
 
     auto target_module::ContentOption(const size_t index) -> module_option
     {
+        if (index == npc_health_option)
+            return module_option::Toggle("NPC HP bar", "Show the HP bar when targeting an NPC, here and on the World Target Bar, Target of Target and Subtarget.", &this->settings_.npc_health);
         if (index == hide_self_option)
             return module_option::Toggle("Hide when targeting yourself", "Hide the Target window while your own character is the main target.", &this->settings_.hide_self);
         if (index >= ring_options_start + target_ring_settings::option_count)
@@ -330,7 +334,7 @@ namespace xiui
             if (index == 0 || index >= entity->GetEntityMapSize())
                 return;
             this->name_color_ = ReadEntityNameColor(*party, *entity, index);
-            this->has_health_ = EntityHasHealth(entity->GetSpawnFlags(index));
+            this->has_health_ = this->ShowsHealth(entity->GetSpawnFlags(index));
         }
     }
 
@@ -351,7 +355,7 @@ namespace xiui
         const auto entityState = ReadEntityNameState(*group, *entities, index);
         view.color = entityState.color; view.kind = entityState.kind;
         view.mob = MobForEntity(id, static_cast<uint16_t>(group->GetMemberZone(0)), IsMonster(view.kind));
-        view.health = EntityHasHealth(entities->GetSpawnFlags(index));
+        view.health = this->ShowsHealth(entities->GetSpawnFlags(index));
         view.status_count = 0;
         const auto* actor = combat.Find(id);
         if (actor != nullptr)
@@ -647,6 +651,8 @@ namespace xiui
         auto nameColor = this->views_[0].color;
         auto& bar = this->settings_.world_bar;
         const auto* heal = bar.heal_preview.enabled && bar.healing != nullptr ? bar.healing->Primary(::GetTickCount64()) : nullptr;
+        // The host projects NPCs too; the setting decides whether they get a bar.
+        if (heal == nullptr && !(this->details_ready_ ? this->views_[0].health : this->has_health_)) world.target_screen_valid = false;
         if (heal != nullptr)
         {
             world.target_server_id = heal->id; world.target_valid = true; world.target_hp_percent = heal->percent;

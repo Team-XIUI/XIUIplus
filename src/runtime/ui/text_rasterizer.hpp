@@ -37,7 +37,7 @@ namespace xiui::ui
         uint32_t* pixels_{};
         int width_{}, height_{};
         uint64_t touched_{};
-        embedded_font grammara_{};
+        embedded_font grammara_{}, highwind_{};
         auto Face(int font, int pixels, font_variant variant) -> face*;
         auto GlyphFace(int font, int pixels, uint32_t codepoint, font_variant variant) -> face*;
         auto Surface(int width, int height) -> bool;

@@ -89,7 +89,7 @@ namespace xiui::ui
             ::DeleteDC(this->dc_);
         }
         this->dc_ = nullptr; this->bitmap_ = nullptr; this->pixels_ = nullptr; this->width_ = this->height_ = 0;
-        this->grammara_.Clear();
+        this->grammara_.Clear(); this->highwind_.Clear();
     }
 
     auto text_rasterizer::Face(const int font, const int pixels, const font_variant variant) -> face*
@@ -102,6 +102,7 @@ namespace xiui::ui
         if (this->dc_ == nullptr) this->dc_ = ::CreateCompatibleDC(nullptr);
         if (this->dc_ == nullptr || (family == grammara_font && !this->grammara_.Load())) return nullptr;
         const auto* entry = fallback ? nullptr : &FontEntry(family);
+        if (!fallback && !entry->builtin && ::_stricmp(entry->family.c_str(), highwind_family) == 0) this->highwind_.Load(highwind_resource);
         const wchar_t* name = fallback ? L"Yu Gothic UI" : entry->wide_family.c_str();
         const auto weight = variant.weight;
         const int faceWeight = weight == font_weight::medium ? FW_MEDIUM : weight == font_weight::regular ? FW_NORMAL : weight == font_weight::bold ? FW_BOLD :

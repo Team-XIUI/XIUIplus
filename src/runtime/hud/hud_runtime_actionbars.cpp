@@ -339,6 +339,13 @@ namespace xiui
                         static_cast<unsigned>(target->GetActionType()), target->GetActionId(), target->GetActionCallback() != 0 ? "pending" : "none",
                         target->GetCancelCallback() != 0 ? "pending" : "none", this->actionbars_.PointerDown() ? "yes" : "no",
                         this->actionbars_.AssignmentDragging() ? "yes" : "no");
+                if (const auto& trace = this->actionbar_key_trace_; trace.at != 0)
+                {
+                    static constexpr const char* keyboards[]{"unavailable", "Full", "Compact 1", "Compact 2"};
+                    this->core_->GetChatManager()->Writef(1, false, "[XIUI+] Last hotbar key: VK 0x%02X, flags 0x%08X, %.1f s ago; keyboard %s; input language 0x%04X; top-row digit %s; XIUI+ chat %s; native input status %u; native menu %s.",
+                        trace.key, trace.flags, static_cast<double>(::GetTickCount64() - trace.at) / 1000.0, keyboards[std::clamp(trace.keyboard + 1, 0, 3)], trace.layout,
+                        trace.digit ? "yes" : "no", trace.chat_focused ? "typing" : "idle", static_cast<unsigned>(trace.native_input), trace.native_menu ? "open" : "closed");
+                }
                 this->core_->GetChatManager()->Writef(1, false, "[XIUI+] Current TP: %u. %s", party != nullptr ? party->GetMemberTP(0) : 0,
                     this->action_executor_.Diagnostics(::GetTickCount64()).c_str());
             }
@@ -402,6 +409,14 @@ namespace xiui
         const bool consumed = this->actionbars_.HandleKey(key, flags, blocked);
         if (consumed && replacement) this->actionbars_.ObserveNativeMacroKey(key, flags, true);
         if (consumed && key < this->actionbar_key_release_.size()) this->actionbar_key_release_[key] = true;
+        if (consumed && !this->actionbars_.InputFocused())
+        {
+            const auto layout = this->window_config_.KeyboardLayout();
+            const auto* chat = this->core_ != nullptr ? this->core_->GetChatManager() : nullptr;
+            this->actionbar_key_trace_ = {static_cast<uint32_t>(key), static_cast<uint32_t>(flags),
+                static_cast<uint32_t>(reinterpret_cast<uintptr_t>(::GetKeyboardLayout(0)) & 0xFFFF), layout ? static_cast<int>(*layout) : -1,
+                chat != nullptr ? chat->IsInputOpen() : uint8_t{}, KeyboardTypesDigit(key, flags), this->chat_.Focused(), this->ControllerNativeMenuOpen(), ::GetTickCount64()};
+        }
         return consumed;
     }
 

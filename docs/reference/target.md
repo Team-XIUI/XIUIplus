@@ -14,7 +14,7 @@ Target status rows measure countdown text at the configured profile size before 
 
 Rings default to model-relative sizing through Ashita's model hitbox radius. Keep the band, glow and facing marker proportional, and rebuild when the footprint changes. Fixed yalm sizing remains available in Target → Target Rings → Layout.
 
-Pets with the native Ally flag have health even without Player/Monster flags. Keep HP detection separate from NPC name colors and ring visibility preferences: these pets use their native HP percentage in target displays and ring fill, while ordinary NPCs retain decorative rings. The host uses the same health check for world-bar projection.
+Pets with the native Ally flag have health even without Player/Monster flags. Keep HP detection separate from NPC name colors and ring visibility preferences: these pets use their native HP percentage in target displays and ring fill, while ordinary NPCs retain decorative rings. Target → General → **NPC HP bar** (on by default) also shows the HP bar for NPCs on Target, Target of Target, Subtarget and the World Target Bar, using the client's HP percent; rings stay decorative for them. The host projects NPCs as well as health-bearing entities, and the runtime applies the setting.
 
 World rendering accepts the native fixed-function camera as well as the recognized terrain shader. The latter takes priority when present. Submit only at the matching scene end or scene-copy boundary; `target-ring-camera` covers both paths and frame lifetime.
 

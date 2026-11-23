@@ -1,6 +1,6 @@
 # Settings inventory
 
-Generated 2026-11-14. Source: runtime option metadata and shared layout.
+Generated 2026-11-22. Source: runtime option metadata and shared layout.
 Regenerate with `./scripts/update-docs.ps1`. Each bullet is one visual row; [empty] preserves paired controls.
 
 ## Player Bar
@@ -315,6 +315,7 @@ Regenerate with `./scripts/update-docs.ps1`. Each bullet is one visual row; [emp
 - Cast bar | Lock highlight
 - Enemy ID | Player HP percent
 - Monster HP percent | Hide when targeting yourself
+- NPC HP bar
 
 ### Appearance / Size & Position
 
@@ -3958,7 +3959,7 @@ Regenerate with `./scripts/update-docs.ps1`. Each bullet is one visual row; [emp
 
 - Enabled | Rules
 - Preview rolls | Base potency
-- Double-Up window
+- Double-Up window | Party rolls
 
 ### Appearance / Size & Position
 
@@ -3992,6 +3993,31 @@ Regenerate with `./scripts/update-docs.ps1`. Each bullet is one visual row; [emp
 - Animated sheen | [empty]
 - Sheen width | Sheen speed
 - Smooth fill | Fill response
+
+### Text
+
+- Show text | [empty]
+- Font | Size (px)
+- Font weight | Italic
+- Alignment | Letter spacing
+- X offset | Y offset
+- Top color | Bottom color
+- Shadow | Shadow color
+- Soft shadow | Stroke
+- Glow
+
+## Zone Name
+
+### General
+
+- Scale (%) | Lock proportions
+- Reset scale | Enabled
+- Width | Preview zone name
+
+### Appearance
+
+- Entrance | Hold time
+- Exit
 
 ### Text
 
@@ -4162,18 +4188,20 @@ Regenerate with `./scripts/update-docs.ps1`. Each bullet is one visual row; [emp
 - Blue Magic Learned | Phantom Roll
 - Ready Check | Magic Burst
 - Fishing | Chains
-- Target of Target | Subtarget
+- Zone Name | Target of Target
+- Subtarget
 
 ### Attribution
 
 - Cadence | Momentum
 - Chains | ChatMon
 - Cursor Pack | Find
-- Grammara | HeadsUp
-- libwebp | MinHook
-- miniz | MobDB
-- Phoenix | Remapster
-- Vincerno icons | XivParty
+- Grammara | Highwind
+- HeadsUp | libwebp
+- MinHook | miniz
+- MobDB | Phoenix
+- Remapster | Vincerno icons
+- XivParty
 
 ### Grid
 
@@ -4200,7 +4228,7 @@ Regenerate with `./scripts/update-docs.ps1`. Each bullet is one visual row; [emp
 ### Visibility
 
 - Apply visibility choices | Hide native UI
-- Restore native UI | Corner radius
+- Restore native UI | Border thickness
 - Player Bars | Party List
 - Alliance 1 | Alliance 2
 - Target Box | Cast Bar
@@ -4977,4 +5005,4 @@ Regenerate with `./scripts/update-docs.ps1`. Each bullet is one visual row; [emp
 
 ## Coverage
 
-360 registered modules, 623 distinct pages, 5153 controls across those pages, and 2359 selector/view combinations.
+361 registered modules, 626 distinct pages, 5182 controls across those pages, and 2362 selector/view combinations.

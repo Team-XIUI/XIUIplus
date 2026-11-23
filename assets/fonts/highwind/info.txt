@@ -1,0 +1,4 @@
+Highwind Regular, Version 1.000
+Copyright (c) 2018 by Twicolabs Fontdation. All rights reserved.
+Highwind is a trademark of Twicolabs Fontdation.
+link: http://fontdation.com

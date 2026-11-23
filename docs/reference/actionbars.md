@@ -74,7 +74,7 @@ Configuration → **Action Bars** has six destinations: Hotbars, Crossbar, Actio
 
 Action workspaces remain open when Configuration closes. The remaining workspace receives focus, preserving unsaved macro text; use its X button, Escape or controller Cancel to dismiss it.
 
-Assigned actions and macros can run from clicks, configured shortcuts and the crossbar while the normal native Attack/command menu is open. Native shop/editor menus and active target selection remain guarded. `/xiuiplus actionbars status` includes the focused native window and current execution permission.
+Assigned actions and macros can run from clicks, configured shortcuts and the crossbar while the normal native Attack/command menu is open. Native shop/editor menus and active target selection remain guarded. `/xiuiplus actionbars status` includes the focused native window and current execution permission, and the context of the last key press a hotbar binding took (key, native keyboard mode, input language, whether XIUI+ or native chat was typing), for reports of bindings firing while typing.
 
 Controller trigger replacement applies live over the normal command menu, including during combat. The host and input queue verify the current focused native window before suppressing triggers or accepting crossbar actions, so a newly opened inventory or other native menu keeps its input even before the next HUD frame. An already-open native macro palette cannot block replacement behind its hidden buttons. After changing trigger settings, release held triggers and action buttons before using the crossbar again.
 

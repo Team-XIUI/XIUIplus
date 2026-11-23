@@ -32,6 +32,9 @@ namespace xiui::ui
         font_face{"Times New Roman", FW_BOLD, true}};
     inline constexpr int builtin_font_count = static_cast<int>(builtin_font_faces.size());
     inline constexpr int grammara_font = 3;
+    // Embedded like Grammara but listed and saved by family name, like an installed font.
+    inline constexpr const char* highwind_family = "Highwind";
+    inline constexpr int grammara_resource = 501, highwind_resource = 503;
     inline constexpr int max_font_count = 1024;
     // Rasterizer-only Yu Gothic UI face for glyphs the selected font lacks.
     inline constexpr int cjk_fallback_font = max_font_count;
@@ -61,7 +64,7 @@ namespace xiui::ui
         embedded_font(const embedded_font&) = delete;
         auto operator=(const embedded_font&) -> embedded_font& = delete;
         ~embedded_font(void);
-        auto Load(void) -> bool;
+        auto Load(int resource = grammara_resource) -> bool;
         auto Clear(void) -> void;
         auto Available(void) const -> bool { return this->handle_ != nullptr; }
 

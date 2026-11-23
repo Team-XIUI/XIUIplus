@@ -40,12 +40,13 @@ namespace xiui
 
     private:
         auto PartyJobs(void) const -> std::array<uint8_t, 6>;
+        auto PartyIds(void) const -> std::array<uint32_t, 5>;
         enum option : size_t { enabled, rules, preview, layout, width, scale, container, opacity, padding,
-            potency, double_up, lucky_color, unlucky_color, bust_color, fill_top, fill_bottom, selected_text, base_options };
+            potency, double_up, party_rolls, lucky_color, unlucky_color, bust_color, fill_top, fill_bottom, selected_text, base_options };
         module_state state_{false, {-1, -1, 480, 172}, 260, 60};
         const party_source* source_{};
         phantom_roll_tracker tracker_{};
-        bool preview_{}, container_{true}, potency_{true}, double_up_{true};
+        bool preview_{}, container_{true}, potency_{true}, double_up_{true}, party_{true};
         int layout_{}, selected_text_{};
         combat_settings local_combat_settings_{};
         combat_settings* combat_settings_{};

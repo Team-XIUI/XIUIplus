@@ -34,6 +34,12 @@ namespace xiui
                 if (!Check(self.ShouldRender({}), "other targets still show the Target window")) { restore(); return false; }
                 self.settings_.hide_self = false; self.self_target_ = true;
                 if (!Check(self.ShouldRender({}), "targeting yourself still shows the window when the option is off")) { restore(); return false; }
+                target_module plain; plain.Load(settings_store::FromIniText("[target]\nnpc_health=0\n"));
+                size_t npcPages{};
+                for (size_t section = 0; section < self.ConfigSections().size(); ++section) npcPages += self.ConfigSectionContains(section, target_module::npc_health_option);
+                if (!Check(self.ShowsHealth(0x02) && self.ShowsHealth(0x10) && !self.ShowsHealth(0) && !plain.ShowsHealth(0x02) && plain.ShowsHealth(0x10) &&
+                    npcPages == 1 && self.Option(target_module::npc_health_option).toggle == &self.settings_.npc_health,
+                    "NPC HP bar shows health for NPCs by default, can be turned off and appears once on the General page")) { restore(); return false; }
             }
             const auto reserved = target_module::display_options_start + target_display_settings::base_options + 1;
             size_t owners{};

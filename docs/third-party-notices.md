@@ -29,6 +29,7 @@ The plugin bundles the components below. Each keeps its own license; the full te
 | [Find](https://github.com/Sippius/Ashita-v4-addons/tree/main/find) storage-slip catalog | MalRD, zombie343, sippius | MIT | [assets/satchel](../assets/satchel/NOTICES.txt) |
 | [Cursor Pack](https://kenney.nl/assets/cursor-pack) | Kenney | CC0 | [assets/cursors](../assets/cursors/LICENSE.txt) |
 | [Grammara](https://www.fontspace.com/grammara-font-f4454) font | See font notice | Freeware, non-commercial | [assets/fonts](../assets/fonts/README.md) |
+| [Highwind](http://fontdation.com) font | Twicolabs Fontdation | All rights reserved; see font notice | [assets/fonts](../assets/fonts/highwind/info.txt) |
 
 ## Game artwork
 

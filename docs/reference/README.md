@@ -46,6 +46,7 @@ Rules that apply to every module are in [foundations](../foundations.md).
 - [Compass](compass.md)
 - [Time / Weather](world.md)
 - [Minimap](minimap.md)
+- [Zone Name](zonename.md)
 
 **Native UI and global settings**
 
