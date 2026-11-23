@@ -56,7 +56,7 @@ namespace xiui
         static auto ObservePosition(menu& value, const std::array<int16_t, 2>& current) -> void;
         auto UpdateWindows(void) -> void;
         auto RefreshWindows(const std::array<bool, native_window_count>& drawn, uintptr_t pending = 0) -> void;
-        auto UpdateChatShifts(const std::array<std::array<int, 4>, native_window_count>& native, int logTop) -> void;
+        auto UpdateChatShifts(const std::array<std::array<int, 4>, native_window_count>& native) -> void;
         auto ReadWindow(uintptr_t primitive, menu& value) const -> bool;
         auto UpdateMenuVisibility(void) -> void;
         auto DrawInactive(uintptr_t current) -> void;

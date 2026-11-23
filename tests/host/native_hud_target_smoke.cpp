@@ -386,8 +386,8 @@ namespace xiui
             if (!check(command.Coordinates() == std::array<int16_t, 2>{16, 714} && magic.Coordinates() == std::array<int16_t, 2>{16, 682},
                 "menus stay put above chat while the native log grows")) return false;
             Position(command.primitive.data(), nullptr, 16, 700); controller.Update(chatLayout);
-            if (!check(command.Coordinates() == std::array<int16_t, 2>{16, 700} && magic.Coordinates() == std::array<int16_t, 2>{16, 936},
-                "windows detached from the log stack are never lifted")) return false;
+            if (!check(command.Coordinates() == std::array<int16_t, 2>{16, 700} && magic.Coordinates() == std::array<int16_t, 2>{16, 714},
+                "a window clear of chat stays put while one chat covers lifts without touching the native log")) return false;
             logTop(930); Position(command.primitive.data(), nullptr, 16, 888); Position(magic.primitive.data(), nullptr, 16, 856); controller.Update(chatLayout);
             if (!check(command.Coordinates() == std::array<int16_t, 2>{16, 714} && magic.Coordinates() == std::array<int16_t, 2>{16, 682},
                 "menus return above chat when they rest on the log again")) return false;
@@ -396,7 +396,7 @@ namespace xiui
                 "a custom position overrides keeping menus above chat")) return false;
             chatLayout.windows[buy] = {}; chatLayout.chat_windows[1] = {}; controller.Update(chatLayout);
             if (!check(command.Coordinates() == std::array<int16_t, 2>{16, 875} && magic.Coordinates() == std::array<int16_t, 2>{16, 843},
-                "a single chat window raises the stack only by its overlap with the native log line")) return false;
+                "a single chat window raises the stack only as far as it covers it")) return false;
             chatLayout.chat_windows[0] = {8, 100, 695, 207}; controller.Update(chatLayout);
             if (!check(command.Coordinates() == std::array<int16_t, 2>{16, 888}, "chat in the upper half leaves bottom menus native")) return false;
             chatLayout.chat_windows = {}; controller.Update(chatLayout);
