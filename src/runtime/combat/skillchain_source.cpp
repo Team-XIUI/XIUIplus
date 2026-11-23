@@ -176,9 +176,12 @@ namespace xiui
             }
             if (hit == nullptr) continue;
             uint8_t lookup = static_cast<uint8_t>(category == 6 ? 14 : category);
+            // Weapon Bash, Shield Bash and similar abilities arrive as weapon-skill finishes carrying an ability ID,
+            // which must not be read as the weapon skill with the same number.
+            const bool abilityFinish = category == 3 && (hit->message == 110 || hit->message == 317);
             if (hit->message == 110 || hit->message == 317) lookup = 13;
             auto* skill = this->Skill(lookup, id);
-            if (skill == nullptr && lookup != category) skill = this->Skill(static_cast<uint8_t>(category), id);
+            if (skill == nullptr && lookup != category && !abilityFinish) skill = this->Skill(static_cast<uint8_t>(category), id);
             if (skill == nullptr && category == 11) skill = this->Skill(21, id);
             uint32_t properties = skill != nullptr ? skill->properties : 0;
             if (category == 4)
@@ -196,7 +199,7 @@ namespace xiui
                 window.burst_started = 0;
                 consumeSpellBuff |= category == 4;
             }
-            else if (category == 3) this->Remove(target.id);
+            else if (category == 3 && !abilityFinish) this->Remove(target.id);
         }
         if (consumeSpellBuff)
         {

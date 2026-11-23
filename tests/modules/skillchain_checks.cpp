@@ -148,6 +148,13 @@ namespace
         source.SetRules(server_rules::phoenix); source.Observe(Action(3857, 200, 11, 110), 3000);
         Check(source.Find(200, 3001) && (source.Find(200, 3001)->properties & (1u << static_cast<unsigned>(skillchain_property::impaction))),
             "Phoenix jug packets use the pinned pet move's mob-skill wire ID");
+        source.Observe(Action(77, 300, 3, 110), 4000);
+        Check(!source.Find(300, 4001), "Weapon Bash's ability ID is not read as the weapon skill with the same number");
+        source.Observe(Action(77, 300, 3, 185), 5000);
+        const auto* ruinator = source.Find(300, 5001);
+        Check(ruinator && (ruinator->properties & (1u << static_cast<unsigned>(skillchain_property::distortion))), "the weapon skill itself still opens its window");
+        source.Observe(Action(73, 300, 3, 110), 6000);
+        Check(source.Find(300, 6001) == ruinator && ruinator->closes == 15000, "an ability finish leaves an open window untouched");
         Check(std::any_of(resources::chains_jug_moves.begin(), resources::chains_jug_moves.end(), [](const auto& move) {
             return move.pet == "SheepFamiliar" && move.move == "Lamb Chop";
         }), "the pinned first jug retains its identity in generated availability data");
