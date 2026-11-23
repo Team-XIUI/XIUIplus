@@ -183,6 +183,7 @@ namespace xiui
         this->tp_ = store.ReadBool(section, "show_tp", store.ReadBool(section, "tp", this->tp_));
         this->fit_width_ = store.ReadBool(section, "fit_width", true);
         this->icon_follow_name_ = store.ReadBool(section, "icon_follow_name", false);
+        this->job_theme_ = std::clamp(store.ReadInt(section, "job_theme", 0), 0, static_cast<int>(std::size(ui::job_icon_themes)));
         this->show_sync_ = store.ReadBool(section, "show_sync", true);
         this->show_leader_ = store.ReadBool(section, "show_leader", true);
         this->layout_ = std::clamp(store.ReadInt(section, "layout", bars_horizontal), bars_horizontal, bars_classic);
@@ -299,6 +300,7 @@ namespace xiui
         for (const auto& [key, value] : bools) store.WriteBool(section, key, value);
         store.WriteBool(section, "fit_width", this->fit_width_);
         store.WriteBool(section, "icon_follow_name", this->icon_follow_name_);
+        store.WriteInt(section, "job_theme", this->job_theme_);
         store.WriteBool(section, "show_sync", this->show_sync_);
         store.WriteBool(section, "show_leader", this->show_leader_);
         store.WriteInt(section, "layout", this->layout_); store.WriteInt(section, "hp_display", this->hp_display_);
@@ -357,6 +359,12 @@ namespace xiui
                     "Add pixels to the selection box's total height, centered on the entry. Entry spacing stays the same.",
                 width ? &this->selection_width_extension_ : &this->selection_height_extension_, width ? -128.0f : -64.0f, width ? 256.0f : 128.0f, 1,
                 module_option_group::appearance).Ordered(width ? 410 : 411, width).VisibleWhen(this->selection_);
+        }
+        if (index == job_theme_option)
+        {
+            static constexpr const char* styles[]{"Theme default", "XIVParty", "Classic", "FFXI", "FFXIV-1"};
+            return module_option::Choice("Job icon style", "Job artwork for this list. Theme default follows General's Job icon theme, or FFXIV-1 with the XIV 1.0 theme. FFXI uses the job headgear icons.",
+                &this->job_theme_, styles, std::size(styles)).Ordered(201).VisibleWhen(this->job_icons_);
         }
         if (index >= copy_options_start && index < copy_options_start + 2)
         {
@@ -580,6 +588,7 @@ namespace xiui
     {
         if (section >= this->ConfigSections().size() || index >= this->OptionCount() || index == 2) return false;
         if (index >= selection_size_options_start && index < selection_size_options_start + 2) return section == selection_section;
+        if (index == job_theme_option) return section == jobs_section;
         if (index >= copy_options_start) return this->group_ != 0 && section == general_section;
         if (index == leader_option) return section == general_section;
         if (index >= job_text_options_start || (index >= 7 && index <= 11) || index == 49)
@@ -1326,7 +1335,7 @@ namespace xiui
         const auto drawIdentity = [&] {
             if (!nameCast) text(fittedName, nameBounds, 0, nameTint);
             const auto jobAtlas = this->job_icons_ && member.in_zone && member.main_job > 0 && member.main_job <= 24 && context.Icons() != nullptr ?
-                context.Icons()->JobAtlas(this->xiv1_theme_ ? ui::xiv1_job_icon_theme : -1) : nullptr;
+                context.Icons()->JobAtlas(this->job_theme_ > 0 ? this->job_theme_ - 1 : this->xiv1_theme_ ? ui::xiv1_job_icon_theme : -1) : nullptr;
             if (jobAtlas != nullptr)
             {
                 const auto icon = member.main_job - 1;

@@ -42,7 +42,7 @@ namespace xiui
         auto PreviewVisible(void) const -> bool override { return this->ModuleEnabled() && this->state_.enabled && (this->group_ == 0 || !this->hide_preview_); }
         auto Load(const settings_store& settings) -> void override;
         auto Save(const settings_store& settings) const -> void override;
-        auto ContentOptionCount(void) const -> size_t override { return copy_options_start + 2; }
+        auto ContentOptionCount(void) const -> size_t override { return job_theme_option + 1; }
         auto ContentOption(size_t index) -> module_option override;
         auto ConfigSections(void) const -> std::span<const module_config_section> override;
         auto ContentConfigSectionContains(size_t section, size_t index) -> bool override;
@@ -97,6 +97,7 @@ namespace xiui
         static constexpr size_t leader_option = job_text_options_start + 2;
         static constexpr size_t selection_size_options_start = leader_option + 1;
         static constexpr size_t copy_options_start = selection_size_options_start + 2;
+        static constexpr size_t job_theme_option = copy_options_start + 2;
         std::array<party_module*, 2> preset_alliances_{};
         std::array<const party_module*, 2> copy_sources_{};
         static constexpr size_t heading_text = 6;
@@ -145,6 +146,8 @@ namespace xiui
         bool hide_preview_{};
         bool status_preview_{};
         bool icon_follow_name_{}, show_sync_{true}, show_leader_{true};
+        // 0 follows the theme and General's Job icon theme; otherwise a job icon pack plus one.
+        int job_theme_{};
         bool xiv1_theme_{};
         bool jobs_{}, main_level_{true}, sub_job_{true}, sub_level_{true}, master_level_{true};
         bool tp_{true}, flash_tp_{true}, always_mp_{false}, buffs_{true}, casts_{true}, selection_{true};

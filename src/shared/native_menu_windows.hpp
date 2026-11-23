@@ -287,6 +287,24 @@ namespace xiui
         {"plnt6   ", "window.plnt6", "Gardening Confirmation", native_dialog::mog_house},
         {"evitem  ", "window.currencies", "Currencies", native_dialog::status, 1},
         {"evitem  ", "window.currencies2", "Currencies 2", native_dialog::status, 2},
+        // The client's menu table continues past a non-menu debug record; these follow it.
+        {"cmbmenu ", "window.cmbmenu", "Synthesis Options", native_dialog::synthesis},
+        {"cmbhlst ", "window.cmbhlst", "Synthesis History", native_dialog::synthesis},
+        {"cmbhwin ", "window.cmbhwin", "Synthesis History Options", native_dialog::synthesis},
+        {"mnstorag", "window.mnstorag", "Equipment Storage Selection", native_dialog::equipment},
+        {"mcrmogc ", "window.mcrmogc", "Equipment Set Storage Selection", native_dialog::macros},
+        {"racecard", "window.racecard", "Chocobo Racing Card", native_dialog::other},
+        {"mp_pmode", "window.mp_pmode", "Monstrosity Menu", native_dialog::other},
+        {"mp_stat ", "window.mp_stat", "Monstrosity Status", native_dialog::other},
+        {"mp_dead ", "window.mp_dead", "Monstrosity Defeat Menu", native_dialog::other},
+        {"mp_abisc", "window.mp_abisc", "Monstrosity Ability Selection", native_dialog::other},
+        {"mp_mnabi", "window.mp_mnabi", "Monstrosity Abilities", native_dialog::other},
+        {"mp_mncst", "window.mp_mncst", "Monstrosity Options", native_dialog::other},
+        {"mp_invnt", "window.mp_invnt", "Monstrosity Instincts", native_dialog::other},
+        {"mp_mnnm ", "window.mp_mnnm", "Monstrosity Species", native_dialog::other},
+        {"mp_cstm ", "window.mp_cstm", "Monstrosity Customization", native_dialog::other},
+        {"mp_mntp2", "window.mp_mntp2", "Monstrosity Variants", native_dialog::other},
+        {"mp_kncst", "window.mp_kncst", "Monstrosity Instinct Selection", native_dialog::other},
     };
 
     constexpr auto NativeMenuWindowIndex(std::string_view resource, const uint8_t variant = 0) -> size_t

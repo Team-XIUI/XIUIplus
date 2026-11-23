@@ -1922,6 +1922,8 @@ namespace xiui
             return true;
         }
         else if (::_stricmp(command, "chat clear") == 0) { this->chat_.Clear(); return true; }
+        // Development: scroll the compact log by rows (positive is older), as the mouse wheel does.
+        else if (::_strnicmp(command, "chat scroll ", 12) == 0) { this->chat_.ScrollBy(std::atoi(command + 12)); return true; }
         else if (::_strnicmp(command, "chat timestamps", 15) == 0 && (command[15] == '\0' || command[15] == ' '))
         {
             static constexpr const char* names[]{"follow", "off", "hhmm", "seconds"};
@@ -1978,6 +1980,23 @@ namespace xiui
         {
             this->ActivateConfigAction(this->game_hud_, game_hud_module::reset_positions_option);
             message = i18n::Text("[XIUI+] All native window positions reset. Visibility choices kept.");
+        }
+        else if (::_strnicmp(command, "nativeui move ", 14) == 0 || ::_strnicmp(command, "nativeui restore ", 17) == 0)
+        {
+            // Development: place or restore one native window by its settings key, e.g. "nativeui move window.iuse 600 300".
+            const bool move = ::_strnicmp(command, "nativeui move ", 14) == 0;
+            std::istringstream args{command + (move ? 14 : 17)};
+            std::string key; float x{}, y{};
+            args >> key >> x >> y;
+            for (auto& window : this->native_windows_)
+            {
+                if (::_stricmp(window.Id() + 7, key.c_str()) != 0) continue;
+                if (move) { window.State().bounds.x = x; window.State().bounds.y = y; window.OnPositionChanged(); }
+                else window.OnContentOptionChanged(4);
+                this->SaveSettings();
+                break;
+            }
+            return true;
         }
         else if (::_stricmp(command, "nativeui") == 0 || ::_stricmp(command, "nativeui edit") == 0)
         {

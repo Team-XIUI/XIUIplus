@@ -653,7 +653,10 @@ namespace xiui
     {
         if (focused && !this->Focused()) this->editor_.RestartHistory();
         if (focused || !preserveExpandedHistory || !this->HistoryExpanded())
+        {
+            if (this->HistoryExpanded()) this->ReturnToLatest(false);
             this->history_view_.focused = this->history_view_.expanded = false;
+        }
         this->history_view_.pointer = {-1, -1};
         this->controller_history_ = false;
         this->controller_composition_ = this->controller_channel_adjusting_ = false;
@@ -1021,6 +1024,24 @@ namespace xiui
         if (scroll == 0 && !this->HistoryExpanded()) this->tabs_[this->active_tab_].unread = 0;
     }
 
+    auto chat_module::ReturnToLatest(const bool bothWindows) -> void
+    {
+        auto& tab = this->tabs_[this->active_tab_];
+        if (tab.scroll != 0) this->message_entrances_.clear();
+        tab.scroll = tab.unread = 0;
+        if (bothWindows && this->second_window_ != nullptr) this->second_window_->ReturnToLatest(false);
+    }
+
+    auto chat_module::ScrollMarker(const ui::design_system& design, const ui::rect& log, std::string* label) const -> ui::rect
+    {
+        const auto& tab = this->tabs_[this->active_tab_];
+        if (this->HistoryExpanded() || tab.scroll == 0 || log.height < 20.0f) return {};
+        const auto text = "\xE2\x96\xBC " + (tab.unread > 0 ? i18n::Format("%u new messages", tab.unread) : std::string{i18n::Text("Older messages")});
+        const float width = std::min(log.width, design.MeasureText(text.c_str(), ChatThemeProfile(design, this->chrome_).style) + 16.0f);
+        if (label != nullptr) *label = text;
+        return {log.x + log.width - width, log.y + log.height - 21.0f, width, 20.0f};
+    }
+
     auto chat_module::ScrollbarOpacity(const uint64_t now) const -> float
     { return now >= this->scrollbar_until_ ? 0 : std::min(1.0f, static_cast<float>(this->scrollbar_until_ - now) / 200.0f); }
 
@@ -1105,6 +1126,7 @@ namespace xiui
         if (message == WM_MOUSEWHEEL) { this->Scroll(static_cast<short>(HIWORD(wParam)) / WHEEL_DELTA * 3); return true; }
         if (!down) return false;
         this->pointer_down_ = true;
+        if (Contains(this->ScrollMarker(design, layout.log), x, y)) { this->ReturnToLatest(false); return true; }
         for (size_t index = 0; index < layout.tabs.size(); ++index)
             if (Contains(layout.tabs[index], x, y))
             {
@@ -1315,6 +1337,8 @@ namespace xiui
         this->editor_.Remember();
         this->editor_.Set({});
         this->error_.clear();
+        // The player's own message lands at the bottom; leave scrollback so it and the replies are visible.
+        this->ReturnToLatest(true);
         this->Focus(false);
         return true;
     }
@@ -1893,6 +1917,15 @@ namespace xiui
         }
         if (frame.height > 0) this->DrawLog(snapshot, context, layout.log, layout.scrollbar, layout.completion_rows > 0 ? layout.completion.y : 0.0f);
         const auto& tab = this->tabs_[this->active_tab_];
+        std::string marker;
+        // The typing line shows its own scrollback hint in the same place.
+        if (const auto pill = this->ScrollMarker(context.Design(), layout.log, &marker); frame.height > 0 && pill.width > 0 && (this->secondary_ || this->input_reveal_ <= 0))
+        {
+            context.Design().FillRoundedRect(pill, (theme.colors.surface_raised & 0x00FFFFFF) | 0xD0000000, pill.height * 0.5f);
+            auto profile = ChatThemeProfile(context.Design(), this->chrome_); profile.style.alignment = ui::text_alignment::center;
+            profile.placement = 0; profile.offset_x = profile.offset_y = 0;
+            context.DrawText(marker.c_str(), pill, pill, profile);
+        }
         if (this->HistoryFocused())
         {
             auto help = ChatThemeProfile(context.Design(), this->chrome_); help.style.alignment = ui::text_alignment::right;

@@ -172,7 +172,9 @@ namespace xiui
         {
             const auto record = this->main_record_ + at * 44;
             std::array<char, 16> name{}; uintptr_t slot{};
-            if (record < module || record - module + 44 > size || !Read(record, name) || std::string_view{name.data(), 8} != "menu    ") break;
+            if (record < module || record - module + 44 > size || !Read(record, name) || name[0] == 0) break;
+            // The table also holds non-menu records, with more menus after them.
+            if (std::string_view{name.data(), 8} != "menu    ") continue;
             const auto index = NativeMenuWindowIndex(std::string_view{name.data() + 8, 8});
             if (index < this->dialog_slots_.size() && this->dialog_slots_[index] == 0 && Read(record + 0x20, slot) && slot >= module && slot - module + 4 <= size)
                 this->dialog_slots_[index] = slot;

@@ -419,6 +419,14 @@
       "requires_arguments": false
     },
     {
+      "name": "chat-scrollback",
+      "target": "xiui_chat_smoke",
+      "arguments": [
+        "--scrollback-only"
+      ],
+      "requires_arguments": false
+    },
+    {
       "name": "sounds",
       "target": "xiui_config_input_smoke",
       "arguments": [
@@ -487,6 +495,14 @@
       "target": "xiui_native_hud_target_smoke",
       "arguments": [
         "--fishing-only"
+      ],
+      "requires_arguments": false
+    },
+    {
+      "name": "native-clock",
+      "target": "xiui_native_hud_target_smoke",
+      "arguments": [
+        "--clock-only"
       ],
       "requires_arguments": false
     },

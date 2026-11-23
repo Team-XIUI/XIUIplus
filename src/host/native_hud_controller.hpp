@@ -58,6 +58,7 @@ namespace xiui
         std::array<uintptr_t, 4> macro_palette_slots_{};
         uintptr_t chat_input_slot_{};
         uintptr_t party_update_{};
+        uintptr_t clock_slot_{};
         uint32_t available_{};
         std::atomic<uint32_t> hidden_{};
         std::atomic<uint64_t> skipped_{};

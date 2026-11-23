@@ -18,6 +18,7 @@ namespace
     constexpr size_t target_coordinates = offsetof(Ashita::FFXI::targetwindow_t, FrameChildrenOffsetX);
     constexpr uint16_t hidden_coordinate = 30000;
     constexpr size_t frame_visibility = 0x69;
+    constexpr uint8_t clock_flag = 0x2E;
 
     template<typename T>
     auto Read(const uintptr_t address, T& value) noexcept -> bool
@@ -200,6 +201,13 @@ namespace xiui
         else
             this->available_ &= ~NativeHudBit(native_hud_element::connection);
         this->available_ |= NativeHudBit(native_hud_element::clock);
+        // The client's own clock toggle and setter name the compass object and its clock flag.
+        const auto clock = this->Find("8B0D????????85C97405E9????????C38B0D????????85C9740A8B44240450E8????????C3");
+        int32_t toggle{}; std::array<uint8_t, 12> body{}; uintptr_t slot{}, setterSlot{};
+        constexpr std::array<uint8_t, 12> flip{0x8A, 0x41, clock_flag, 0x84, 0xC0, 0x0F, 0x94, 0xC0, 0x88, 0x41, clock_flag, 0xC3};
+        if (clock != 0 && Read(clock + 11, toggle) && this->InModule(clock + 15 + toggle, body.size()) && Read(clock + 15 + toggle, body) && body == flip &&
+            Read(clock + 2, slot) && Read(clock + 18, setterSlot) && slot == setterSlot && this->InModule(slot, 4))
+            this->clock_slot_ = slot;
         if (this->hook_site_ != 0) this->menus_.Initialize(this->module_, this->module_size_);
         this->menus_.SetHudSlots(this->slots_);
         if (this->hook_site_ != 0) this->menus_.SetDrawMethod(this->hook_site_ - 14);
@@ -382,6 +390,15 @@ namespace xiui
 
     auto native_hud_controller::SetClock(const bool hidden) -> void
     {
+        if (this->clock_slot_ != 0)
+        {
+            // The client recreates this object with the clock on at each login, so apply the choice whenever they differ.
+            uintptr_t object{}; uint8_t shown{};
+            if (!Read(this->clock_slot_, object) || object == 0 || !Read(object + clock_flag, shown) || shown > 1) return;
+            if (hidden) { if (shown == 1 && WriteData(object + clock_flag, uint8_t{0})) this->clock_hidden_ = true; }
+            else if (this->clock_hidden_) { if (shown == 0) WriteData(object + clock_flag, uint8_t{1}); this->clock_hidden_ = false; }
+            return;
+        }
         if (this->clock_hidden_ == hidden)
             return;
         if (this->LoggedIn() && this->core_->GetChatManager() != nullptr)
@@ -584,6 +601,7 @@ namespace xiui
         this->party_update_ = 0;
         this->compass_ = {};
         this->connection_ = {};
+        this->clock_slot_ = 0; this->clock_hidden_ = false;
         this->core_ = nullptr;
         this->module_ = this->module_size_ = 0;
     }

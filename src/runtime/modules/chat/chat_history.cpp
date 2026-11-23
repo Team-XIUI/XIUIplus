@@ -133,7 +133,7 @@ namespace xiui
         {
             if (!repeated)
             {
-                if (layered && this->HistoryExpanded()) this->history_view_.expanded = false;
+                if (layered && this->HistoryExpanded()) { this->history_view_.expanded = false; this->ReturnToLatest(false); }
                 else this->Focus(false);
                 this->cache_revision_ = UINT64_MAX;
             }
@@ -145,7 +145,7 @@ namespace xiui
             {
                 if (this->HistoryExpanded())
                 {
-                    if (layered) this->history_view_.expanded = false;
+                    if (layered) { this->history_view_.expanded = false; this->ReturnToLatest(false); }
                     else this->Focus(false);
                     this->cache_revision_ = UINT64_MAX;
                 }

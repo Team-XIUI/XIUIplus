@@ -1819,7 +1819,8 @@ Regenerate with `./scripts/update-docs.ps1`. Each bullet is one visual row; [emp
 
 ### Job Icons
 
-- Job icon size | Icon follows name
+- Job icon size | Job icon style
+- Icon follows name | [empty]
 - Job icon X offset | Job icon Y offset
 - Job icons
 
@@ -1991,7 +1992,8 @@ Regenerate with `./scripts/update-docs.ps1`. Each bullet is one visual row; [emp
 
 ### Job Icons
 
-- Job icon size | Icon follows name
+- Job icon size | Job icon style
+- Icon follows name | [empty]
 - Job icon X offset | Job icon Y offset
 - Job icons
 
@@ -2162,7 +2164,8 @@ Regenerate with `./scripts/update-docs.ps1`. Each bullet is one visual row; [emp
 
 ### Job Icons
 
-- Job icon size | Icon follows name
+- Job icon size | Job icon style
+- Icon follows name | [empty]
 - Job icon X offset | Job icon Y offset
 - Job icons
 
@@ -5005,4 +5008,4 @@ Regenerate with `./scripts/update-docs.ps1`. Each bullet is one visual row; [emp
 
 ## Coverage
 
-361 registered modules, 626 distinct pages, 5182 controls across those pages, and 2362 selector/view combinations.
+378 registered modules, 626 distinct pages, 5185 controls across those pages, and 2379 selector/view combinations.

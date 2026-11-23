@@ -637,6 +637,30 @@ namespace xiui
             return passed;
         }
 
+        static auto Clock(void) -> bool
+        {
+            native_hud_controller controller{};
+            std::array<uint8_t, 0x40> compass{};
+            uintptr_t object{};
+            controller.clock_slot_ = reinterpret_cast<uintptr_t>(&object);
+            controller.SetClock(true);
+            if (!check(!controller.clock_hidden_, "a clock choice waits for the client's compass object")) return false;
+            object = reinterpret_cast<uintptr_t>(compass.data()); compass[0x2E] = 1;
+            controller.SetClock(true);
+            if (!check(compass[0x2E] == 0, "hiding clears the native clock flag once the object exists")) return false;
+            compass[0x2E] = 1;
+            controller.SetClock(true);
+            if (!check(compass[0x2E] == 0, "a compass object recreated at login is hidden again")) return false;
+            controller.SetClock(false);
+            if (!check(compass[0x2E] == 1 && !controller.clock_hidden_, "showing restores a clock XIUI+ hid")) return false;
+            compass[0x2E] = 0;
+            controller.SetClock(true); controller.SetClock(false);
+            if (!check(compass[0x2E] == 0, "a clock the player turned off stays off")) return false;
+            compass[0x2E] = 1; controller.SetClock(true);
+            controller.Shutdown();
+            return check(compass[0x2E] == 1 && controller.clock_slot_ == 0, "shutdown restores the native clock");
+        }
+
         static auto Run(void) -> bool
         {
             native_hud_controller controller{};
@@ -753,13 +777,18 @@ int main(int argc, char** argv)
         if (!xiui::native_hud_target_test::Fishing()) return 1;
         std::puts("Native party suppression and fish-only gauge preservation passed."); return 0;
     }
+    if (argc > 1 && std::strcmp(argv[1], "--clock-only") == 0)
+    {
+        if (!xiui::native_hud_target_test::Clock()) return 1;
+        std::puts("Native clock hiding, login reapplication, ownership and restoration passed."); return 0;
+    }
     if (argc > 1 && std::strcmp(argv[1], "--menus-only") == 0)
     {
         if (!xiui::native_menu_test::Run() || !xiui::native_menu_test::Windows()) return 1;
         std::puts("Native per-window placement, first draws, content, menu ownership and restoration passed.");
         return 0;
     }
-    if (!xiui::native_hud_target_test::Run() || !xiui::native_hud_target_test::Macros() || !xiui::native_hud_target_test::MacroDelay() || !xiui::native_menu_test::Run() || !xiui::native_menu_test::Windows()) return 1;
+    if (!xiui::native_hud_target_test::Run() || !xiui::native_hud_target_test::Clock() || !xiui::native_hud_target_test::Macros() || !xiui::native_hud_target_test::MacroDelay() || !xiui::native_menu_test::Run() || !xiui::native_menu_test::Windows()) return 1;
     std::puts("Native target preservation and chat log/input suppression checks passed.");
     return 0;
 }

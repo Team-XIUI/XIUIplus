@@ -52,6 +52,7 @@ The wrapper builds only the selected target, then runs its catalogued arguments.
 - Ashita: `ashita-compat` (4.16/4.30 virtual layouts, x86 calls, mouse normalization and separate plain/Shift trace retention). Standalone packaging also checks loader negotiation and actual initialization against normal, renamed and manually mapped cores with non-core handle hints, plus an SDK facade without Ashita version exports; see [compatibility](../docs/reference/ashita-compatibility.md).
 - Minimap: `minimap`, including named IDs, pinned edge toggles and burnt contour geometry.
 - Fishing: `fishing` (module, Extras, controller settings and persistence), `native-fishing` (validated stamina reads with party suppression active).
+- Native clock: `native-clock` (hiding through the client flag, reapplying after login recreates it, ownership and restoration).
 - Spell effects and target timers: `xiui_module_parity_smoke --spell-statuses-only` (all imported spell rules and packet variants), `--status-timers-only` (large countdown layout) and `--hud-parity-only` (shared HUD regressions).
 - World ring cameras: `target-ring-camera` exercises the host on an isolated Direct3D device with fixed-function and terrain-shader cameras, scene-end/copy boundaries, early-label rejection, frame lifetime and opt-in shader report saving/grouping/automatic completion.
 - Other feature boundaries: `all-ui-visibility`, `target-rings`, `notification-feedback`, `heal-prediction`, `experience-model`. See `-List` and the dispatcher for the rest.

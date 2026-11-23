@@ -119,6 +119,7 @@ namespace xiui
         auto SetTimestampDisplay(int display) -> void { this->timestamp_display_ = std::clamp(display, 0, 3); this->OnContentOptionChanged(5); }
         auto SetNativeFilters(native_chat_filters& filters) -> void { this->native_filters_ = &filters; }
         auto HistoryFocused(void) const -> bool { return this->history_view_.focused && this->WindowVisible(); }
+        auto ScrollBy(int rows) -> void { this->Scroll(rows); }
         auto HistoryExpanded(void) const -> bool { return this->HistoryFocused() && this->history_view_.expanded; }
         auto ControllerBounds(const ui::design_system& design) const -> ui::rect { return this->state_.transform.Map(this->HistoryExpanded() ? this->HistoryLayout(design).frame : this->VisualBounds(design)); }
         auto SetHistoryViewport(const ui::rect& viewport) -> void { this->history_view_.viewport = this->state_.transform.Inverse(viewport); }
@@ -322,5 +323,8 @@ namespace xiui
         auto Copy(HWND window, bool cut) -> void;
         auto Paste(HWND window) -> void;
         auto Scroll(int amount) -> void;
+        auto ReturnToLatest(bool bothWindows) -> void;
+        // Compact scrollback marker; empty while the log shows the latest line.
+        auto ScrollMarker(const ui::design_system& design, const ui::rect& log, std::string* label = nullptr) const -> ui::rect;
     };
 }

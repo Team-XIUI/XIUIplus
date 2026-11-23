@@ -1482,6 +1482,40 @@ namespace xiui
             runtime.visible_ = false; ++event.sequence; runtime.HandleChat(event);
             Check(alert_sounds == replayBefore + 1, "runtime history replay and hidden HUDs are silent while live incoming tells alert");
         }
+        static auto Scrollback(void) -> void
+        {
+            chat_module primary, second{true}; primary.AttachSecondWindow(second);
+            primary.ApplyTextDefaults(ui::theme::CreateDefault());
+            ui::design_system design;
+            chat_manager chat;
+            auto& tab = primary.tabs_[primary.active_tab_];
+            auto& other = second.tabs_[second.active_tab_];
+            const ui::rect log{10, 100, 400, 120};
+            Check(primary.ScrollMarker(design, log).width == 0, "the latest line shows no scrollback marker");
+            tab = {5, 3}; other = {2, 1};
+            std::string label;
+            const auto marker = primary.ScrollMarker(design, log, &label);
+            Check(marker.width > 0 && marker.x + marker.width == log.x + log.width && marker.y + marker.height <= log.y + log.height &&
+                label.find("3 new messages") != std::string::npos, "scrollback shows a marker counting unread messages inside the log");
+            tab.unread = 0; primary.ScrollMarker(design, log, &label);
+            Check(label.find("Older messages") != std::string::npos, "scrollback without unread messages still shows its marker");
+            tab = {5, 3};
+            primary.editor_.Set("hello");
+            Check(primary.Submit(&chat) && tab.scroll == 0 && tab.unread == 0 && other.scroll == 0 && other.unread == 0,
+                "sending a message returns both windows to the latest line");
+            tab = {5, 3}; primary.editor_.Set(std::string(600, 'a'));
+            Check(!primary.Submit(&chat) && tab.scroll == 5, "a rejected draft keeps the scrollback position");
+            primary.editor_.Set({}); primary.error_.clear();
+            primary.history_view_.focused = primary.history_view_.expanded = true;
+            primary.Focus(false, true);
+            Check(tab.scroll == 5 && primary.HistoryExpanded(), "background cleanup keeps the expanded log and compact position");
+            primary.Focus(false);
+            Check(tab.scroll == 0 && tab.unread == 0 && !primary.HistoryExpanded(), "closing the expanded log returns compact chat to the latest line");
+            tab = {5, 3};
+            primary.Focus(false);
+            Check(tab.scroll == 5, "releasing compact focus alone keeps the scrollback position");
+        }
+
         static auto Sounds(void) -> void
         {
             ui::native_ui_sounds sounds;
@@ -3020,6 +3054,12 @@ int main(int argc, char** argv)
             std::puts("Full keyboard native draft visibility, first-character ownership, Compact shortcuts and editor isolation checks passed.");
             return 0;
         }
+        if (argc == 2 && std::strcmp(argv[1], "--scrollback-only") == 0)
+        {
+            chat_test::Scrollback();
+            std::puts("Chat scrollback marker and return-to-latest on send and expanded-log close passed.");
+            return 0;
+        }
         if (argc == 2 && std::strcmp(argv[1], "--sounds-only") == 0)
         {
             chat_test::Sounds();
@@ -3062,6 +3102,7 @@ int main(int argc, char** argv)
         Check(editor.Text() == "draft", "command history"); editor.History(1); Check(editor.Text() == "unsent", "unsent draft restored");
         editor.Set(std::string(510, 'a') + decoded); Check(editor.Text().size() == 510, "UTF-8 capacity boundary");
         chat_test::Palette();
+        chat_test::Scrollback();
         chat_test::Run();
         chat_test::AutoTranslate(argc > 1 ? argv[1] : nullptr);
         chat_test::AutoTranslateCaps(argc > 2 ? argv[2] : nullptr);
