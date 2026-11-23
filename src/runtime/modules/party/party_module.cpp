@@ -1277,7 +1277,8 @@ namespace xiui
         const float x = entry.header.x, width = entry.header.width, headerHeight = entry.header.height;
         const bool casting = slots.casting;
         float headerRight = x + width;
-        if (this->xiv1_theme_ && slots.tp && this->tp_display_ == 1)
+        // Members in another zone have no TP number to make room for.
+        if (member.in_zone && this->xiv1_theme_ && slots.tp && this->tp_display_ == 1)
         {
             const auto tpStyle = ui::Xiv1ResourceValue(this->text_[tp_text], 0, true).style;
             const auto tp = ui::LayoutXiv1TPNumber(entry.resources.bars[2], 0, design.MeasureText("3000", tpStyle), 0, design.TextHeight(tpStyle));
